@@ -16,6 +16,7 @@ import {
   updateUserBalance,
   generateShareLink,
   initializeLocalStorage,
+  updateUser,
 } from '@/services/localStorage';
 import { toast } from 'sonner';
 
@@ -25,11 +26,12 @@ interface AppContextType {
   withdrawalRequests: WithdrawalRequest[];
   transactions: Transaction[];
   refreshData: () => void;
-  createNewContribution: (contribution: Omit<Contribution, 'id' | 'createdAt' | 'currentAmount' | 'members'>) => void;
-  contribute: (contributionId: string, amount: number) => void;
+  createNewContribution: (contribution: Omit<Contribution, 'id' | 'createdAt' | 'currentAmount' | 'members' | 'contributors'>) => void;
+  contribute: (contributionId: string, amount: number, anonymous?: boolean) => void;
   requestWithdrawal: (request: Omit<WithdrawalRequest, 'id' | 'createdAt' | 'status' | 'votes'>) => void;
   vote: (requestId: string, vote: 'approve' | 'reject') => void;
   getShareLink: (contributionId: string) => string;
+  updateProfile: (userData: Partial<User>) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -52,7 +54,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setTransactions(getTransactions());
   };
 
-  const createNewContribution = (contribution: Omit<Contribution, 'id' | 'createdAt' | 'currentAmount' | 'members'>) => {
+  const createNewContribution = (contribution: Omit<Contribution, 'id' | 'createdAt' | 'currentAmount' | 'members' | 'contributors'>) => {
     try {
       createContribution(contribution);
       refreshData();
@@ -63,14 +65,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const contribute = (contributionId: string, amount: number) => {
+  const contribute = (contributionId: string, amount: number, anonymous: boolean = false) => {
     try {
       if (user.walletBalance < amount) {
         toast.error('Insufficient funds in your wallet');
         return;
       }
       
-      contributeToGroup(contributionId, amount);
+      contributeToGroup(contributionId, amount, anonymous);
       refreshData();
       toast.success('Contribution successful!');
     } catch (error) {
@@ -116,6 +118,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const getShareLink = (contributionId: string) => {
     return generateShareLink(contributionId);
   };
+  
+  const updateProfile = (userData: Partial<User>) => {
+    try {
+      updateUser(userData);
+      refreshData();
+      toast.success('Profile updated successfully');
+    } catch (error) {
+      toast.error('Failed to update profile');
+      console.error(error);
+    }
+  };
 
   return (
     <AppContext.Provider value={{
@@ -129,6 +142,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       requestWithdrawal,
       vote,
       getShareLink,
+      updateProfile,
     }}>
       {children}
     </AppContext.Provider>

@@ -6,6 +6,24 @@ export interface User {
   name: string;
   email: string;
   walletBalance: number;
+  profileImage?: string;
+  phoneNumber?: string;
+  preferences?: {
+    anonymousContributions: boolean;
+    darkMode: boolean;
+    notificationsEnabled: boolean;
+  };
+  notifications?: Notification[];
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  message: string;
+  type: 'info' | 'success' | 'warning' | 'error';
+  read: boolean;
+  createdAt: string;
+  relatedId?: string;
 }
 
 export interface Contribution {
@@ -25,6 +43,13 @@ export interface Contribution {
   privacy: 'public' | 'private';
   memberRoles: 'equal' | 'weighted';
   members: string[];
+  contributors: {
+    userId: string;
+    name: string;
+    amount: number;
+    anonymous: boolean;
+    date: string;
+  }[];
 }
 
 export interface WithdrawalRequest {
@@ -51,6 +76,7 @@ export interface Transaction {
   description: string;
   createdAt: string;
   relatedId?: string;  // for withdrawal requests or votes
+  anonymous?: boolean;
 }
 
 // Initialize default user
@@ -59,7 +85,15 @@ const initializeUser = (): User => {
     id: uuidv4(),
     name: 'John Doe',
     email: 'john@example.com',
-    walletBalance: 500000,
+    walletBalance: 0,
+    profileImage: '',
+    phoneNumber: '',
+    preferences: {
+      anonymousContributions: false,
+      darkMode: false,
+      notificationsEnabled: true,
+    },
+    notifications: [],
   };
   
   localStorage.setItem('currentUser', JSON.stringify(defaultUser));
@@ -75,11 +109,56 @@ export const getCurrentUser = (): User => {
   return JSON.parse(userString);
 };
 
+export const updateUser = (userData: Partial<User>): User => {
+  const user = getCurrentUser();
+  const updatedUser = { ...user, ...userData };
+  localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+  return updatedUser;
+};
+
 export const updateUserBalance = (amount: number): User => {
   const user = getCurrentUser();
   user.walletBalance += amount;
   localStorage.setItem('currentUser', JSON.stringify(user));
   return user;
+};
+
+// Notification methods
+export const addNotification = (notification: Omit<Notification, 'id' | 'createdAt'>): Notification => {
+  const user = getCurrentUser();
+  const notifications = user.notifications || [];
+  
+  const newNotification: Notification = {
+    ...notification,
+    id: uuidv4(),
+    createdAt: new Date().toISOString(),
+    read: false,
+  };
+  
+  notifications.push(newNotification);
+  user.notifications = notifications;
+  localStorage.setItem('currentUser', JSON.stringify(user));
+  
+  return newNotification;
+};
+
+export const markNotificationAsRead = (id: string): void => {
+  const user = getCurrentUser();
+  if (!user.notifications) return;
+  
+  const index = user.notifications.findIndex(n => n.id === id);
+  if (index >= 0) {
+    user.notifications[index].read = true;
+    localStorage.setItem('currentUser', JSON.stringify(user));
+  }
+};
+
+export const markAllNotificationsAsRead = (): void => {
+  const user = getCurrentUser();
+  if (!user.notifications) return;
+  
+  user.notifications = user.notifications.map(n => ({ ...n, read: true }));
+  localStorage.setItem('currentUser', JSON.stringify(user));
 };
 
 // Contribution methods
@@ -96,7 +175,7 @@ export const getContribution = (id: string): Contribution | null => {
   return contributions.find(c => c.id === id) || null;
 };
 
-export const createContribution = (contribution: Omit<Contribution, 'id' | 'createdAt' | 'currentAmount' | 'members'>): Contribution => {
+export const createContribution = (contribution: Omit<Contribution, 'id' | 'createdAt' | 'currentAmount' | 'members' | 'contributors'>): Contribution => {
   const contributions = getContributions();
   const currentUser = getCurrentUser();
   
@@ -106,6 +185,7 @@ export const createContribution = (contribution: Omit<Contribution, 'id' | 'crea
     createdAt: new Date().toISOString(),
     currentAmount: 0,
     members: [currentUser.id],
+    contributors: []
   };
   
   contributions.push(newContribution);
@@ -122,10 +202,18 @@ export const createContribution = (contribution: Omit<Contribution, 'id' | 'crea
     createdAt: new Date().toISOString(),
   });
   
+  // Add notification
+  addNotification({
+    userId: currentUser.id,
+    message: `You created a new contribution group: ${newContribution.name}`,
+    type: 'success',
+    relatedId: newContribution.id,
+  });
+  
   return newContribution;
 };
 
-export const contributeToGroup = (contributionId: string, amount: number): Contribution => {
+export const contributeToGroup = (contributionId: string, amount: number, anonymous: boolean = false): Contribution => {
   const contributions = getContributions();
   const currentUser = getCurrentUser();
   
@@ -136,6 +224,16 @@ export const contributeToGroup = (contributionId: string, amount: number): Contr
   const index = contributions.findIndex(c => c.id === contributionId);
   if (index >= 0) {
     contributions[index].currentAmount += amount;
+    
+    // Add contributor info
+    contributions[index].contributors.push({
+      userId: currentUser.id,
+      name: currentUser.name,
+      amount,
+      anonymous,
+      date: new Date().toISOString()
+    });
+    
     localStorage.setItem('contributions', JSON.stringify(contributions));
     
     // Add transaction
@@ -147,7 +245,18 @@ export const contributeToGroup = (contributionId: string, amount: number): Contr
       status: 'completed',
       description: `Contributed to ${contributions[index].name}`,
       createdAt: new Date().toISOString(),
+      anonymous,
     });
+    
+    // Add notification to creator
+    if (contributions[index].creatorId !== currentUser.id) {
+      addNotification({
+        userId: contributions[index].creatorId,
+        message: `${anonymous ? 'Someone' : currentUser.name} contributed ₦${amount.toLocaleString()} to ${contributions[index].name}`,
+        type: 'info',
+        relatedId: contributionId,
+      });
+    }
     
     return contributions[index];
   }
@@ -172,6 +281,7 @@ export const getWithdrawalRequestsForContribution = (contributionId: string): Wi
 export const createWithdrawalRequest = (request: Omit<WithdrawalRequest, 'id' | 'createdAt' | 'status' | 'votes'>): WithdrawalRequest => {
   const requests = getWithdrawalRequests();
   const currentUser = getCurrentUser();
+  const contribution = getContribution(request.contributionId);
   
   const newRequest: WithdrawalRequest = {
     ...request,
@@ -195,6 +305,20 @@ export const createWithdrawalRequest = (request: Omit<WithdrawalRequest, 'id' | 
     createdAt: new Date().toISOString(),
     relatedId: newRequest.id,
   });
+  
+  // Add notifications to all members
+  if (contribution) {
+    contribution.members.forEach(memberId => {
+      if (memberId !== currentUser.id) {
+        addNotification({
+          userId: memberId,
+          message: `New withdrawal request of ₦${request.amount.toLocaleString()} from ${contribution.name}`,
+          type: 'warning',
+          relatedId: newRequest.id,
+        });
+      }
+    });
+  }
   
   return newRequest;
 };
@@ -242,9 +366,25 @@ export const voteOnWithdrawalRequest = (requestId: string, vote: 'approve' | 're
           createdAt: new Date().toISOString(),
           relatedId: requestId,
         });
+        
+        // Add notification
+        addNotification({
+          userId: requests[index].requesterId,
+          message: `Your withdrawal request of ₦${requests[index].amount.toLocaleString()} was approved!`,
+          type: 'success',
+          relatedId: requestId,
+        });
       } else if (requests[index].votes.length === totalMembers && approvalPercentage < contribution.votingThreshold) {
         // Everyone has voted but threshold not met
         requests[index].status = 'rejected';
+        
+        // Add notification
+        addNotification({
+          userId: requests[index].requesterId,
+          message: `Your withdrawal request of ₦${requests[index].amount.toLocaleString()} was rejected`,
+          type: 'error',
+          relatedId: requestId,
+        });
       }
     }
     
@@ -307,82 +447,21 @@ export const generateShareLink = (contributionId: string): string => {
   return `${baseUrl}/contribute/${contributionId}`;
 };
 
-// Initialize with sample data if empty
+// Initialize with empty data
 export const initializeLocalStorage = () => {
   if (!localStorage.getItem('currentUser')) {
     initializeUser();
   }
   
   if (!localStorage.getItem('contributions')) {
-    const currentUser = getCurrentUser();
-    const sampleContributions: Contribution[] = [
-      {
-        id: '1',
-        name: 'Wedding Fund',
-        description: 'Saving for our dream wedding next year',
-        targetAmount: 1500000,
-        currentAmount: 750000,
-        creatorId: currentUser.id,
-        createdAt: new Date().toISOString(),
-        category: 'event',
-        frequency: 'monthly',
-        contributionAmount: 50000,
-        startDate: new Date().toISOString(),
-        votingThreshold: 70,
-        privacy: 'private',
-        memberRoles: 'equal',
-        members: [currentUser.id],
-      },
-      {
-        id: '2',
-        name: 'Business Launch',
-        description: 'Fund for starting our new tech business',
-        targetAmount: 500000,
-        currentAmount: 345000,
-        creatorId: currentUser.id,
-        createdAt: new Date().toISOString(),
-        category: 'business',
-        frequency: 'weekly',
-        contributionAmount: 25000,
-        startDate: new Date().toISOString(),
-        votingThreshold: 60,
-        privacy: 'private',
-        memberRoles: 'weighted',
-        members: [currentUser.id],
-      },
-      {
-        id: '3',
-        name: 'Family Vacation',
-        description: 'Saving for our annual family trip',
-        targetAmount: 350000,
-        currentAmount: 120000,
-        creatorId: currentUser.id,
-        createdAt: new Date().toISOString(),
-        category: 'personal',
-        frequency: 'monthly',
-        contributionAmount: 30000,
-        startDate: new Date().toISOString(),
-        votingThreshold: 80,
-        privacy: 'private',
-        memberRoles: 'equal',
-        members: [currentUser.id],
-      }
-    ];
-    
-    localStorage.setItem('contributions', JSON.stringify(sampleContributions));
-    
-    // Create sample transactions
-    const sampleTransactions: Transaction[] = sampleContributions.map(contrib => ({
-      id: uuidv4(),
-      userId: currentUser.id,
-      contributionId: contrib.id,
-      type: 'deposit',
-      amount: contrib.currentAmount,
-      status: 'completed',
-      description: `Initial deposit for ${contrib.name}`,
-      createdAt: new Date().toISOString(),
-    }));
-    
-    localStorage.setItem('transactions', JSON.stringify(sampleTransactions));
+    localStorage.setItem('contributions', JSON.stringify([]));
+  }
+  
+  if (!localStorage.getItem('withdrawalRequests')) {
+    localStorage.setItem('withdrawalRequests', JSON.stringify([]));
+  }
+  
+  if (!localStorage.getItem('transactions')) {
+    localStorage.setItem('transactions', JSON.stringify([]));
   }
 };

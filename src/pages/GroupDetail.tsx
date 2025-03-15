@@ -27,7 +27,25 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Users, Calendar, Share2, Send, Copy, ArrowUp, ArrowDown, Check, X } from "lucide-react";
+import { 
+  ArrowLeft, 
+  Users, 
+  Calendar, 
+  Share2, 
+  Send, 
+  Copy, 
+  ArrowUp, 
+  ArrowDown, 
+  Check, 
+  X, 
+  HelpCircle,
+  UserCheck,
+  Eye,
+  EyeOff,
+  UserIcon
+} from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useApp } from "@/contexts/AppContext";
 import { Contribution, WithdrawalRequest, Transaction } from "@/services/localStorage";
 import { format } from "date-fns";
@@ -55,6 +73,7 @@ const GroupDetail = () => {
   const [withdrawalPurpose, setWithdrawalPurpose] = useState("");
   const [shareLink, setShareLink] = useState("");
   const [copySuccess, setCopySuccess] = useState(false);
+  const [anonymous, setAnonymous] = useState(user.preferences?.anonymousContributions || false);
   
   useEffect(() => {
     if (!id) return;
@@ -84,7 +103,7 @@ const GroupDetail = () => {
       return;
     }
     
-    contribute(contribution.id, Number(contributionAmount));
+    contribute(contribution.id, Number(contributionAmount), anonymous);
     setContributionAmount("");
   };
   
@@ -269,6 +288,19 @@ const GroupDetail = () => {
                           />
                         </div>
                       </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id="anonymous" 
+                          checked={anonymous} 
+                          onCheckedChange={(checked) => setAnonymous(checked as boolean)}
+                        />
+                        <label
+                          htmlFor="anonymous"
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                          Contribute anonymously
+                        </label>
+                      </div>
                     </div>
                     <DialogFooter>
                       <Button variant="outline" onClick={() => setContributionAmount("")}>Cancel</Button>
@@ -329,8 +361,9 @@ const GroupDetail = () => {
           
           <div className="lg:col-span-2">
             <Tabs defaultValue="withdrawals" className="w-full">
-              <TabsList className="grid grid-cols-2 mb-6">
+              <TabsList className="grid grid-cols-3 mb-6">
                 <TabsTrigger value="withdrawals">Withdrawal Requests</TabsTrigger>
+                <TabsTrigger value="contributors">Contributors</TabsTrigger>
                 <TabsTrigger value="transactions">Transactions</TabsTrigger>
               </TabsList>
               
@@ -410,6 +443,55 @@ const GroupDetail = () => {
                 </Card>
               </TabsContent>
               
+              <TabsContent value="contributors">
+                <Card className="glass-card animate-slide-up">
+                  <CardHeader>
+                    <CardTitle>Contributors</CardTitle>
+                    <CardDescription>People who have contributed to this group</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {contribution.contributors && contribution.contributors.length > 0 ? (
+                      <div className="space-y-4">
+                        {contribution.contributors.map((contributor, index) => (
+                          <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                            <div className="flex items-center">
+                              {contributor.anonymous ? (
+                                <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                                  <EyeOff size={16} />
+                                </div>
+                              ) : (
+                                <Avatar className="w-10 h-10">
+                                  <AvatarFallback>
+                                    {contributor.name.charAt(0).toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+                              )}
+                              <div className="ml-3">
+                                <p className="font-medium text-sm">
+                                  {contributor.anonymous ? 'Anonymous Contributor' : contributor.name}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {format(new Date(contributor.date), 'MMM d, yyyy')}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-semibold text-green-500">
+                                ₦{contributor.amount.toLocaleString()}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <p>No contributors yet.</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              
               <TabsContent value="transactions">
                 <Card className="glass-card animate-slide-up">
                   <CardHeader>
@@ -436,7 +518,7 @@ const GroupDetail = () => {
                                 ) : transaction.type === 'withdrawal' ? (
                                   <ArrowUp size={18} />
                                 ) : (
-                                  <Vote size={18} />
+                                  <HelpCircle size={18} />
                                 )}
                               </div>
                               <div className="ml-3 flex-1">
@@ -447,7 +529,10 @@ const GroupDetail = () => {
                                        transaction.type === 'withdrawal' ? 'Fund Withdrawal' : 
                                        'Vote'}
                                     </h4>
-                                    <p className="text-xs text-muted-foreground">{transaction.description}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {transaction.description}
+                                      {transaction.anonymous && ' (Anonymous)'}
+                                    </p>
                                   </div>
                                   <div className="text-right">
                                     <div className={`font-medium ${transaction.type === 'deposit' ? 'text-green-500' : ''}`}>

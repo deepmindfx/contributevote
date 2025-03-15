@@ -89,7 +89,6 @@ const WalletCard = () => {
             <h2 className="text-3xl font-bold tracking-tight">
               {showBalance ? `₦ ${user.walletBalance?.toLocaleString() || 0}` : "₦ •••••••"}
             </h2>
-            <span className="ml-2 text-sm text-green-500 font-medium">+5.2%</span>
           </div>
           <p className="text-sm text-muted-foreground mt-1">Available Balance</p>
         </div>

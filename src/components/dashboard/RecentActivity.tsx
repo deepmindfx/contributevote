@@ -1,6 +1,6 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowDown, ArrowUp, Vote } from "lucide-react";
+import { ArrowDown, ArrowUp, HelpCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
 import { format } from "date-fns";
@@ -32,7 +32,7 @@ const ActivityItem = ({ type, title, description, amount, date, status }: Activi
       case "vote":
         return (
           <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center text-blue-600 dark:text-blue-400">
-            <Vote size={18} />
+            <HelpCircle size={18} />
           </div>
         );
     }
