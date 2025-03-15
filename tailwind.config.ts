@@ -118,7 +118,7 @@ export default {
         'scale': 'scale 0.3s ease-out',
       },
       fontFamily: {
-        sans: ['Inter var', 'sans-serif'],
+        sans: ['Roboto', 'sans-serif'],
       }
     },
   },

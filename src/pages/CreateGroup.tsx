@@ -24,12 +24,36 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ArrowLeft, Users, Calendar, Check } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { toast } from "sonner";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useApp } from "@/contexts/AppContext";
 
 const CreateGroup = () => {
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { createNewContribution } = useApp();
+  
+  // Form state
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    targetAmount: 0,
+    category: 'personal',
+    frequency: 'monthly' as 'daily' | 'weekly' | 'monthly' | 'one-time',
+    contributionAmount: 0,
+    startDate: '',
+    endDate: '',
+    votingThreshold: 70,
+    privacy: 'private' as 'public' | 'private',
+    memberRoles: 'equal' as 'equal' | 'weighted',
+    notifyContributions: true,
+    notifyVotes: true,
+    notifyUpdates: true,
+  });
+
+  const handleChange = (field: string, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
 
   const goToNextStep = () => {
     window.scrollTo(0, 0);
@@ -44,12 +68,30 @@ const CreateGroup = () => {
   const handleCreateGroup = () => {
     setIsLoading(true);
     
-    // Simulate API call
+    // Prepare contribution data
+    const contributionData = {
+      name: formData.name,
+      description: formData.description,
+      targetAmount: Number(formData.targetAmount),
+      category: formData.category,
+      frequency: formData.frequency,
+      contributionAmount: Number(formData.contributionAmount),
+      startDate: formData.startDate,
+      endDate: formData.endDate || undefined,
+      votingThreshold: formData.votingThreshold,
+      privacy: formData.privacy,
+      memberRoles: formData.memberRoles,
+      creatorId: '1', // Will be replaced by actual user id from context
+    };
+    
+    // Create contribution
+    createNewContribution(contributionData);
+    
+    // Navigate to dashboard
     setTimeout(() => {
       setIsLoading(false);
-      toast.success("Group created successfully!");
       navigate("/dashboard");
-    }, 1500);
+    }, 1000);
   };
 
   return (
@@ -118,23 +160,44 @@ const CreateGroup = () => {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Group Name</Label>
-                  <Input id="name" placeholder="E.g., Wedding Fund, Business Launch" />
+                  <Input 
+                    id="name" 
+                    placeholder="E.g., Wedding Fund, Business Launch" 
+                    value={formData.name}
+                    onChange={(e) => handleChange('name', e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="description">Description</Label>
-                  <Textarea id="description" placeholder="Describe the purpose of this group" rows={4} />
+                  <Textarea 
+                    id="description" 
+                    placeholder="Describe the purpose of this group" 
+                    rows={4}
+                    value={formData.description}
+                    onChange={(e) => handleChange('description', e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="target">Target Amount</Label>
                   <div className="relative">
                     <span className="absolute left-3 top-2.5 text-muted-foreground">₦</span>
-                    <Input id="target" type="number" className="pl-8" placeholder="0.00" />
+                    <Input 
+                      id="target" 
+                      type="number" 
+                      className="pl-8" 
+                      placeholder="0.00"
+                      value={formData.targetAmount || ''}
+                      onChange={(e) => handleChange('targetAmount', Number(e.target.value))}
+                    />
                   </div>
                   <p className="text-sm text-muted-foreground">Set a goal for your group contributions</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="category">Category</Label>
-                  <Select defaultValue="personal">
+                  <Select 
+                    defaultValue={formData.category}
+                    onValueChange={(value) => handleChange('category', value)}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
@@ -166,7 +229,10 @@ const CreateGroup = () => {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label>Contribution Frequency</Label>
-                  <RadioGroup defaultValue="monthly">
+                  <RadioGroup 
+                    defaultValue={formData.frequency}
+                    onValueChange={(value) => handleChange('frequency', value)}
+                  >
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="daily" id="daily" />
                       <Label htmlFor="daily">Daily</Label>
@@ -190,19 +256,36 @@ const CreateGroup = () => {
                   <Label htmlFor="amount">Contribution Amount</Label>
                   <div className="relative">
                     <span className="absolute left-3 top-2.5 text-muted-foreground">₦</span>
-                    <Input id="amount" type="number" className="pl-8" placeholder="0.00" />
+                    <Input 
+                      id="amount" 
+                      type="number" 
+                      className="pl-8" 
+                      placeholder="0.00"
+                      value={formData.contributionAmount || ''}
+                      onChange={(e) => handleChange('contributionAmount', Number(e.target.value))}
+                    />
                   </div>
                   <p className="text-sm text-muted-foreground">Amount each member contributes per period</p>
                 </div>
                 
                 <div className="space-y-2">
                   <Label htmlFor="start-date">Start Date</Label>
-                  <Input id="start-date" type="date" />
+                  <Input 
+                    id="start-date" 
+                    type="date"
+                    value={formData.startDate}
+                    onChange={(e) => handleChange('startDate', e.target.value)}
+                  />
                 </div>
                 
                 <div className="space-y-2">
                   <Label htmlFor="end-date">End Date (Optional)</Label>
-                  <Input id="end-date" type="date" />
+                  <Input 
+                    id="end-date" 
+                    type="date"
+                    value={formData.endDate}
+                    onChange={(e) => handleChange('endDate', e.target.value)}
+                  />
                   <p className="text-sm text-muted-foreground">Leave empty for ongoing contributions</p>
                 </div>
               </CardContent>
@@ -223,13 +306,24 @@ const CreateGroup = () => {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="voting-threshold">Voting Threshold (%)</Label>
-                  <Input id="voting-threshold" type="number" min="1" max="100" defaultValue="70" />
+                  <Input 
+                    id="voting-threshold" 
+                    type="number" 
+                    min="1" 
+                    max="100" 
+                    defaultValue="70"
+                    value={formData.votingThreshold}
+                    onChange={(e) => handleChange('votingThreshold', Number(e.target.value))}
+                  />
                   <p className="text-sm text-muted-foreground">Percentage of members required to approve withdrawals</p>
                 </div>
                 
                 <div className="space-y-2">
                   <Label>Privacy</Label>
-                  <RadioGroup defaultValue="private">
+                  <RadioGroup 
+                    defaultValue={formData.privacy}
+                    onValueChange={(value) => handleChange('privacy', value)}
+                  >
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="public" id="public" />
                       <Label htmlFor="public">Public - Anyone can request to join</Label>
@@ -243,7 +337,10 @@ const CreateGroup = () => {
                 
                 <div className="space-y-2">
                   <Label>Member Roles</Label>
-                  <RadioGroup defaultValue="equal">
+                  <RadioGroup 
+                    defaultValue={formData.memberRoles}
+                    onValueChange={(value) => handleChange('memberRoles', value)}
+                  >
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="equal" id="equal" />
                       <Label htmlFor="equal">Equal voting rights for all members</Label>
@@ -259,7 +356,11 @@ const CreateGroup = () => {
                   <Label>Notification Settings</Label>
                   <div className="space-y-2">
                     <div className="flex items-center space-x-2">
-                      <Checkbox id="notify-contributions" />
+                      <Checkbox 
+                        id="notify-contributions" 
+                        checked={formData.notifyContributions}
+                        onCheckedChange={(checked) => handleChange('notifyContributions', checked)}
+                      />
                       <label
                         htmlFor="notify-contributions"
                         className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
@@ -268,7 +369,11 @@ const CreateGroup = () => {
                       </label>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Checkbox id="notify-votes" defaultChecked />
+                      <Checkbox 
+                        id="notify-votes" 
+                        checked={formData.notifyVotes}
+                        onCheckedChange={(checked) => handleChange('notifyVotes', checked)}
+                      />
                       <label
                         htmlFor="notify-votes"
                         className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
@@ -277,7 +382,11 @@ const CreateGroup = () => {
                       </label>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Checkbox id="notify-updates" defaultChecked />
+                      <Checkbox 
+                        id="notify-updates" 
+                        checked={formData.notifyUpdates}
+                        onCheckedChange={(checked) => handleChange('notifyUpdates', checked)}
+                      />
                       <label
                         htmlFor="notify-updates"
                         className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
@@ -313,24 +422,6 @@ const CreateGroup = () => {
       </main>
       
       <MobileNav />
-    </div>
-  );
-};
-
-// Missing Checkbox component
-const Checkbox = ({ id, defaultChecked }: { id: string; defaultChecked?: boolean }) => {
-  const [checked, setChecked] = useState(defaultChecked || false);
-  
-  return (
-    <div className="h-4 w-4 rounded border border-input flex items-center justify-center">
-      {checked && <Check className="h-3 w-3" />}
-      <input
-        type="checkbox"
-        id={id}
-        className="absolute w-0 h-0 opacity-0"
-        checked={checked}
-        onChange={() => setChecked(!checked)}
-      />
     </div>
   );
 };

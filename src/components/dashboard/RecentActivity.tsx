@@ -2,6 +2,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowDown, ArrowUp, Vote } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useApp } from "@/contexts/AppContext";
+import { format } from "date-fns";
 
 interface ActivityItemProps {
   type: "deposit" | "withdrawal" | "vote";
@@ -86,40 +88,42 @@ const ActivityItem = ({ type, title, description, amount, date, status }: Activi
 };
 
 const RecentActivity = () => {
-  const activities = [
-    {
-      type: "deposit" as const,
-      title: "Monthly Contribution",
-      description: "Wedding Fund",
-      amount: "+₦ 50,000",
-      date: "Today, 10:45 AM",
-      status: "completed" as const
-    },
-    {
-      type: "vote" as const,
-      title: "Vote Request",
-      description: "Business Launch - Rent Payment",
-      amount: "₦ 120,000",
-      date: "Yesterday",
-      status: "pending" as const
-    },
-    {
-      type: "withdrawal" as const,
-      title: "Fund Withdrawal",
-      description: "Family Vacation",
-      amount: "-₦ 35,000",
-      date: "Jun 23, 2023",
-      status: "completed" as const
-    },
-    {
-      type: "vote" as const,
-      title: "Vote Result",
-      description: "Wedding Fund - Venue Booking",
-      amount: "₦ 250,000",
-      date: "Jun 20, 2023",
-      status: "rejected" as const
+  const { transactions, contributions } = useApp();
+  
+  // Format and sort transactions
+  const formattedTransactions = transactions
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 5)
+    .map(transaction => {
+      const contribution = contributions.find(c => c.id === transaction.contributionId);
+      
+      return {
+        type: transaction.type,
+        title: transaction.type === 'deposit' ? 'Contribution' : 
+               transaction.type === 'withdrawal' ? 'Fund Withdrawal' : 'Vote',
+        description: contribution ? contribution.name : '',
+        amount: transaction.type === 'vote' ? 
+                `₦ ${transaction.amount.toLocaleString()}` : 
+                `${transaction.type === 'deposit' ? '+' : '-'}₦ ${transaction.amount.toLocaleString()}`,
+        date: formatDate(transaction.createdAt),
+        status: transaction.status,
+      }
+    });
+
+  function formatDate(dateString: string) {
+    const date = new Date(dateString);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    if (date.toDateString() === today.toDateString()) {
+      return `Today, ${format(date, 'h:mm a')}`;
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return `Yesterday, ${format(date, 'h:mm a')}`;
+    } else {
+      return format(date, 'MMM d, yyyy');
     }
-  ];
+  }
 
   return (
     <Card className="glass-card animate-slide-up animation-delay-400">
@@ -131,9 +135,15 @@ const RecentActivity = () => {
       </CardHeader>
       <CardContent>
         <div className="space-y-1">
-          {activities.map((activity, index) => (
-            <ActivityItem key={index} {...activity} />
-          ))}
+          {formattedTransactions.length === 0 ? (
+            <div className="text-center py-6 text-muted-foreground">
+              <p>No recent activities to display.</p>
+            </div>
+          ) : (
+            formattedTransactions.map((activity, index) => (
+              <ActivityItem key={index} {...activity} />
+            ))
+          )}
         </div>
       </CardContent>
     </Card>

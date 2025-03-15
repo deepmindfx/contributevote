@@ -3,21 +3,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Users, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useApp } from "@/contexts/AppContext";
 
 interface GroupItemProps {
+  id: string;
   name: string;
   members: number;
   amountRaised: number;
   targetAmount: number;
   type: string;
-  to: string;
 }
 
-const GroupItem = ({ name, members, amountRaised, targetAmount, type, to }: GroupItemProps) => {
+const GroupItem = ({ id, name, members, amountRaised, targetAmount, type }: GroupItemProps) => {
   const progressPercentage = Math.min(100, Math.round((amountRaised / targetAmount) * 100));
 
   return (
-    <Link to={to}>
+    <Link to={`/groups/${id}`}>
       <div className="p-4 rounded-lg border hover:border-primary/50 transition-all duration-300 cursor-pointer group">
         <div className="flex justify-between items-start mb-2">
           <div className="flex items-center">
@@ -46,32 +47,7 @@ const GroupItem = ({ name, members, amountRaised, targetAmount, type, to }: Grou
 };
 
 const GroupsList = () => {
-  const groups = [
-    {
-      name: "Wedding Fund",
-      members: 24,
-      amountRaised: 750000,
-      targetAmount: 1500000,
-      type: "Monthly",
-      to: "/groups/1"
-    },
-    {
-      name: "Business Launch",
-      members: 12,
-      amountRaised: 345000,
-      targetAmount: 500000,
-      type: "Weekly",
-      to: "/groups/2"
-    },
-    {
-      name: "Family Vacation",
-      members: 5,
-      amountRaised: 120000,
-      targetAmount: 350000,
-      type: "Monthly",
-      to: "/groups/3"
-    }
-  ];
+  const { contributions } = useApp();
 
   return (
     <Card className="glass-card animate-slide-up animation-delay-200">
@@ -82,9 +58,26 @@ const GroupsList = () => {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {groups.map((group, index) => (
-          <GroupItem key={index} {...group} />
-        ))}
+        {contributions.length === 0 ? (
+          <div className="text-center py-6 text-muted-foreground">
+            <p>You haven't created any contribution groups yet.</p>
+            <Link to="/create-group" className="text-primary hover:underline mt-2 inline-block">
+              Create your first group
+            </Link>
+          </div>
+        ) : (
+          contributions.map((group) => (
+            <GroupItem 
+              key={group.id}
+              id={group.id}
+              name={group.name}
+              members={group.members.length}
+              amountRaised={group.currentAmount}
+              targetAmount={group.targetAmount}
+              type={group.frequency.charAt(0).toUpperCase() + group.frequency.slice(1)}
+            />
+          ))
+        )}
       </CardContent>
     </Card>
   );

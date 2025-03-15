@@ -8,9 +8,11 @@ import RecentActivity from "@/components/dashboard/RecentActivity";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { UserPlus, Bell } from "lucide-react";
+import { useApp } from "@/contexts/AppContext";
 
 const Dashboard = () => {
   const [greeting, setGreeting] = useState("");
+  const { user, refreshData } = useApp();
 
   useEffect(() => {
     const hours = new Date().getHours();
@@ -21,7 +23,9 @@ const Dashboard = () => {
     } else {
       setGreeting("Good Evening");
     }
-  }, []);
+    
+    refreshData();
+  }, [refreshData]);
 
   return (
     <div className="min-h-screen pb-20 md:pb-0">
@@ -30,7 +34,7 @@ const Dashboard = () => {
       <main className="container max-w-5xl mx-auto px-4 pt-24 pb-8">
         <div className="flex justify-between items-center mb-8 animate-fade-in">
           <div>
-            <h1 className="text-2xl font-bold">{greeting}, John</h1>
+            <h1 className="text-2xl font-bold">{greeting}, {user.name?.split(' ')[0]}</h1>
             <p className="text-muted-foreground">Welcome back to your dashboard</p>
           </div>
           <div className="hidden md:flex space-x-2">
