@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import MobileNav from "@/components/layout/MobileNav";
@@ -35,14 +35,17 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeft, User, Bell, Moon, Eye, Shield } from "lucide-react";
+import { ArrowLeft, User, Bell, Moon, Eye, Shield, Lock } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
-import { updateUser } from "@/services/localStorage";
 
 const profileFormSchema = z.object({
-  name: z.string().min(2, {
-    message: "Name must be at least 2 characters.",
+  firstName: z.string().min(2, {
+    message: "First name must be at least 2 characters.",
   }),
+  lastName: z.string().min(2, {
+    message: "Last name must be at least 2 characters.",
+  }),
+  username: z.string().optional(),
   email: z.string().email({
     message: "Please enter a valid email address.",
   }),
@@ -62,17 +65,44 @@ const privacyFormSchema = z.object({
   anonymousContributions: z.boolean().default(false),
 });
 
+const securityFormSchema = z.object({
+  pin: z.string().min(4, {
+    message: "PIN must be at least 4 digits",
+  }).max(6, {
+    message: "PIN cannot be more than 6 digits",
+  }),
+  confirmPin: z.string().min(4, {
+    message: "Confirm PIN must be at least 4 digits",
+  }).max(6, {
+    message: "Confirm PIN cannot be more than 6 digits",
+  }),
+}).refine((data) => data.pin === data.confirmPin, {
+  message: "PINs do not match",
+  path: ["confirmPin"],
+});
+
 const UserSettings = () => {
-  const { user, refreshData } = useApp();
+  const { user, refreshData, updateProfile } = useApp();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("profile");
+  
+  // Effect to apply dark mode on initial load
+  useEffect(() => {
+    if (user.preferences?.darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [user.preferences?.darkMode]);
   
   // Profile form
   const profileForm = useForm<z.infer<typeof profileFormSchema>>({
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
-      name: user.name || "",
+      firstName: user.firstName || "",
+      lastName: user.lastName || "",
+      username: user.username || "",
       email: user.email || "",
       phoneNumber: user.phoneNumber || "",
       profileImage: user.profileImage || "",
@@ -103,16 +133,27 @@ const UserSettings = () => {
     },
   });
   
+  // Security form
+  const securityForm = useForm<z.infer<typeof securityFormSchema>>({
+    resolver: zodResolver(securityFormSchema),
+    defaultValues: {
+      pin: "",
+      confirmPin: "",
+    },
+  });
+  
   // Profile submission
   const onSubmitProfile = (data: z.infer<typeof profileFormSchema>) => {
     try {
-      updateUser({
-        name: data.name,
+      updateProfile({
+        firstName: data.firstName,
+        lastName: data.lastName,
+        name: `${data.firstName} ${data.lastName}`,
+        username: data.username,
         email: data.email,
         phoneNumber: data.phoneNumber,
         profileImage: data.profileImage,
       });
-      refreshData();
       toast({
         title: "Profile updated",
         description: "Your profile information has been updated.",
@@ -129,13 +170,12 @@ const UserSettings = () => {
   // Notifications submission
   const onSubmitNotifications = (data: z.infer<typeof notificationsFormSchema>) => {
     try {
-      updateUser({
+      updateProfile({
         preferences: {
           ...user.preferences,
           notificationsEnabled: data.notificationsEnabled,
         },
       });
-      refreshData();
       toast({
         title: "Notification settings updated",
         description: "Your notification preferences have been saved.",
@@ -152,13 +192,19 @@ const UserSettings = () => {
   // Appearance submission
   const onSubmitAppearance = (data: z.infer<typeof appearanceFormSchema>) => {
     try {
-      updateUser({
+      // Toggle dark mode in real-time
+      if (data.darkMode) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+      
+      updateProfile({
         preferences: {
           ...user.preferences,
           darkMode: data.darkMode,
         },
       });
-      refreshData();
       toast({
         title: "Appearance settings updated",
         description: "Your appearance preferences have been saved.",
@@ -175,13 +221,12 @@ const UserSettings = () => {
   // Privacy submission
   const onSubmitPrivacy = (data: z.infer<typeof privacyFormSchema>) => {
     try {
-      updateUser({
+      updateProfile({
         preferences: {
           ...user.preferences,
           anonymousContributions: data.anonymousContributions,
         },
       });
-      refreshData();
       toast({
         title: "Privacy settings updated",
         description: "Your privacy preferences have been saved.",
@@ -190,6 +235,26 @@ const UserSettings = () => {
       toast({
         title: "Error",
         description: "Failed to update privacy settings.",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  // Security submission
+  const onSubmitSecurity = (data: z.infer<typeof securityFormSchema>) => {
+    try {
+      updateProfile({
+        pin: data.pin,
+      });
+      toast({
+        title: "Security settings updated",
+        description: "Your PIN has been saved successfully.",
+      });
+      securityForm.reset({ pin: "", confirmPin: "" });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update security settings.",
         variant: "destructive",
       });
     }
@@ -216,11 +281,12 @@ const UserSettings = () => {
         
         <Card className="glass-card">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid grid-cols-4 mb-6">
+            <TabsList className="grid grid-cols-5 mb-6">
               <TabsTrigger value="profile">Profile</TabsTrigger>
               <TabsTrigger value="notifications">Notifications</TabsTrigger>
               <TabsTrigger value="appearance">Appearance</TabsTrigger>
               <TabsTrigger value="privacy">Privacy</TabsTrigger>
+              <TabsTrigger value="security">Security</TabsTrigger>
             </TabsList>
             
             <TabsContent value="profile">
@@ -237,7 +303,7 @@ const UserSettings = () => {
                       <Avatar className="w-20 h-20">
                         <AvatarImage src={profileForm.watch("profileImage")} alt={user.name} />
                         <AvatarFallback className="text-lg">
-                          {user.name?.split(" ").map(n => n[0]).join("").toUpperCase() || "U"}
+                          {user.firstName?.charAt(0)}{user.lastName?.charAt(0) || ""}
                         </AvatarFallback>
                       </Avatar>
                       <FormField
@@ -260,15 +326,48 @@ const UserSettings = () => {
                     
                     <Separator />
                     
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={profileForm.control}
+                        name="firstName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>First Name</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Your first name" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={profileForm.control}
+                        name="lastName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Last Name</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Your last name" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    
                     <FormField
                       control={profileForm.control}
-                      name="name"
+                      name="username"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Name</FormLabel>
+                          <FormLabel>Username</FormLabel>
                           <FormControl>
-                            <Input placeholder="Your name" {...field} />
+                            <Input placeholder="Your username" {...field} />
                           </FormControl>
+                          <FormDescription>
+                            This will be your unique username on the platform.
+                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -424,6 +523,71 @@ const UserSettings = () => {
                     
                     <Button type="submit" className="w-full">
                       Save Privacy Settings
+                    </Button>
+                  </form>
+                </Form>
+              </CardContent>
+            </TabsContent>
+            
+            <TabsContent value="security">
+              <CardHeader>
+                <CardTitle>Security</CardTitle>
+                <CardDescription>
+                  Set your PIN for transactions and manage your security preferences.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Form {...securityForm}>
+                  <form onSubmit={securityForm.handleSubmit(onSubmitSecurity)} className="space-y-6">
+                    <FormField
+                      control={securityForm.control}
+                      name="pin"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Transaction PIN</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                              <Input 
+                                type="password" 
+                                placeholder="Enter a 4-6 digit PIN" 
+                                className="pl-10"
+                                {...field} 
+                              />
+                            </div>
+                          </FormControl>
+                          <FormDescription>
+                            This PIN will be used to authorize your withdrawals and transactions.
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={securityForm.control}
+                      name="confirmPin"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Confirm PIN</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                              <Input 
+                                type="password" 
+                                placeholder="Confirm your PIN" 
+                                className="pl-10"
+                                {...field} 
+                              />
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <Button type="submit" className="w-full">
+                      Save Security Settings
                     </Button>
                   </form>
                 </Form>

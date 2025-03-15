@@ -46,6 +46,7 @@ interface AppContextType {
   pauseUserAsAdmin: (userId: string) => void;
   activateUserAsAdmin: (userId: string) => void;
   isAdmin: boolean;
+  shareToContacts: (contributionId: string, recipients: string[]) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -104,6 +105,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const requestWithdrawal = (request: Omit<WithdrawalRequest, 'id' | 'createdAt' | 'status' | 'votes'>) => {
     try {
+      // Check if user has set up a PIN
+      if (!user.pin) {
+        toast.error('Please set up a transaction PIN in settings before requesting withdrawals');
+        return;
+      }
+      
       const contribution = contributions.find(c => c.id === request.contributionId);
       
       if (!contribution) {
@@ -215,6 +222,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
       console.error(error);
     }
   };
+  
+  const shareToContacts = (contributionId: string, recipients: string[]) => {
+    try {
+      // In a real app, this would send SMS or emails
+      // For now we'll simulate it with a toast notification
+      const shareLink = getShareLink(contributionId);
+      const contribution = contributions.find(c => c.id === contributionId);
+      
+      if (!contribution) {
+        toast.error('Contribution not found');
+        return;
+      }
+      
+      toast.success(`Contribution link shared with ${recipients.length} contact(s)`);
+      
+      // In a real app we would store the share event
+      refreshData();
+    } catch (error) {
+      toast.error('Failed to share contribution');
+      console.error(error);
+    }
+  };
 
   return (
     <AppContext.Provider value={{
@@ -236,6 +265,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       pauseUserAsAdmin,
       activateUserAsAdmin,
       isAdmin,
+      shareToContacts,
     }}>
       {children}
     </AppContext.Provider>

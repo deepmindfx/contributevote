@@ -1,13 +1,16 @@
-
 import { v4 as uuidv4 } from 'uuid';
 
 export interface User {
   id: string;
+  firstName: string;
+  lastName: string;
   name: string;
   email: string;
   walletBalance: number;
   profileImage?: string;
   phoneNumber?: string;
+  username?: string;
+  pin?: string;
   preferences?: {
     anonymousContributions: boolean;
     darkMode: boolean;
@@ -94,19 +97,23 @@ export interface Stats {
 const initializeUser = (): User => {
   const defaultUser = {
     id: uuidv4(),
+    firstName: 'John',
+    lastName: 'Doe',
     name: 'John Doe',
     email: 'john@example.com',
     walletBalance: 0,
     profileImage: '',
     phoneNumber: '',
+    username: '',
+    pin: '',
     preferences: {
       anonymousContributions: false,
       darkMode: false,
       notificationsEnabled: true,
     },
     notifications: [],
-    role: 'user',
-    status: 'active',
+    role: 'user' as const,
+    status: 'active' as const,
     createdAt: new Date().toISOString(),
   };
   
@@ -118,19 +125,23 @@ const initializeUser = (): User => {
 const initializeAdmin = (): User => {
   const admin = {
     id: uuidv4(),
-    name: 'Admin',
+    firstName: 'Admin',
+    lastName: 'User',
+    name: 'Admin User',
     email: 'admin@collectipay.com',
     walletBalance: 0,
     profileImage: '',
     phoneNumber: '',
+    username: 'admin',
+    pin: '1234',
     preferences: {
       anonymousContributions: false,
       darkMode: false,
       notificationsEnabled: true,
     },
     notifications: [],
-    role: 'admin',
-    status: 'active',
+    role: 'admin' as const,
+    status: 'active' as const,
     createdAt: new Date().toISOString(),
   };
   
@@ -630,6 +641,16 @@ export const getStatistics = (): Stats => {
   };
 };
 
+// Logout user
+export const logoutUser = (): void => {
+  // Don't clear localStorage entirely to preserve other users' data
+  // Just remove the current user session
+  localStorage.removeItem('currentUser');
+  
+  // Re-initialize with a fresh user
+  initializeUser();
+};
+
 // Initialize with empty data
 export const initializeLocalStorage = () => {
   if (!localStorage.getItem('currentUser')) {
@@ -660,12 +681,14 @@ export const initializeLocalStorage = () => {
   const users = getUsers().filter(u => u.role !== 'admin' && u.id === getCurrentUser().id);
   users.forEach(u => {
     u.walletBalance = 0; // Reset balance
+    u.notifications = []; // Reset notifications
   });
   localStorage.setItem('users', JSON.stringify([...users, initializeAdmin()]));
   
-  // Reset current user wallet balance
+  // Reset current user wallet balance and notifications
   const currentUser = getCurrentUser();
   currentUser.walletBalance = 0;
+  currentUser.notifications = [];
   localStorage.setItem('currentUser', JSON.stringify(currentUser));
   
   // Clear all contributions, withdrawal requests, and transactions

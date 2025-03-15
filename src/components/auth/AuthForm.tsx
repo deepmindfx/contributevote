@@ -8,19 +8,115 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { LogIn, Mail, Phone, User, Key, Lock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { v4 as uuidv4 } from 'uuid';
 
 const AuthForm = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const [loginData, setLoginData] = useState({ phone: "", password: "" });
+  const [registerData, setRegisterData] = useState({
+    firstName: "",
+    lastName: "",
+    phone: "",
+    email: "",
+    password: "",
+  });
+  
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setLoginData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleRegisterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setRegisterData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
-    // For demonstration purposes only
-    setTimeout(() => {
+    // Simple validation
+    if (!loginData.phone || !loginData.password) {
+      toast.error("Please fill in all fields");
       setIsLoading(false);
-      toast.success("Authentication successful");
+      return;
+    }
+    
+    // For demonstration purposes - simulate login
+    setTimeout(() => {
+      // Store dummy user in localStorage for demo
+      const user = {
+        id: uuidv4(),
+        firstName: "John",
+        lastName: "Doe",
+        name: "John Doe",
+        email: "john@example.com",
+        phoneNumber: loginData.phone,
+        walletBalance: 0,
+        preferences: {
+          anonymousContributions: false,
+          darkMode: false,
+          notificationsEnabled: true,
+        },
+        notifications: [],
+        role: "user" as const,
+        status: "active" as const,
+        createdAt: new Date().toISOString(),
+      };
+      
+      localStorage.setItem('currentUser', JSON.stringify(user));
+      setIsLoading(false);
+      toast.success("Login successful");
+      navigate("/dashboard");
+    }, 1500);
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    
+    // Simple validation
+    if (!registerData.firstName || !registerData.lastName || !registerData.phone || !registerData.email || !registerData.password) {
+      toast.error("Please fill in all fields");
+      setIsLoading(false);
+      return;
+    }
+    
+    // For demonstration purposes - simulate registration
+    setTimeout(() => {
+      // Store new user in localStorage
+      const fullName = `${registerData.firstName} ${registerData.lastName}`;
+      const user = {
+        id: uuidv4(),
+        firstName: registerData.firstName,
+        lastName: registerData.lastName,
+        name: fullName,
+        email: registerData.email,
+        phoneNumber: registerData.phone,
+        walletBalance: 0,
+        preferences: {
+          anonymousContributions: false,
+          darkMode: false,
+          notificationsEnabled: true,
+        },
+        notifications: [],
+        role: "user" as const,
+        status: "active" as const,
+        createdAt: new Date().toISOString(),
+      };
+      
+      // Add to users array
+      const users = JSON.parse(localStorage.getItem('users') || '[]');
+      users.push(user);
+      localStorage.setItem('users', JSON.stringify(users));
+      
+      // Set as current user
+      localStorage.setItem('currentUser', JSON.stringify(user));
+      
+      setIsLoading(false);
+      toast.success("Account created successfully");
       navigate("/dashboard");
     }, 1500);
   };
@@ -39,14 +135,17 @@ const AuthForm = () => {
             <CardDescription className="text-center">Enter your credentials to access your account</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
                 <div className="relative">
                   <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input 
                     placeholder="Phone Number" 
                     type="tel" 
+                    name="phone"
                     className="pl-10" 
+                    value={loginData.phone}
+                    onChange={handleLoginChange}
                     required 
                   />
                 </div>
@@ -55,7 +154,10 @@ const AuthForm = () => {
                   <Input 
                     placeholder="Password" 
                     type="password" 
+                    name="password"
                     className="pl-10" 
+                    value={loginData.password}
+                    onChange={handleLoginChange}
                     required 
                   />
                 </div>
@@ -115,23 +217,65 @@ const AuthForm = () => {
             <CardDescription className="text-center">Enter your information to get started</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleRegister} className="space-y-4">
               <div className="space-y-2">
-                <div className="relative">
-                  <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Full Name" className="pl-10" required />
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="relative">
+                    <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                      placeholder="First Name" 
+                      name="firstName"
+                      className="pl-10" 
+                      value={registerData.firstName}
+                      onChange={handleRegisterChange}
+                      required 
+                    />
+                  </div>
+                  <div className="relative">
+                    <Input 
+                      placeholder="Last Name" 
+                      name="lastName"
+                      value={registerData.lastName}
+                      onChange={handleRegisterChange}
+                      required 
+                    />
+                  </div>
                 </div>
                 <div className="relative">
                   <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Phone Number" type="tel" className="pl-10" required />
+                  <Input 
+                    placeholder="Phone Number" 
+                    type="tel" 
+                    name="phone"
+                    className="pl-10" 
+                    value={registerData.phone}
+                    onChange={handleRegisterChange}
+                    required 
+                  />
                 </div>
                 <div className="relative">
                   <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Email Address" type="email" className="pl-10" required />
+                  <Input 
+                    placeholder="Email Address" 
+                    type="email" 
+                    name="email"
+                    className="pl-10" 
+                    value={registerData.email}
+                    onChange={handleRegisterChange}
+                    required 
+                  />
                 </div>
                 <div className="relative">
                   <Key className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Create Password" type="password" className="pl-10" required />
+                  <Input 
+                    placeholder="Create Password" 
+                    type="password" 
+                    name="password"
+                    className="pl-10" 
+                    value={registerData.password}
+                    onChange={handleRegisterChange}
+                    required 
+                  />
                 </div>
               </div>
               <Button type="submit" className="w-full" disabled={isLoading}>

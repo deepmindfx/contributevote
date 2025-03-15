@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -29,18 +28,56 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+// Auth guard to keep logged out users from accessing protected routes
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user } = useApp();
+  
+  if (!user || !user.id) {
+    return <Navigate to="/auth" replace />;
+  }
+  
+  return <>{children}</>;
+};
+
 const AppRoutes = () => {
-  const { isAdmin } = useApp();
+  const { user, isAdmin } = useApp();
+  
+  // Apply dark mode on route change if user has it enabled
+  useEffect(() => {
+    if (user?.preferences?.darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [user?.preferences?.darkMode]);
   
   return (
     <Routes>
       <Route path="/" element={<Index />} />
       <Route path="/auth" element={<Auth />} />
-      <Route path="/dashboard" element={<Dashboard />} />
-      <Route path="/create-group" element={<CreateGroup />} />
-      <Route path="/groups/:id" element={<GroupDetail />} />
+      
+      {/* Protected Routes */}
+      <Route path="/dashboard" element={
+        <ProtectedRoute>
+          <Dashboard />
+        </ProtectedRoute>
+      } />
+      <Route path="/create-group" element={
+        <ProtectedRoute>
+          <CreateGroup />
+        </ProtectedRoute>
+      } />
+      <Route path="/groups/:id" element={
+        <ProtectedRoute>
+          <GroupDetail />
+        </ProtectedRoute>
+      } />
       <Route path="/contribute/:id" element={<ContributePage />} />
-      <Route path="/settings" element={<UserSettings />} />
+      <Route path="/settings" element={
+        <ProtectedRoute>
+          <UserSettings />
+        </ProtectedRoute>
+      } />
       
       {/* Admin Routes */}
       <Route path="/admin" element={
