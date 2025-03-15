@@ -14,6 +14,9 @@ export interface User {
     notificationsEnabled: boolean;
   };
   notifications?: Notification[];
+  role?: 'user' | 'admin';
+  status?: 'active' | 'paused';
+  createdAt: string;
 }
 
 export interface Notification {
@@ -79,6 +82,14 @@ export interface Transaction {
   anonymous?: boolean;
 }
 
+export interface Stats {
+  totalUsers: number;
+  totalContributions: number;
+  totalTransactions: number;
+  totalAmount: number;
+  activeRequests: number;
+}
+
 // Initialize default user
 const initializeUser = (): User => {
   const defaultUser = {
@@ -94,10 +105,44 @@ const initializeUser = (): User => {
       notificationsEnabled: true,
     },
     notifications: [],
+    role: 'user',
+    status: 'active',
+    createdAt: new Date().toISOString(),
   };
   
   localStorage.setItem('currentUser', JSON.stringify(defaultUser));
   return defaultUser;
+};
+
+// Initialize admin user
+const initializeAdmin = (): User => {
+  const admin = {
+    id: uuidv4(),
+    name: 'Admin',
+    email: 'admin@collectipay.com',
+    walletBalance: 0,
+    profileImage: '',
+    phoneNumber: '',
+    preferences: {
+      anonymousContributions: false,
+      darkMode: false,
+      notificationsEnabled: true,
+    },
+    notifications: [],
+    role: 'admin',
+    status: 'active',
+    createdAt: new Date().toISOString(),
+  };
+  
+  const users = getUsers();
+  const existingAdmin = users.find(u => u.role === 'admin');
+  
+  if (!existingAdmin) {
+    users.push(admin);
+    localStorage.setItem('users', JSON.stringify(users));
+  }
+  
+  return admin;
 };
 
 // User methods
@@ -113,6 +158,15 @@ export const updateUser = (userData: Partial<User>): User => {
   const user = getCurrentUser();
   const updatedUser = { ...user, ...userData };
   localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+  
+  // Also update in users list
+  const users = getUsers();
+  const index = users.findIndex(u => u.id === user.id);
+  if (index >= 0) {
+    users[index] = { ...users[index], ...userData };
+    localStorage.setItem('users', JSON.stringify(users));
+  }
+  
   return updatedUser;
 };
 
@@ -120,7 +174,109 @@ export const updateUserBalance = (amount: number): User => {
   const user = getCurrentUser();
   user.walletBalance += amount;
   localStorage.setItem('currentUser', JSON.stringify(user));
+  
+  // Also update in users list
+  const users = getUsers();
+  const index = users.findIndex(u => u.id === user.id);
+  if (index >= 0) {
+    users[index].walletBalance = user.walletBalance;
+    localStorage.setItem('users', JSON.stringify(users));
+  }
+  
   return user;
+};
+
+// Users management
+export const getUsers = (): User[] => {
+  const usersString = localStorage.getItem('users');
+  if (!usersString) {
+    return [];
+  }
+  return JSON.parse(usersString);
+};
+
+export const getUserById = (userId: string): User | null => {
+  const users = getUsers();
+  return users.find(u => u.id === userId) || null;
+};
+
+export const getUserByEmail = (email: string): User | null => {
+  const users = getUsers();
+  return users.find(u => u.email === email) || null;
+};
+
+export const getUserByPhone = (phone: string): User | null => {
+  const users = getUsers();
+  return users.find(u => u.phoneNumber === phone) || null;
+};
+
+export const updateUserById = (userId: string, userData: Partial<User>): User | null => {
+  const users = getUsers();
+  const index = users.findIndex(u => u.id === userId);
+  
+  if (index >= 0) {
+    users[index] = { ...users[index], ...userData };
+    localStorage.setItem('users', JSON.stringify(users));
+    
+    // If this is the current user, update that too
+    const currentUser = getCurrentUser();
+    if (currentUser.id === userId) {
+      localStorage.setItem('currentUser', JSON.stringify(users[index]));
+    }
+    
+    return users[index];
+  }
+  
+  return null;
+};
+
+export const depositToUser = (userId: string, amount: number): User | null => {
+  const users = getUsers();
+  const index = users.findIndex(u => u.id === userId);
+  
+  if (index >= 0) {
+    users[index].walletBalance += amount;
+    localStorage.setItem('users', JSON.stringify(users));
+    
+    // If this is the current user, update that too
+    const currentUser = getCurrentUser();
+    if (currentUser.id === userId) {
+      currentUser.walletBalance = users[index].walletBalance;
+      localStorage.setItem('currentUser', JSON.stringify(currentUser));
+    }
+    
+    // Add transaction
+    addTransaction({
+      userId,
+      contributionId: '',
+      type: 'deposit',
+      amount,
+      status: 'completed',
+      description: 'Admin deposit to wallet',
+      createdAt: new Date().toISOString(),
+    });
+    
+    // Add notification
+    addNotification({
+      userId,
+      message: `Admin deposited ₦${amount.toLocaleString()} to your wallet`,
+      type: 'success',
+      read: false,
+      relatedId: '',
+    });
+    
+    return users[index];
+  }
+  
+  return null;
+};
+
+export const pauseUser = (userId: string): User | null => {
+  return updateUserById(userId, { status: 'paused' });
+};
+
+export const activateUser = (userId: string): User | null => {
+  return updateUserById(userId, { status: 'active' });
 };
 
 // Notification methods
@@ -132,7 +288,6 @@ export const addNotification = (notification: Omit<Notification, 'id' | 'created
     ...notification,
     id: uuidv4(),
     createdAt: new Date().toISOString(),
-    read: false,
   };
   
   notifications.push(newNotification);
@@ -167,7 +322,12 @@ export const getContributions = (): Contribution[] => {
   if (!contributionsString) {
     return [];
   }
-  return JSON.parse(contributionsString);
+  const contributions = JSON.parse(contributionsString);
+  
+  // Sort contributions by creation date (newest first)
+  return contributions.sort((a: Contribution, b: Contribution) => 
+    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
 };
 
 export const getContribution = (id: string): Contribution | null => {
@@ -207,6 +367,7 @@ export const createContribution = (contribution: Omit<Contribution, 'id' | 'crea
     userId: currentUser.id,
     message: `You created a new contribution group: ${newContribution.name}`,
     type: 'success',
+    read: false,
     relatedId: newContribution.id,
   });
   
@@ -254,6 +415,7 @@ export const contributeToGroup = (contributionId: string, amount: number, anonym
         userId: contributions[index].creatorId,
         message: `${anonymous ? 'Someone' : currentUser.name} contributed ₦${amount.toLocaleString()} to ${contributions[index].name}`,
         type: 'info',
+        read: false,
         relatedId: contributionId,
       });
     }
@@ -314,6 +476,7 @@ export const createWithdrawalRequest = (request: Omit<WithdrawalRequest, 'id' | 
           userId: memberId,
           message: `New withdrawal request of ₦${request.amount.toLocaleString()} from ${contribution.name}`,
           type: 'warning',
+          read: false,
           relatedId: newRequest.id,
         });
       }
@@ -372,6 +535,7 @@ export const voteOnWithdrawalRequest = (requestId: string, vote: 'approve' | 're
           userId: requests[index].requesterId,
           message: `Your withdrawal request of ₦${requests[index].amount.toLocaleString()} was approved!`,
           type: 'success',
+          read: false,
           relatedId: requestId,
         });
       } else if (requests[index].votes.length === totalMembers && approvalPercentage < contribution.votingThreshold) {
@@ -383,6 +547,7 @@ export const voteOnWithdrawalRequest = (requestId: string, vote: 'approve' | 're
           userId: requests[index].requesterId,
           message: `Your withdrawal request of ₦${requests[index].amount.toLocaleString()} was rejected`,
           type: 'error',
+          read: false,
           relatedId: requestId,
         });
       }
@@ -447,10 +612,33 @@ export const generateShareLink = (contributionId: string): string => {
   return `${baseUrl}/contribute/${contributionId}`;
 };
 
+// Statistics methods
+export const getStatistics = (): Stats => {
+  const users = getUsers();
+  const contributions = getContributions();
+  const transactions = getTransactions();
+  const withdrawalRequests = getWithdrawalRequests();
+  
+  return {
+    totalUsers: users.length,
+    totalContributions: contributions.length,
+    totalTransactions: transactions.length,
+    totalAmount: transactions
+      .filter(t => t.type === 'deposit' && t.status === 'completed')
+      .reduce((sum, t) => sum + t.amount, 0),
+    activeRequests: withdrawalRequests.filter(r => r.status === 'pending').length
+  };
+};
+
 // Initialize with empty data
 export const initializeLocalStorage = () => {
   if (!localStorage.getItem('currentUser')) {
     initializeUser();
+  }
+  
+  if (!localStorage.getItem('users')) {
+    const currentUser = getCurrentUser();
+    localStorage.setItem('users', JSON.stringify([currentUser]));
   }
   
   if (!localStorage.getItem('contributions')) {
@@ -464,4 +652,24 @@ export const initializeLocalStorage = () => {
   if (!localStorage.getItem('transactions')) {
     localStorage.setItem('transactions', JSON.stringify([]));
   }
+  
+  // Initialize admin account
+  initializeAdmin();
+  
+  // Clear any test data
+  const users = getUsers().filter(u => u.role !== 'admin' && u.id === getCurrentUser().id);
+  users.forEach(u => {
+    u.walletBalance = 0; // Reset balance
+  });
+  localStorage.setItem('users', JSON.stringify([...users, initializeAdmin()]));
+  
+  // Reset current user wallet balance
+  const currentUser = getCurrentUser();
+  currentUser.walletBalance = 0;
+  localStorage.setItem('currentUser', JSON.stringify(currentUser));
+  
+  // Clear all contributions, withdrawal requests, and transactions
+  localStorage.setItem('contributions', JSON.stringify([]));
+  localStorage.setItem('withdrawalRequests', JSON.stringify([]));
+  localStorage.setItem('transactions', JSON.stringify([]));
 };

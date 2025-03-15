@@ -2,7 +2,8 @@
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, MinusCircle, ArrowDown, Eye, EyeOff, RefreshCw } from "lucide-react";
+import { Link } from "react-router-dom";
+import { PlusCircle, MinusCircle, ArrowDown, Eye, EyeOff, RefreshCw, ShieldCheck } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -17,7 +18,7 @@ const WalletCard = () => {
   const [isDepositOpen, setIsDepositOpen] = useState(false);
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
   
-  const { user, refreshData } = useApp();
+  const { user, refreshData, isAdmin } = useApp();
 
   const refreshBalance = () => {
     setIsLoading(true);
@@ -81,6 +82,18 @@ const WalletCard = () => {
             >
               <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
             </Button>
+            {isAdmin && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                asChild
+              >
+                <Link to="/admin">
+                  <ShieldCheck size={16} />
+                </Link>
+              </Button>
+            )}
           </div>
         </div>
 
