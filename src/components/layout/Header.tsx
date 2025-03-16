@@ -4,14 +4,13 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Bell, Wallet, LogOut, Settings, User as UserIcon, MessageSquare } from "lucide-react";
+import { Menu, Bell, Wallet, LogOut, Settings, User as UserIcon, MessageSquare, LayoutDashboard } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
-import { logoutUser } from "@/services/localStorage";
 import { toast } from "sonner";
 
 const Header = () => {
   const [scrolled, setScrolled] = useState(false);
-  const { user, isAdmin, refreshData } = useApp();
+  const { user, isAdmin, logout } = useApp();
   const navigate = useNavigate();
   const isLoggedIn = !!user?.id;
 
@@ -25,9 +24,7 @@ const Header = () => {
   }, []);
 
   const handleLogout = () => {
-    logoutUser();
-    refreshData();
-    toast.success("You have been logged out successfully");
+    logout();
     navigate("/auth");
   };
 
@@ -109,7 +106,10 @@ const Header = () => {
                     
                     {isAdmin && (
                       <Button variant="ghost" className="w-full justify-start" asChild>
-                        <Link to="/admin">Admin Dashboard</Link>
+                        <Link to="/admin">
+                          <LayoutDashboard className="mr-2 h-4 w-4" />
+                          Admin Dashboard
+                        </Link>
                       </Button>
                     )}
                   </div>

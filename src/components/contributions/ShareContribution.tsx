@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useNavigate } from "react-router-dom";
 
 interface ShareContributionProps {
   contributionId: string;
@@ -22,14 +23,16 @@ const ShareContribution = ({ contributionId, contributionName }: ShareContributi
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
   const [recipientEmail, setRecipientEmail] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
+  const navigate = useNavigate();
   
   // Filter out current user from contacts list
   const contacts = users.filter(u => u.id !== user.id);
   
   const shareLink = getShareLink(contributionId);
+  const shareUrl = `${window.location.origin}/contribute/share/${contributionId}`;
   
   const copyToClipboard = () => {
-    navigator.clipboard.writeText(shareLink);
+    navigator.clipboard.writeText(shareUrl);
     setCopied(true);
     toast.success("Link copied to clipboard");
     setTimeout(() => setCopied(false), 3000);
@@ -67,6 +70,10 @@ const ShareContribution = ({ contributionId, contributionName }: ShareContributi
     setRecipientPhone("");
   };
   
+  const handlePreview = () => {
+    navigate(`/contribute/share/${contributionId}`);
+  };
+  
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -88,7 +95,7 @@ const ShareContribution = ({ contributionId, contributionName }: ShareContributi
             <Label htmlFor="link" className="sr-only">Link</Label>
             <Input
               id="link"
-              value={shareLink}
+              value={shareUrl}
               readOnly
               className="w-full"
             />
@@ -169,13 +176,17 @@ const ShareContribution = ({ contributionId, contributionName }: ShareContributi
           </div>
         </div>
         
-        <DialogFooter className="sm:justify-between mt-4">
+        <DialogFooter className="flex flex-col sm:flex-row gap-2 mt-4">
           <Button variant="outline" type="button" onClick={copyToClipboard}>
             <Link className="mr-2 h-4 w-4" />
             Copy Link
           </Button>
-          <Button type="button" onClick={handleShareToContacts}>
+          <Button variant="outline" type="button" onClick={handlePreview}>
             <User className="mr-2 h-4 w-4" />
+            Preview Link
+          </Button>
+          <Button type="button" onClick={handleShareToContacts}>
+            <Share2 className="mr-2 h-4 w-4" />
             Share Now
           </Button>
         </DialogFooter>

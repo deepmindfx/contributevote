@@ -10,6 +10,7 @@ import Dashboard from "./pages/Dashboard";
 import CreateGroup from "./pages/CreateGroup";
 import GroupDetail from "./pages/GroupDetail";
 import ContributePage from "./pages/ContributePage";
+import ContributeSharePage from "./pages/ContributeSharePage";
 import UserSettings from "./pages/UserSettings";
 import NotFound from "./pages/NotFound";
 import AdminDashboard from "./pages/admin/Dashboard";
@@ -73,6 +74,7 @@ const AppRoutes = () => {
         </ProtectedRoute>
       } />
       <Route path="/contribute/:id" element={<ContributePage />} />
+      <Route path="/contribute/share/:id" element={<ContributeSharePage />} />
       <Route path="/settings" element={
         <ProtectedRoute>
           <UserSettings />

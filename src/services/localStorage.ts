@@ -131,7 +131,7 @@ const initializeAdmin = (): User => {
     email: 'admin@collectipay.com',
     walletBalance: 0,
     profileImage: '',
-    phoneNumber: '',
+    phoneNumber: 'admin',
     username: 'admin',
     pin: '1234',
     preferences: {
@@ -646,20 +646,12 @@ export const logoutUser = (): void => {
   // Don't clear localStorage entirely to preserve other users' data
   // Just remove the current user session
   localStorage.removeItem('currentUser');
-  
-  // Re-initialize with a fresh user
-  initializeUser();
 };
 
 // Initialize with empty data
 export const initializeLocalStorage = () => {
-  if (!localStorage.getItem('currentUser')) {
-    initializeUser();
-  }
-  
   if (!localStorage.getItem('users')) {
-    const currentUser = getCurrentUser();
-    localStorage.setItem('users', JSON.stringify([currentUser]));
+    localStorage.setItem('users', JSON.stringify([]));
   }
   
   if (!localStorage.getItem('contributions')) {
@@ -676,23 +668,4 @@ export const initializeLocalStorage = () => {
   
   // Initialize admin account
   initializeAdmin();
-  
-  // Clear any test data
-  const users = getUsers().filter(u => u.role !== 'admin' && u.id === getCurrentUser().id);
-  users.forEach(u => {
-    u.walletBalance = 0; // Reset balance
-    u.notifications = []; // Reset notifications
-  });
-  localStorage.setItem('users', JSON.stringify([...users, initializeAdmin()]));
-  
-  // Reset current user wallet balance and notifications
-  const currentUser = getCurrentUser();
-  currentUser.walletBalance = 0;
-  currentUser.notifications = [];
-  localStorage.setItem('currentUser', JSON.stringify(currentUser));
-  
-  // Clear all contributions, withdrawal requests, and transactions
-  localStorage.setItem('contributions', JSON.stringify([]));
-  localStorage.setItem('withdrawalRequests', JSON.stringify([]));
-  localStorage.setItem('transactions', JSON.stringify([]));
 };

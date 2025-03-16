@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { 
   User, 
@@ -24,8 +23,10 @@ import {
   pauseUser,
   activateUser,
   depositToUser,
+  logoutUser,
 } from '@/services/localStorage';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 interface AppContextType {
   user: User;
@@ -47,6 +48,7 @@ interface AppContextType {
   activateUserAsAdmin: (userId: string) => void;
   isAdmin: boolean;
   shareToContacts: (contributionId: string, recipients: string[]) => void;
+  logout: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -59,6 +61,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [stats, setStats] = useState<Stats>({} as Stats);
   const [isAdmin, setIsAdmin] = useState(false);
+  
+  // Effect for dark mode
+  useEffect(() => {
+    if (user?.preferences?.darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [user?.preferences?.darkMode]);
 
   useEffect(() => {
     initializeLocalStorage();
@@ -73,7 +84,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setWithdrawalRequests(getWithdrawalRequests());
     setTransactions(getTransactions());
     setStats(getStatistics());
-    setIsAdmin(currentUser.role === 'admin');
+    setIsAdmin(currentUser?.role === 'admin');
+  };
+
+  const logout = () => {
+    logoutUser();
+    refreshData();
+    toast.success("You have been logged out successfully");
   };
 
   const createNewContribution = (contribution: Omit<Contribution, 'id' | 'createdAt' | 'currentAmount' | 'members' | 'contributors'>) => {
@@ -266,6 +283,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       activateUserAsAdmin,
       isAdmin,
       shareToContacts,
+      logout,
     }}>
       {children}
     </AppContext.Provider>

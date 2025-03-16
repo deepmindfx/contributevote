@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,16 +43,16 @@ const AuthForm = () => {
       return;
     }
     
-    // For demonstration purposes - simulate login
-    setTimeout(() => {
-      // Store dummy user in localStorage for demo
-      const user = {
+    // Check for admin login
+    if (loginData.phone === "admin" && loginData.password === "1234") {
+      // Store admin user in localStorage
+      const adminUser = {
         id: uuidv4(),
-        firstName: "John",
-        lastName: "Doe",
-        name: "John Doe",
-        email: "john@example.com",
-        phoneNumber: loginData.phone,
+        firstName: "Admin",
+        lastName: "User",
+        name: "Admin User",
+        email: "admin@collectipay.com",
+        phoneNumber: "admin",
         walletBalance: 0,
         preferences: {
           anonymousContributions: false,
@@ -61,16 +60,37 @@ const AuthForm = () => {
           notificationsEnabled: true,
         },
         notifications: [],
-        role: "user" as const,
+        role: "admin" as const,
         status: "active" as const,
         createdAt: new Date().toISOString(),
       };
       
-      localStorage.setItem('currentUser', JSON.stringify(user));
+      localStorage.setItem('currentUser', JSON.stringify(adminUser));
       setIsLoading(false);
-      toast.success("Login successful");
-      navigate("/dashboard");
-    }, 1500);
+      toast.success("Admin login successful");
+      navigate("/admin");
+      return;
+    }
+    
+    // For regular users - check if user exists
+    const users = JSON.parse(localStorage.getItem('users') || '[]');
+    const foundUser = users.find((u: any) => 
+      u.phoneNumber === loginData.phone || u.email === loginData.phone
+    );
+    
+    if (!foundUser) {
+      toast.error("User not found. Please check your credentials or register.");
+      setIsLoading(false);
+      return;
+    }
+    
+    // In a real app, we would verify the password here
+    // For now, we'll just log the user in
+    
+    localStorage.setItem('currentUser', JSON.stringify(foundUser));
+    setIsLoading(false);
+    toast.success("Login successful");
+    navigate("/dashboard");
   };
 
   const handleRegister = async (e: React.FormEvent) => {
