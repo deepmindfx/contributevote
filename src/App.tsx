@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -14,13 +15,18 @@ import ContributeSharePage from "./pages/ContributeSharePage";
 import UserSettings from "./pages/UserSettings";
 import NotFound from "./pages/NotFound";
 import AdminDashboard from "./pages/admin/Dashboard";
+import UserProfile from "./pages/UserProfile";
 import { useEffect } from "react";
 
 const queryClient = new QueryClient();
 
 // Admin route guard
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAdmin } = useApp();
+  const { isAdmin, isAuthenticated } = useApp();
+  
+  if (!isAuthenticated) {
+    return <Navigate to="/auth" replace />;
+  }
   
   if (!isAdmin) {
     return <Navigate to="/dashboard" replace />;
@@ -31,9 +37,9 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
 
 // Auth guard to keep logged out users from accessing protected routes
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user } = useApp();
+  const { isAuthenticated } = useApp();
   
-  if (!user || !user.id) {
+  if (!isAuthenticated) {
     return <Navigate to="/auth" replace />;
   }
   
@@ -41,7 +47,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const AppRoutes = () => {
-  const { user, isAdmin } = useApp();
+  const { user, isAdmin, isAuthenticated } = useApp();
   
   // Apply dark mode on route change if user has it enabled
   useEffect(() => {
@@ -73,11 +79,20 @@ const AppRoutes = () => {
           <GroupDetail />
         </ProtectedRoute>
       } />
-      <Route path="/contribute/:id" element={<ContributePage />} />
+      <Route path="/contribute/:id" element={
+        <ProtectedRoute>
+          <ContributePage />
+        </ProtectedRoute>
+      } />
       <Route path="/contribute/share/:id" element={<ContributeSharePage />} />
       <Route path="/settings" element={
         <ProtectedRoute>
           <UserSettings />
+        </ProtectedRoute>
+      } />
+      <Route path="/profile" element={
+        <ProtectedRoute>
+          <UserProfile />
         </ProtectedRoute>
       } />
       

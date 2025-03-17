@@ -1,10 +1,16 @@
 
-import { Link, useLocation } from "react-router-dom";
-import { Home, Plus, Users, User } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Home, Plus, Users, User, CheckSquare } from "lucide-react";
+import { useApp } from "@/contexts/AppContext";
 
 const MobileNav = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { isAuthenticated } = useApp();
+  
   const isActive = (path: string) => location.pathname === path;
+
+  if (!isAuthenticated) return null;
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t md:hidden">
@@ -22,9 +28,9 @@ const MobileNav = () => {
         </Link>
         
         <Link
-          to="/groups"
+          to="/dashboard"
           className={`flex flex-col items-center justify-center w-full h-full transition-colors ${
-            isActive("/groups")
+            location.pathname.includes("/groups")
               ? "text-primary"
               : "text-muted-foreground hover:text-foreground"
           }`}
@@ -44,36 +50,21 @@ const MobileNav = () => {
         </Link>
         
         <Link
-          to="/votes"
+          to="/dashboard"
           className={`flex flex-col items-center justify-center w-full h-full transition-colors ${
-            isActive("/votes")
+            location.pathname.includes("/votes")
               ? "text-primary"
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="h-5 w-5"
-          >
-            <path d="m9 12 2 2 4-4" />
-            <path d="M5 7c0-1.1.9-2 2-2h10a2 2 0 0 1 2 2v12H5V7Z" />
-            <path d="M22 19H2" />
-          </svg>
+          <CheckSquare className="h-5 w-5" />
           <span className="text-xs mt-1">Votes</span>
         </Link>
         
         <Link
           to="/profile"
           className={`flex flex-col items-center justify-center w-full h-full transition-colors ${
-            isActive("/profile")
+            location.pathname === "/profile"
               ? "text-primary"
               : "text-muted-foreground hover:text-foreground"
           }`}

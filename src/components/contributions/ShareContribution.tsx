@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CheckCircle, Copy, Link, Share2, User } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"; 
+import { CheckCircle, Copy, Link, Share2, User, UserPlus, Mail, Phone } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -23,6 +24,7 @@ const ShareContribution = ({ contributionId, contributionName }: ShareContributi
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
   const [recipientEmail, setRecipientEmail] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
+  const [activeTab, setActiveTab] = useState("contacts");
   const navigate = useNavigate();
   
   // Filter out current user from contacts list
@@ -47,19 +49,28 @@ const ShareContribution = ({ contributionId, contributionName }: ShareContributi
   };
   
   const handleShareToContacts = () => {
-    if (selectedContacts.length === 0 && !recipientEmail && !recipientPhone) {
-      toast.error("Please select at least one contact or enter an email/phone");
+    if (activeTab === "contacts" && selectedContacts.length === 0) {
+      toast.error("Please select at least one contact");
       return;
     }
     
-    const recipients = [...selectedContacts];
-    
-    if (recipientEmail) {
-      recipients.push(recipientEmail);
+    if (activeTab === "manual" && !recipientEmail && !recipientPhone) {
+      toast.error("Please enter an email or phone number");
+      return;
     }
     
-    if (recipientPhone) {
-      recipients.push(recipientPhone);
+    const recipients = activeTab === "contacts" 
+      ? [...selectedContacts] 
+      : [];
+    
+    if (activeTab === "manual") {
+      if (recipientEmail) {
+        recipients.push(recipientEmail);
+      }
+      
+      if (recipientPhone) {
+        recipients.push(recipientPhone);
+      }
     }
     
     shareToContacts(contributionId, recipients);
@@ -68,6 +79,8 @@ const ShareContribution = ({ contributionId, contributionName }: ShareContributi
     setSelectedContacts([]);
     setRecipientEmail("");
     setRecipientPhone("");
+    
+    toast.success(`Link shared with ${recipients.length} recipient(s)`);
   };
   
   const handlePreview = () => {
@@ -115,65 +128,97 @@ const ShareContribution = ({ contributionId, contributionName }: ShareContributi
         </div>
         
         <div className="mt-4 space-y-4">
-          <div>
-            <Label className="text-base mb-2 block">Share with contacts</Label>
-            {contacts.length > 0 ? (
-              <ScrollArea className="h-[150px] border rounded-md p-2">
-                <div className="space-y-2">
-                  {contacts.map(contact => (
-                    <div 
-                      key={contact.id} 
-                      className="flex items-center space-x-2 py-1 px-2 hover:bg-accent hover:text-accent-foreground rounded-md cursor-pointer"
-                      onClick={() => toggleSelectContact(contact.id)}
-                    >
-                      <Checkbox 
-                        checked={selectedContacts.includes(contact.id)} 
-                        onCheckedChange={() => toggleSelectContact(contact.id)}
-                      />
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={contact.profileImage || ""} alt={contact.name} />
-                        <AvatarFallback>
-                          {contact.firstName?.charAt(0)}{contact.lastName?.charAt(0) || ""}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="text-sm">
-                        <p className="font-medium">{contact.name}</p>
-                        <p className="text-xs text-muted-foreground">{contact.email || contact.phoneNumber}</p>
-                      </div>
+          <Tabs defaultValue="contacts" value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="grid grid-cols-2 mb-2">
+              <TabsTrigger value="contacts">
+                <UserPlus className="h-4 w-4 mr-2" />
+                Contacts
+              </TabsTrigger>
+              <TabsTrigger value="manual">
+                <Mail className="h-4 w-4 mr-2" />
+                Manual Entry
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="contacts">
+              <div>
+                <Label className="text-base mb-2 block">Share with contacts</Label>
+                {contacts.length > 0 ? (
+                  <ScrollArea className="h-[200px] border rounded-md p-2">
+                    <div className="space-y-2">
+                      {contacts.map(contact => (
+                        <div 
+                          key={contact.id} 
+                          className="flex items-center space-x-2 py-1 px-2 hover:bg-accent hover:text-accent-foreground rounded-md cursor-pointer"
+                          onClick={() => toggleSelectContact(contact.id)}
+                        >
+                          <Checkbox 
+                            checked={selectedContacts.includes(contact.id)} 
+                            onCheckedChange={() => toggleSelectContact(contact.id)}
+                          />
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={contact.profileImage || ""} alt={contact.name} />
+                            <AvatarFallback>
+                              {contact.firstName?.charAt(0)}{contact.lastName?.charAt(0) || ""}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="text-sm">
+                            <p className="font-medium">{contact.name}</p>
+                            <p className="text-xs text-muted-foreground">{contact.email || contact.phoneNumber}</p>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  </ScrollArea>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-6 text-center border rounded-md">
+                    <User className="h-10 w-10 text-muted-foreground mb-2" />
+                    <p className="text-sm text-muted-foreground">No contacts available</p>
+                    <p className="text-xs text-muted-foreground mt-1">Try using manual entry instead</p>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="manual">
+              <div className="space-y-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="email" className="flex items-center">
+                    <Mail className="h-4 w-4 mr-2" />
+                    Share via email
+                  </Label>
+                  <div className="relative">
+                    <Input 
+                      id="email" 
+                      placeholder="Enter email address" 
+                      type="email" 
+                      value={recipientEmail}
+                      onChange={(e) => setRecipientEmail(e.target.value)}
+                    />
+                  </div>
                 </div>
-              </ScrollArea>
-            ) : (
-              <p className="text-sm text-muted-foreground py-2">No contacts available</p>
-            )}
-          </div>
-          
-          <div className="grid gap-2">
-            <Label htmlFor="email">Or share via email</Label>
-            <div className="relative">
-              <Input 
-                id="email" 
-                placeholder="Enter email address" 
-                type="email" 
-                value={recipientEmail}
-                onChange={(e) => setRecipientEmail(e.target.value)}
-              />
-            </div>
-          </div>
-          
-          <div className="grid gap-2">
-            <Label htmlFor="phone">Or share via phone number</Label>
-            <div className="relative">
-              <Input 
-                id="phone" 
-                placeholder="Enter phone number" 
-                type="tel" 
-                value={recipientPhone}
-                onChange={(e) => setRecipientPhone(e.target.value)}
-              />
-            </div>
-          </div>
+                
+                <div className="grid gap-2">
+                  <Label htmlFor="phone" className="flex items-center">
+                    <Phone className="h-4 w-4 mr-2" />
+                    Share via phone number
+                  </Label>
+                  <div className="relative">
+                    <Input 
+                      id="phone" 
+                      placeholder="Enter phone number" 
+                      type="tel" 
+                      value={recipientPhone}
+                      onChange={(e) => setRecipientPhone(e.target.value)}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Your recipient will be added to the group and gain voting rights after contributing
+                  </p>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
         
         <DialogFooter className="flex flex-col sm:flex-row gap-2 mt-4">

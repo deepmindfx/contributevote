@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { 
   User, 
@@ -7,6 +8,7 @@ import {
   Stats,
   getCurrentUser,
   getContributions,
+  getUserContributions,
   getWithdrawalRequests,
   getTransactions,
   getUsers,
@@ -47,6 +49,7 @@ interface AppContextType {
   pauseUserAsAdmin: (userId: string) => void;
   activateUserAsAdmin: (userId: string) => void;
   isAdmin: boolean;
+  isAuthenticated: boolean;
   shareToContacts: (contributionId: string, recipients: string[]) => void;
   logout: () => void;
 }
@@ -61,6 +64,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [stats, setStats] = useState<Stats>({} as Stats);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   
   // Effect for dark mode
   useEffect(() => {
@@ -80,11 +84,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const currentUser = getCurrentUser();
     setUser(currentUser);
     setUsers(getUsers());
-    setContributions(getContributions());
-    setWithdrawalRequests(getWithdrawalRequests());
-    setTransactions(getTransactions());
-    setStats(getStatistics());
-    setIsAdmin(currentUser?.role === 'admin');
+    
+    // Check if user is authenticated
+    const isUserAuthenticated = !!currentUser && !!currentUser.id;
+    setIsAuthenticated(isUserAuthenticated);
+    
+    if (isUserAuthenticated) {
+      // Only get contributions for this user if authenticated
+      setContributions(getUserContributions(currentUser.id));
+      setWithdrawalRequests(getWithdrawalRequests());
+      setTransactions(getTransactions());
+      setStats(getStatistics());
+      setIsAdmin(currentUser?.role === 'admin');
+    } else {
+      // Reset data if not authenticated
+      setContributions([]);
+      setWithdrawalRequests([]);
+      setTransactions([]);
+      setStats({} as Stats);
+      setIsAdmin(false);
+    }
   };
 
   const logout = () => {
@@ -282,6 +301,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       pauseUserAsAdmin,
       activateUserAsAdmin,
       isAdmin,
+      isAuthenticated,
       shareToContacts,
       logout,
     }}>

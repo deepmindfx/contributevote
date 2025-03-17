@@ -160,7 +160,7 @@ const initializeAdmin = (): User => {
 export const getCurrentUser = (): User => {
   const userString = localStorage.getItem('currentUser');
   if (!userString) {
-    return initializeUser();
+    return {} as User; // Return empty user instead of auto-initializing
   }
   return JSON.parse(userString);
 };
@@ -341,6 +341,13 @@ export const getContributions = (): Contribution[] => {
   );
 };
 
+export const getUserContributions = (userId: string): Contribution[] => {
+  const allContributions = getContributions();
+  return allContributions.filter(c => 
+    c.creatorId === userId || c.members.includes(userId)
+  );
+};
+
 export const getContribution = (id: string): Contribution | null => {
   const contributions = getContributions();
   return contributions.find(c => c.id === id) || null;
@@ -405,6 +412,11 @@ export const contributeToGroup = (contributionId: string, amount: number, anonym
       anonymous,
       date: new Date().toISOString()
     });
+    
+    // Add user to members if not already there
+    if (!contributions[index].members.includes(currentUser.id)) {
+      contributions[index].members.push(currentUser.id);
+    }
     
     localStorage.setItem('contributions', JSON.stringify(contributions));
     
@@ -643,8 +655,6 @@ export const getStatistics = (): Stats => {
 
 // Logout user
 export const logoutUser = (): void => {
-  // Don't clear localStorage entirely to preserve other users' data
-  // Just remove the current user session
   localStorage.removeItem('currentUser');
 };
 
