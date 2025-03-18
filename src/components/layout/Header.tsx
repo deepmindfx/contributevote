@@ -247,9 +247,8 @@ const Header = () => {
           ) : (
             <>
               <NavLink href="/">Home</NavLink>
-              <NavLink href="/auth">
-                <Button>Login / Register</Button>
-              </NavLink>
+              <NavLink href="/auth">Login / Register</NavLink>
+              <NavLink href="/admin-login">Admin Login</NavLink>
             </>
           )}
         </div>
@@ -377,6 +376,13 @@ const Header = () => {
                   className="block p-3 rounded-md hover:bg-accent"
                 >
                   Login / Register
+                </Link>
+                
+                <Link 
+                  to="/admin-login" 
+                  className="block p-3 rounded-md hover:bg-accent"
+                >
+                  Admin Login
                 </Link>
               </div>
             )}

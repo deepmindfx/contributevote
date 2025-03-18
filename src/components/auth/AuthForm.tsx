@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { LogIn, Mail, Phone, User, Key, Lock } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { v4 as uuidv4 } from 'uuid';
 
 const AuthForm = () => {
@@ -21,6 +21,10 @@ const AuthForm = () => {
   });
   
   const navigate = useNavigate();
+  const location = useLocation();
+  // Get return URL if user was redirected from a protected page
+  const { state } = location;
+  const returnUrl = state?.returnUrl || "/dashboard";
 
   const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -43,34 +47,7 @@ const AuthForm = () => {
       return;
     }
     
-    // Check for admin login
-    if (loginData.phone === "admin" && loginData.password === "1234") {
-      // Store admin user in localStorage
-      const adminUser = {
-        id: uuidv4(),
-        firstName: "Admin",
-        lastName: "User",
-        name: "Admin User",
-        email: "admin@collectipay.com",
-        phoneNumber: "admin",
-        walletBalance: 0,
-        preferences: {
-          anonymousContributions: false,
-          darkMode: false,
-          notificationsEnabled: true,
-        },
-        notifications: [],
-        role: "admin" as const,
-        status: "active" as const,
-        createdAt: new Date().toISOString(),
-      };
-      
-      localStorage.setItem('currentUser', JSON.stringify(adminUser));
-      setIsLoading(false);
-      toast.success("Admin login successful");
-      navigate("/admin");
-      return;
-    }
+    // We'll move admin login to a separate page, so this logic is handled there
     
     // For regular users - check if user exists
     const users = JSON.parse(localStorage.getItem('users') || '[]');
@@ -90,7 +67,9 @@ const AuthForm = () => {
     localStorage.setItem('currentUser', JSON.stringify(foundUser));
     setIsLoading(false);
     toast.success("Login successful");
-    navigate("/dashboard");
+    
+    // Navigate to returnUrl or dashboard
+    navigate(returnUrl);
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -137,6 +116,8 @@ const AuthForm = () => {
       
       setIsLoading(false);
       toast.success("Account created successfully");
+      
+      // Navigate to returnUrl or dashboard
       navigate("/dashboard");
     }, 1500);
   };

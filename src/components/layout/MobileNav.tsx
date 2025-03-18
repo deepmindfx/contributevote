@@ -9,6 +9,7 @@ const MobileNav = () => {
   const { isAuthenticated } = useApp();
   
   const isActive = (path: string) => location.pathname === path;
+  const isPathActive = (path: string) => location.pathname.includes(path);
 
   if (!isAuthenticated) return null;
 
@@ -30,10 +31,14 @@ const MobileNav = () => {
         <Link
           to="/dashboard"
           className={`flex flex-col items-center justify-center w-full h-full transition-colors ${
-            location.pathname.includes("/groups")
+            isPathActive("/groups")
               ? "text-primary"
               : "text-muted-foreground hover:text-foreground"
           }`}
+          onClick={(e) => {
+            e.preventDefault();
+            navigate("/dashboard");
+          }}
         >
           <Users className="h-5 w-5" />
           <span className="text-xs mt-1">Groups</span>
@@ -52,10 +57,14 @@ const MobileNav = () => {
         <Link
           to="/dashboard"
           className={`flex flex-col items-center justify-center w-full h-full transition-colors ${
-            location.pathname.includes("/votes")
+            isPathActive("/votes")
               ? "text-primary"
               : "text-muted-foreground hover:text-foreground"
           }`}
+          onClick={(e) => {
+            e.preventDefault();
+            navigate("/dashboard");
+          }}
         >
           <CheckSquare className="h-5 w-5" />
           <span className="text-xs mt-1">Votes</span>
@@ -64,7 +73,7 @@ const MobileNav = () => {
         <Link
           to="/profile"
           className={`flex flex-col items-center justify-center w-full h-full transition-colors ${
-            location.pathname === "/profile"
+            isActive("/profile")
               ? "text-primary"
               : "text-muted-foreground hover:text-foreground"
           }`}

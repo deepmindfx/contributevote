@@ -25,6 +25,7 @@ const ShareContribution = ({ contributionId, contributionName }: ShareContributi
   const [recipientEmail, setRecipientEmail] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
   const [activeTab, setActiveTab] = useState("contacts");
+  const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
   
   // Filter out current user from contacts list
@@ -79,16 +80,18 @@ const ShareContribution = ({ contributionId, contributionName }: ShareContributi
     setSelectedContacts([]);
     setRecipientEmail("");
     setRecipientPhone("");
+    setIsOpen(false);
     
     toast.success(`Link shared with ${recipients.length} recipient(s)`);
   };
   
   const handlePreview = () => {
     navigate(`/contribute/share/${contributionId}`);
+    setIsOpen(false);
   };
   
   return (
-    <Dialog>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="gap-2">
           <Share2 className="h-4 w-4" />

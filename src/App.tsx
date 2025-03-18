@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppProvider, useApp } from "@/contexts/AppContext";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
+import AdminAuth from "./pages/AdminAuth";
 import Dashboard from "./pages/Dashboard";
 import CreateGroup from "./pages/CreateGroup";
 import GroupDetail from "./pages/GroupDetail";
@@ -17,6 +18,7 @@ import NotFound from "./pages/NotFound";
 import AdminDashboard from "./pages/admin/Dashboard";
 import UserProfile from "./pages/UserProfile";
 import { useEffect } from "react";
+import MobileNav from "./components/layout/MobileNav";
 
 const queryClient = new QueryClient();
 
@@ -25,7 +27,7 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAdmin, isAuthenticated } = useApp();
   
   if (!isAuthenticated) {
-    return <Navigate to="/auth" replace />;
+    return <Navigate to="/admin-login" replace />;
   }
   
   if (!isAdmin) {
@@ -62,6 +64,7 @@ const AppRoutes = () => {
     <Routes>
       <Route path="/" element={<Index />} />
       <Route path="/auth" element={<Auth />} />
+      <Route path="/admin-login" element={<AdminAuth />} />
       
       {/* Protected Routes */}
       <Route path="/dashboard" element={
@@ -133,6 +136,7 @@ const App = () => {
           <Sonner />
           <BrowserRouter>
             <AppRoutes />
+            <MobileNav />
           </BrowserRouter>
         </TooltipProvider>
       </AppProvider>
