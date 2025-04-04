@@ -262,7 +262,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       // In a real app, this would send SMS or emails
       // For now we'll simulate it with a toast notification
-      const shareLink = getShareLink(contributionId);
       const contribution = contributions.find(c => c.id === contributionId);
       
       if (!contribution) {
@@ -270,7 +269,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return;
       }
       
-      toast.success(`Contribution link shared with ${recipients.length} contact(s)`);
+      const shareUrl = `${window.location.origin}/contribute/share/${contributionId}`;
+      
+      // Log share event to console - in a real app we'd send actual notifications
+      console.log(`Sharing contribution "${contribution.name}" to ${recipients.length} recipients`);
+      console.log(`Share URL: ${shareUrl}`);
+      console.log(`Recipients: ${recipients.join(', ')}`);
+      
+      toast.success(`Contribution link shared with ${recipients.length} recipient(s)`);
       
       // In a real app we would store the share event
       refreshData();

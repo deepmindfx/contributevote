@@ -31,7 +31,6 @@ const ShareContribution = ({ contributionId, contributionName }: ShareContributi
   // Filter out current user from contacts list
   const contacts = users.filter(u => u.id !== user.id);
   
-  const shareLink = getShareLink(contributionId);
   const shareUrl = `${window.location.origin}/contribute/share/${contributionId}`;
   
   const copyToClipboard = () => {

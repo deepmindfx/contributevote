@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import Header from "@/components/layout/Header";
@@ -50,6 +49,7 @@ import { useApp } from "@/contexts/AppContext";
 import { Contribution, WithdrawalRequest, Transaction } from "@/services/localStorage";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import ShareContribution from "@/components/contributions/ShareContribution";
 
 const GroupDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -183,31 +183,14 @@ const GroupDetail = () => {
               <h1 className="text-2xl font-bold">{contribution.name}</h1>
               <p className="text-muted-foreground">{contribution.description}</p>
             </div>
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button size="sm" className="flex">
-                  <Share2 className="h-4 w-4 mr-2" />
-                  Share
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Share Contribution Link</DialogTitle>
-                  <DialogDescription>
-                    Share this link with others so they can contribute to this group.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="flex items-center space-x-2">
-                  <Input value={shareLink} readOnly />
-                  <Button variant="outline" size="icon" onClick={copyToClipboard}>
-                    {copySuccess ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  </Button>
-                </div>
-                <DialogFooter className="flex justify-between">
-                  <p className="text-sm text-muted-foreground">Anyone with this link can contribute to this group.</p>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+            
+            {/* Replace the simple share dialog with ShareContribution component */}
+            {contribution && (
+              <ShareContribution 
+                contributionId={contribution.id} 
+                contributionName={contribution.name} 
+              />
+            )}
           </div>
         </div>
         
