@@ -5,7 +5,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"; 
-import { CheckCircle, Copy, Link, Share2, User, UserPlus, Mail, Phone } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { CheckCircle, Copy, Link, Share2, User, UserPlus, Mail, Phone, AlertCircle } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -19,13 +20,18 @@ interface ShareContributionProps {
 }
 
 const ShareContribution = ({ contributionId, contributionName }: ShareContributionProps) => {
-  const { shareToContacts, users, user } = useApp();
+  const { shareToContacts, users, user, getUserByEmail, getUserByPhone } = useApp();
   const [copied, setCopied] = useState(false);
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
   const [recipientEmail, setRecipientEmail] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
   const [activeTab, setActiveTab] = useState("contacts");
   const [isOpen, setIsOpen] = useState(false);
+  const [isValidatingRecipient, setIsValidatingRecipient] = useState(false);
+  const [recipientStatus, setRecipientStatus] = useState<{
+    exists: boolean;
+    message: string;
+  } | null>(null);
   const navigate = useNavigate();
   
   // Filter out current user from contacts list
@@ -47,6 +53,43 @@ const ShareContribution = ({ contributionId, contributionName }: ShareContributi
       setSelectedContacts([...selectedContacts, userId]);
     }
   };
+  
+  const validateRecipient = () => {
+    if (!recipientEmail && !recipientPhone) return;
+    
+    setIsValidatingRecipient(true);
+    setRecipientStatus(null);
+    
+    // Check if recipient exists in the system
+    setTimeout(() => {
+      const existsByEmail = recipientEmail ? users.some(u => u.email === recipientEmail) : false;
+      const existsByPhone = recipientPhone ? users.some(u => u.phoneNumber === recipientPhone) : false;
+      
+      if (existsByEmail || existsByPhone) {
+        setRecipientStatus({
+          exists: true,
+          message: "This user is registered and will receive your invitation."
+        });
+      } else {
+        setRecipientStatus({
+          exists: false,
+          message: "This user is not registered. They'll need to sign up to access the contribution."
+        });
+      }
+      
+      setIsValidatingRecipient(false);
+    }, 500);
+  };
+  
+  // Check recipient status when inputs change
+  useEffect(() => {
+    if (recipientEmail || recipientPhone) {
+      const timeoutId = setTimeout(validateRecipient, 500);
+      return () => clearTimeout(timeoutId);
+    } else {
+      setRecipientStatus(null);
+    }
+  }, [recipientEmail, recipientPhone]);
   
   const handleShareToContacts = () => {
     if (activeTab === "contacts" && selectedContacts.length === 0) {
@@ -97,7 +140,7 @@ const ShareContribution = ({ contributionId, contributionName }: ShareContributi
           Share
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-hidden">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>Share contribution</DialogTitle>
           <DialogDescription className="text-sm">
@@ -129,7 +172,7 @@ const ShareContribution = ({ contributionId, contributionName }: ShareContributi
           </Button>
         </div>
         
-        <div className="mt-4 space-y-4">
+        <div className="mt-4 space-y-4 flex-1 overflow-hidden flex flex-col">
           <Tabs defaultValue="contacts" value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="grid grid-cols-2 mb-2 w-full">
               <TabsTrigger value="contacts" className="flex items-center space-x-1">
@@ -142,11 +185,11 @@ const ShareContribution = ({ contributionId, contributionName }: ShareContributi
               </TabsTrigger>
             </TabsList>
             
-            <TabsContent value="contacts" className="mt-2">
-              <div>
+            <TabsContent value="contacts" className="mt-2 flex-1 overflow-hidden flex flex-col">
+              <div className="flex-1 overflow-hidden flex flex-col">
                 <Label className="text-sm mb-2 block">Share with contacts</Label>
                 {contacts.length > 0 ? (
-                  <ScrollArea className="h-[180px] border rounded-md p-2">
+                  <ScrollArea className="h-[180px] border rounded-md p-2 flex-1">
                     <div className="space-y-2">
                       {contacts.map(contact => (
                         <div 
@@ -182,8 +225,8 @@ const ShareContribution = ({ contributionId, contributionName }: ShareContributi
               </div>
             </TabsContent>
             
-            <TabsContent value="manual" className="mt-2">
-              <div className="space-y-4">
+            <TabsContent value="manual" className="mt-2 flex-1 overflow-hidden flex flex-col">
+              <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
                 <div className="grid gap-2">
                   <Label htmlFor="email" className="flex items-center text-sm">
                     <Mail className="h-4 w-4 mr-2" />
@@ -216,10 +259,33 @@ const ShareContribution = ({ contributionId, contributionName }: ShareContributi
                       className="w-full"
                     />
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Your recipient will be added to the group and gain voting rights after contributing
-                  </p>
                 </div>
+                
+                {isValidatingRecipient && (
+                  <div className="text-center py-2">
+                    <div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full mx-auto"></div>
+                    <p className="text-xs text-muted-foreground mt-1">Checking recipient...</p>
+                  </div>
+                )}
+                
+                {recipientStatus && (
+                  <Alert variant={recipientStatus.exists ? "default" : "destructive"} className="py-2">
+                    <div className="flex items-center space-x-2">
+                      {recipientStatus.exists ? (
+                        <CheckCircle className="h-4 w-4" />
+                      ) : (
+                        <AlertCircle className="h-4 w-4" />
+                      )}
+                      <AlertDescription className="text-xs">
+                        {recipientStatus.message}
+                      </AlertDescription>
+                    </div>
+                  </Alert>
+                )}
+                
+                <p className="text-xs text-muted-foreground mt-auto">
+                  Your recipient will be added to the group and gain voting rights after contributing
+                </p>
               </div>
             </TabsContent>
           </Tabs>

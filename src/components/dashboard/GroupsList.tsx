@@ -1,7 +1,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Users, ArrowRight } from "lucide-react";
+import { Users, ArrowRight, Check, Clock } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
 
@@ -12,14 +12,20 @@ interface GroupItemProps {
   amountRaised: number;
   targetAmount: number;
   type: string;
+  isNew?: boolean;
 }
 
-const GroupItem = ({ id, name, members, amountRaised, targetAmount, type }: GroupItemProps) => {
+const GroupItem = ({ id, name, members, amountRaised, targetAmount, type, isNew }: GroupItemProps) => {
   const progressPercentage = Math.min(100, Math.round((amountRaised / targetAmount) * 100));
 
   return (
     <Link to={`/groups/${id}`}>
-      <div className="p-4 rounded-lg border hover:border-primary/50 transition-all duration-300 cursor-pointer group">
+      <div className="p-4 rounded-lg border hover:border-primary/50 transition-all duration-300 cursor-pointer group relative">
+        {isNew && (
+          <div className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-full">
+            New
+          </div>
+        )}
         <div className="flex justify-between items-start mb-2">
           <div className="flex items-center">
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
@@ -48,6 +54,10 @@ const GroupItem = ({ id, name, members, amountRaised, targetAmount, type }: Grou
 
 const GroupsList = () => {
   const { contributions } = useApp();
+  
+  // Get 24 hours ago timestamp to mark recently added groups
+  const twentyFourHoursAgo = new Date();
+  twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
 
   return (
     <Card className="glass-card animate-slide-up animation-delay-200">
@@ -60,23 +70,27 @@ const GroupsList = () => {
       <CardContent className="space-y-4">
         {contributions.length === 0 ? (
           <div className="text-center py-6 text-muted-foreground">
-            <p>You haven't created any contribution groups yet.</p>
+            <p>You haven't created or joined any contribution groups yet.</p>
             <Link to="/create-group" className="text-primary hover:underline mt-2 inline-block">
               Create your first group
             </Link>
           </div>
         ) : (
-          contributions.map((group) => (
-            <GroupItem 
-              key={group.id}
-              id={group.id}
-              name={group.name}
-              members={group.members.length}
-              amountRaised={group.currentAmount}
-              targetAmount={group.targetAmount}
-              type={group.frequency.charAt(0).toUpperCase() + group.frequency.slice(1)}
-            />
-          ))
+          contributions.map((group) => {
+            const isNew = new Date(group.createdAt) > twentyFourHoursAgo;
+            return (
+              <GroupItem 
+                key={group.id}
+                id={group.id}
+                name={group.name}
+                members={group.members.length}
+                amountRaised={group.currentAmount}
+                targetAmount={group.targetAmount}
+                type={group.frequency.charAt(0).toUpperCase() + group.frequency.slice(1)}
+                isNew={isNew}
+              />
+            );
+          })
         )}
       </CardContent>
     </Card>

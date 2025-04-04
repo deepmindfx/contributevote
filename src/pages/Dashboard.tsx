@@ -11,7 +11,8 @@ import {
   UserPlus, 
   Bell, 
   Settings,
-  User
+  User,
+  X
 } from "lucide-react";
 import { 
   DropdownMenu,
@@ -35,7 +36,7 @@ import { format } from "date-fns";
 
 const Dashboard = () => {
   const [greeting, setGreeting] = useState("");
-  const { user, refreshData } = useApp();
+  const { user, refreshData, contributions } = useApp();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   useEffect(() => {
@@ -48,12 +49,23 @@ const Dashboard = () => {
       setGreeting("Good Evening");
     }
     
+    // Refresh data when dashboard loads to ensure shared contributions are visible
     refreshData();
   }, [refreshData]);
   
-  const handleNotificationRead = (id: string) => {
+  const handleNotificationRead = (id: string, relatedId?: string) => {
     markNotificationAsRead(id);
     refreshData();
+    
+    // If notification is related to a contribution, navigate to it
+    if (relatedId) {
+      const isContribution = contributions.some(c => c.id === relatedId);
+      if (isContribution) {
+        setNotificationsOpen(false);
+        // Use window.location to ensure full page reload if needed
+        window.location.href = `/groups/${relatedId}`;
+      }
+    }
   };
   
   const handleMarkAllRead = () => {
@@ -98,23 +110,30 @@ const Dashboard = () => {
                 <ScrollArea className="h-[400px]">
                   {!user.notifications || user.notifications.length === 0 ? (
                     <div className="p-4 text-center text-muted-foreground">
-                      No notifications
+                      <Bell className="h-10 w-10 mx-auto mb-2 opacity-20" />
+                      <p>No notifications</p>
                     </div>
                   ) : (
                     user.notifications.map((notification) => (
                       <div 
                         key={notification.id} 
-                        className={`p-4 border-b last:border-b-0 ${!notification.read ? 'bg-muted/50' : ''}`}
-                        onClick={() => handleNotificationRead(notification.id)}
+                        className={`p-4 border-b last:border-b-0 ${!notification.read ? 'bg-muted/50' : ''} 
+                          hover:bg-muted/30 cursor-pointer transition-colors`}
+                        onClick={() => handleNotificationRead(notification.id, notification.relatedId)}
                       >
                         <div className="flex items-start gap-3">
                           <div className={`rounded-full w-2 h-2 mt-1.5 ${!notification.read ? 'bg-primary' : 'bg-transparent'}`} />
-                          <div>
+                          <div className="flex-1">
                             <p className="text-sm">{notification.message}</p>
                             <p className="text-xs text-muted-foreground mt-1">
                               {format(new Date(notification.createdAt), 'MMM d, h:mm a')}
                             </p>
                           </div>
+                          {notification.read && (
+                            <div className="text-muted-foreground opacity-50">
+                              <X className="h-3 w-3" />
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))

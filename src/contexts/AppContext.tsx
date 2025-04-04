@@ -25,6 +25,9 @@ import {
   activateUser,
   depositToUser,
   logoutUser,
+  addNotification,
+  getUserByEmail,
+  getUserByPhone,
 } from '@/services/localStorage';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
@@ -51,6 +54,8 @@ interface AppContextType {
   isAuthenticated: boolean;
   shareToContacts: (contributionId: string, recipients: string[]) => void;
   logout: () => void;
+  getUserByEmail: (email: string) => User | null;
+  getUserByPhone: (phone: string) => User | null;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -260,8 +265,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   
   const shareToContacts = (contributionId: string, recipients: string[]) => {
     try {
-      // In a real app, this would send SMS or emails
-      // For now we'll simulate it with a toast notification
+      const currentUser = getCurrentUser();
       const contribution = contributions.find(c => c.id === contributionId);
       
       if (!contribution) {
@@ -270,15 +274,51 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       
       const shareUrl = `${window.location.origin}/contribute/share/${contributionId}`;
+      const allUsers = getUsers();
       
       // Log share event to console - in a real app we'd send actual notifications
       console.log(`Sharing contribution "${contribution.name}" to ${recipients.length} recipients`);
       console.log(`Share URL: ${shareUrl}`);
       console.log(`Recipients: ${recipients.join(', ')}`);
       
-      toast.success(`Contribution link shared with ${recipients.length} recipient(s)`);
+      // Process each recipient
+      recipients.forEach(recipient => {
+        // Check if recipient is an email or phone number
+        let recipientUser = getUserByEmail(recipient);
+        if (!recipientUser) {
+          recipientUser = getUserByPhone(recipient);
+        }
+        
+        if (recipientUser) {
+          // Recipient is a registered user
+          
+          // Add notification to the recipient
+          addNotification({
+            userId: recipientUser.id,
+            message: `${currentUser.name} shared "${contribution.name}" contribution with you`,
+            type: 'info',
+            read: false,
+            relatedId: contributionId,
+          });
+          
+          // Add recipient to contribution members if not already there
+          if (!contribution.members.includes(recipientUser.id)) {
+            const contributions = getContributions();
+            const contribIndex = contributions.findIndex(c => c.id === contributionId);
+            
+            if (contribIndex >= 0) {
+              contributions[contribIndex].members.push(recipientUser.id);
+              localStorage.setItem('contributions', JSON.stringify(contributions));
+            }
+          }
+        } else {
+          // Recipient is not a registered user
+          // In a real app, we would send an invitation email/SMS
+          console.log(`Recipient ${recipient} is not registered. Invitation would be sent.`);
+        }
+      });
       
-      // In a real app we would store the share event
+      toast.success(`Contribution link shared with ${recipients.length} recipient(s)`);
       refreshData();
     } catch (error) {
       toast.error('Failed to share contribution');
@@ -309,6 +349,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       isAuthenticated,
       shareToContacts,
       logout,
+      getUserByEmail: getUserByEmail,
+      getUserByPhone: getUserByPhone,
     }}>
       {children}
     </AppContext.Provider>
