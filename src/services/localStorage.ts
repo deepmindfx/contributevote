@@ -241,6 +241,7 @@ export const updateUserById = (userId: string, userData: Partial<User>): User | 
   return null;
 };
 
+// Admin specific functions
 export const depositToUser = (userId: string, amount: number): User | null => {
   const users = getUsers();
   const index = users.findIndex(u => u.id === userId);
@@ -632,7 +633,7 @@ export const addTransaction = (transaction: Omit<Transaction, 'id'>): Transactio
 // Share methods
 export const generateShareLink = (contributionId: string): string => {
   const baseUrl = window.location.origin;
-  return `${baseUrl}/contribute/${contributionId}`;
+  return `${baseUrl}/contribute/share/${contributionId}`;
 };
 
 // Statistics methods

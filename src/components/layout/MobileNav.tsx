@@ -6,11 +6,13 @@ import { useApp } from "@/contexts/AppContext";
 const MobileNav = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { isAuthenticated } = useApp();
+  const { isAuthenticated, isAdmin } = useApp();
   
   const isActive = (path: string) => location.pathname === path;
   const isPathActive = (path: string) => location.pathname.includes(path);
 
+  // Don't show the mobile nav for admin pages or when not authenticated
+  if (isAdmin && location.pathname.includes('/admin')) return null;
   if (!isAuthenticated) return null;
 
   return (
@@ -35,10 +37,6 @@ const MobileNav = () => {
               ? "text-primary"
               : "text-muted-foreground hover:text-foreground"
           }`}
-          onClick={(e) => {
-            e.preventDefault();
-            navigate("/dashboard");
-          }}
         >
           <Users className="h-5 w-5" />
           <span className="text-xs mt-1">Groups</span>
@@ -61,10 +59,6 @@ const MobileNav = () => {
               ? "text-primary"
               : "text-muted-foreground hover:text-foreground"
           }`}
-          onClick={(e) => {
-            e.preventDefault();
-            navigate("/dashboard");
-          }}
         >
           <CheckSquare className="h-5 w-5" />
           <span className="text-xs mt-1">Votes</span>
