@@ -19,7 +19,7 @@ interface ShareContributionProps {
 }
 
 const ShareContribution = ({ contributionId, contributionName }: ShareContributionProps) => {
-  const { getShareLink, users, user, shareToContacts } = useApp();
+  const { shareToContacts, users, user } = useApp();
   const [copied, setCopied] = useState(false);
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
   const [recipientEmail, setRecipientEmail] = useState("");
@@ -97,10 +97,10 @@ const ShareContribution = ({ contributionId, contributionName }: ShareContributi
           Share
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle>Share contribution</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-sm">
             Invite others to contribute to "{contributionName}"
           </DialogDescription>
         </DialogHeader>
@@ -112,13 +112,13 @@ const ShareContribution = ({ contributionId, contributionName }: ShareContributi
               id="link"
               value={shareUrl}
               readOnly
-              className="w-full"
+              className="w-full truncate"
             />
           </div>
           <Button 
             type="button" 
             size="sm" 
-            className="px-3" 
+            className="px-3 shrink-0" 
             onClick={copyToClipboard}
           >
             {copied ? (
@@ -131,22 +131,22 @@ const ShareContribution = ({ contributionId, contributionName }: ShareContributi
         
         <div className="mt-4 space-y-4">
           <Tabs defaultValue="contacts" value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid grid-cols-2 mb-2">
-              <TabsTrigger value="contacts">
-                <UserPlus className="h-4 w-4 mr-2" />
-                Contacts
+            <TabsList className="grid grid-cols-2 mb-2 w-full">
+              <TabsTrigger value="contacts" className="flex items-center space-x-1">
+                <UserPlus className="h-4 w-4" />
+                <span>Contacts</span>
               </TabsTrigger>
-              <TabsTrigger value="manual">
-                <Mail className="h-4 w-4 mr-2" />
-                Manual Entry
+              <TabsTrigger value="manual" className="flex items-center space-x-1">
+                <Mail className="h-4 w-4" />
+                <span>Manual</span>
               </TabsTrigger>
             </TabsList>
             
-            <TabsContent value="contacts">
+            <TabsContent value="contacts" className="mt-2">
               <div>
-                <Label className="text-base mb-2 block">Share with contacts</Label>
+                <Label className="text-sm mb-2 block">Share with contacts</Label>
                 {contacts.length > 0 ? (
-                  <ScrollArea className="h-[200px] border rounded-md p-2">
+                  <ScrollArea className="h-[180px] border rounded-md p-2">
                     <div className="space-y-2">
                       {contacts.map(contact => (
                         <div 
@@ -164,9 +164,9 @@ const ShareContribution = ({ contributionId, contributionName }: ShareContributi
                               {contact.firstName?.charAt(0)}{contact.lastName?.charAt(0) || ""}
                             </AvatarFallback>
                           </Avatar>
-                          <div className="text-sm">
-                            <p className="font-medium">{contact.name}</p>
-                            <p className="text-xs text-muted-foreground">{contact.email || contact.phoneNumber}</p>
+                          <div className="text-sm overflow-hidden flex-1">
+                            <p className="font-medium truncate">{contact.name}</p>
+                            <p className="text-xs text-muted-foreground truncate">{contact.email || contact.phoneNumber}</p>
                           </div>
                         </div>
                       ))}
@@ -182,10 +182,10 @@ const ShareContribution = ({ contributionId, contributionName }: ShareContributi
               </div>
             </TabsContent>
             
-            <TabsContent value="manual">
+            <TabsContent value="manual" className="mt-2">
               <div className="space-y-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="email" className="flex items-center">
+                  <Label htmlFor="email" className="flex items-center text-sm">
                     <Mail className="h-4 w-4 mr-2" />
                     Share via email
                   </Label>
@@ -196,12 +196,13 @@ const ShareContribution = ({ contributionId, contributionName }: ShareContributi
                       type="email" 
                       value={recipientEmail}
                       onChange={(e) => setRecipientEmail(e.target.value)}
+                      className="w-full"
                     />
                   </div>
                 </div>
                 
                 <div className="grid gap-2">
-                  <Label htmlFor="phone" className="flex items-center">
+                  <Label htmlFor="phone" className="flex items-center text-sm">
                     <Phone className="h-4 w-4 mr-2" />
                     Share via phone number
                   </Label>
@@ -212,6 +213,7 @@ const ShareContribution = ({ contributionId, contributionName }: ShareContributi
                       type="tel" 
                       value={recipientPhone}
                       onChange={(e) => setRecipientPhone(e.target.value)}
+                      className="w-full"
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">
@@ -224,17 +226,17 @@ const ShareContribution = ({ contributionId, contributionName }: ShareContributi
         </div>
         
         <DialogFooter className="flex flex-col sm:flex-row gap-2 mt-4">
-          <Button variant="outline" type="button" onClick={copyToClipboard}>
+          <Button variant="outline" type="button" onClick={copyToClipboard} className="w-full sm:w-auto">
             <Link className="mr-2 h-4 w-4" />
             Copy Link
           </Button>
-          <Button variant="outline" type="button" onClick={handlePreview}>
+          <Button variant="outline" type="button" onClick={handlePreview} className="w-full sm:w-auto">
             <User className="mr-2 h-4 w-4" />
-            Preview Link
+            Preview
           </Button>
-          <Button type="button" onClick={handleShareToContacts}>
+          <Button type="button" onClick={handleShareToContacts} className="w-full sm:w-auto">
             <Share2 className="mr-2 h-4 w-4" />
-            Share Now
+            Share
           </Button>
         </DialogFooter>
       </DialogContent>
