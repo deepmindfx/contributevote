@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { LogIn, Mail, Phone, User, Key, Lock } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { v4 as uuidv4 } from 'uuid';
+import { useApp } from "@/contexts/AppContext";
 
 const AuthForm = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -22,6 +23,8 @@ const AuthForm = () => {
   
   const navigate = useNavigate();
   const location = useLocation();
+  const { refreshData } = useApp();
+  
   // Get return URL if user was redirected from a protected page
   const { state } = location;
   const returnUrl = state?.returnUrl || "/dashboard";
@@ -47,8 +50,6 @@ const AuthForm = () => {
       return;
     }
     
-    // We'll move admin login to a separate page, so this logic is handled there
-    
     // For regular users - check if user exists
     const users = JSON.parse(localStorage.getItem('users') || '[]');
     const foundUser = users.find((u: any) => 
@@ -65,11 +66,17 @@ const AuthForm = () => {
     // For now, we'll just log the user in
     
     localStorage.setItem('currentUser', JSON.stringify(foundUser));
+    
+    // Important: Refresh app context data after login
+    refreshData();
+    
     setIsLoading(false);
     toast.success("Login successful");
     
     // Navigate to returnUrl or dashboard
-    navigate(returnUrl);
+    setTimeout(() => {
+      navigate(returnUrl);
+    }, 500);
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -114,11 +121,16 @@ const AuthForm = () => {
       // Set as current user
       localStorage.setItem('currentUser', JSON.stringify(user));
       
+      // Important: Refresh app context data after registration
+      refreshData();
+      
       setIsLoading(false);
       toast.success("Account created successfully");
       
       // Navigate to returnUrl or dashboard
-      navigate("/dashboard");
+      setTimeout(() => {
+        navigate("/dashboard");
+      }, 500);
     }, 1500);
   };
 
