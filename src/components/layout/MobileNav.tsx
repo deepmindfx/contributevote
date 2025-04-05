@@ -22,7 +22,7 @@ const MobileNav = () => {
           to="/dashboard"
           className={`flex flex-col items-center justify-center w-full h-full transition-colors ${
             isActive("/dashboard")
-              ? "text-primary"
+              ? "text-[#EB611A]"
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
@@ -34,7 +34,7 @@ const MobileNav = () => {
           to="/groups"
           className={`flex flex-col items-center justify-center w-full h-full transition-colors ${
             isPathActive("/groups")
-              ? "text-primary"
+              ? "text-[#EB611A]"
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
@@ -44,9 +44,9 @@ const MobileNav = () => {
         
         <Link
           to="/create-group"
-          className="flex flex-col items-center justify-center w-full h-full transition-colors text-primary"
+          className="flex flex-col items-center justify-center w-full h-full transition-colors text-[#EB611A]"
         >
-          <div className="rounded-full bg-primary p-3 -mt-8 text-primary-foreground shadow-lg">
+          <div className="rounded-full bg-[#EB611A] p-3 -mt-8 text-primary-foreground shadow-lg">
             <Plus className="h-5 w-5" />
           </div>
           <span className="text-xs mt-1">Create</span>
@@ -56,7 +56,7 @@ const MobileNav = () => {
           to="/votes"
           className={`flex flex-col items-center justify-center w-full h-full transition-colors ${
             isPathActive("/votes")
-              ? "text-primary"
+              ? "text-[#EB611A]"
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
@@ -68,7 +68,7 @@ const MobileNav = () => {
           to="/profile"
           className={`flex flex-col items-center justify-center w-full h-full transition-colors ${
             isActive("/profile")
-              ? "text-primary"
+              ? "text-[#EB611A]"
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
