@@ -174,11 +174,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const vote = (requestId: string, vote: 'approve' | 'reject') => {
     try {
+      // This now leverages the updated voteOnWithdrawalRequest function which checks for contribution eligibility
       voteOnWithdrawalRequest(requestId, vote);
       refreshData();
       toast.success(`Vote ${vote === 'approve' ? 'approved' : 'rejected'} successfully`);
     } catch (error) {
-      toast.error('Failed to submit vote');
+      if (error instanceof Error) {
+        toast.error(error.message);
+      } else {
+        toast.error('Failed to submit vote');
+      }
       console.error(error);
     }
   };

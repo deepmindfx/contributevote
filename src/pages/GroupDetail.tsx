@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import Header from "@/components/layout/Header";
@@ -46,7 +47,12 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useApp } from "@/contexts/AppContext";
-import { Contribution, WithdrawalRequest, Transaction } from "@/services/localStorage";
+import { 
+  Contribution, 
+  WithdrawalRequest, 
+  Transaction, 
+  hasContributed 
+} from "@/services/localStorage";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import ShareContribution from "@/components/contributions/ShareContribution";
@@ -74,6 +80,7 @@ const GroupDetail = () => {
   const [shareLink, setShareLink] = useState("");
   const [copySuccess, setCopySuccess] = useState(false);
   const [anonymous, setAnonymous] = useState(user.preferences?.anonymousContributions || false);
+  const [hasUserContributed, setHasUserContributed] = useState(false);
   
   useEffect(() => {
     if (!id) return;
@@ -89,7 +96,10 @@ const GroupDetail = () => {
     setContributionRequests(withdrawalRequests.filter(w => w.contributionId === id));
     setContributionTransactions(transactions.filter(t => t.contributionId === id));
     setShareLink(getShareLink(id));
-  }, [id, contributions, withdrawalRequests, transactions, navigate, getShareLink]);
+    
+    // Check if user has contributed to this group
+    setHasUserContributed(hasContributed(user.id, id));
+  }, [id, contributions, withdrawalRequests, transactions, navigate, getShareLink, user.id]);
   
   if (!contribution) {
     return <div className="flex justify-center items-center min-h-screen">Loading...</div>;
@@ -105,6 +115,7 @@ const GroupDetail = () => {
     
     contribute(contribution.id, Number(contributionAmount), anonymous);
     setContributionAmount("");
+    setHasUserContributed(true);
   };
   
   const handleRequestWithdrawal = () => {
@@ -135,6 +146,11 @@ const GroupDetail = () => {
   };
   
   const handleVote = (requestId: string, voteValue: 'approve' | 'reject') => {
+    if (!hasUserContributed) {
+      toast.error("You must contribute to this group before voting");
+      return;
+    }
+    
     vote(requestId, voteValue);
   };
   
@@ -184,7 +200,7 @@ const GroupDetail = () => {
               <p className="text-muted-foreground">{contribution.description}</p>
             </div>
             
-            {/* Replace the simple share dialog with ShareContribution component */}
+            {/* Share contribution component */}
             {contribution && (
               <ShareContribution 
                 contributionId={contribution.id} 
@@ -398,6 +414,7 @@ const GroupDetail = () => {
                                     onClick={() => handleVote(request.id, 'approve')}
                                     className="flex-1"
                                     size="sm"
+                                    disabled={!hasUserContributed}
                                   >
                                     <Check className="h-4 w-4 mr-2" />
                                     Approve
@@ -407,6 +424,7 @@ const GroupDetail = () => {
                                     variant="outline"
                                     className="flex-1"
                                     size="sm"
+                                    disabled={!hasUserContributed}
                                   >
                                     <X className="h-4 w-4 mr-2" />
                                     Reject
@@ -417,6 +435,12 @@ const GroupDetail = () => {
                                   You voted to {userVote(request) === 'approve' ? 'approve' : 'reject'} this request.
                                 </div>
                               ) : null}
+                              
+                              {request.status === 'pending' && !hasUserContributed && (
+                                <div className="mt-2 text-xs text-amber-500 text-center">
+                                  You must contribute to this group before you can vote
+                                </div>
+                              )}
                             </CardContent>
                           </Card>
                         ))}
@@ -426,6 +450,7 @@ const GroupDetail = () => {
                 </Card>
               </TabsContent>
               
+              {/* Contributors tab content */}
               <TabsContent value="contributors">
                 <Card className="glass-card animate-slide-up">
                   <CardHeader>
@@ -475,6 +500,7 @@ const GroupDetail = () => {
                 </Card>
               </TabsContent>
               
+              {/* Transactions tab content */}
               <TabsContent value="transactions">
                 <Card className="glass-card animate-slide-up">
                   <CardHeader>

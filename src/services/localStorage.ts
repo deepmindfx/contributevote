@@ -510,12 +510,34 @@ export const createWithdrawalRequest = (request: Omit<WithdrawalRequest, 'id' | 
   return newRequest;
 };
 
+// Add function to check if a user has contributed to a group
+export const hasContributed = (userId: string, contributionId: string): boolean => {
+  const contributions = getContributions();
+  const contribution = contributions.find(c => c.id === contributionId);
+  
+  if (!contribution) return false;
+  
+  return contribution.contributors.some(c => c.userId === userId);
+};
+
+// Add function to check if a user is eligible to vote
+export const canVote = (userId: string, contributionId: string): boolean => {
+  // User must have contributed to the group to be eligible to vote
+  return hasContributed(userId, contributionId);
+};
+
+// Modify the voteOnWithdrawalRequest function to check eligibility
 export const voteOnWithdrawalRequest = (requestId: string, vote: 'approve' | 'reject'): WithdrawalRequest => {
   const requests = getWithdrawalRequests();
   const currentUser = getCurrentUser();
   
   const index = requests.findIndex(r => r.id === requestId);
   if (index >= 0) {
+    // Check if user is eligible to vote
+    if (!canVote(currentUser.id, requests[index].contributionId)) {
+      throw new Error('You must contribute to this group before voting on withdrawal requests');
+    }
+    
     // Remove existing vote if any
     requests[index].votes = requests[index].votes.filter(v => v.userId !== currentUser.id);
     

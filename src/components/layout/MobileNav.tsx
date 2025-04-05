@@ -31,7 +31,7 @@ const MobileNav = () => {
         </Link>
         
         <Link
-          to="/dashboard"
+          to="/groups"
           className={`flex flex-col items-center justify-center w-full h-full transition-colors ${
             isPathActive("/groups")
               ? "text-primary"
@@ -53,7 +53,7 @@ const MobileNav = () => {
         </Link>
         
         <Link
-          to="/dashboard"
+          to="/votes"
           className={`flex flex-col items-center justify-center w-full h-full transition-colors ${
             isPathActive("/votes")
               ? "text-primary"
