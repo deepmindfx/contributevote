@@ -1,17 +1,8 @@
-
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { 
-  PlusCircle, 
-  ArrowDown, 
-  Bell,
-  Wallet,
-  SendHorizontal,
-  UserPlus,
-  Clock
-} from "lucide-react";
+import { PlusCircle, ArrowDown, Bell, Wallet, SendHorizontal, UserPlus, Clock } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -19,16 +10,17 @@ import { Label } from "@/components/ui/label";
 import { updateUserBalance } from "@/services/localStorage";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-
 const WalletCard = () => {
   const [showBalance, setShowBalance] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [amount, setAmount] = useState("");
   const [isDepositOpen, setIsDepositOpen] = useState(false);
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
-  
-  const { user, refreshData, isAdmin } = useApp();
-
+  const {
+    user,
+    refreshData,
+    isAdmin
+  } = useApp();
   const refreshBalance = () => {
     setIsLoading(true);
     setTimeout(() => {
@@ -36,40 +28,33 @@ const WalletCard = () => {
       setIsLoading(false);
     }, 1000);
   };
-  
   const handleDeposit = () => {
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       toast.error("Please enter a valid amount");
       return;
     }
-    
     updateUserBalance(Number(amount));
     refreshData();
     setAmount("");
     setIsDepositOpen(false);
     toast.success(`Successfully deposited ₦${Number(amount).toLocaleString()}`);
   };
-  
   const handleWithdraw = () => {
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       toast.error("Please enter a valid amount");
       return;
     }
-    
     if (Number(amount) > user.walletBalance) {
       toast.error("Insufficient funds in your wallet");
       return;
     }
-    
     updateUserBalance(-Number(amount));
     refreshData();
     setAmount("");
     setIsWithdrawOpen(false);
     toast.success(`Successfully withdrew ₦${Number(amount).toLocaleString()}`);
   };
-
-  return (
-    <Card className="overflow-hidden rounded-3xl border-0 shadow-lg relative">
+  return <Card className="overflow-hidden rounded-3xl border-0 shadow-lg relative">
       <div className="bg-[#EB611A] p-6 text-white relative overflow-hidden">
         {/* Circle pattern decorations */}
         <div className="absolute top-6 right-8 w-20 h-20 rounded-full border-2 border-white/10 opacity-20"></div>
@@ -93,11 +78,7 @@ const WalletCard = () => {
             </AvatarFallback>
           </Avatar>
           
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-10 w-10 text-white hover:bg-white/10 rounded-full"
-          >
+          <Button variant="ghost" size="icon" className="h-10 w-10 text-white hover:bg-white/10 rounded-full">
             <Bell size={20} />
           </Button>
         </div>
@@ -136,14 +117,7 @@ const WalletCard = () => {
                     <Label htmlFor="deposit-amount">Amount</Label>
                     <div className="relative">
                       <span className="absolute left-3 top-2.5 text-muted-foreground">₦</span>
-                      <Input
-                        id="deposit-amount"
-                        type="number"
-                        className="pl-8"
-                        placeholder="0.00"
-                        value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
-                      />
+                      <Input id="deposit-amount" type="number" className="pl-8" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} />
                     </div>
                   </div>
                 </div>
@@ -175,14 +149,7 @@ const WalletCard = () => {
                     <Label htmlFor="withdraw-amount">Amount</Label>
                     <div className="relative">
                       <span className="absolute left-3 top-2.5 text-muted-foreground">₦</span>
-                      <Input
-                        id="withdraw-amount"
-                        type="number"
-                        className="pl-8"
-                        placeholder="0.00"
-                        value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
-                      />
+                      <Input id="withdraw-amount" type="number" className="pl-8" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} />
                     </div>
                   </div>
                 </div>
@@ -198,7 +165,7 @@ const WalletCard = () => {
                 <div className="w-10 h-10 rounded-full bg-[#EB611A]/10 flex items-center justify-center text-[#EB611A] mb-1">
                   <UserPlus size={20} />
                 </div>
-                <span className="text-xs">New Group</span>
+                <span className="text-xs">Group</span>
               </Link>
             </div>
             
@@ -211,8 +178,6 @@ const WalletCard = () => {
           </div>
         </div>
       </CardContent>
-    </Card>
-  );
+    </Card>;
 };
-
 export default WalletCard;
