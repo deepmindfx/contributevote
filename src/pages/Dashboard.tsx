@@ -170,12 +170,12 @@ const Dashboard = () => {
           </div>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1 animate-slide-up">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+          <div className="md:col-span-5 animate-slide-up">
             <WalletCard />
           </div>
           
-          <div className="md:col-span-2">
+          <div className="md:col-span-7">
             <div className="space-y-6">
               <GroupsList />
               <RecentActivity />

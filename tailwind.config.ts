@@ -56,6 +56,40 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        purple: {
+          100: "#f3e8ff",
+          500: "#a855f7",
+          600: "#9333ea",
+          900: "#581c87",
+        },
+        blue: {
+          100: "#dbeafe",
+          400: "#60a5fa",
+          500: "#3b82f6",
+          600: "#2563eb",
+          900: "#1e3a8a",
+        },
+        green: {
+          100: "#dcfce7",
+          500: "#22c55e",
+          900: "#14532d",
+        },
+        yellow: {
+          100: "#fef9c3",
+          500: "#eab308",
+          900: "#713f12",
+        },
+        red: {
+          100: "#fee2e2",
+          500: "#ef4444",
+          900: "#7f1d1d",
+        },
+        indigo: {
+          100: "#e0e7ff",
+          400: "#818cf8",
+          600: "#4f46e5",
+          900: "#312e81",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
