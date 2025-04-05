@@ -73,7 +73,7 @@ const WalletCard = () => {
         <div className="absolute bottom-16 left-4 w-8 h-8 rounded-full border-2 border-white/10 opacity-10"></div>
         
         {/* Stripe pattern decorations */}
-        <div className="absolute top-0 right-0 w-full h-full bg-[#30aa6f]">
+        <div className="absolute top-0 right-0 w-full h-full bg-[#3fbc80]">
           <div className="absolute top-4 right-6 w-40 h-[1px] bg-white/10"></div>
           <div className="absolute top-8 right-6 w-32 h-[1px] bg-white/10"></div>
           <div className="absolute bottom-12 left-6 w-40 h-[1px] bg-white/10"></div>
