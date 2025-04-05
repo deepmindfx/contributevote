@@ -12,9 +12,7 @@ import {
   ShieldCheck,
   Wallet,
   SendHorizontal,
-  TimerReset,
-  Clock,
-  History
+  UserPlus
 } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -23,7 +21,6 @@ import { Label } from "@/components/ui/label";
 import { updateUserBalance } from "@/services/localStorage";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const WalletCard = () => {
   const [showBalance, setShowBalance] = useState(true);
@@ -74,8 +71,22 @@ const WalletCard = () => {
   };
 
   return (
-    <Card className="overflow-hidden rounded-xl border-0">
-      <div className="bg-[#4a0082] p-6 text-white">
+    <Card className="overflow-hidden rounded-xl border-0 relative">
+      {/* Circle pattern decorations */}
+      <div className="absolute top-6 right-8 w-20 h-20 rounded-full border-2 border-white/10 opacity-20"></div>
+      <div className="absolute top-12 right-12 w-12 h-12 rounded-full border-2 border-white/10 opacity-20"></div>
+      <div className="absolute bottom-20 left-8 w-16 h-16 rounded-full border-2 border-white/10 opacity-10"></div>
+      <div className="absolute bottom-16 left-4 w-8 h-8 rounded-full border-2 border-white/10 opacity-10"></div>
+      
+      <div className="bg-[#EB611A] p-6 text-white relative overflow-hidden">
+        {/* Stripe pattern decorations */}
+        <div className="absolute top-0 right-0 w-full h-full">
+          <div className="absolute top-4 right-6 w-40 h-[1px] bg-white/10"></div>
+          <div className="absolute top-8 right-6 w-32 h-[1px] bg-white/10"></div>
+          <div className="absolute bottom-12 left-6 w-40 h-[1px] bg-white/10"></div>
+          <div className="absolute bottom-8 left-6 w-32 h-[1px] bg-white/10"></div>
+        </div>
+        
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center gap-3">
             <Avatar className="h-10 w-10 border-2 border-white/30">
@@ -120,11 +131,11 @@ const WalletCard = () => {
           </div>
         </div>
 
-        <div className="mb-5">
+        <div className="mb-5 relative z-10">
           <p className="text-sm text-white/80 mb-1">Available Balance</p>
           <div className="flex items-baseline">
             <h2 className="text-4xl font-bold tracking-tight">
-              {showBalance ? `$${user.walletBalance?.toLocaleString() || 0}` : "$•••••••"}
+              {showBalance ? `₦${user.walletBalance?.toLocaleString() || 0}` : "₦•••••••"}
             </h2>
           </div>
         </div>
@@ -132,11 +143,11 @@ const WalletCard = () => {
       
       <CardContent className="p-0">
         <div className="bg-white dark:bg-black/40 rounded-t-3xl -mt-3 overflow-hidden">
-          <div className="p-3 grid grid-cols-4 gap-1 border-b">
+          <div className="p-3 grid grid-cols-3 gap-1 border-b">
             <Dialog open={isDepositOpen} onOpenChange={setIsDepositOpen}>
               <DialogTrigger asChild>
                 <div className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors">
-                  <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/20 flex items-center justify-center text-purple-600 dark:text-purple-400 mb-1">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-1">
                     <PlusCircle size={18} />
                   </div>
                   <span className="text-xs">Top Up</span>
@@ -175,7 +186,7 @@ const WalletCard = () => {
             <Dialog open={isWithdrawOpen} onOpenChange={setIsWithdrawOpen}>
               <DialogTrigger asChild>
                 <div className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors">
-                  <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center text-blue-600 dark:text-blue-400 mb-1">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-1">
                     <SendHorizontal size={18} />
                   </div>
                   <span className="text-xs">Send</span>
@@ -212,55 +223,12 @@ const WalletCard = () => {
             </Dialog>
             
             <div className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors">
-              <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/20 flex items-center justify-center text-purple-600 dark:text-purple-400 mb-1">
-                <ArrowDown size={18} />
-              </div>
-              <span className="text-xs">Request</span>
-            </div>
-            
-            <div className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors">
-              <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 mb-1">
-                <History size={18} />
-              </div>
-              <span className="text-xs">History</span>
-            </div>
-          </div>
-          
-          <div className="p-4">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-semibold">Payment List</h3>
-            </div>
-            
-            <div className="grid grid-cols-4 gap-3">
-              <Button variant="outline" className="flex flex-col items-center justify-center h-auto py-3 px-2" asChild>
-                <Link to="/create-group">
-                  <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-red-100 text-red-500 mb-1">
-                    <Wallet size={18} />
-                  </div>
-                  <span className="text-xs">New Group</span>
-                </Link>
-              </Button>
-              
-              <div className="flex flex-col items-center justify-center p-3 bg-muted/30 rounded-lg">
-                <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-yellow-100 text-yellow-500 mb-1">
-                  <RefreshCw size={18} />
+              <Link to="/create-group" className="flex flex-col items-center">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-1">
+                  <UserPlus size={18} />
                 </div>
-                <span className="text-xs">Electricity</span>
-              </div>
-              
-              <div className="flex flex-col items-center justify-center p-3 bg-muted/30 rounded-lg">
-                <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-green-100 text-green-500 mb-1">
-                  <PlusCircle size={18} />
-                </div>
-                <span className="text-xs">Voucher</span>
-              </div>
-              
-              <div className="flex flex-col items-center justify-center p-3 bg-muted/30 rounded-lg">
-                <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-blue-100 text-blue-500 mb-1">
-                  <ShieldCheck size={18} />
-                </div>
-                <span className="text-xs">Assurance</span>
-              </div>
+                <span className="text-xs">New Group</span>
+              </Link>
             </div>
           </div>
         </div>
