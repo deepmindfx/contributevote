@@ -132,7 +132,7 @@ const Dashboard = () => {
                         onClick={() => handleNotificationRead(notification.id, notification.relatedId)}
                       >
                         <div className="flex items-start gap-3">
-                          <div className={`rounded-full w-2 h-2 mt-1.5 ${!notification.read ? 'bg-primary' : 'bg-transparent'}`} />
+                          <div className={`rounded-full w-2 h-2 mt-1.5 ${!notification.read ? 'bg-green-600' : 'bg-transparent'}`} />
                           <div className="flex-1">
                             <p className="text-sm">{notification.message}</p>
                             <p className="text-xs text-muted-foreground mt-1">
@@ -171,10 +171,16 @@ const Dashboard = () => {
               </DropdownMenuContent>
             </DropdownMenu>
             
-            <Button size="sm" asChild>
+            <Button size="sm" asChild className="bg-green-600 hover:bg-green-700">
               <Link to="/create-group">
                 <UserPlus className="h-4 w-4 mr-2" />
                 New Group
+              </Link>
+            </Button>
+
+            <Button size="sm" variant="outline" asChild>
+              <Link to="/votes">
+                See Votes
               </Link>
             </Button>
           </div>
