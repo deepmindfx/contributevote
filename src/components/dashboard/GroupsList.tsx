@@ -1,4 +1,3 @@
-
 import { useNavigate, Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,20 +6,17 @@ import { Progress } from "@/components/ui/progress";
 import { useApp } from "@/contexts/AppContext";
 import { format } from "date-fns";
 import { Users, Calendar, ArrowRight } from "lucide-react";
-
 const GroupsList = () => {
   const navigate = useNavigate();
-  const { contributions } = useApp();
-  
+  const {
+    contributions
+  } = useApp();
   const getRecentGroups = () => {
     // Get most recent 3 groups
     return contributions.slice(0, 3);
   };
-  
   const recentGroups = getRecentGroups();
-  
-  return (
-    <Card>
+  return <Card>
       <CardHeader className="pb-3">
         <div className="flex justify-between items-center">
           <div>
@@ -36,28 +32,15 @@ const GroupsList = () => {
         </div>
       </CardHeader>
       <CardContent>
-        {recentGroups.length === 0 ? (
-          <div className="text-center py-6">
+        {recentGroups.length === 0 ? <div className="text-center py-6">
             <p className="text-muted-foreground mb-4">You haven't joined any contribution groups yet</p>
-            <Button 
-              className="bg-green-600 hover:bg-green-700"
-              onClick={() => navigate("/create-group")}
-            >
+            <Button className="bg-green-600 hover:bg-green-700" onClick={() => navigate("/create-group")}>
               Create a Group
             </Button>
-          </div>
-        ) : (
-          <div className="space-y-4">
+          </div> : <div className="space-y-4">
             {recentGroups.map(group => {
-              const progressPercentage = Math.min(
-                100,
-                Math.round((group.currentAmount / group.targetAmount) * 100) || 0
-              );
-              
-              return (
-                <div key={group.id} className="border rounded-lg p-4 cursor-pointer hover:bg-muted/50 transition-colors"
-                  onClick={() => navigate(`/groups/${group.id}`)}
-                >
+          const progressPercentage = Math.min(100, Math.round(group.currentAmount / group.targetAmount * 100) || 0);
+          return <div key={group.id} className="border rounded-lg p-4 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => navigate(`/groups/${group.id}`)}>
                   <div className="flex justify-between items-start mb-2">
                     <div>
                       <h3 className="font-medium text-base">{group.name}</h3>
@@ -83,24 +66,15 @@ const GroupsList = () => {
                     </div>
                     <Progress value={progressPercentage} className="h-1.5" />
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+                </div>;
+        })}
+          </div>}
       </CardContent>
       <CardFooter className="pt-0">
-        {recentGroups.length > 0 && (
-          <Button 
-            className="w-full bg-green-600 hover:bg-green-700" 
-            onClick={() => navigate("/create-group")}
-          >
+        {recentGroups.length > 0 && <Button onClick={() => navigate("/create-group")} className="w-full bg-[#2dae75]">
             Create New Group
-          </Button>
-        )}
+          </Button>}
       </CardFooter>
-    </Card>
-  );
+    </Card>;
 };
-
 export default GroupsList;
