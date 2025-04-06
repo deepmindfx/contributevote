@@ -1022,4 +1022,30 @@ export const updateWithdrawalRequestsStatus = (): void => {
                 message: `Your withdrawal request of ₦${request.amount.toLocaleString()} was approved!`,
                 type: 'success',
                 read: false,
-                relatedId: request.
+                relatedId: request.id,
+              });
+            } else {
+              // If less than 51% votes are for approval, reject the request
+              requests[index].status = 'rejected';
+              
+              // Add notification
+              addNotification({
+                userId: request.requesterId,
+                message: `Your withdrawal request of ₦${request.amount.toLocaleString()} was rejected`,
+                type: 'error',
+                read: false,
+                relatedId: request.id,
+              });
+            }
+            
+            updated = true;
+          }
+        }
+      }
+    }
+  });
+  
+  if (updated) {
+    localStorage.setItem('withdrawalRequests', JSON.stringify(requests));
+  }
+};
