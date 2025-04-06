@@ -165,7 +165,7 @@ const AuthForm = () => {
                   <Input placeholder="Password" type="password" name="password" className="pl-10" value={loginData.password} onChange={handleLoginChange} required />
                 </div>
               </div>
-              <Button type="submit" disabled={isLoading} className="w-full text-[#42ab35]">
+              <Button type="submit" disabled={isLoading} className="w-full text-white">
                 {isLoading ? <div className="flex items-center">
                     <div className="animate-spin mr-2 h-4 w-4 border-t-2 border-b-2 border-current rounded-full"></div>
                     Logging in...
