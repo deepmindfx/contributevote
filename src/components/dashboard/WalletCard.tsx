@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,7 @@ import { updateUserBalance } from "@/services/localStorage";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Toggle } from "@/components/ui/toggle";
+
 const WalletCard = () => {
   const navigate = useNavigate();
   const [showBalance, setShowBalance] = useState(true);
@@ -19,6 +21,7 @@ const WalletCard = () => {
   const [isDepositOpen, setIsDepositOpen] = useState(false);
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  
   const {
     user,
     refreshData,
@@ -28,6 +31,7 @@ const WalletCard = () => {
 
   // Filter only the user's wallet-related transactions
   const walletTransactions = transactions.filter(t => t.userId === user.id && (t.contributionId === "" || t.type === "deposit" || t.type === "withdrawal")).slice(0, 5);
+  
   const refreshBalance = () => {
     setIsLoading(true);
     setTimeout(() => {
@@ -35,6 +39,7 @@ const WalletCard = () => {
       setIsLoading(false);
     }, 1000);
   };
+  
   const handleDeposit = () => {
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       toast.error("Please enter a valid amount");
@@ -46,6 +51,7 @@ const WalletCard = () => {
     setIsDepositOpen(false);
     toast.success(`Successfully deposited ₦${Number(amount).toLocaleString()}`);
   };
+  
   const handleWithdraw = () => {
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       toast.error("Please enter a valid amount");
@@ -61,13 +67,17 @@ const WalletCard = () => {
     setIsWithdrawOpen(false);
     toast.success(`Successfully withdrew ₦${Number(amount).toLocaleString()}`);
   };
+  
   const formatDate = (dateString: string) => {
     return format(new Date(dateString), 'MMM d, yyyy');
   };
+  
   const toggleBalance = () => {
     setShowBalance(!showBalance);
   };
-  return <Card className="overflow-hidden rounded-3xl border-0 shadow-lg relative">
+  
+  return (
+    <Card className="overflow-hidden rounded-3xl border-0 shadow-lg relative">
       <div className="wallet-gradient p-6 text-white relative overflow-hidden">
         {/* Large circle decorations */}
         <div className="absolute -top-24 -right-24 w-60 h-60 rounded-full border border-white/10 opacity-20"></div>
@@ -87,12 +97,13 @@ const WalletCard = () => {
       </div>
       
       <CardContent className="p-0">
-        {!showHistory ? <div className="bg-white dark:bg-black/40 rounded-t-3xl -mt-3 overflow-hidden">
+        {!showHistory ? (
+          <div className="bg-white dark:bg-black/40 rounded-t-3xl -mt-3 overflow-hidden">
             <div className="grid grid-cols-4 gap-1 pt-2 px-4">
               <Dialog open={isDepositOpen} onOpenChange={setIsDepositOpen}>
                 <DialogTrigger asChild>
                   <div className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors">
-                    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600 mb-1">
+                    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-500 mb-1">
                       <PlusCircle size={20} />
                     </div>
                     <span className="text-xs">Top Up</span>
@@ -116,7 +127,7 @@ const WalletCard = () => {
                   </div>
                   <DialogFooter>
                     <Button variant="outline" onClick={() => setIsDepositOpen(false)}>Cancel</Button>
-                    <Button onClick={handleDeposit} className="bg-green-600 hover:bg-green-700">Deposit</Button>
+                    <Button onClick={handleDeposit}>Deposit</Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
@@ -124,7 +135,7 @@ const WalletCard = () => {
               <Dialog open={isWithdrawOpen} onOpenChange={setIsWithdrawOpen}>
                 <DialogTrigger asChild>
                   <div className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors">
-                    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600 mb-1">
+                    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-500 mb-1">
                       <SendHorizontal size={20} />
                     </div>
                     <span className="text-xs">Send</span>
@@ -148,14 +159,14 @@ const WalletCard = () => {
                   </div>
                   <DialogFooter>
                     <Button variant="outline" onClick={() => setIsWithdrawOpen(false)}>Cancel</Button>
-                    <Button onClick={handleWithdraw} className="bg-green-600 hover:bg-green-700">Withdraw</Button>
+                    <Button onClick={handleWithdraw}>Withdraw</Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
               
               <div className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors">
                 <Link to="/create-group" className="flex flex-col items-center">
-                  <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600 mb-1">
+                  <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-500 mb-1">
                     <UserPlus size={20} />
                   </div>
                   <span className="text-xs">Group</span>
@@ -163,25 +174,29 @@ const WalletCard = () => {
               </div>
               
               <div className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors" onClick={() => setShowHistory(true)}>
-                <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600 mb-1">
+                <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-500 mb-1">
                   <Clock size={20} />
                 </div>
                 <span className="text-xs">History</span>
               </div>
             </div>
-          </div> : <div className="bg-white dark:bg-black/40 rounded-t-3xl -mt-3 p-4">
+          </div>
+        ) : (
+          <div className="bg-white dark:bg-black/40 rounded-t-3xl -mt-3 p-4">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-semibold text-lg">Recent Transactions</h3>
-              <Button variant="ghost" size="sm" onClick={() => setShowHistory(false)} className="text-green-600">
+              <Button variant="ghost" size="sm" onClick={() => setShowHistory(false)} className="text-green-500">
                 Back
               </Button>
             </div>
             
-            {walletTransactions.length > 0 ? <div className="space-y-3">
-                {walletTransactions.map(transaction => <div key={transaction.id} className="flex items-center justify-between p-3 border rounded-lg">
+            {walletTransactions.length > 0 ? (
+              <div className="space-y-3">
+                {walletTransactions.map(transaction => (
+                  <div key={transaction.id} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center">
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center
-                        ${transaction.type === 'deposit' ? 'bg-green-100 text-green-600' : transaction.type === 'withdrawal' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
+                        ${transaction.type === 'deposit' ? 'bg-green-100 text-green-500' : transaction.type === 'withdrawal' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
                         {transaction.type === 'deposit' ? <ArrowDown size={18} /> : <ArrowDown size={18} className="transform rotate-180" />}
                       </div>
                       <div className="ml-3">
@@ -196,16 +211,23 @@ const WalletCard = () => {
                     <div className={`font-semibold ${transaction.type === 'deposit' ? 'text-green-500' : 'text-red-500'}`}>
                       {transaction.type === 'deposit' ? '+' : '-'}₦{transaction.amount.toLocaleString()}
                     </div>
-                  </div>)}
-              </div> : <div className="text-center py-6 text-muted-foreground">
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-6 text-muted-foreground">
                 <p>No transaction history yet</p>
-              </div>}
+              </div>
+            )}
             
             <Button variant="outline" className="w-full mt-4" onClick={() => navigate("/wallet-history")}>
               View All Transactions
             </Button>
-          </div>}
+          </div>
+        )}
       </CardContent>
-    </Card>;
+    </Card>
+  );
 };
+
 export default WalletCard;

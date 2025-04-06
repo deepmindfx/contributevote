@@ -77,7 +77,7 @@ export default {
         },
         green: {
           100: "#dcfce7",
-          500: "#22c55e",
+          500: "#2DAE75", // Updated to the new green color
           900: "#14532d",
         },
         yellow: {
