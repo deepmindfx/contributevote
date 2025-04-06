@@ -1022,4 +1022,4 @@ export const updateWithdrawalRequestsStatus = (): void => {
                 message: `Your withdrawal request of ₦${request.amount.toLocaleString()} was approved!`,
                 type: 'success',
                 read: false,
-                relatedId
+                relatedId: request.
