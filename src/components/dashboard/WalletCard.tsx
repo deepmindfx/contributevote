@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,7 +11,6 @@ import { updateUserBalance } from "@/services/localStorage";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Toggle } from "@/components/ui/toggle";
-
 const WalletCard = () => {
   const navigate = useNavigate();
   const [showBalance, setShowBalance] = useState(true);
@@ -30,7 +28,6 @@ const WalletCard = () => {
 
   // Filter only the user's wallet-related transactions
   const walletTransactions = transactions.filter(t => t.userId === user.id && (t.contributionId === "" || t.type === "deposit" || t.type === "withdrawal")).slice(0, 5);
-  
   const refreshBalance = () => {
     setIsLoading(true);
     setTimeout(() => {
@@ -38,7 +35,6 @@ const WalletCard = () => {
       setIsLoading(false);
     }, 1000);
   };
-  
   const handleDeposit = () => {
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       toast.error("Please enter a valid amount");
@@ -50,7 +46,6 @@ const WalletCard = () => {
     setIsDepositOpen(false);
     toast.success(`Successfully deposited ₦${Number(amount).toLocaleString()}`);
   };
-  
   const handleWithdraw = () => {
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       toast.error("Please enter a valid amount");
@@ -66,15 +61,12 @@ const WalletCard = () => {
     setIsWithdrawOpen(false);
     toast.success(`Successfully withdrew ₦${Number(amount).toLocaleString()}`);
   };
-  
   const formatDate = (dateString: string) => {
     return format(new Date(dateString), 'MMM d, yyyy');
   };
-  
   const toggleBalance = () => {
     setShowBalance(!showBalance);
   };
-  
   return <Card className="overflow-hidden rounded-3xl border-0 shadow-lg relative">
       <div className="wallet-gradient p-6 text-white relative overflow-hidden">
         {/* Large circle decorations */}
@@ -82,17 +74,12 @@ const WalletCard = () => {
         <div className="absolute -bottom-24 -left-24 w-60 h-60 rounded-full border border-white/10 opacity-20"></div>
         
         <div className="mb-6 relative z-10">
-          <p className="text-sm text-white/80 mb-1">Available Balance</p>
+          <p className="text-sm text-white/80 mb-1 px-0 py-[10px]">Available Balance</p>
           <div className="flex items-center justify-between">
             <h2 className="text-4xl font-bold tracking-tight">
               {showBalance ? `₦${user.walletBalance?.toLocaleString() || 0}` : "₦•••••••"}
             </h2>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={toggleBalance}
-              className="h-10 w-10 text-white hover:bg-white/10 rounded-full"
-            >
+            <Button variant="ghost" size="icon" onClick={toggleBalance} className="h-10 w-10 text-white hover:bg-white/10 rounded-full">
               {showBalance ? <EyeOff size={20} /> : <Eye size={20} />}
             </Button>
           </div>
