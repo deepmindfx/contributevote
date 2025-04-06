@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import Header from "@/components/layout/Header";
 import MobileNav from "@/components/layout/MobileNav";
@@ -16,7 +15,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { markAllNotificationsAsRead, markNotificationAsRead } from "@/services/localStorage";
 import { useApp } from "@/contexts/AppContext";
 import { format } from "date-fns";
-
 const Dashboard = () => {
   const [greeting, setGreeting] = useState("");
   const {
@@ -25,7 +23,6 @@ const Dashboard = () => {
     contributions
   } = useApp();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  
   useEffect(() => {
     const hours = new Date().getHours();
     if (hours < 12) {
@@ -48,7 +45,6 @@ const Dashboard = () => {
     }, 1500);
     return () => clearTimeout(timer);
   }, [refreshData]);
-  
   const handleNotificationRead = (id: string, relatedId?: string) => {
     markNotificationAsRead(id);
     refreshData();
@@ -63,21 +59,18 @@ const Dashboard = () => {
       }
     }
   };
-  
   const handleMarkAllRead = () => {
     markAllNotificationsAsRead();
     refreshData();
   };
-  
   const unreadNotifications = user.notifications?.filter(n => !n.read) || [];
-  
   return <div className="min-h-screen pb-20 md:pb-0">
       <Header />
       
       <main className="container max-w-5xl mx-auto px-4 pt-24 pb-8">
         <div className="flex justify-between items-center mb-8 animate-fade-in">
           <div>
-            <p className="text-muted-foreground">Welcome back to your dashboard</p>
+            
           </div>
           <div className="hidden md:flex space-x-2">
             <Popover open={notificationsOpen} onOpenChange={setNotificationsOpen}>
@@ -171,5 +164,4 @@ const Dashboard = () => {
       <MobileNav />
     </div>;
 };
-
 export default Dashboard;
