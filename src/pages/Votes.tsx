@@ -6,15 +6,15 @@ import MobileNav from "@/components/layout/MobileNav";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, X } from "lucide-react";
+import { Check, X, Bell, Clock } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
 import { hasContributed } from "@/services/localStorage";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 
 const Votes = () => {
   const navigate = useNavigate();
-  const { withdrawalRequests, contributions, user, vote } = useApp();
+  const { withdrawalRequests, contributions, user, vote, pingMembersForVote } = useApp();
   const [eligibleVotes, setEligibleVotes] = useState<Array<{
     requestId: string;
     contributionId: string;
@@ -22,6 +22,7 @@ const Votes = () => {
     amount: number;
     purpose: string;
     createdAt: string;
+    deadline: string;
     hasContributed: boolean;
     hasVoted: boolean;
     userVote: 'approve' | 'reject' | null;
@@ -54,6 +55,7 @@ const Votes = () => {
         amount: request.amount,
         purpose: request.purpose,
         createdAt: request.createdAt,
+        deadline: request.deadline,
         hasContributed: userCanContribute,
         hasVoted: userHasVoted,
         userVote: userVoteValue,
@@ -86,8 +88,23 @@ const Votes = () => {
     );
   };
   
+  const handleRemind = (requestId: string) => {
+    pingMembersForVote(requestId);
+  };
+  
   const formatDate = (dateString: string) => {
     return format(new Date(dateString), 'MMM d, yyyy');
+  };
+  
+  const formatDeadline = (deadlineString: string) => {
+    const deadlineDate = new Date(deadlineString);
+    const now = new Date();
+    
+    if (deadlineDate > now) {
+      return formatDistanceToNow(deadlineDate);
+    } else {
+      return 'Expired';
+    }
   };
   
   return (
@@ -109,7 +126,7 @@ const Votes = () => {
                   There are no withdrawal requests that need your vote at this time.
                 </p>
                 <Button 
-                  className="mt-4" 
+                  className="mt-4 bg-[#42ab35] hover:bg-[#378d2b]" 
                   onClick={() => navigate("/dashboard")}
                 >
                   Return to Dashboard
@@ -130,7 +147,9 @@ const Votes = () => {
                       </CardDescription>
                     </div>
                     <Badge variant="outline">
-                      {vote.votes.length} / {contributions.find(c => c.id === vote.contributionId)?.members.length || 0} Votes
+                      {vote.votes.length} / {contributions.find(c => c.id === vote.contributionId)?.members.filter(m => 
+                        hasContributed(m, vote.contributionId)
+                      ).length || 0} Votes
                     </Badge>
                   </div>
                 </CardHeader>
@@ -138,6 +157,10 @@ const Votes = () => {
                   <div>
                     <p className="font-semibold text-xl">₦{vote.amount.toLocaleString()}</p>
                     <p className="text-muted-foreground">{vote.purpose}</p>
+                    <div className="flex items-center mt-2 text-sm text-amber-500">
+                      <Clock className="h-4 w-4 mr-2" />
+                      Time remaining: {formatDeadline(vote.deadline)}
+                    </div>
                   </div>
                   
                   <div className="bg-muted p-3 rounded-lg">
@@ -158,35 +181,50 @@ const Votes = () => {
                     </div>
                   </div>
                 </CardContent>
-                <CardFooter className="justify-end space-x-2">
-                  {!vote.hasVoted ? (
-                    <>
-                      <Button 
-                        variant="outline"
-                        onClick={() => handleVote(vote.requestId, 'reject')}
-                        disabled={!vote.hasContributed}
-                      >
-                        <X className="h-4 w-4 mr-2" />
-                        Reject
-                      </Button>
-                      <Button 
-                        onClick={() => handleVote(vote.requestId, 'approve')}
-                        disabled={!vote.hasContributed}
-                      >
-                        <Check className="h-4 w-4 mr-2" />
-                        Approve
-                      </Button>
-                      
-                      {!vote.hasContributed && (
-                        <p className="text-xs text-amber-500 absolute -bottom-6 right-4">
-                          You must contribute to this group before voting
-                        </p>
-                      )}
-                    </>
-                  ) : (
-                    <Badge variant={vote.userVote === 'approve' ? 'default' : 'destructive'}>
-                      You voted: {vote.userVote === 'approve' ? 'Approved' : 'Rejected'}
-                    </Badge>
+                <CardFooter className="flex-col space-y-3">
+                  <div className="flex justify-end w-full space-x-2">
+                    {!vote.hasVoted ? (
+                      <>
+                        <Button 
+                          variant="outline"
+                          onClick={() => handleVote(vote.requestId, 'reject')}
+                          disabled={!vote.hasContributed}
+                        >
+                          <X className="h-4 w-4 mr-2" />
+                          Reject
+                        </Button>
+                        <Button 
+                          onClick={() => handleVote(vote.requestId, 'approve')}
+                          disabled={!vote.hasContributed}
+                          className="bg-[#42ab35] hover:bg-[#378d2b]"
+                        >
+                          <Check className="h-4 w-4 mr-2" />
+                          Approve
+                        </Button>
+                      </>
+                    ) : (
+                      <Badge variant={vote.userVote === 'approve' ? 'default' : 'destructive'}>
+                        You voted: {vote.userVote === 'approve' ? 'Approved' : 'Rejected'}
+                      </Badge>
+                    )}
+                  </div>
+                  
+                  {!vote.hasContributed && (
+                    <p className="text-xs text-amber-500 text-right">
+                      You must contribute to this group before voting
+                    </p>
+                  )}
+                  
+                  {vote.hasContributed && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="self-center" 
+                      onClick={() => handleRemind(vote.requestId)}
+                    >
+                      <Bell className="h-4 w-4 mr-2 text-[#42AB35]" />
+                      Remind others to vote
+                    </Button>
                   )}
                 </CardFooter>
               </Card>

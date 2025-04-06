@@ -14,6 +14,7 @@ import {
   getStatistics,
   createContribution,
   contributeToGroup,
+  contributeByAccountNumber,
   createWithdrawalRequest,
   voteOnWithdrawalRequest,
   updateUserBalance,
@@ -28,6 +29,11 @@ import {
   addNotification,
   getUserByEmail,
   getUserByPhone,
+  pingGroupMembersForVote,
+  generateContributionReceipt,
+  updateWithdrawalRequestsStatus,
+  verifyUserWithOTP,
+  getContributionByAccountNumber
 } from '@/services/localStorage';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
@@ -40,9 +46,10 @@ interface AppContextType {
   transactions: Transaction[];
   stats: Stats;
   refreshData: () => void;
-  createNewContribution: (contribution: Omit<Contribution, 'id' | 'createdAt' | 'currentAmount' | 'members' | 'contributors'>) => void;
+  createNewContribution: (contribution: Omit<Contribution, 'id' | 'createdAt' | 'currentAmount' | 'members' | 'contributors' | 'accountNumber'>) => void;
   contribute: (contributionId: string, amount: number, anonymous?: boolean) => void;
-  requestWithdrawal: (request: Omit<WithdrawalRequest, 'id' | 'createdAt' | 'status' | 'votes'>) => void;
+  contributeViaAccountNumber: (accountNumber: string, amount: number, contributorInfo: { name: string, email?: string, phone?: string }, anonymous?: boolean) => void;
+  requestWithdrawal: (request: Omit<WithdrawalRequest, 'id' | 'createdAt' | 'status' | 'votes' | 'deadline'>) => void;
   vote: (requestId: string, vote: 'approve' | 'reject') => void;
   getShareLink: (contributionId: string) => string;
   updateProfile: (userData: Partial<User>) => void;
@@ -56,6 +63,10 @@ interface AppContextType {
   logout: () => void;
   getUserByEmail: (email: string) => User | null;
   getUserByPhone: (phone: string) => User | null;
+  pingMembersForVote: (requestId: string) => void;
+  getReceipt: (transactionId: string) => any;
+  verifyUser: (userId: string) => void;
+  isGroupCreator: (contributionId: string) => boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -83,6 +94,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     initializeLocalStorage();
     refreshData();
   }, []);
+
+  // New effect to check for expired withdrawal requests
+  useEffect(() => {
+    if (isAuthenticated) {
+      const checkExpiredRequests = () => {
+        updateWithdrawalRequestsStatus();
+        refreshData();
+      };
+      
+      // Run once at start
+      checkExpiredRequests();
+      
+      // Then set interval to check every minute
+      const interval = setInterval(checkExpiredRequests, 60000);
+      
+      // Clear interval on unmount
+      return () => clearInterval(interval);
+    }
+  }, [isAuthenticated]);
 
   const refreshData = () => {
     const currentUser = getCurrentUser();
@@ -116,7 +146,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     toast.success("You have been logged out successfully");
   };
 
-  const createNewContribution = (contribution: Omit<Contribution, 'id' | 'createdAt' | 'currentAmount' | 'members' | 'contributors'>) => {
+  const createNewContribution = (contribution: Omit<Contribution, 'id' | 'createdAt' | 'currentAmount' | 'members' | 'contributors' | 'accountNumber'>) => {
     try {
       createContribution(contribution);
       refreshData();
@@ -143,7 +173,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const requestWithdrawal = (request: Omit<WithdrawalRequest, 'id' | 'createdAt' | 'status' | 'votes'>) => {
+  const contributeViaAccountNumber = (accountNumber: string, amount: number, contributorInfo: { name: string, email?: string, phone?: string }, anonymous: boolean = false) => {
+    try {
+      contributeByAccountNumber(accountNumber, amount, contributorInfo, anonymous);
+      refreshData();
+      toast.success('Contribution successful!');
+    } catch (error) {
+      if (error instanceof Error) {
+        toast.error(error.message);
+      } else {
+        toast.error('Failed to make contribution');
+      }
+      console.error(error);
+    }
+  };
+
+  const requestWithdrawal = (request: Omit<WithdrawalRequest, 'id' | 'createdAt' | 'status' | 'votes' | 'deadline'>) => {
     try {
       // Check if user has set up a PIN
       if (!user.pin) {
@@ -155,6 +200,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       
       if (!contribution) {
         toast.error('Contribution not found');
+        return;
+      }
+      
+      // Check if user is the creator of the group
+      if (contribution.creatorId !== user.id) {
+        toast.error('Only the group creator can request withdrawals');
         return;
       }
       
@@ -330,6 +381,54 @@ export function AppProvider({ children }: { children: ReactNode }) {
       console.error(error);
     }
   };
+  
+  // New functions for the new features
+  
+  const pingMembersForVote = (requestId: string) => {
+    try {
+      pingGroupMembersForVote(requestId);
+      toast.success('Reminder sent to all members who have not voted yet');
+    } catch (error) {
+      if (error instanceof Error) {
+        toast.error(error.message);
+      } else {
+        toast.error('Failed to send reminders');
+      }
+      console.error(error);
+    }
+  };
+  
+  const getReceipt = (transactionId: string) => {
+    try {
+      const receipt = generateContributionReceipt(transactionId);
+      if (!receipt) {
+        toast.error('Unable to generate receipt for this transaction');
+        return null;
+      }
+      return receipt;
+    } catch (error) {
+      toast.error('Failed to generate receipt');
+      console.error(error);
+      return null;
+    }
+  };
+  
+  const verifyUser = (userId: string) => {
+    try {
+      // In a real app, this would be called after OTP verification
+      verifyUserWithOTP(userId);
+      refreshData();
+      toast.success('User verified successfully');
+    } catch (error) {
+      toast.error('Failed to verify user');
+      console.error(error);
+    }
+  };
+  
+  const isGroupCreator = (contributionId: string): boolean => {
+    const contribution = contributions.find(c => c.id === contributionId);
+    return !!(contribution && contribution.creatorId === user.id);
+  };
 
   return (
     <AppContext.Provider value={{
@@ -342,6 +441,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       refreshData,
       createNewContribution,
       contribute,
+      contributeViaAccountNumber,
       requestWithdrawal,
       vote,
       getShareLink,
@@ -354,8 +454,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       isAuthenticated,
       shareToContacts,
       logout,
-      getUserByEmail: getUserByEmail,
-      getUserByPhone: getUserByPhone,
+      getUserByEmail,
+      getUserByPhone,
+      pingMembersForVote,
+      getReceipt,
+      verifyUser,
+      isGroupCreator,
     }}>
       {children}
     </AppContext.Provider>

@@ -20,6 +20,7 @@ export interface User {
   role?: 'user' | 'admin';
   status?: 'active' | 'paused';
   createdAt: string;
+  verified?: boolean;
 }
 
 export interface Notification {
@@ -45,7 +46,7 @@ export interface Contribution {
   contributionAmount: number;
   startDate: string;
   endDate?: string;
-  votingThreshold: number;
+  votingThreshold: number; // This will always be set to 51 now
   privacy: 'public' | 'private';
   memberRoles: 'equal' | 'weighted';
   members: string[];
@@ -56,6 +57,7 @@ export interface Contribution {
     anonymous: boolean;
     date: string;
   }[];
+  accountNumber: string; // New field for group account number
 }
 
 export interface WithdrawalRequest {
@@ -66,6 +68,7 @@ export interface WithdrawalRequest {
   purpose: string;
   status: 'pending' | 'approved' | 'rejected';
   createdAt: string;
+  deadline: string; // New field for 24-hour deadline
   votes: { 
     userId: string; 
     vote: 'approve' | 'reject';
@@ -328,6 +331,37 @@ export const markAllNotificationsAsRead = (): void => {
   localStorage.setItem('currentUser', JSON.stringify(user));
 };
 
+// Generate a unique 10-digit account number
+export const generateAccountNumber = (): string => {
+  // Generate a random 10-digit number but ensure it doesn't start with 0
+  const firstDigit = Math.floor(Math.random() * 9) + 1; // 1-9
+  const remainingDigits = Math.floor(Math.random() * 1000000000); // 0-999999999
+  const paddedRemaining = remainingDigits.toString().padStart(9, '0');
+  
+  return `${firstDigit}${paddedRemaining}`;
+};
+
+// Verify if an account number already exists
+export const accountNumberExists = (accountNumber: string): boolean => {
+  const contributions = getContributions();
+  return contributions.some(c => c.accountNumber === accountNumber);
+};
+
+// Get a unique account number
+export const getUniqueAccountNumber = (): string => {
+  let accountNumber = generateAccountNumber();
+  while (accountNumberExists(accountNumber)) {
+    accountNumber = generateAccountNumber();
+  }
+  return accountNumber;
+};
+
+// Get contribution by account number
+export const getContributionByAccountNumber = (accountNumber: string): Contribution | null => {
+  const contributions = getContributions();
+  return contributions.find(c => c.accountNumber === accountNumber) || null;
+};
+
 // Contribution methods
 export const getContributions = (): Contribution[] => {
   const contributionsString = localStorage.getItem('contributions');
@@ -354,9 +388,12 @@ export const getContribution = (id: string): Contribution | null => {
   return contributions.find(c => c.id === id) || null;
 };
 
-export const createContribution = (contribution: Omit<Contribution, 'id' | 'createdAt' | 'currentAmount' | 'members' | 'contributors'>): Contribution => {
+export const createContribution = (contribution: Omit<Contribution, 'id' | 'createdAt' | 'currentAmount' | 'members' | 'contributors' | 'accountNumber'>): Contribution => {
   const contributions = getContributions();
   const currentUser = getCurrentUser();
+  
+  // Generate a unique account number for the group
+  const accountNumber = getUniqueAccountNumber();
   
   const newContribution: Contribution = {
     ...contribution,
@@ -364,7 +401,9 @@ export const createContribution = (contribution: Omit<Contribution, 'id' | 'crea
     createdAt: new Date().toISOString(),
     currentAmount: 0,
     members: [currentUser.id],
-    contributors: []
+    contributors: [],
+    accountNumber: accountNumber,
+    votingThreshold: 51 // Fixed at 51% as per requirements
   };
   
   contributions.push(newContribution);
@@ -450,6 +489,128 @@ export const contributeToGroup = (contributionId: string, amount: number, anonym
   throw new Error('Contribution not found');
 };
 
+// Contribution by account number
+export const contributeByAccountNumber = (accountNumber: string, amount: number, contributorInfo: { name: string, email?: string, phone?: string }, anonymous: boolean = false): Contribution | null => {
+  const contribution = getContributionByAccountNumber(accountNumber);
+  
+  if (!contribution) {
+    throw new Error('Invalid account number');
+  }
+  
+  // Check if contributor is a registered user
+  let contributorUser = null;
+  if (contributorInfo.email) {
+    contributorUser = getUserByEmail(contributorInfo.email);
+  } else if (contributorInfo.phone) {
+    contributorUser = getUserByPhone(contributorInfo.phone);
+  }
+  
+  if (contributorUser) {
+    // If user exists, use their wallet balance
+    if (contributorUser.walletBalance < amount) {
+      throw new Error('Insufficient funds in wallet');
+    }
+    
+    updateUserById(contributorUser.id, { walletBalance: contributorUser.walletBalance - amount });
+    
+    // Update contribution
+    const contributions = getContributions();
+    const index = contributions.findIndex(c => c.id === contribution.id);
+    
+    if (index >= 0) {
+      contributions[index].currentAmount += amount;
+      
+      // Add contributor info
+      contributions[index].contributors.push({
+        userId: contributorUser.id,
+        name: contributorUser.name,
+        amount,
+        anonymous,
+        date: new Date().toISOString()
+      });
+      
+      // Add user to members if not already there
+      if (!contributions[index].members.includes(contributorUser.id)) {
+        contributions[index].members.push(contributorUser.id);
+      }
+      
+      localStorage.setItem('contributions', JSON.stringify(contributions));
+      
+      // Add transaction
+      addTransaction({
+        userId: contributorUser.id,
+        contributionId: contribution.id,
+        type: 'deposit',
+        amount,
+        status: 'completed',
+        description: `Contributed to ${contribution.name}`,
+        createdAt: new Date().toISOString(),
+        anonymous,
+      });
+      
+      // Add notification to creator
+      if (contribution.creatorId !== contributorUser.id) {
+        addNotification({
+          userId: contribution.creatorId,
+          message: `${anonymous ? 'Someone' : contributorUser.name} contributed ₦${amount.toLocaleString()} to ${contribution.name}`,
+          type: 'info',
+          read: false,
+          relatedId: contribution.id,
+        });
+      }
+      
+      return contributions[index];
+    }
+  } else {
+    // Anonymous contributor (not registered)
+    // Still update the contribution but they won't have voting rights
+    const contributions = getContributions();
+    const index = contributions.findIndex(c => c.id === contribution.id);
+    
+    if (index >= 0) {
+      contributions[index].currentAmount += amount;
+      
+      // Add contributor info with generated ID for non-users
+      const nonUserContributorId = `anon-${uuidv4()}`;
+      
+      contributions[index].contributors.push({
+        userId: nonUserContributorId,
+        name: contributorInfo.name || 'Anonymous Contributor',
+        amount,
+        anonymous: true,
+        date: new Date().toISOString()
+      });
+      
+      localStorage.setItem('contributions', JSON.stringify(contributions));
+      
+      // Add transaction with the anonymous ID
+      addTransaction({
+        userId: nonUserContributorId,
+        contributionId: contribution.id,
+        type: 'deposit',
+        amount,
+        status: 'completed',
+        description: `External contribution to ${contribution.name}`,
+        createdAt: new Date().toISOString(),
+        anonymous: true,
+      });
+      
+      // Add notification to creator
+      addNotification({
+        userId: contribution.creatorId,
+        message: `An anonymous external contributor added ₦${amount.toLocaleString()} to ${contribution.name}`,
+        type: 'info',
+        read: false,
+        relatedId: contribution.id,
+      });
+      
+      return contributions[index];
+    }
+  }
+  
+  return null;
+};
+
 // Withdrawal request methods
 export const getWithdrawalRequests = (): WithdrawalRequest[] => {
   const requestsString = localStorage.getItem('withdrawalRequests');
@@ -464,10 +625,19 @@ export const getWithdrawalRequestsForContribution = (contributionId: string): Wi
   return requests.filter(r => r.contributionId === contributionId);
 };
 
-export const createWithdrawalRequest = (request: Omit<WithdrawalRequest, 'id' | 'createdAt' | 'status' | 'votes'>): WithdrawalRequest => {
+export const createWithdrawalRequest = (request: Omit<WithdrawalRequest, 'id' | 'createdAt' | 'status' | 'votes' | 'deadline'>): WithdrawalRequest => {
   const requests = getWithdrawalRequests();
   const currentUser = getCurrentUser();
   const contribution = getContribution(request.contributionId);
+  
+  // Check if user is the creator of the contribution
+  if (contribution && contribution.creatorId !== currentUser.id) {
+    throw new Error('Only the group creator can request withdrawals');
+  }
+  
+  // Set deadline to 24 hours from now
+  const deadline = new Date();
+  deadline.setHours(deadline.getHours() + 24);
   
   const newRequest: WithdrawalRequest = {
     ...request,
@@ -475,6 +645,7 @@ export const createWithdrawalRequest = (request: Omit<WithdrawalRequest, 'id' | 
     createdAt: new Date().toISOString(),
     status: 'pending',
     votes: [],
+    deadline: deadline.toISOString()
   };
   
   requests.push(newRequest);
@@ -526,13 +697,60 @@ export const canVote = (userId: string, contributionId: string): boolean => {
   return hasContributed(userId, contributionId);
 };
 
-// Modify the voteOnWithdrawalRequest function to check eligibility
+// Function to check if a withdrawal request is expired
+export const isWithdrawalRequestExpired = (request: WithdrawalRequest): boolean => {
+  const deadlineDate = new Date(request.deadline);
+  const now = new Date();
+  return now > deadlineDate;
+};
+
+// Function to ping/remind group members to vote
+export const pingGroupMembersForVote = (requestId: string): void => {
+  const requests = getWithdrawalRequests();
+  const request = requests.find(r => r.id === requestId);
+  
+  if (!request) {
+    throw new Error('Withdrawal request not found');
+  }
+  
+  const contribution = getContribution(request.contributionId);
+  if (!contribution) {
+    throw new Error('Contribution not found');
+  }
+  
+  // Get list of members who haven't voted
+  const votedMemberIds = request.votes.map(v => v.userId);
+  const nonVotedMembers = contribution.members.filter(
+    memberId => !votedMemberIds.includes(memberId) && hasContributed(memberId, contribution.id)
+  );
+  
+  // Add reminder notification for each non-voted member
+  nonVotedMembers.forEach(memberId => {
+    addNotification({
+      userId: memberId,
+      message: `REMINDER: Please vote on the withdrawal request for ${contribution.name}. Deadline: ${new Date(request.deadline).toLocaleString()}`,
+      type: 'warning',
+      read: false,
+      relatedId: requestId,
+    });
+  });
+  
+  // In a real app, this would also trigger SMS reminders
+  console.log(`Reminders sent to ${nonVotedMembers.length} members for request ${requestId}`);
+};
+
+// Modify the voteOnWithdrawalRequest function to handle the new voting rules
 export const voteOnWithdrawalRequest = (requestId: string, vote: 'approve' | 'reject'): WithdrawalRequest => {
   const requests = getWithdrawalRequests();
   const currentUser = getCurrentUser();
   
   const index = requests.findIndex(r => r.id === requestId);
   if (index >= 0) {
+    // Check if the request is expired
+    if (isWithdrawalRequestExpired(requests[index])) {
+      throw new Error('This withdrawal request has expired');
+    }
+    
     // Check if user is eligible to vote
     if (!canVote(currentUser.id, requests[index].contributionId)) {
       throw new Error('You must contribute to this group before voting on withdrawal requests');
@@ -547,55 +765,66 @@ export const voteOnWithdrawalRequest = (requestId: string, vote: 'approve' | 're
       vote,
     });
     
-    // Check if threshold is reached
+    // Check if the voting rules are met
     const contribution = getContribution(requests[index].contributionId);
     if (contribution) {
-      const approvalVotes = requests[index].votes.filter(v => v.vote === 'approve').length;
-      const totalMembers = contribution.members.length;
-      const approvalPercentage = (approvalVotes / totalMembers) * 100;
+      // Get the eligible voters (those who have contributed)
+      const eligibleVoters = contribution.members.filter(memberId => 
+        hasContributed(memberId, contribution.id)
+      );
       
-      if (approvalPercentage >= contribution.votingThreshold) {
-        // Approve and process withdrawal
-        requests[index].status = 'approved';
-        
-        // Update contribution amount
-        const contributions = getContributions();
-        const contribIndex = contributions.findIndex(c => c.id === contribution.id);
-        contributions[contribIndex].currentAmount -= requests[index].amount;
-        localStorage.setItem('contributions', JSON.stringify(contributions));
-        
-        // Add transaction
-        addTransaction({
-          userId: requests[index].requesterId,
-          contributionId: contribution.id,
-          type: 'withdrawal',
-          amount: requests[index].amount,
-          status: 'completed',
-          description: `Withdrawal for: ${requests[index].purpose}`,
-          createdAt: new Date().toISOString(),
-          relatedId: requestId,
-        });
-        
-        // Add notification
-        addNotification({
-          userId: requests[index].requesterId,
-          message: `Your withdrawal request of ₦${requests[index].amount.toLocaleString()} was approved!`,
-          type: 'success',
-          read: false,
-          relatedId: requestId,
-        });
-      } else if (requests[index].votes.length === totalMembers && approvalPercentage < contribution.votingThreshold) {
-        // Everyone has voted but threshold not met
-        requests[index].status = 'rejected';
-        
-        // Add notification
-        addNotification({
-          userId: requests[index].requesterId,
-          message: `Your withdrawal request of ₦${requests[index].amount.toLocaleString()} was rejected`,
-          type: 'error',
-          read: false,
-          relatedId: requestId,
-        });
+      const totalEligibleVoters = eligibleVoters.length;
+      const votesCount = requests[index].votes.length;
+      const participationPercentage = (votesCount / totalEligibleVoters) * 100;
+      
+      const approvalVotes = requests[index].votes.filter(v => v.vote === 'approve').length;
+      const approvalPercentage = (approvalVotes / votesCount) * 100;
+      
+      // 50% participation threshold required
+      if (participationPercentage >= 50) {
+        // If 51% or more votes are for approval, approve the request
+        if (approvalPercentage >= 51) {
+          requests[index].status = 'approved';
+          
+          // Update contribution amount
+          const contributions = getContributions();
+          const contribIndex = contributions.findIndex(c => c.id === contribution.id);
+          contributions[contribIndex].currentAmount -= requests[index].amount;
+          localStorage.setItem('contributions', JSON.stringify(contributions));
+          
+          // Add transaction
+          addTransaction({
+            userId: requests[index].requesterId,
+            contributionId: contribution.id,
+            type: 'withdrawal',
+            amount: requests[index].amount,
+            status: 'completed',
+            description: `Withdrawal for: ${requests[index].purpose}`,
+            createdAt: new Date().toISOString(),
+            relatedId: requestId,
+          });
+          
+          // Add notification
+          addNotification({
+            userId: requests[index].requesterId,
+            message: `Your withdrawal request of ₦${requests[index].amount.toLocaleString()} was approved!`,
+            type: 'success',
+            read: false,
+            relatedId: requestId,
+          });
+        } else {
+          // If less than 51% votes are for approval, reject the request
+          requests[index].status = 'rejected';
+          
+          // Add notification
+          addNotification({
+            userId: requests[index].requesterId,
+            message: `Your withdrawal request of ₦${requests[index].amount.toLocaleString()} was rejected`,
+            type: 'error',
+            read: false,
+            relatedId: requestId,
+          });
+        }
       }
     }
     
@@ -702,3 +931,95 @@ export const initializeLocalStorage = () => {
   // Initialize admin account
   initializeAdmin();
 };
+
+// Function to generate a receipt for a contribution
+export const generateContributionReceipt = (transactionId: string): { 
+  contributionName: string;
+  contributorName: string;
+  amount: number;
+  date: string;
+  receiptNumber: string;
+  accountNumber: string;
+} | null => {
+  const transactions = getTransactions();
+  const transaction = transactions.find(t => t.id === transactionId);
+  
+  if (!transaction || transaction.type !== 'deposit') {
+    return null;
+  }
+  
+  const contribution = getContribution(transaction.contributionId);
+  if (!contribution) {
+    return null;
+  }
+  
+  const user = getUserById(transaction.userId);
+  
+  return {
+    contributionName: contribution.name,
+    contributorName: transaction.anonymous ? 'Anonymous Contributor' : (user ? user.name : 'Unknown User'),
+    amount: transaction.amount,
+    date: transaction.createdAt,
+    receiptNumber: transaction.id.substring(0, 8).toUpperCase(),
+    accountNumber: contribution.accountNumber
+  };
+};
+
+// Update expiry status of withdrawal requests
+export const updateWithdrawalRequestsStatus = (): void => {
+  const requests = getWithdrawalRequests();
+  let updated = false;
+  
+  requests.forEach((request, index) => {
+    // Only check pending requests
+    if (request.status === 'pending') {
+      // If request has expired
+      if (isWithdrawalRequestExpired(request)) {
+        const contribution = getContribution(request.contributionId);
+        if (contribution) {
+          // Get the eligible voters (those who have contributed)
+          const eligibleVoters = contribution.members.filter(memberId => 
+            hasContributed(memberId, contribution.id)
+          );
+          
+          const totalEligibleVoters = eligibleVoters.length;
+          const votesCount = request.votes.length;
+          const participationPercentage = (votesCount / totalEligibleVoters) * 100;
+          
+          // If participation is less than 50%, keep waiting
+          if (participationPercentage < 50) {
+            // Request expired but not enough participation - do nothing yet
+            console.log(`Request ${request.id} expired but only has ${participationPercentage.toFixed(2)}% participation`);
+          } else {
+            // Enough participation, determine result
+            const approvalVotes = request.votes.filter(v => v.vote === 'approve').length;
+            const approvalPercentage = (approvalVotes / votesCount) * 100;
+            
+            if (approvalPercentage >= 51) {
+              requests[index].status = 'approved';
+              
+              // Update contribution amount
+              const contributions = getContributions();
+              const contribIndex = contributions.findIndex(c => c.id === contribution.id);
+              contributions[contribIndex].currentAmount -= request.amount;
+              localStorage.setItem('contributions', JSON.stringify(contributions));
+              
+              // Add transaction
+              addTransaction({
+                userId: request.requesterId,
+                contributionId: contribution.id,
+                type: 'withdrawal',
+                amount: request.amount,
+                status: 'completed',
+                description: `Withdrawal for: ${request.purpose}`,
+                createdAt: new Date().toISOString(),
+                relatedId: request.id,
+              });
+              
+              // Add notification
+              addNotification({
+                userId: request.requesterId,
+                message: `Your withdrawal request of ₦${request.amount.toLocaleString()} was approved!`,
+                type: 'success',
+                read: false,
+                relatedId

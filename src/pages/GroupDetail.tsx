@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import Header from "@/components/layout/Header";
@@ -11,14 +12,33 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Users, Calendar, Share2, Send, Copy, ArrowUp, ArrowDown, Check, X, HelpCircle, UserCheck, Eye, EyeOff, UserIcon } from "lucide-react";
+import { 
+  ArrowLeft, 
+  Users, 
+  Calendar, 
+  Share2, 
+  Send, 
+  Copy, 
+  ArrowUp, 
+  ArrowDown, 
+  Check, 
+  X, 
+  HelpCircle, 
+  UserCheck, 
+  Eye, 
+  EyeOff, 
+  UserIcon,
+  Bell,
+  Clock
+} from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useApp } from "@/contexts/AppContext";
 import { Contribution, WithdrawalRequest, Transaction, hasContributed } from "@/services/localStorage";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import ShareContribution from "@/components/contributions/ShareContribution";
+
 const GroupDetail = () => {
   const {
     id
@@ -34,7 +54,9 @@ const GroupDetail = () => {
     contribute,
     requestWithdrawal,
     vote,
-    getShareLink
+    getShareLink,
+    isGroupCreator,
+    pingMembersForVote
   } = useApp();
   const [contribution, setContribution] = useState<Contribution | null>(null);
   const [contributionRequests, setContributionRequests] = useState<WithdrawalRequest[]>([]);
@@ -46,6 +68,8 @@ const GroupDetail = () => {
   const [copySuccess, setCopySuccess] = useState(false);
   const [anonymous, setAnonymous] = useState(user.preferences?.anonymousContributions || false);
   const [hasUserContributed, setHasUserContributed] = useState(false);
+  const [showCopiedAccountNumber, setShowCopiedAccountNumber] = useState(false);
+
   useEffect(() => {
     if (!id) return;
     const foundContribution = contributions.find(c => c.id === id);
@@ -62,10 +86,13 @@ const GroupDetail = () => {
     // Check if user has contributed to this group
     setHasUserContributed(hasContributed(user.id, id));
   }, [id, contributions, withdrawalRequests, transactions, navigate, getShareLink, user.id]);
+
   if (!contribution) {
     return <div className="flex justify-center items-center min-h-screen">Loading...</div>;
   }
+
   const progressPercentage = Math.min(100, Math.round(contribution.currentAmount / contribution.targetAmount * 100));
+  
   const handleContribute = () => {
     if (!contributionAmount || isNaN(Number(contributionAmount)) || Number(contributionAmount) <= 0) {
       toast.error("Please enter a valid amount");
@@ -75,6 +102,7 @@ const GroupDetail = () => {
     setContributionAmount("");
     setHasUserContributed(true);
   };
+  
   const handleRequestWithdrawal = () => {
     if (!withdrawalAmount || isNaN(Number(withdrawalAmount)) || Number(withdrawalAmount) <= 0) {
       toast.error("Please enter a valid amount");
@@ -97,6 +125,7 @@ const GroupDetail = () => {
     setWithdrawalAmount("");
     setWithdrawalPurpose("");
   };
+  
   const handleVote = (requestId: string, voteValue: 'approve' | 'reject') => {
     if (!hasUserContributed) {
       toast.error("You must contribute to this group before voting");
@@ -104,6 +133,7 @@ const GroupDetail = () => {
     }
     vote(requestId, voteValue);
   };
+  
   const copyToClipboard = () => {
     navigator.clipboard.writeText(shareLink).then(() => {
       setCopySuccess(true);
@@ -113,17 +143,49 @@ const GroupDetail = () => {
       toast.error("Failed to copy link");
     });
   };
+  
+  const copyAccountNumber = () => {
+    navigator.clipboard.writeText(contribution.accountNumber).then(() => {
+      setShowCopiedAccountNumber(true);
+      toast.success("Account number copied to clipboard");
+      setTimeout(() => setShowCopiedAccountNumber(false), 2000);
+    }).catch(() => {
+      toast.error("Failed to copy account number");
+    });
+  };
+  
+  const handlePingMembers = (requestId: string) => {
+    pingMembersForVote(requestId);
+  };
+  
   const formatDate = (dateString: string) => {
     return format(new Date(dateString), 'MMMM d, yyyy');
   };
+  
+  const formatDeadline = (deadlineString: string) => {
+    const deadlineDate = new Date(deadlineString);
+    const now = new Date();
+    
+    if (deadlineDate > now) {
+      return `Ends in ${formatDistanceToNow(deadlineDate)}`;
+    } else {
+      return 'Voting ended';
+    }
+  };
+  
   const hasVoted = (request: WithdrawalRequest) => {
     return request.votes.some(v => v.userId === user.id);
   };
+  
   const userVote = (request: WithdrawalRequest) => {
     const vote = request.votes.find(v => v.userId === user.id);
     return vote ? vote.vote : null;
   };
-  return <div className="min-h-screen pb-20 md:pb-0">
+  
+  const isUserCreator = isGroupCreator(contribution.id);
+
+  return (
+    <div className="min-h-screen pb-20 md:pb-0">
       <Header />
       
       <main className="container max-w-4xl mx-auto px-4 pt-24 pb-12">
@@ -160,6 +222,32 @@ const GroupDetail = () => {
                   <p className="text-xs text-right text-muted-foreground">{progressPercentage}% Funded</p>
                 </div>
                 
+                {/* Account Number */}
+                <div className="pt-2 pb-4 space-y-2 border-b">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Account No.</span>
+                    <div className="flex items-center space-x-1">
+                      <span className="font-medium text-sm">{contribution.accountNumber}</span>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-6 w-6" 
+                        onClick={copyAccountNumber}
+                      >
+                        {showCopiedAccountNumber ? (
+                          <Check className="h-3 w-3 text-[#42AB35]" />
+                        ) : (
+                          <Copy className="h-3 w-3" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Account Name</span>
+                    <span className="font-medium">{contribution.name}</span>
+                  </div>
+                </div>
+                
                 <div className="pt-4 space-y-3">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Category</span>
@@ -173,10 +261,12 @@ const GroupDetail = () => {
                     <span className="text-muted-foreground">Start Date</span>
                     <span className="font-medium">{formatDate(contribution.startDate)}</span>
                   </div>
-                  {contribution.endDate && <div className="flex justify-between text-sm">
+                  {contribution.endDate && (
+                    <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">End Date</span>
                       <span className="font-medium">{formatDate(contribution.endDate)}</span>
-                    </div>}
+                    </div>
+                  )}
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Contribution</span>
                     <span className="font-medium">₦{contribution.contributionAmount.toLocaleString()}</span>
@@ -187,14 +277,14 @@ const GroupDetail = () => {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Voting Threshold</span>
-                    <span className="font-medium">{contribution.votingThreshold}%</span>
+                    <span className="font-medium">51%</span>
                   </div>
                 </div>
               </CardContent>
               <CardFooter className="flex flex-col space-y-2">
                 <Dialog>
                   <DialogTrigger asChild>
-                    <Button className="w-full bg-[#42ab35]">Contribute</Button>
+                    <Button className="w-full bg-[#42ab35] hover:bg-[#378d2b]">Contribute</Button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
@@ -220,44 +310,46 @@ const GroupDetail = () => {
                     </div>
                     <DialogFooter>
                       <Button variant="outline" onClick={() => setContributionAmount("")}>Cancel</Button>
-                      <Button onClick={handleContribute}>Contribute</Button>
+                      <Button onClick={handleContribute} className="bg-[#42ab35] hover:bg-[#378d2b]">Contribute</Button>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
                 
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" className="w-full">Request Withdrawal</Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Request Fund Withdrawal</DialogTitle>
-                      <DialogDescription>
-                        Submit a request to withdraw funds. All members will vote on this request.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="withdrawal-amount">Amount</Label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-2.5 text-muted-foreground">₦</span>
-                          <Input id="withdrawal-amount" type="number" className="pl-8" placeholder="0.00" value={withdrawalAmount} onChange={e => setWithdrawalAmount(e.target.value)} />
+                {isUserCreator && (
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" className="w-full">Request Withdrawal</Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Request Fund Withdrawal</DialogTitle>
+                        <DialogDescription>
+                          Submit a request to withdraw funds. All contributors will vote on this request within 24 hours.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="withdrawal-amount">Amount</Label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-2.5 text-muted-foreground">₦</span>
+                            <Input id="withdrawal-amount" type="number" className="pl-8" placeholder="0.00" value={withdrawalAmount} onChange={e => setWithdrawalAmount(e.target.value)} />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="withdrawal-purpose">Purpose</Label>
+                          <Textarea id="withdrawal-purpose" placeholder="Explain why you're requesting these funds" rows={3} value={withdrawalPurpose} onChange={e => setWithdrawalPurpose(e.target.value)} />
                         </div>
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="withdrawal-purpose">Purpose</Label>
-                        <Textarea id="withdrawal-purpose" placeholder="Explain why you're requesting these funds" rows={3} value={withdrawalPurpose} onChange={e => setWithdrawalPurpose(e.target.value)} />
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => {
-                      setWithdrawalAmount("");
-                      setWithdrawalPurpose("");
-                    }}>Cancel</Button>
-                      <Button onClick={handleRequestWithdrawal}>Submit Request</Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => {
+                          setWithdrawalAmount("");
+                          setWithdrawalPurpose("");
+                        }}>Cancel</Button>
+                        <Button onClick={handleRequestWithdrawal} className="bg-[#42ab35] hover:bg-[#378d2b]">Submit Request</Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                )}
               </CardFooter>
             </Card>
           </div>
@@ -277,10 +369,14 @@ const GroupDetail = () => {
                     <CardDescription>Vote on pending withdrawal requests</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    {contributionRequests.length === 0 ? <div className="text-center py-8 text-muted-foreground">
+                    {contributionRequests.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
                         <p>No withdrawal requests yet.</p>
-                      </div> : <div className="space-y-4">
-                        {contributionRequests.map(request => <Card key={request.id} className="overflow-hidden">
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {contributionRequests.map(request => (
+                          <Card key={request.id} className="overflow-hidden">
                             <CardContent className="p-4">
                               <div className="flex justify-between items-start mb-2">
                                 <div>
@@ -294,36 +390,75 @@ const GroupDetail = () => {
                                   <p className="text-xs text-muted-foreground mt-1">
                                     Requested: {formatDate(request.createdAt)}
                                   </p>
+                                  {request.status === 'pending' && (
+                                    <div className="flex items-center mt-1 text-xs text-amber-500">
+                                      <Clock className="h-3 w-3 mr-1" />
+                                      {formatDeadline(request.deadline)}
+                                    </div>
+                                  )}
                                 </div>
                                 <div className="text-right text-sm">
                                   <p className="font-medium">
-                                    {request.votes.length} / {contribution.members.length} votes
+                                    {request.votes.length} / {contribution.members.filter(m => hasContributed(m, contribution.id)).length} votes
                                   </p>
                                   <p className="text-xs text-muted-foreground">
-                                    {request.votes.filter(v => v.vote === 'approve').length} approvals needed
+                                    51% approval needed
                                   </p>
                                 </div>
                               </div>
                               
-                              {request.status === 'pending' && !hasVoted(request) ? <div className="flex space-x-2 mt-4">
-                                  <Button onClick={() => handleVote(request.id, 'approve')} className="flex-1" size="sm" disabled={!hasUserContributed}>
+                              {request.status === 'pending' && !hasVoted(request) ? (
+                                <div className="flex space-x-2 mt-4">
+                                  <Button 
+                                    onClick={() => handleVote(request.id, 'approve')} 
+                                    className="flex-1 bg-[#42ab35] hover:bg-[#378d2b]" 
+                                    size="sm" 
+                                    disabled={!hasUserContributed}
+                                  >
                                     <Check className="h-4 w-4 mr-2" />
                                     Approve
                                   </Button>
-                                  <Button onClick={() => handleVote(request.id, 'reject')} variant="outline" className="flex-1" size="sm" disabled={!hasUserContributed}>
+                                  <Button 
+                                    onClick={() => handleVote(request.id, 'reject')} 
+                                    variant="outline" 
+                                    className="flex-1" 
+                                    size="sm" 
+                                    disabled={!hasUserContributed}
+                                  >
                                     <X className="h-4 w-4 mr-2" />
                                     Reject
                                   </Button>
-                                </div> : request.status === 'pending' && hasVoted(request) ? <div className="mt-4 text-sm text-center p-2 bg-muted rounded-md">
+                                </div>
+                              ) : request.status === 'pending' && hasVoted(request) ? (
+                                <div className="mt-4 text-sm text-center p-2 bg-muted rounded-md">
                                   You voted to {userVote(request) === 'approve' ? 'approve' : 'reject'} this request.
-                                </div> : null}
+                                </div>
+                              ) : null}
                               
-                              {request.status === 'pending' && !hasUserContributed && <div className="mt-2 text-xs text-amber-500 text-center">
+                              {request.status === 'pending' && hasUserContributed && (
+                                <div className="mt-2 flex justify-center">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="text-xs" 
+                                    onClick={() => handlePingMembers(request.id)}
+                                  >
+                                    <Bell className="h-3 w-3 mr-1 text-[#42AB35]" />
+                                    Remind others to vote
+                                  </Button>
+                                </div>
+                              )}
+                              
+                              {request.status === 'pending' && !hasUserContributed && (
+                                <div className="mt-2 text-xs text-amber-500 text-center">
                                   You must contribute to this group before you can vote
-                                </div>}
+                                </div>
+                              )}
                             </CardContent>
-                          </Card>)}
-                      </div>}
+                          </Card>
+                        ))}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -336,16 +471,22 @@ const GroupDetail = () => {
                     <CardDescription>People who have contributed to this group</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    {contribution.contributors && contribution.contributors.length > 0 ? <div className="space-y-4">
-                        {contribution.contributors.map((contributor, index) => <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                    {contribution.contributors && contribution.contributors.length > 0 ? (
+                      <div className="space-y-4">
+                        {contribution.contributors.map((contributor, index) => (
+                          <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
                             <div className="flex items-center">
-                              {contributor.anonymous ? <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                              {contributor.anonymous ? (
+                                <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
                                   <EyeOff size={16} />
-                                </div> : <Avatar className="w-10 h-10">
+                                </div>
+                              ) : (
+                                <Avatar className="w-10 h-10">
                                   <AvatarFallback>
                                     {contributor.name.charAt(0).toUpperCase()}
                                   </AvatarFallback>
-                                </Avatar>}
+                                </Avatar>
+                              )}
                               <div className="ml-3">
                                 <p className="font-medium text-sm">
                                   {contributor.anonymous ? 'Anonymous Contributor' : contributor.name}
@@ -360,10 +501,14 @@ const GroupDetail = () => {
                                 ₦{contributor.amount.toLocaleString()}
                               </p>
                             </div>
-                          </div>)}
-                      </div> : <div className="text-center py-8 text-muted-foreground">
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
                         <p>No contributors yet.</p>
-                      </div>}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -376,13 +521,25 @@ const GroupDetail = () => {
                     <CardDescription>All transactions for this contribution group</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    {contributionTransactions.length === 0 ? <div className="text-center py-8 text-muted-foreground">
+                    {contributionTransactions.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
                         <p>No transactions yet.</p>
-                      </div> : <div className="space-y-4">
-                        {contributionTransactions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(transaction => <div key={transaction.id} className="flex items-start py-3 border-b last:border-b-0">
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {contributionTransactions
+                          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                          .map(transaction => (
+                            <div key={transaction.id} className="flex items-start py-3 border-b last:border-b-0">
                               <div className={`w-10 h-10 rounded-full flex items-center justify-center
                                 ${transaction.type === 'deposit' ? 'bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400' : transaction.type === 'withdrawal' ? 'bg-amber-100 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400' : 'bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'}`}>
-                                {transaction.type === 'deposit' ? <ArrowDown size={18} /> : transaction.type === 'withdrawal' ? <ArrowUp size={18} /> : <HelpCircle size={18} />}
+                                {transaction.type === 'deposit' ? (
+                                  <ArrowDown size={18} />
+                                ) : transaction.type === 'withdrawal' ? (
+                                  <ArrowUp size={18} />
+                                ) : (
+                                  <HelpCircle size={18} />
+                                )}
                               </div>
                               <div className="ml-3 flex-1">
                                 <div className="flex justify-between">
@@ -405,14 +562,18 @@ const GroupDetail = () => {
                                     </p>
                                   </div>
                                 </div>
-                                {transaction.status && <div className="mt-2">
+                                {transaction.status && (
+                                  <div className="mt-2">
                                     <Badge variant={transaction.status === 'pending' ? 'outline' : transaction.status === 'completed' ? 'default' : 'destructive'}>
                                       {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
                                     </Badge>
-                                  </div>}
+                                  </div>
+                                )}
                               </div>
-                            </div>)}
-                      </div>}
+                            </div>
+                        ))}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -422,6 +583,8 @@ const GroupDetail = () => {
       </main>
       
       <MobileNav />
-    </div>;
+    </div>
+  );
 };
+
 export default GroupDetail;
