@@ -1049,3 +1049,10 @@ export const updateWithdrawalRequestsStatus = (): void => {
     localStorage.setItem('withdrawalRequests', JSON.stringify(requests));
   }
 };
+
+// User verification function
+export const verifyUserWithOTP = (userId: string): User | null => {
+  // In a real app, this would verify that an OTP was correctly entered
+  // For now, we'll just mark the user as verified
+  return updateUserById(userId, { verified: true });
+};
