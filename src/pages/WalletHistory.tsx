@@ -5,7 +5,7 @@ import Header from "@/components/layout/Header";
 import MobileNav from "@/components/layout/MobileNav";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ArrowDown, ArrowUp, HelpCircle } from "lucide-react";
+import { ArrowLeft, ArrowDown, ArrowUp, HelpCircle, DollarSign } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useApp } from "@/contexts/AppContext";
 import { format } from "date-fns";
@@ -14,6 +14,7 @@ const WalletHistory = () => {
   const navigate = useNavigate();
   const { user, transactions } = useApp();
   const [filter, setFilter] = useState<"all" | "deposit" | "withdrawal" | "vote">("all");
+  const [currency, setCurrency] = useState<"NGN" | "USD">("NGN");
   
   // Filter transactions based on the current filter and only show user's transactions
   const filteredTransactions = transactions
@@ -23,6 +24,11 @@ const WalletHistory = () => {
   
   const formatDate = (dateString: string) => {
     return format(new Date(dateString), 'MMM d, yyyy h:mm a');
+  };
+  
+  // Convert NGN to USD (simplified conversion rate)
+  const convertToUSD = (amount: number) => {
+    return amount / 1550; // Using a simplified conversion rate of 1 USD = 1550 NGN
   };
   
   return (
@@ -44,39 +50,61 @@ const WalletHistory = () => {
           <p className="text-muted-foreground">View all your wallet transactions</p>
         </div>
         
-        <div className="mb-6 flex flex-wrap gap-2">
-          <Button 
-            variant={filter === "all" ? "default" : "outline"} 
-            onClick={() => setFilter("all")}
-            size="sm"
-            className={filter === "all" ? "bg-[#2DAE75] hover:bg-[#249e69]" : ""}
-          >
-            All
-          </Button>
-          <Button 
-            variant={filter === "deposit" ? "default" : "outline"} 
-            onClick={() => setFilter("deposit")}
-            size="sm"
-            className={filter === "deposit" ? "bg-[#2DAE75] hover:bg-[#249e69]" : ""}
-          >
-            Deposits
-          </Button>
-          <Button 
-            variant={filter === "withdrawal" ? "default" : "outline"} 
-            onClick={() => setFilter("withdrawal")}
-            size="sm"
-            className={filter === "withdrawal" ? "bg-[#2DAE75] hover:bg-[#249e69]" : ""}
-          >
-            Withdrawals
-          </Button>
-          <Button 
-            variant={filter === "vote" ? "default" : "outline"} 
-            onClick={() => setFilter("vote")}
-            size="sm"
-            className={filter === "vote" ? "bg-[#2DAE75] hover:bg-[#249e69]" : ""}
-          >
-            Votes
-          </Button>
+        <div className="flex justify-between items-center mb-4">
+          <div className="flex flex-wrap gap-2">
+            <Button 
+              variant={filter === "all" ? "default" : "outline"} 
+              onClick={() => setFilter("all")}
+              size="sm"
+              className={filter === "all" ? "bg-[#2DAE75] hover:bg-[#249e69]" : ""}
+            >
+              All
+            </Button>
+            <Button 
+              variant={filter === "deposit" ? "default" : "outline"} 
+              onClick={() => setFilter("deposit")}
+              size="sm"
+              className={filter === "deposit" ? "bg-[#2DAE75] hover:bg-[#249e69]" : ""}
+            >
+              Deposits
+            </Button>
+            <Button 
+              variant={filter === "withdrawal" ? "default" : "outline"} 
+              onClick={() => setFilter("withdrawal")}
+              size="sm"
+              className={filter === "withdrawal" ? "bg-[#2DAE75] hover:bg-[#249e69]" : ""}
+            >
+              Withdrawals
+            </Button>
+            <Button 
+              variant={filter === "vote" ? "default" : "outline"} 
+              onClick={() => setFilter("vote")}
+              size="sm"
+              className={filter === "vote" ? "bg-[#2DAE75] hover:bg-[#249e69]" : ""}
+            >
+              Votes
+            </Button>
+          </div>
+          
+          {/* Currency Toggle */}
+          <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-full p-1">
+            <button 
+              onClick={() => setCurrency("USD")}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                currency === "USD" ? "bg-[#2DAE75] text-white" : "text-foreground"
+              }`}
+            >
+              USD
+            </button>
+            <button 
+              onClick={() => setCurrency("NGN")}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                currency === "NGN" ? "bg-[#2DAE75] text-white" : "text-foreground"
+              }`}
+            >
+              NGN
+            </button>
+          </div>
         </div>
         
         <Card>
@@ -135,7 +163,11 @@ const WalletHistory = () => {
                           }`}>
                             {transaction.type === 'deposit' ? '+' : 
                              transaction.type === 'withdrawal' ? '-' : ''}
-                            {transaction.amount > 0 ? `₦${transaction.amount.toLocaleString()}` : ''}
+                            {transaction.amount > 0 ? (
+                              currency === "NGN" ? 
+                                `₦${transaction.amount.toLocaleString()}` : 
+                                `$${convertToUSD(transaction.amount).toFixed(2)}`
+                            ) : ''}
                           </div>
                           <div className="mt-1">
                             <Badge variant={

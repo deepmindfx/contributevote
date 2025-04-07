@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
-import { PlusCircle, ArrowDown, Bell, Wallet, SendHorizontal, UserPlus, Clock, Eye, EyeOff } from "lucide-react";
+import { PlusCircle, ArrowDown, Wallet, SendHorizontal, UserPlus, Clock, Eye, EyeOff, DollarSign } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,7 @@ const WalletCard = () => {
   const [isDepositOpen, setIsDepositOpen] = useState(false);
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [currency, setCurrency] = useState<"NGN" | "USD">("NGN");
   
   const {
     user,
@@ -49,7 +50,7 @@ const WalletCard = () => {
     refreshData();
     setAmount("");
     setIsDepositOpen(false);
-    toast.success(`Successfully deposited ₦${Number(amount).toLocaleString()}`);
+    toast.success(`Successfully deposited ${currency === "NGN" ? "₦" : "$"}${Number(amount).toLocaleString()}`);
   };
   
   const handleWithdraw = () => {
@@ -65,7 +66,7 @@ const WalletCard = () => {
     refreshData();
     setAmount("");
     setIsWithdrawOpen(false);
-    toast.success(`Successfully withdrew ₦${Number(amount).toLocaleString()}`);
+    toast.success(`Successfully withdrew ${currency === "NGN" ? "₦" : "$"}${Number(amount).toLocaleString()}`);
   };
   
   const formatDate = (dateString: string) => {
@@ -75,19 +76,66 @@ const WalletCard = () => {
   const toggleBalance = () => {
     setShowBalance(!showBalance);
   };
+
+  // Convert NGN to USD (simplified conversion rate)
+  const convertToUSD = (amount: number) => {
+    return amount / 1550; // Using a simplified conversion rate of 1 USD = 1550 NGN
+  };
+  
+  // Format the balance based on selected currency
+  const getFormattedBalance = () => {
+    const balance = user.walletBalance || 0;
+    
+    if (currency === "NGN") {
+      return `₦${balance.toLocaleString()}`;
+    } else {
+      const usdBalance = convertToUSD(balance);
+      return `$${usdBalance.toFixed(2)}`;
+    }
+  };
   
   return (
-    <Card className="overflow-hidden rounded-3xl border-0 shadow-lg relative">
+    <Card className="overflow-hidden rounded-3xl border-0 shadow-lg relative mt-16">
       <div className="wallet-gradient p-6 text-white relative overflow-hidden bg-[#2DAE75]">
         {/* Large circle decorations */}
         <div className="absolute -top-24 -right-24 w-60 h-60 rounded-full border border-white/10 opacity-20"></div>
         <div className="absolute -bottom-24 -left-24 w-60 h-60 rounded-full border border-white/10 opacity-20"></div>
         
-        <div className="mb-6 relative z-10">
-          <p className="text-sm text-white/80 mb-1 px-0 py-[10px]">Available Balance</p>
+        <div className="relative z-10">
+          <div className="flex justify-between items-center mb-2">
+            <p className="text-sm text-white/80 mb-0 py-[10px]">Available Balance</p>
+            
+            {/* Currency Toggle */}
+            <div className="flex items-center bg-white/10 rounded-full p-1">
+              <button 
+                onClick={() => setCurrency("USD")}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                  currency === "USD" ? "bg-white text-[#2DAE75]" : "text-white"
+                }`}
+              >
+                USD
+              </button>
+              <button 
+                onClick={() => setCurrency("NGN")}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                  currency === "NGN" ? "bg-white text-[#2DAE75]" : "text-white"
+                }`}
+              >
+                NGN
+              </button>
+            </div>
+          </div>
+          
           <div className="flex items-center justify-between">
-            <h2 className="text-4xl font-bold tracking-tight">
-              {showBalance ? `₦${user.walletBalance?.toLocaleString() || 0}` : "₦•••••••"}
+            <h2 className="text-4xl font-bold tracking-tight flex items-center">
+              {showBalance ? (
+                <>
+                  {currency === "USD" && <DollarSign className="mr-1 h-7 w-7" />}
+                  {getFormattedBalance()}
+                </>
+              ) : (
+                `${currency === "NGN" ? "₦" : "$"}•••••••`
+              )}
             </h2>
             <Button variant="ghost" size="icon" onClick={toggleBalance} className="h-10 w-10 text-white hover:bg-white/10 rounded-full">
               {showBalance ? <EyeOff size={20} /> : <Eye size={20} />}
@@ -118,9 +166,11 @@ const WalletCard = () => {
                   </DialogHeader>
                   <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                      <Label htmlFor="deposit-amount">Amount</Label>
+                      <Label htmlFor="deposit-amount">Amount ({currency})</Label>
                       <div className="relative">
-                        <span className="absolute left-3 top-2.5 text-muted-foreground">₦</span>
+                        <span className="absolute left-3 top-2.5 text-muted-foreground">
+                          {currency === "NGN" ? "₦" : "$"}
+                        </span>
                         <Input id="deposit-amount" type="number" className="pl-8" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} />
                       </div>
                     </div>
@@ -150,9 +200,11 @@ const WalletCard = () => {
                   </DialogHeader>
                   <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                      <Label htmlFor="withdraw-amount">Amount</Label>
+                      <Label htmlFor="withdraw-amount">Amount ({currency})</Label>
                       <div className="relative">
-                        <span className="absolute left-3 top-2.5 text-muted-foreground">₦</span>
+                        <span className="absolute left-3 top-2.5 text-muted-foreground">
+                          {currency === "NGN" ? "₦" : "$"}
+                        </span>
                         <Input id="withdraw-amount" type="number" className="pl-8" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} />
                       </div>
                     </div>
@@ -209,7 +261,10 @@ const WalletCard = () => {
                       </div>
                     </div>
                     <div className={`font-semibold ${transaction.type === 'deposit' ? 'text-[#2DAE75]' : 'text-red-500'}`}>
-                      {transaction.type === 'deposit' ? '+' : '-'}₦{transaction.amount.toLocaleString()}
+                      {transaction.type === 'deposit' ? '+' : '-'}
+                      {currency === "NGN" ? 
+                        `₦${transaction.amount.toLocaleString()}` : 
+                        `$${(convertToUSD(transaction.amount)).toFixed(2)}`}
                     </div>
                   </div>
                 ))}
