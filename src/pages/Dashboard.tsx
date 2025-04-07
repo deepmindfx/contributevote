@@ -75,8 +75,8 @@ const Dashboard = () => {
     <div className="min-h-screen pb-20 md:pb-0">
       <Header />
       
-      <main className="container max-w-5xl mx-auto px-4 pt-14 pb-8">
-        <div className="flex justify-between items-center mb-4 animate-fade-in">
+      <main className="container max-w-5xl mx-auto px-4 pt-10 pb-8">
+        <div className="flex justify-between items-center mb-3 animate-fade-in">
           <div>
             
           </div>

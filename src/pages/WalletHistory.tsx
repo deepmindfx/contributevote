@@ -5,7 +5,7 @@ import Header from "@/components/layout/Header";
 import MobileNav from "@/components/layout/MobileNav";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ArrowDown, ArrowUp, HelpCircle, DollarSign } from "lucide-react";
+import { ArrowLeft, ArrowDown, ArrowUp, HelpCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useApp } from "@/contexts/AppContext";
 import { format } from "date-fns";
@@ -86,24 +86,29 @@ const WalletHistory = () => {
             </Button>
           </div>
           
-          {/* Currency Toggle - NGN first, with circle design */}
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-full p-1">
+          {/* Currency Toggle - NGN/USD with circle design */}
+          <div className="relative inline-flex items-center bg-slate-100 dark:bg-slate-800 rounded-full px-2 py-1">
             <button 
               onClick={() => setCurrency("NGN")}
-              className={`relative px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                currency === "NGN" ? "bg-[#2DAE75] text-white" : "text-foreground"
-              }`}
+              className="z-10 px-3 py-0.5 text-xs font-medium"
             >
               NGN
             </button>
+            
             <button 
               onClick={() => setCurrency("USD")}
-              className={`relative px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                currency === "USD" ? "bg-[#2DAE75] text-white" : "text-foreground"
-              }`}
+              className="z-10 px-3 py-0.5 text-xs font-medium"
             >
               USD
             </button>
+            
+            {/* The moving highlight circle */}
+            <div 
+              className="absolute h-5 w-9 bg-[#2DAE75] rounded-full transition-all duration-200"
+              style={{ 
+                left: currency === "NGN" ? "3px" : "calc(100% - 36px)",
+              }}
+            ></div>
           </div>
         </div>
         

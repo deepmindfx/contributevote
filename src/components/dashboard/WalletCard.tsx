@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -95,7 +94,7 @@ const WalletCard = () => {
   };
   
   return (
-    <Card className="overflow-hidden rounded-3xl border-0 shadow-lg relative mt-6">
+    <Card className="overflow-hidden rounded-3xl border-0 shadow-lg relative mt-4">
       <div className="wallet-gradient p-6 text-white relative overflow-hidden bg-[#2DAE75]">
         {/* Large circle decorations */}
         <div className="absolute -top-24 -right-24 w-60 h-60 rounded-full border border-white/10 opacity-20"></div>
@@ -105,39 +104,38 @@ const WalletCard = () => {
           <div className="flex justify-between items-center mb-1">
             <p className="text-xs text-white/80 mb-0 py-[8px]">Available Balance</p>
             
-            {/* Currency Toggle - NGN first, with circle design */}
-            <div className="flex items-center bg-white/10 rounded-full p-1">
+            {/* Currency Toggle - NGN/USD with circle design */}
+            <div className="relative inline-flex items-center bg-white/10 rounded-full px-2 py-1">
               <button 
                 onClick={() => setCurrency("NGN")}
-                className={`relative px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                  currency === "NGN" ? "text-[#2DAE75]" : "text-white"
-                }`}
+                className="z-10 px-3 py-0.5 text-xs font-medium text-white"
               >
-                {currency === "NGN" && (
-                  <span className="absolute inset-0 bg-white rounded-full" style={{ zIndex: -1 }}></span>
-                )}
                 NGN
               </button>
+              
               <button 
                 onClick={() => setCurrency("USD")}
-                className={`relative px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                  currency === "USD" ? "text-[#2DAE75]" : "text-white"
-                }`}
+                className="z-10 px-3 py-0.5 text-xs font-medium text-white"
               >
-                {currency === "USD" && (
-                  <span className="absolute inset-0 bg-white rounded-full" style={{ zIndex: -1 }}></span>
-                )}
                 USD
               </button>
+              
+              {/* The moving highlight circle */}
+              <div 
+                className="absolute h-5 w-9 bg-white/20 rounded-full transition-all duration-200"
+                style={{ 
+                  left: currency === "NGN" ? "3px" : "calc(100% - 36px)",
+                }}
+              ></div>
             </div>
           </div>
           
           <div className="flex items-center justify-between">
-            <h2 className="text-3xl font-bold tracking-tight flex items-center gap-1">
+            <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
               {showBalance ? (
                 <>
-                  {currency === "USD" && <DollarSign className="mr-0 h-6 w-6" />}
-                  {getFormattedBalance()}
+                  {currency === "USD" && <span className="text-white">$</span>}
+                  {getFormattedBalance().replace('$', '')}
                 </>
               ) : (
                 `${currency === "NGN" ? "₦" : "$"}•••••••`
