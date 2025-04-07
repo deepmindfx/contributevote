@@ -19,7 +19,7 @@ const MobileNav = () => {
         <Link 
           to="/dashboard" 
           className={`flex flex-col items-center py-3 px-2 ${
-            location.pathname === "/dashboard" ? "text-green-600" : "text-muted-foreground"
+            location.pathname === "/dashboard" ? "text-[#2DAE75]" : "text-muted-foreground"
           }`}
         >
           <Home className="h-5 w-5" />
@@ -29,7 +29,7 @@ const MobileNav = () => {
         <Link 
           to="/wallet-history" 
           className={`flex flex-col items-center py-3 px-2 ${
-            location.pathname === "/wallet-history" ? "text-green-600" : "text-muted-foreground"
+            location.pathname === "/wallet-history" ? "text-[#2DAE75]" : "text-muted-foreground"
           }`}
         >
           <Wallet className="h-5 w-5" />
@@ -39,7 +39,7 @@ const MobileNav = () => {
         <Link 
           to="/votes" 
           className={`flex flex-col items-center py-3 px-2 relative ${
-            location.pathname === "/votes" ? "text-green-600" : "text-muted-foreground"
+            location.pathname === "/votes" ? "text-[#2DAE75]" : "text-muted-foreground"
           }`}
         >
           <VoteIcon className="h-5 w-5" />
@@ -54,7 +54,7 @@ const MobileNav = () => {
         <Link 
           to="/all-groups" 
           className={`flex flex-col items-center py-3 px-2 ${
-            location.pathname === "/all-groups" ? "text-green-600" : "text-muted-foreground"
+            location.pathname === "/all-groups" ? "text-[#2DAE75]" : "text-muted-foreground"
           }`}
         >
           <Users className="h-5 w-5" />
@@ -64,7 +64,7 @@ const MobileNav = () => {
         <Link 
           to="/settings" 
           className={`flex flex-col items-center py-3 px-2 ${
-            location.pathname === "/settings" ? "text-green-600" : "text-muted-foreground"
+            location.pathname === "/settings" ? "text-[#2DAE75]" : "text-muted-foreground"
           }`}
         >
           <Settings className="h-5 w-5" />

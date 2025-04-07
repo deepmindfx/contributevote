@@ -78,7 +78,7 @@ const WalletCard = () => {
   
   return (
     <Card className="overflow-hidden rounded-3xl border-0 shadow-lg relative">
-      <div className="wallet-gradient p-6 text-white relative overflow-hidden">
+      <div className="wallet-gradient p-6 text-white relative overflow-hidden bg-[#2DAE75]">
         {/* Large circle decorations */}
         <div className="absolute -top-24 -right-24 w-60 h-60 rounded-full border border-white/10 opacity-20"></div>
         <div className="absolute -bottom-24 -left-24 w-60 h-60 rounded-full border border-white/10 opacity-20"></div>
@@ -103,7 +103,7 @@ const WalletCard = () => {
               <Dialog open={isDepositOpen} onOpenChange={setIsDepositOpen}>
                 <DialogTrigger asChild>
                   <div className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors">
-                    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-500 mb-1">
+                    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-[#2DAE75] mb-1">
                       <PlusCircle size={20} />
                     </div>
                     <span className="text-xs">Top Up</span>
@@ -135,7 +135,7 @@ const WalletCard = () => {
               <Dialog open={isWithdrawOpen} onOpenChange={setIsWithdrawOpen}>
                 <DialogTrigger asChild>
                   <div className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors">
-                    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-500 mb-1">
+                    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-[#2DAE75] mb-1">
                       <SendHorizontal size={20} />
                     </div>
                     <span className="text-xs">Send</span>
@@ -166,7 +166,7 @@ const WalletCard = () => {
               
               <div className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors">
                 <Link to="/create-group" className="flex flex-col items-center">
-                  <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-500 mb-1">
+                  <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-[#2DAE75] mb-1">
                     <UserPlus size={20} />
                   </div>
                   <span className="text-xs">Group</span>
@@ -174,7 +174,7 @@ const WalletCard = () => {
               </div>
               
               <div className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors" onClick={() => setShowHistory(true)}>
-                <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-500 mb-1">
+                <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-[#2DAE75] mb-1">
                   <Clock size={20} />
                 </div>
                 <span className="text-xs">History</span>
@@ -185,7 +185,7 @@ const WalletCard = () => {
           <div className="bg-white dark:bg-black/40 rounded-t-3xl -mt-3 p-4">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-semibold text-lg">Recent Transactions</h3>
-              <Button variant="ghost" size="sm" onClick={() => setShowHistory(false)} className="text-green-500">
+              <Button variant="ghost" size="sm" onClick={() => setShowHistory(false)} className="text-[#2DAE75]">
                 Back
               </Button>
             </div>
@@ -196,7 +196,7 @@ const WalletCard = () => {
                   <div key={transaction.id} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center">
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center
-                        ${transaction.type === 'deposit' ? 'bg-green-100 text-green-500' : transaction.type === 'withdrawal' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
+                        ${transaction.type === 'deposit' ? 'bg-green-100 text-[#2DAE75]' : transaction.type === 'withdrawal' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
                         {transaction.type === 'deposit' ? <ArrowDown size={18} /> : <ArrowDown size={18} className="transform rotate-180" />}
                       </div>
                       <div className="ml-3">
@@ -208,7 +208,7 @@ const WalletCard = () => {
                         </p>
                       </div>
                     </div>
-                    <div className={`font-semibold ${transaction.type === 'deposit' ? 'text-green-500' : 'text-red-500'}`}>
+                    <div className={`font-semibold ${transaction.type === 'deposit' ? 'text-[#2DAE75]' : 'text-red-500'}`}>
                       {transaction.type === 'deposit' ? '+' : '-'}₦{transaction.amount.toLocaleString()}
                     </div>
                   </div>

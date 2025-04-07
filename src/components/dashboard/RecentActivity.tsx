@@ -97,8 +97,12 @@ const RecentActivity = () => {
     .map(transaction => {
       const contribution = contributions.find(c => c.id === transaction.contributionId);
       
+      let type: "deposit" | "withdrawal" | "vote" = "deposit";
+      if (transaction.type === "withdrawal") type = "withdrawal";
+      if (transaction.type === "vote") type = "vote";
+      
       return {
-        type: transaction.type,
+        type,
         title: transaction.type === 'deposit' ? 'Contribution' : 
                transaction.type === 'withdrawal' ? 'Fund Withdrawal' : 'Vote',
         description: contribution ? contribution.name : '',

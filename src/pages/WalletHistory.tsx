@@ -49,6 +49,7 @@ const WalletHistory = () => {
             variant={filter === "all" ? "default" : "outline"} 
             onClick={() => setFilter("all")}
             size="sm"
+            className={filter === "all" ? "bg-[#2DAE75] hover:bg-[#249e69]" : ""}
           >
             All
           </Button>
@@ -56,6 +57,7 @@ const WalletHistory = () => {
             variant={filter === "deposit" ? "default" : "outline"} 
             onClick={() => setFilter("deposit")}
             size="sm"
+            className={filter === "deposit" ? "bg-[#2DAE75] hover:bg-[#249e69]" : ""}
           >
             Deposits
           </Button>
@@ -63,6 +65,7 @@ const WalletHistory = () => {
             variant={filter === "withdrawal" ? "default" : "outline"} 
             onClick={() => setFilter("withdrawal")}
             size="sm"
+            className={filter === "withdrawal" ? "bg-[#2DAE75] hover:bg-[#249e69]" : ""}
           >
             Withdrawals
           </Button>
@@ -70,6 +73,7 @@ const WalletHistory = () => {
             variant={filter === "vote" ? "default" : "outline"} 
             onClick={() => setFilter("vote")}
             size="sm"
+            className={filter === "vote" ? "bg-[#2DAE75] hover:bg-[#249e69]" : ""}
           >
             Votes
           </Button>
@@ -98,7 +102,7 @@ const WalletHistory = () => {
                 {filteredTransactions.map((transaction) => (
                   <div key={transaction.id} className="flex items-start p-3 border rounded-lg">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center
-                      ${transaction.type === 'deposit' ? 'bg-green-100 text-green-600' : 
+                      ${transaction.type === 'deposit' ? 'bg-green-100 text-[#2DAE75]' : 
                         transaction.type === 'withdrawal' ? 'bg-amber-100 text-amber-600' :
                         'bg-blue-100 text-blue-600'}`}>
                       {transaction.type === 'deposit' ? (
@@ -126,7 +130,7 @@ const WalletHistory = () => {
                         </div>
                         <div className="text-right">
                           <div className={`font-medium ${
-                            transaction.type === 'deposit' ? 'text-green-500' : 
+                            transaction.type === 'deposit' ? 'text-[#2DAE75]' : 
                             transaction.type === 'withdrawal' ? 'text-red-500' : ''
                           }`}>
                             {transaction.type === 'deposit' ? '+' : 
