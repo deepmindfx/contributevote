@@ -95,50 +95,56 @@ const WalletCard = () => {
   };
   
   return (
-    <Card className="overflow-hidden rounded-3xl border-0 shadow-lg relative mt-16">
+    <Card className="overflow-hidden rounded-3xl border-0 shadow-lg relative mt-6">
       <div className="wallet-gradient p-6 text-white relative overflow-hidden bg-[#2DAE75]">
         {/* Large circle decorations */}
         <div className="absolute -top-24 -right-24 w-60 h-60 rounded-full border border-white/10 opacity-20"></div>
         <div className="absolute -bottom-24 -left-24 w-60 h-60 rounded-full border border-white/10 opacity-20"></div>
         
         <div className="relative z-10">
-          <div className="flex justify-between items-center mb-2">
-            <p className="text-sm text-white/80 mb-0 py-[10px]">Available Balance</p>
+          <div className="flex justify-between items-center mb-1">
+            <p className="text-xs text-white/80 mb-0 py-[8px]">Available Balance</p>
             
-            {/* Currency Toggle */}
+            {/* Currency Toggle - NGN first, with circle design */}
             <div className="flex items-center bg-white/10 rounded-full p-1">
               <button 
-                onClick={() => setCurrency("USD")}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                  currency === "USD" ? "bg-white text-[#2DAE75]" : "text-white"
+                onClick={() => setCurrency("NGN")}
+                className={`relative px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                  currency === "NGN" ? "text-[#2DAE75]" : "text-white"
                 }`}
               >
-                USD
+                {currency === "NGN" && (
+                  <span className="absolute inset-0 bg-white rounded-full" style={{ zIndex: -1 }}></span>
+                )}
+                NGN
               </button>
               <button 
-                onClick={() => setCurrency("NGN")}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                  currency === "NGN" ? "bg-white text-[#2DAE75]" : "text-white"
+                onClick={() => setCurrency("USD")}
+                className={`relative px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                  currency === "USD" ? "text-[#2DAE75]" : "text-white"
                 }`}
               >
-                NGN
+                {currency === "USD" && (
+                  <span className="absolute inset-0 bg-white rounded-full" style={{ zIndex: -1 }}></span>
+                )}
+                USD
               </button>
             </div>
           </div>
           
           <div className="flex items-center justify-between">
-            <h2 className="text-4xl font-bold tracking-tight flex items-center">
+            <h2 className="text-3xl font-bold tracking-tight flex items-center gap-1">
               {showBalance ? (
                 <>
-                  {currency === "USD" && <DollarSign className="mr-1 h-7 w-7" />}
+                  {currency === "USD" && <DollarSign className="mr-0 h-6 w-6" />}
                   {getFormattedBalance()}
                 </>
               ) : (
                 `${currency === "NGN" ? "₦" : "$"}•••••••`
               )}
             </h2>
-            <Button variant="ghost" size="icon" onClick={toggleBalance} className="h-10 w-10 text-white hover:bg-white/10 rounded-full">
-              {showBalance ? <EyeOff size={20} /> : <Eye size={20} />}
+            <Button variant="ghost" size="icon" onClick={toggleBalance} className="h-8 w-8 text-white hover:bg-white/10 rounded-full">
+              {showBalance ? <EyeOff size={18} /> : <Eye size={18} />}
             </Button>
           </div>
         </div>

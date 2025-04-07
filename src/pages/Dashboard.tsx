@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import Header from "@/components/layout/Header";
 import MobileNav from "@/components/layout/MobileNav";
@@ -15,6 +16,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { markAllNotificationsAsRead, markNotificationAsRead } from "@/services/localStorage";
 import { useApp } from "@/contexts/AppContext";
 import { format } from "date-fns";
+
 const Dashboard = () => {
   const [greeting, setGreeting] = useState("");
   const {
@@ -23,6 +25,7 @@ const Dashboard = () => {
     contributions
   } = useApp();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  
   useEffect(() => {
     const hours = new Date().getHours();
     if (hours < 12) {
@@ -45,6 +48,7 @@ const Dashboard = () => {
     }, 1500);
     return () => clearTimeout(timer);
   }, [refreshData]);
+  
   const handleNotificationRead = (id: string, relatedId?: string) => {
     markNotificationAsRead(id);
     refreshData();
@@ -59,16 +63,20 @@ const Dashboard = () => {
       }
     }
   };
+  
   const handleMarkAllRead = () => {
     markAllNotificationsAsRead();
     refreshData();
   };
+  
   const unreadNotifications = user.notifications?.filter(n => !n.read) || [];
-  return <div className="min-h-screen pb-20 md:pb-0">
+  
+  return (
+    <div className="min-h-screen pb-20 md:pb-0">
       <Header />
       
-      <main className="container max-w-5xl mx-auto px-4 pt-24 pb-8">
-        <div className="flex justify-between items-center mb-8 animate-fade-in">
+      <main className="container max-w-5xl mx-auto px-4 pt-14 pb-8">
+        <div className="flex justify-between items-center mb-4 animate-fade-in">
           <div>
             
           </div>
@@ -78,9 +86,11 @@ const Dashboard = () => {
                 <Button variant="outline" size="sm">
                   <Bell className="h-4 w-4 mr-2" />
                   Notifications
-                  {unreadNotifications.length > 0 && <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 flex items-center justify-center">
+                  {unreadNotifications.length > 0 && (
+                    <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 flex items-center justify-center">
                       {unreadNotifications.length}
-                    </Badge>}
+                    </Badge>
+                  )}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-80 p-0">
@@ -132,7 +142,7 @@ const Dashboard = () => {
               </DropdownMenuContent>
             </DropdownMenu>
             
-            <Button size="sm" asChild className="bg-green-600 hover:bg-green-700">
+            <Button size="sm" asChild className="bg-[#2DAE75] hover:bg-[#249e69]">
               <Link to="/create-group">
                 <UserPlus className="h-4 w-4 mr-2" />
                 New Group
@@ -162,6 +172,8 @@ const Dashboard = () => {
       </main>
       
       <MobileNav />
-    </div>;
+    </div>
+  );
 };
+
 export default Dashboard;

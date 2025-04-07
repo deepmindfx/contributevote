@@ -86,23 +86,23 @@ const WalletHistory = () => {
             </Button>
           </div>
           
-          {/* Currency Toggle */}
+          {/* Currency Toggle - NGN first, with circle design */}
           <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-full p-1">
             <button 
-              onClick={() => setCurrency("USD")}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                currency === "USD" ? "bg-[#2DAE75] text-white" : "text-foreground"
-              }`}
-            >
-              USD
-            </button>
-            <button 
               onClick={() => setCurrency("NGN")}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+              className={`relative px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                 currency === "NGN" ? "bg-[#2DAE75] text-white" : "text-foreground"
               }`}
             >
               NGN
+            </button>
+            <button 
+              onClick={() => setCurrency("USD")}
+              className={`relative px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                currency === "USD" ? "bg-[#2DAE75] text-white" : "text-foreground"
+              }`}
+            >
+              USD
             </button>
           </div>
         </div>
