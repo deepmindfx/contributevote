@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { updateUserBalance } from "@/services/localStorage";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Toggle } from "@/components/ui/toggle";
+import { Switch } from "@/components/ui/switch";
 
 const WalletCard = () => {
   const navigate = useNavigate();
@@ -20,7 +20,7 @@ const WalletCard = () => {
   const [isDepositOpen, setIsDepositOpen] = useState(false);
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
-  const [currency, setCurrency] = useState<"NGN" | "USD">("NGN");
+  const [currencyType, setCurrencyType] = useState<"NGN" | "USD">("NGN");
   
   const {
     user,
@@ -28,6 +28,11 @@ const WalletCard = () => {
     isAdmin,
     transactions
   } = useApp();
+
+  // Toggle currency function
+  const toggleCurrency = () => {
+    setCurrencyType(currencyType === "NGN" ? "USD" : "NGN");
+  };
 
   // Filter only the user's wallet-related transactions
   const walletTransactions = transactions.filter(t => t.userId === user.id && (t.contributionId === "" || t.type === "deposit" || t.type === "withdrawal")).slice(0, 5);
@@ -49,7 +54,7 @@ const WalletCard = () => {
     refreshData();
     setAmount("");
     setIsDepositOpen(false);
-    toast.success(`Successfully deposited ${currency === "NGN" ? "₦" : "$"}${Number(amount).toLocaleString()}`);
+    toast.success(`Successfully deposited ${currencyType === "NGN" ? "₦" : "$"}${Number(amount).toLocaleString()}`);
   };
   
   const handleWithdraw = () => {
@@ -65,7 +70,7 @@ const WalletCard = () => {
     refreshData();
     setAmount("");
     setIsWithdrawOpen(false);
-    toast.success(`Successfully withdrew ${currency === "NGN" ? "₦" : "$"}${Number(amount).toLocaleString()}`);
+    toast.success(`Successfully withdrew ${currencyType === "NGN" ? "₦" : "$"}${Number(amount).toLocaleString()}`);
   };
   
   const formatDate = (dateString: string) => {
@@ -85,7 +90,7 @@ const WalletCard = () => {
   const getFormattedBalance = () => {
     const balance = user.walletBalance || 0;
     
-    if (currency === "NGN") {
+    if (currencyType === "NGN") {
       return `₦${balance.toLocaleString()}`;
     } else {
       const usdBalance = convertToUSD(balance);
@@ -94,51 +99,34 @@ const WalletCard = () => {
   };
   
   return (
-    <Card className="overflow-hidden rounded-3xl border-0 shadow-lg relative mt-4">
+    <Card className="overflow-hidden rounded-3xl border-0 shadow-lg relative mt-2">
       <div className="wallet-gradient p-6 text-white relative overflow-hidden bg-[#2DAE75]">
         {/* Large circle decorations */}
         <div className="absolute -top-24 -right-24 w-60 h-60 rounded-full border border-white/10 opacity-20"></div>
         <div className="absolute -bottom-24 -left-24 w-60 h-60 rounded-full border border-white/10 opacity-20"></div>
         
+        {/* Currency toggle - New design */}
+        <div className="absolute top-5 right-5 flex items-center bg-white/10 rounded-full px-2 py-1">
+          <span className={`text-sm ${currencyType === 'USD' ? 'text-white' : 'text-white/60'}`}>USD</span>
+          <Switch 
+            checked={currencyType === "NGN"} 
+            onCheckedChange={toggleCurrency}
+            className="mx-1 data-[state=checked]:bg-white data-[state=unchecked]:bg-primary-100"
+          />
+          <span className={`text-sm ${currencyType === 'NGN' ? 'text-white' : 'text-white/60'}`}>NGN</span>
+        </div>
+        
         <div className="relative z-10">
           <div className="flex justify-between items-center mb-1">
-            <p className="text-xs text-white/80 mb-0 py-[8px]">Available Balance</p>
-            
-            {/* Currency Toggle - NGN/USD with circle design */}
-            <div className="relative inline-flex items-center bg-white/10 rounded-full px-2 py-1">
-              <button 
-                onClick={() => setCurrency("NGN")}
-                className="z-10 px-3 py-0.5 text-xs font-medium text-white"
-              >
-                NGN
-              </button>
-              
-              <button 
-                onClick={() => setCurrency("USD")}
-                className="z-10 px-3 py-0.5 text-xs font-medium text-white"
-              >
-                USD
-              </button>
-              
-              {/* The moving highlight circle */}
-              <div 
-                className="absolute h-5 w-9 bg-white/20 rounded-full transition-all duration-200"
-                style={{ 
-                  left: currency === "NGN" ? "3px" : "calc(100% - 36px)",
-                }}
-              ></div>
-            </div>
+            <p className="text-xs text-white/80 mb-0 py-[4px]">Available Balance</p>
           </div>
           
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            <h2 className="text-xl font-bold tracking-tight flex items-center gap-0.5">
               {showBalance ? (
-                <>
-                  {currency === "USD" && <span className="text-white">$</span>}
-                  {getFormattedBalance().replace('$', '')}
-                </>
+                getFormattedBalance()
               ) : (
-                `${currency === "NGN" ? "₦" : "$"}•••••••`
+                `${currencyType === "NGN" ? "₦" : "$"}•••••••`
               )}
             </h2>
             <Button variant="ghost" size="icon" onClick={toggleBalance} className="h-8 w-8 text-white hover:bg-white/10 rounded-full">
@@ -170,10 +158,10 @@ const WalletCard = () => {
                   </DialogHeader>
                   <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                      <Label htmlFor="deposit-amount">Amount ({currency})</Label>
+                      <Label htmlFor="deposit-amount">Amount ({currencyType})</Label>
                       <div className="relative">
                         <span className="absolute left-3 top-2.5 text-muted-foreground">
-                          {currency === "NGN" ? "₦" : "$"}
+                          {currencyType === "NGN" ? "₦" : "$"}
                         </span>
                         <Input id="deposit-amount" type="number" className="pl-8" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} />
                       </div>
@@ -204,10 +192,10 @@ const WalletCard = () => {
                   </DialogHeader>
                   <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                      <Label htmlFor="withdraw-amount">Amount ({currency})</Label>
+                      <Label htmlFor="withdraw-amount">Amount ({currencyType})</Label>
                       <div className="relative">
                         <span className="absolute left-3 top-2.5 text-muted-foreground">
-                          {currency === "NGN" ? "₦" : "$"}
+                          {currencyType === "NGN" ? "₦" : "$"}
                         </span>
                         <Input id="withdraw-amount" type="number" className="pl-8" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} />
                       </div>
@@ -266,7 +254,7 @@ const WalletCard = () => {
                     </div>
                     <div className={`font-semibold ${transaction.type === 'deposit' ? 'text-[#2DAE75]' : 'text-red-500'}`}>
                       {transaction.type === 'deposit' ? '+' : '-'}
-                      {currency === "NGN" ? 
+                      {currencyType === "NGN" ? 
                         `₦${transaction.amount.toLocaleString()}` : 
                         `$${(convertToUSD(transaction.amount)).toFixed(2)}`}
                     </div>

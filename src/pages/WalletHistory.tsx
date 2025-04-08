@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/layout/Header";
@@ -9,12 +8,18 @@ import { ArrowLeft, ArrowDown, ArrowUp, HelpCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useApp } from "@/contexts/AppContext";
 import { format } from "date-fns";
+import { Switch } from "@/components/ui/switch";
 
 const WalletHistory = () => {
   const navigate = useNavigate();
   const { user, transactions } = useApp();
   const [filter, setFilter] = useState<"all" | "deposit" | "withdrawal" | "vote">("all");
-  const [currency, setCurrency] = useState<"NGN" | "USD">("NGN");
+  const [currencyType, setCurrencyType] = useState<"NGN" | "USD">("NGN");
+  
+  // Toggle currency function
+  const toggleCurrency = () => {
+    setCurrencyType(currencyType === "NGN" ? "USD" : "NGN");
+  };
   
   // Filter transactions based on the current filter and only show user's transactions
   const filteredTransactions = transactions
@@ -86,29 +91,15 @@ const WalletHistory = () => {
             </Button>
           </div>
           
-          {/* Currency Toggle - NGN/USD with circle design */}
-          <div className="relative inline-flex items-center bg-slate-100 dark:bg-slate-800 rounded-full px-2 py-1">
-            <button 
-              onClick={() => setCurrency("NGN")}
-              className="z-10 px-3 py-0.5 text-xs font-medium"
-            >
-              NGN
-            </button>
-            
-            <button 
-              onClick={() => setCurrency("USD")}
-              className="z-10 px-3 py-0.5 text-xs font-medium"
-            >
-              USD
-            </button>
-            
-            {/* The moving highlight circle */}
-            <div 
-              className="absolute h-5 w-9 bg-[#2DAE75] rounded-full transition-all duration-200"
-              style={{ 
-                left: currency === "NGN" ? "3px" : "calc(100% - 36px)",
-              }}
-            ></div>
+          {/* Currency Toggle - Updated to match WalletCard */}
+          <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-full px-2 py-1">
+            <span className={`text-sm ${currencyType === 'USD' ? 'text-foreground' : 'text-muted-foreground'}`}>USD</span>
+            <Switch 
+              checked={currencyType === "NGN"} 
+              onCheckedChange={toggleCurrency}
+              className="mx-1 data-[state=checked]:bg-[#2DAE75] data-[state=unchecked]:bg-slate-300"
+            />
+            <span className={`text-sm ${currencyType === 'NGN' ? 'text-foreground' : 'text-muted-foreground'}`}>NGN</span>
           </div>
         </div>
         
@@ -169,7 +160,7 @@ const WalletHistory = () => {
                             {transaction.type === 'deposit' ? '+' : 
                              transaction.type === 'withdrawal' ? '-' : ''}
                             {transaction.amount > 0 ? (
-                              currency === "NGN" ? 
+                              currencyType === "NGN" ? 
                                 `₦${transaction.amount.toLocaleString()}` : 
                                 `$${convertToUSD(transaction.amount).toFixed(2)}`
                             ) : ''}
