@@ -11,7 +11,6 @@ import { updateUserBalance } from "@/services/localStorage";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Switch } from "@/components/ui/switch";
-
 const WalletCard = () => {
   const navigate = useNavigate();
   const [showBalance, setShowBalance] = useState(true);
@@ -21,7 +20,6 @@ const WalletCard = () => {
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [currencyType, setCurrencyType] = useState<"NGN" | "USD">("NGN");
-  
   const {
     user,
     refreshData,
@@ -29,14 +27,13 @@ const WalletCard = () => {
     transactions
   } = useApp();
 
-  // Fixed currency toggle function
+  // Toggle currency function
   const toggleCurrency = () => {
-    setCurrencyType(prevType => prevType === "NGN" ? "USD" : "NGN");
+    setCurrencyType(prev => prev === "NGN" ? "USD" : "NGN");
   };
 
   // Filter only the user's wallet-related transactions
   const walletTransactions = transactions.filter(t => t.userId === user.id && (t.contributionId === "" || t.type === "deposit" || t.type === "withdrawal")).slice(0, 5);
-  
   const refreshBalance = () => {
     setIsLoading(true);
     setTimeout(() => {
@@ -44,7 +41,6 @@ const WalletCard = () => {
       setIsLoading(false);
     }, 1000);
   };
-  
   const handleDeposit = () => {
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       toast.error("Please enter a valid amount");
@@ -56,7 +52,6 @@ const WalletCard = () => {
     setIsDepositOpen(false);
     toast.success(`Successfully deposited ${currencyType === "NGN" ? "₦" : "$"}${Number(amount).toLocaleString()}`);
   };
-  
   const handleWithdraw = () => {
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       toast.error("Please enter a valid amount");
@@ -72,11 +67,9 @@ const WalletCard = () => {
     setIsWithdrawOpen(false);
     toast.success(`Successfully withdrew ${currencyType === "NGN" ? "₦" : "$"}${Number(amount).toLocaleString()}`);
   };
-  
   const formatDate = (dateString: string) => {
     return format(new Date(dateString), 'MMM d, yyyy');
   };
-  
   const toggleBalance = () => {
     setShowBalance(!showBalance);
   };
@@ -85,11 +78,10 @@ const WalletCard = () => {
   const convertToUSD = (amount: number) => {
     return amount / 1550; // Using a simplified conversion rate of 1 USD = 1550 NGN
   };
-  
+
   // Format the balance based on selected currency
   const getFormattedBalance = () => {
     const balance = user.walletBalance || 0;
-    
     if (currencyType === "NGN") {
       return `₦${balance.toLocaleString()}`;
     } else {
@@ -97,37 +89,27 @@ const WalletCard = () => {
       return `$${usdBalance.toFixed(2)}`;
     }
   };
-  
-  return (
-    <Card className="overflow-hidden rounded-3xl border-0 shadow-lg relative">
+  return <Card className="overflow-hidden rounded-3xl border-0 shadow-lg relative">
       <div className="wallet-gradient p-6 text-white relative overflow-hidden bg-[#2DAE75]">
         {/* Large circle decorations */}
         <div className="absolute -top-24 -right-24 w-60 h-60 rounded-full border border-white/10 opacity-20"></div>
         <div className="absolute -bottom-24 -left-24 w-60 h-60 rounded-full border border-white/10 opacity-20"></div>
         
-        {/* Currency toggle - Fixed to work correctly */}
+        {/* Currency toggle - Updated to match reference image */}
         <div className="absolute top-5 right-5 flex items-center bg-green-600/50 rounded-full px-3 py-1.5">
           <span className={`text-xs ${currencyType === 'NGN' ? 'text-white' : 'text-white/60'}`}>NGN</span>
-          <Switch 
-            checked={currencyType === "USD"}
-            onCheckedChange={toggleCurrency}
-            className="mx-1.5 data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-green-500"
-          />
+          <Switch checked={currencyType === "USD"} onCheckedChange={toggleCurrency} className="mx-1.5 data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-green-500" />
           <span className={`text-xs ${currencyType === 'USD' ? 'text-white' : 'text-white/60'}`}>USD</span>
         </div>
         
-        <div className="relative z-10">
+        <div className="relative z-10 mx-0 my-[5px]">
           <div className="flex justify-between items-center mb-1">
             <p className="text-sm text-white/80 mb-0 py-[2px]">Available Balance</p>
           </div>
           
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold tracking-tight flex items-center gap-0">
-              {showBalance ? (
-                getFormattedBalance()
-              ) : (
-                `${currencyType === "NGN" ? "₦" : "$"}•••••••`
-              )}
+              {showBalance ? getFormattedBalance() : `${currencyType === "NGN" ? "₦" : "$"}•••••••`}
             </h2>
             <Button variant="ghost" size="icon" onClick={toggleBalance} className="h-8 w-8 text-white hover:bg-white/10 rounded-full">
               {showBalance ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -137,8 +119,7 @@ const WalletCard = () => {
       </div>
       
       <CardContent className="p-0">
-        {!showHistory ? (
-          <div className="bg-white dark:bg-black/40 rounded-t-3xl -mt-3 overflow-hidden">
+        {!showHistory ? <div className="bg-white dark:bg-black/40 rounded-t-3xl -mt-3 overflow-hidden">
             <div className="grid grid-cols-4 gap-1 pt-2 px-4">
               <Dialog open={isDepositOpen} onOpenChange={setIsDepositOpen}>
                 <DialogTrigger asChild>
@@ -224,9 +205,7 @@ const WalletCard = () => {
                 <span className="text-xs">History</span>
               </div>
             </div>
-          </div>
-        ) : (
-          <div className="bg-white dark:bg-black/40 rounded-t-3xl -mt-3 p-4">
+          </div> : <div className="bg-white dark:bg-black/40 rounded-t-3xl -mt-3 p-4">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-semibold text-lg">Recent Transactions</h3>
               <Button variant="ghost" size="sm" onClick={() => setShowHistory(false)} className="text-[#2DAE75]">
@@ -234,10 +213,8 @@ const WalletCard = () => {
               </Button>
             </div>
             
-            {walletTransactions.length > 0 ? (
-              <div className="space-y-3">
-                {walletTransactions.map(transaction => (
-                  <div key={transaction.id} className="flex items-center justify-between p-3 border rounded-lg">
+            {walletTransactions.length > 0 ? <div className="space-y-3">
+                {walletTransactions.map(transaction => <div key={transaction.id} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center">
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center
                         ${transaction.type === 'deposit' ? 'bg-green-100 text-[#2DAE75]' : transaction.type === 'withdrawal' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
@@ -254,27 +231,18 @@ const WalletCard = () => {
                     </div>
                     <div className={`font-semibold ${transaction.type === 'deposit' ? 'text-[#2DAE75]' : 'text-red-500'}`}>
                       {transaction.type === 'deposit' ? '+' : '-'}
-                      {currencyType === "NGN" ? 
-                        `₦${transaction.amount.toLocaleString()}` : 
-                        `$${(convertToUSD(transaction.amount)).toFixed(2)}`}
+                      {currencyType === "NGN" ? `₦${transaction.amount.toLocaleString()}` : `$${convertToUSD(transaction.amount).toFixed(2)}`}
                     </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-6 text-muted-foreground">
+                  </div>)}
+              </div> : <div className="text-center py-6 text-muted-foreground">
                 <p>No transaction history yet</p>
-              </div>
-            )}
+              </div>}
             
             <Button variant="outline" className="w-full mt-4" onClick={() => navigate("/wallet-history")}>
               View All Transactions
             </Button>
-          </div>
-        )}
+          </div>}
       </CardContent>
-    </Card>
-  );
+    </Card>;
 };
-
 export default WalletCard;
