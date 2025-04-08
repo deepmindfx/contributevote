@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/layout/Header";
@@ -91,15 +92,15 @@ const WalletHistory = () => {
             </Button>
           </div>
           
-          {/* Currency Toggle - Updated to match WalletCard */}
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-full px-2 py-1">
-            <span className={`text-sm ${currencyType === 'USD' ? 'text-foreground' : 'text-muted-foreground'}`}>USD</span>
+          {/* Currency Toggle - Updated to match reference image */}
+          <div className="flex items-center bg-green-600/30 dark:bg-green-600/50 rounded-full px-3 py-1.5">
+            <span className={`text-xs ${currencyType === 'NGN' ? 'text-foreground' : 'text-muted-foreground'}`}>NGN</span>
             <Switch 
-              checked={currencyType === "NGN"} 
+              checked={currencyType === "USD"} 
               onCheckedChange={toggleCurrency}
-              className="mx-1 data-[state=checked]:bg-[#2DAE75] data-[state=unchecked]:bg-slate-300"
+              className="mx-1.5 data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-green-500"
             />
-            <span className={`text-sm ${currencyType === 'NGN' ? 'text-foreground' : 'text-muted-foreground'}`}>NGN</span>
+            <span className={`text-xs ${currencyType === 'USD' ? 'text-foreground' : 'text-muted-foreground'}`}>USD</span>
           </div>
         </div>
         

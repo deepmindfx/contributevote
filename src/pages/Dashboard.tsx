@@ -75,8 +75,8 @@ const Dashboard = () => {
     <div className="min-h-screen pb-20 md:pb-0">
       <Header />
       
-      <main className="container max-w-5xl mx-auto px-4 pt-6 pb-8">
-        <div className="flex justify-between items-center mb-3 animate-fade-in">
+      <main className="container max-w-5xl mx-auto px-4 pt-4 pb-8">
+        <div className="flex justify-between items-center mb-2 animate-fade-in">
           <div>
             <h1 className="text-2xl font-bold">{greeting}, {user.name?.split(' ')[0]}</h1>
           </div>

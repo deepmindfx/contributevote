@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -99,30 +100,30 @@ const WalletCard = () => {
   };
   
   return (
-    <Card className="overflow-hidden rounded-3xl border-0 shadow-lg relative mt-2">
+    <Card className="overflow-hidden rounded-3xl border-0 shadow-lg relative">
       <div className="wallet-gradient p-6 text-white relative overflow-hidden bg-[#2DAE75]">
         {/* Large circle decorations */}
         <div className="absolute -top-24 -right-24 w-60 h-60 rounded-full border border-white/10 opacity-20"></div>
         <div className="absolute -bottom-24 -left-24 w-60 h-60 rounded-full border border-white/10 opacity-20"></div>
         
-        {/* Currency toggle - New design */}
-        <div className="absolute top-5 right-5 flex items-center bg-white/10 rounded-full px-2 py-1">
-          <span className={`text-sm ${currencyType === 'USD' ? 'text-white' : 'text-white/60'}`}>USD</span>
+        {/* Currency toggle - Updated to match reference image */}
+        <div className="absolute top-5 right-5 flex items-center bg-green-600/50 rounded-full px-3 py-1.5">
+          <span className={`text-xs ${currencyType === 'NGN' ? 'text-white' : 'text-white/60'}`}>NGN</span>
           <Switch 
-            checked={currencyType === "NGN"} 
+            checked={currencyType === "USD"} 
             onCheckedChange={toggleCurrency}
-            className="mx-1 data-[state=checked]:bg-white data-[state=unchecked]:bg-primary-100"
+            className="mx-1.5 data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-green-500"
           />
-          <span className={`text-sm ${currencyType === 'NGN' ? 'text-white' : 'text-white/60'}`}>NGN</span>
+          <span className={`text-xs ${currencyType === 'USD' ? 'text-white' : 'text-white/60'}`}>USD</span>
         </div>
         
         <div className="relative z-10">
           <div className="flex justify-between items-center mb-1">
-            <p className="text-xs text-white/80 mb-0 py-[4px]">Available Balance</p>
+            <p className="text-xs text-white/80 mb-0 py-[2px]">Available Balance</p>
           </div>
           
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold tracking-tight flex items-center gap-0.5">
+            <h2 className="text-lg font-bold tracking-tight flex items-center gap-0">
               {showBalance ? (
                 getFormattedBalance()
               ) : (
