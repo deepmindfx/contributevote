@@ -19,7 +19,7 @@ const WalletHistory = () => {
   
   // Toggle currency function
   const toggleCurrency = () => {
-    setCurrencyType(currencyType === "NGN" ? "USD" : "NGN");
+    setCurrencyType(prev => prev === "NGN" ? "USD" : "NGN");
   };
   
   // Filter transactions based on the current filter and only show user's transactions

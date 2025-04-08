@@ -32,7 +32,7 @@ const WalletCard = () => {
 
   // Toggle currency function
   const toggleCurrency = () => {
-    setCurrencyType(currencyType === "NGN" ? "USD" : "NGN");
+    setCurrencyType(prev => prev === "NGN" ? "USD" : "NGN");
   };
 
   // Filter only the user's wallet-related transactions
@@ -119,11 +119,11 @@ const WalletCard = () => {
         
         <div className="relative z-10">
           <div className="flex justify-between items-center mb-1">
-            <p className="text-xs text-white/80 mb-0 py-[2px]">Available Balance</p>
+            <p className="text-sm text-white/80 mb-0 py-[2px]">Available Balance</p>
           </div>
           
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold tracking-tight flex items-center gap-0">
+            <h2 className="text-2xl font-bold tracking-tight flex items-center gap-0">
               {showBalance ? (
                 getFormattedBalance()
               ) : (
