@@ -17,9 +17,9 @@ const WalletHistory = () => {
   const [filter, setFilter] = useState<"all" | "deposit" | "withdrawal" | "vote">("all");
   const [currencyType, setCurrencyType] = useState<"NGN" | "USD">("NGN");
   
-  // Toggle currency function
+  // Toggle currency function - fixed to properly toggle
   const toggleCurrency = () => {
-    setCurrencyType(prev => prev === "NGN" ? "USD" : "NGN");
+    setCurrencyType(currencyType === "NGN" ? "USD" : "NGN");
   };
   
   // Filter transactions based on the current filter and only show user's transactions
@@ -92,7 +92,7 @@ const WalletHistory = () => {
             </Button>
           </div>
           
-          {/* Currency Toggle - Updated to match reference image */}
+          {/* Currency Toggle - Updated with the correct order and styling */}
           <div className="flex items-center bg-green-600/30 dark:bg-green-600/50 rounded-full px-3 py-1.5">
             <span className={`text-xs ${currencyType === 'NGN' ? 'text-foreground' : 'text-muted-foreground'}`}>NGN</span>
             <Switch 

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import Header from "@/components/layout/Header";
 import MobileNav from "@/components/layout/MobileNav";
@@ -18,7 +17,6 @@ import { useApp } from "@/contexts/AppContext";
 import { format } from "date-fns";
 
 const Dashboard = () => {
-  const [greeting, setGreeting] = useState("");
   const {
     user,
     refreshData,
@@ -27,15 +25,6 @@ const Dashboard = () => {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   
   useEffect(() => {
-    const hours = new Date().getHours();
-    if (hours < 12) {
-      setGreeting("Good Morning");
-    } else if (hours < 18) {
-      setGreeting("Good Afternoon");
-    } else {
-      setGreeting("Good Evening");
-    }
-
     // Refresh data when dashboard loads to ensure shared contributions are visible
     refreshData();
   }, [refreshData]);
@@ -75,10 +64,10 @@ const Dashboard = () => {
     <div className="min-h-screen pb-20 md:pb-0">
       <Header />
       
-      <main className="container max-w-5xl mx-auto px-4 pt-4 pb-8">
+      <main className="container max-w-5xl mx-auto px-4 pt-8 pb-8">
         <div className="flex justify-between items-center mb-2 animate-fade-in">
           <div>
-            <h1 className="text-2xl font-bold">{greeting}, {user.name?.split(' ')[0]}</h1>
+            {/* Greeting removed as requested */}
           </div>
           <div className="hidden md:flex space-x-2">
             <Popover open={notificationsOpen} onOpenChange={setNotificationsOpen}>
@@ -157,7 +146,7 @@ const Dashboard = () => {
           </div>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 mt-4">
           <div className="md:col-span-5 animate-slide-up">
             <WalletCard />
           </div>
