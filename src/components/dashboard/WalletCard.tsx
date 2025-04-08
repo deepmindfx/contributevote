@@ -29,9 +29,9 @@ const WalletCard = () => {
     transactions
   } = useApp();
 
-  // Toggle currency function - fixed to properly toggle between NGN and USD
+  // Fixed currency toggle function
   const toggleCurrency = () => {
-    setCurrencyType(currencyType === "NGN" ? "USD" : "NGN");
+    setCurrencyType(prevType => prevType === "NGN" ? "USD" : "NGN");
   };
 
   // Filter only the user's wallet-related transactions
@@ -105,11 +105,11 @@ const WalletCard = () => {
         <div className="absolute -top-24 -right-24 w-60 h-60 rounded-full border border-white/10 opacity-20"></div>
         <div className="absolute -bottom-24 -left-24 w-60 h-60 rounded-full border border-white/10 opacity-20"></div>
         
-        {/* Currency toggle - Updated with the correct spacing and order */}
+        {/* Currency toggle - Fixed to work correctly */}
         <div className="absolute top-5 right-5 flex items-center bg-green-600/50 rounded-full px-3 py-1.5">
           <span className={`text-xs ${currencyType === 'NGN' ? 'text-white' : 'text-white/60'}`}>NGN</span>
           <Switch 
-            checked={currencyType === "USD"} 
+            checked={currencyType === "USD"}
             onCheckedChange={toggleCurrency}
             className="mx-1.5 data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-green-500"
           />

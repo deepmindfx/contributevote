@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/layout/Header";
@@ -17,9 +16,9 @@ const WalletHistory = () => {
   const [filter, setFilter] = useState<"all" | "deposit" | "withdrawal" | "vote">("all");
   const [currencyType, setCurrencyType] = useState<"NGN" | "USD">("NGN");
   
-  // Toggle currency function - fixed to properly toggle
+  // Fixed toggle currency function
   const toggleCurrency = () => {
-    setCurrencyType(currencyType === "NGN" ? "USD" : "NGN");
+    setCurrencyType(prevType => prevType === "NGN" ? "USD" : "NGN");
   };
   
   // Filter transactions based on the current filter and only show user's transactions
@@ -92,11 +91,11 @@ const WalletHistory = () => {
             </Button>
           </div>
           
-          {/* Currency Toggle - Updated with the correct order and styling */}
+          {/* Currency Toggle - Fixed to work correctly */}
           <div className="flex items-center bg-green-600/30 dark:bg-green-600/50 rounded-full px-3 py-1.5">
             <span className={`text-xs ${currencyType === 'NGN' ? 'text-foreground' : 'text-muted-foreground'}`}>NGN</span>
             <Switch 
-              checked={currencyType === "USD"} 
+              checked={currencyType === "USD"}
               onCheckedChange={toggleCurrency}
               className="mx-1.5 data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-green-500"
             />

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import Header from "@/components/layout/Header";
 import MobileNav from "@/components/layout/MobileNav";
@@ -64,7 +65,7 @@ const Dashboard = () => {
     <div className="min-h-screen pb-20 md:pb-0">
       <Header />
       
-      <main className="container max-w-5xl mx-auto px-4 pt-8 pb-8">
+      <main className="container max-w-5xl mx-auto px-4 pt-16 pb-8">
         <div className="flex justify-between items-center mb-2 animate-fade-in">
           <div>
             {/* Greeting removed as requested */}
@@ -146,7 +147,7 @@ const Dashboard = () => {
           </div>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 mt-4">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 mt-8">
           <div className="md:col-span-5 animate-slide-up">
             <WalletCard />
           </div>
