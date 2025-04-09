@@ -129,6 +129,43 @@ export const initializeLocalStorage = (): void => {
   }
 };
 
+// Add the OTP functionality
+let otpStore: Record<string, { otp: string, expiresAt: number }> = {};
+
+export const generateOTP = (): string => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+export const storeOTP = (userId: string, otp: string): void => {
+  // OTP expires after 10 minutes
+  const expiresAt = Date.now() + 10 * 60 * 1000;
+  otpStore[userId] = { otp, expiresAt };
+};
+
+export const verifyOTP = (userId: string, otpToVerify: string): boolean => {
+  const otpRecord = otpStore[userId];
+  
+  if (!otpRecord) {
+    return false;
+  }
+  
+  if (otpRecord.expiresAt < Date.now()) {
+    // OTP has expired
+    delete otpStore[userId];
+    return false;
+  }
+  
+  const isValid = otpRecord.otp === otpToVerify;
+  
+  if (isValid) {
+    // Clean up after successful verification
+    delete otpStore[userId];
+    verifyUserWithOTP(userId);
+  }
+  
+  return isValid;
+};
+
 export const registerUser = (user: Omit<User, 'id' | 'walletBalance' | 'role' | 'createdAt' | 'updatedAt' | 'preferences' | 'notifications' | 'status' | 'verified'>): User => {
   const users = getUsers();
   const existingUser = users.find(u => u.email === user.email || u.phone === user.phone);
@@ -156,6 +193,11 @@ export const registerUser = (user: Omit<User, 'id' | 'walletBalance' | 'role' | 
   users.push(newUser);
   localStorage.setItem('users', JSON.stringify(users));
   updateStatistics();
+  
+  // Generate and store OTP for the new user
+  const otp = generateOTP();
+  storeOTP(newUser.id, otp);
+  
   return newUser;
 };
 
@@ -785,6 +827,7 @@ export const pingGroupMembersForVote = (requestId: string): void => {
     if (memberId !== currentUser.id) {
       const member = getUsers().find(u => u.id === memberId);
       if (member) {
+        // Add notification
         addNotification({
           userId: memberId,
           message: `${currentUser.name} is reminding you to vote on the withdrawal request for "${contribution.name}"`,
@@ -792,6 +835,9 @@ export const pingGroupMembersForVote = (requestId: string): void => {
           read: false,
           relatedId: request.contributionId
         });
+        
+        // In a real implementation, we'd send an email here
+        // This will be handled by the AppContext
       }
     }
   });

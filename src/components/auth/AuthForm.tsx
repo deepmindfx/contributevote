@@ -5,16 +5,23 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { LogIn, Mail, Phone, User, Key, Lock } from "lucide-react";
+import { LogIn, Mail, Phone, User, Key, Lock, Shield } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { v4 as uuidv4 } from 'uuid';
 import { useApp } from "@/contexts/AppContext";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+
 const AuthForm = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const [showOTPScreen, setShowOTPScreen] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [userId, setUserId] = useState("");
+  
   const [loginData, setLoginData] = useState({
     phone: "",
     password: ""
   });
+  
   const [registerData, setRegisterData] = useState({
     firstName: "",
     lastName: "",
@@ -22,10 +29,13 @@ const AuthForm = () => {
     email: "",
     password: ""
   });
+  
   const navigate = useNavigate();
   const location = useLocation();
   const {
-    refreshData
+    refreshData,
+    sendVerificationEmail,
+    verifyUserWithOTPCode
   } = useApp();
 
   // Get return URL if user was redirected from a protected page
@@ -33,6 +43,7 @@ const AuthForm = () => {
     state
   } = location;
   const returnUrl = state?.returnUrl || "/dashboard";
+  
   const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const {
       name,
@@ -43,6 +54,7 @@ const AuthForm = () => {
       [name]: value
     }));
   };
+  
   const handleRegisterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const {
       name,
@@ -53,6 +65,7 @@ const AuthForm = () => {
       [name]: value
     }));
   };
+  
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -66,7 +79,7 @@ const AuthForm = () => {
 
     // For regular users - check if user exists
     const users = JSON.parse(localStorage.getItem('users') || '[]');
-    const foundUser = users.find((u: any) => u.phoneNumber === loginData.phone || u.email === loginData.phone);
+    const foundUser = users.find((u: any) => u.phone === loginData.phone || u.email === loginData.phone);
     if (!foundUser) {
       toast.error("User not found. Please check your credentials or register.");
       setIsLoading(false);
@@ -88,6 +101,7 @@ const AuthForm = () => {
       navigate(returnUrl);
     }, 500);
   };
+  
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -99,8 +113,7 @@ const AuthForm = () => {
       return;
     }
 
-    // For demonstration purposes - simulate registration
-    setTimeout(() => {
+    try {
       // Store new user in localStorage
       const fullName = `${registerData.firstName} ${registerData.lastName}`;
       const user = {
@@ -109,17 +122,17 @@ const AuthForm = () => {
         lastName: registerData.lastName,
         name: fullName,
         email: registerData.email,
-        phoneNumber: registerData.phone,
+        phone: registerData.phone,
         walletBalance: 0,
         preferences: {
           anonymousContributions: false,
-          darkMode: false,
-          notificationsEnabled: true
+          darkMode: false
         },
         notifications: [],
         role: "user" as const,
         status: "active" as const,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        verified: false
       };
 
       // Add to users array
@@ -132,16 +145,91 @@ const AuthForm = () => {
 
       // Important: Refresh app context data after registration
       refreshData();
+      
+      // Send verification email
+      const emailSent = await sendVerificationEmail(user.id, user.email);
+      
+      if (emailSent) {
+        // Show OTP verification screen
+        setUserId(user.id);
+        setShowOTPScreen(true);
+      }
+      
       setIsLoading(false);
-      toast.success("Account created successfully");
-
-      // Navigate to returnUrl or dashboard
+    } catch (error) {
+      console.error("Registration error:", error);
+      toast.error("Failed to create account. Please try again.");
+      setIsLoading(false);
+    }
+  };
+  
+  const handleVerifyOTP = () => {
+    if (!otp || otp.length !== 6) {
+      toast.error("Please enter a valid 6-digit OTP");
+      return;
+    }
+    
+    const isVerified = verifyUserWithOTPCode(userId, otp);
+    
+    if (isVerified) {
+      // Navigate to dashboard after successful verification
       setTimeout(() => {
         navigate("/dashboard");
-      }, 500);
-    }, 1500);
+      }, 1000);
+    }
   };
-  return <Card className="w-full max-w-md mx-auto animate-scale glass-card">
+  
+  if (showOTPScreen) {
+    return (
+      <Card className="w-full max-w-md mx-auto animate-scale glass-card">
+        <CardHeader>
+          <CardTitle className="text-2xl text-center">Verify Your Account</CardTitle>
+          <CardDescription className="text-center">
+            We've sent a verification code to your email address. Please enter it below.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex justify-center">
+              <InputOTP maxLength={6} value={otp} onChange={setOtp}>
+                <InputOTPGroup>
+                  <InputOTPSlot index={0} />
+                  <InputOTPSlot index={1} />
+                  <InputOTPSlot index={2} />
+                  <InputOTPSlot index={3} />
+                  <InputOTPSlot index={4} />
+                  <InputOTPSlot index={5} />
+                </InputOTPGroup>
+              </InputOTP>
+            </div>
+            <Button 
+              onClick={handleVerifyOTP} 
+              className="w-full bg-[#2DAE75] hover:bg-[#259d68]"
+            >
+              <Shield className="mr-2 h-4 w-4" />
+              Verify Account
+            </Button>
+            <p className="text-sm text-center text-muted-foreground mt-4">
+              Didn't receive the code?{" "}
+              <a 
+                href="#" 
+                className="text-primary hover:underline"
+                onClick={(e) => {
+                  e.preventDefault();
+                  sendVerificationEmail(userId, registerData.email);
+                }}
+              >
+                Resend
+              </a>
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+  
+  return (
+    <Card className="w-full max-w-md mx-auto animate-scale glass-card">
       <Tabs defaultValue="login" className="w-full">
         <TabsList className="grid w-full grid-cols-2 mb-4">
           <TabsTrigger value="login">Login</TabsTrigger>
@@ -158,14 +246,14 @@ const AuthForm = () => {
               <div className="space-y-2">
                 <div className="relative">
                   <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Phone Number" type="tel" name="phone" className="pl-10" value={loginData.phone} onChange={handleLoginChange} required />
+                  <Input placeholder="Phone Number or Email" type="text" name="phone" className="pl-10" value={loginData.phone} onChange={handleLoginChange} required />
                 </div>
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input placeholder="Password" type="password" name="password" className="pl-10" value={loginData.password} onChange={handleLoginChange} required />
                 </div>
               </div>
-              <Button type="submit" disabled={isLoading} className="w-full text-white">
+              <Button type="submit" disabled={isLoading} className="w-full text-white bg-[#2DAE75] hover:bg-[#259d68]">
                 {isLoading ? <div className="flex items-center">
                     <div className="animate-spin mr-2 h-4 w-4 border-t-2 border-b-2 border-current rounded-full"></div>
                     Logging in...
@@ -240,7 +328,7 @@ const AuthForm = () => {
                   <Input placeholder="Create Password" type="password" name="password" className="pl-10" value={registerData.password} onChange={handleRegisterChange} required />
                 </div>
               </div>
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button type="submit" className="w-full bg-[#2DAE75] hover:bg-[#259d68]" disabled={isLoading}>
                 {isLoading ? <div className="flex items-center">
                     <div className="animate-spin mr-2 h-4 w-4 border-t-2 border-b-2 border-current rounded-full"></div>
                     Creating account...
@@ -286,6 +374,8 @@ const AuthForm = () => {
           </CardFooter>
         </TabsContent>
       </Tabs>
-    </Card>;
+    </Card>
+  );
 };
+
 export default AuthForm;

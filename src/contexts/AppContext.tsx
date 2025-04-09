@@ -33,10 +33,14 @@ import {
   generateContributionReceipt,
   updateWithdrawalRequestsStatus,
   verifyUserWithOTP,
-  getContributionByAccountNumber
+  getContributionByAccountNumber,
+  generateOTP,
+  storeOTP,
+  verifyOTP
 } from '@/services/localStorage';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import { sendOTPEmail, sendWithdrawalReminderEmail } from '@/services/emailService';
 
 interface AppContextType {
   user: User;
@@ -67,6 +71,8 @@ interface AppContextType {
   getReceipt: (transactionId: string) => any;
   verifyUser: (userId: string) => void;
   isGroupCreator: (contributionId: string) => boolean;
+  sendVerificationEmail: (userId: string, email: string) => Promise<boolean>;
+  verifyUserWithOTPCode: (userId: string, otp: string) => boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -386,7 +392,49 @@ export function AppProvider({ children }: { children: ReactNode }) {
   
   const pingMembersForVote = (requestId: string) => {
     try {
+      const withdrawalRequests = getWithdrawalRequests();
+      const request = withdrawalRequests.find(r => r.id === requestId);
+      
+      if (!request) {
+        toast.error('Withdrawal request not found');
+        return;
+      }
+      
+      const contributions = getContributions();
+      const contribution = contributions.find(c => c.id === request.contributionId);
+      
+      if (!contribution) {
+        toast.error('Contribution not found');
+        return;
+      }
+      
+      // Get the requester name
+      const requester = users.find(u => u.id === request.requesterId);
+      const requesterName = requester ? requester.name : 'Unknown user';
+      
+      // First call the local storage function to create notifications
       pingGroupMembersForVote(requestId);
+      
+      // Now send emails to non-voting members
+      const nonVotingMembers = contribution.members.filter(memberId => {
+        const hasVoted = request.votes.some(vote => vote.userId === memberId);
+        return !hasVoted && memberId !== request.requesterId;
+      });
+      
+      nonVotingMembers.forEach(async (memberId) => {
+        const member = users.find(u => u.id === memberId);
+        if (member && member.email) {
+          // Send email reminder
+          await sendWithdrawalReminderEmail(
+            member.email,
+            { amount: request.amount, purpose: request.purpose },
+            contribution.name,
+            requesterName,
+            requestId
+          );
+        }
+      });
+      
       toast.success('Reminder sent to all members who have not voted yet');
     } catch (error) {
       if (error instanceof Error) {
@@ -430,6 +478,46 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return !!(contribution && contribution.creatorId === user.id);
   };
 
+  // New function to send verification email with OTP
+  const sendVerificationEmail = async (userId: string, email: string): Promise<boolean> => {
+    try {
+      // Generate OTP
+      const otp = generateOTP();
+      
+      // Store OTP
+      storeOTP(userId, otp);
+      
+      // Send email with OTP
+      const result = await sendOTPEmail(email, otp);
+      
+      if (result.success) {
+        toast.success('Verification email sent! Please check your inbox.');
+        return true;
+      } else {
+        toast.error('Failed to send verification email. Please try again.');
+        return false;
+      }
+    } catch (error) {
+      console.error('Error sending verification email:', error);
+      toast.error('Failed to send verification email');
+      return false;
+    }
+  };
+  
+  // New function to verify user with OTP code
+  const verifyUserWithOTPCode = (userId: string, otp: string): boolean => {
+    const isValid = verifyOTP(userId, otp);
+    
+    if (isValid) {
+      toast.success('Account verified successfully!');
+      refreshData();
+    } else {
+      toast.error('Invalid or expired OTP. Please try again.');
+    }
+    
+    return isValid;
+  };
+
   return (
     <AppContext.Provider value={{
       user,
@@ -460,6 +548,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       getReceipt,
       verifyUser,
       isGroupCreator,
+      sendVerificationEmail,
+      verifyUserWithOTPCode,
     }}>
       {children}
     </AppContext.Provider>
