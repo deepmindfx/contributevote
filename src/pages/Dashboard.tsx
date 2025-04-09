@@ -147,7 +147,7 @@ const Dashboard = () => {
           </div>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 mt-8">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 mt-[30px]">
           <div className="md:col-span-5 animate-slide-up">
             <WalletCard />
           </div>
