@@ -16,7 +16,7 @@ const UserSettings = () => {
         <Button 
           variant="ghost" 
           size="sm" 
-          className="mb-4 md:hidden"
+          className="mb-4"
           onClick={() => navigate("/dashboard")}
         >
           <ArrowLeft className="h-4 w-4 mr-2" />

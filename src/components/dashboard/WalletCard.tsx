@@ -99,9 +99,9 @@ const WalletCard = () => {
   };
 
   return (
-    <Card className="overflow-hidden rounded-3xl border-0 shadow-none">
+    <Card className="overflow-hidden rounded-3xl border-0">
       <div className="p-6 text-white relative overflow-hidden bg-[#2DAE75]">
-        {/* Currency toggle - Fixed to work properly */}
+        {/* Currency toggle - Fixed positioning and default state */}
         <div className="absolute top-5 right-5 flex items-center bg-green-600/50 rounded-full px-3 py-1.5">
           <span className={`text-xs ${currencyType === 'NGN' ? 'text-white' : 'text-white/60'}`}>NGN</span>
           <button 

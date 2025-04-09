@@ -19,6 +19,7 @@ import { Contribution, WithdrawalRequest, Transaction, hasContributed } from "@/
 import { format, formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import ShareContribution from "@/components/contributions/ShareContribution";
+
 const GroupDetail = () => {
   const {
     id
@@ -163,7 +164,7 @@ const GroupDetail = () => {
   return <div className="min-h-screen pb-20 md:pb-0">
       <Header />
       
-      <main className="container max-w-4xl mx-auto px-4 pt-24 pb-12">
+      <main className="container max-w-5xl mx-auto px-4 pt-24 pb-12">
         <div className="mb-6 animate-fade-in">
           <Button variant="ghost" size="sm" className="mb-2" onClick={() => navigate("/dashboard")}>
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -213,7 +214,7 @@ const GroupDetail = () => {
               <Progress value={progressPercentage} className="h-2" />
             </div>
             
-            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-muted/30 rounded-lg">
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-green-100 bg-opacity-20 dark:bg-green-900/20 rounded-lg">
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium">Account Details</span>
@@ -330,22 +331,23 @@ const GroupDetail = () => {
           </CardContent>
         </Card>
         
-        <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
-          <Tabs defaultValue="withdrawals" className="w-full">
-            <TabsList className="grid grid-cols-3 mb-6">
-              <TabsTrigger value="withdrawals">Withdrawal Requests</TabsTrigger>
-              <TabsTrigger value="contributors">Contributors</TabsTrigger>
-              <TabsTrigger value="transactions">Transactions</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="withdrawals">
-              <Card className="glass-card animate-slide-up">
-                <CardHeader>
-                  <CardTitle>Withdrawal Requests</CardTitle>
-                  <CardDescription>Vote on pending withdrawal requests (51% approval threshold)</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {contributionRequests.length === 0 ? <div className="text-center py-8 text-muted-foreground">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+          <div className="md:col-span-5">
+            <Tabs defaultValue="withdrawals" className="w-full">
+              <TabsList className="grid grid-cols-3 mb-6">
+                <TabsTrigger value="withdrawals">Withdrawal Requests</TabsTrigger>
+                <TabsTrigger value="contributors">Contributors</TabsTrigger>
+                <TabsTrigger value="transactions">Transactions</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="withdrawals">
+                <Card className="glass-card animate-slide-up">
+                  <CardHeader>
+                    <CardTitle>Withdrawal Requests</CardTitle>
+                    <CardDescription>Vote on pending withdrawal requests (51% approval threshold)</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {contributionRequests.length === 0 ? <div className="text-center py-8 text-muted-foreground">
                       <p>No withdrawal requests yet.</p>
                     </div> : <div className="space-y-4">
                       {contributionRequests.map(request => <Card key={request.id} className={`overflow-hidden ${request.status === 'pending' ? 'border-amber-200 dark:border-amber-800' : request.status === 'approved' ? 'border-green-200 dark:border-green-800' : 'border-red-200 dark:border-red-800'}`}>
@@ -403,19 +405,19 @@ const GroupDetail = () => {
                           </CardContent>
                         </Card>)}
                     </div>}
-                </CardContent>
-              </Card>
-            </TabsContent>
-            
-            {/* Contributors tab content */}
-            <TabsContent value="contributors">
-              <Card className="glass-card animate-slide-up">
-                <CardHeader>
-                  <CardTitle>Contributors</CardTitle>
-                  <CardDescription>People who have contributed to this group</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {contribution.contributors && contribution.contributors.length > 0 ? <div className="space-y-4">
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              
+              {/* Contributors tab content */}
+              <TabsContent value="contributors">
+                <Card className="glass-card animate-slide-up">
+                  <CardHeader>
+                    <CardTitle>Contributors</CardTitle>
+                    <CardDescription>People who have contributed to this group</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {contribution.contributors && contribution.contributors.length > 0 ? <div className="space-y-4">
                       {contribution.contributors.map((contributor, index) => <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
                           <div className="flex items-center">
                             {contributor.anonymous ? <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
@@ -443,19 +445,19 @@ const GroupDetail = () => {
                     </div> : <div className="text-center py-8 text-muted-foreground">
                       <p>No contributors yet.</p>
                     </div>}
-                </CardContent>
-              </Card>
-            </TabsContent>
-            
-            {/* Transactions tab content */}
-            <TabsContent value="transactions">
-              <Card className="glass-card animate-slide-up">
-                <CardHeader>
-                  <CardTitle>Transaction History</CardTitle>
-                  <CardDescription>All transactions for this contribution group</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {contributionTransactions.length === 0 ? <div className="text-center py-8 text-muted-foreground">
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              
+              {/* Transactions tab content */}
+              <TabsContent value="transactions">
+                <Card className="glass-card animate-slide-up">
+                  <CardHeader>
+                    <CardTitle>Transaction History</CardTitle>
+                    <CardDescription>All transactions for this contribution group</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {contributionTransactions.length === 0 ? <div className="text-center py-8 text-muted-foreground">
                       <p>No transactions yet.</p>
                     </div> : <div className="space-y-4">
                       {contributionTransactions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(transaction => <div key={transaction.id} className="flex items-start py-3 border-b last:border-b-0">
@@ -498,10 +500,61 @@ const GroupDetail = () => {
                             </div>
                           </div>)}
                     </div>}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </div>
+          
+          <div className="md:col-span-7">
+            <Card className="glass-card mb-6 overflow-hidden">
+              <CardHeader className="bg-[#2DAE75] text-white">
+                <CardTitle>Group Information</CardTitle>
+                <CardDescription className="text-white/70">About this contribution group</CardDescription>
+              </CardHeader>
+              <CardContent className="p-6 space-y-4">
+                <div>
+                  <h3 className="font-medium mb-2">Description</h3>
+                  <p className="text-muted-foreground">{contribution.description}</p>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h3 className="font-medium mb-2">Target Amount</h3>
+                    <p className="text-xl font-bold">₦{contribution.targetAmount.toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <h3 className="font-medium mb-2">Current Amount</h3>
+                    <p className="text-xl font-bold text-green-600">₦{contribution.currentAmount.toLocaleString()}</p>
+                  </div>
+                </div>
+                
+                <div>
+                  <h3 className="font-medium mb-2">Members</h3>
+                  <div className="flex -space-x-2 overflow-hidden">
+                    {contribution.members.slice(0, 5).map((memberId, index) => (
+                      <Avatar key={index} className="inline-block h-8 w-8 rounded-full ring-2 ring-background">
+                        <AvatarFallback>{memberId.charAt(0).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                    ))}
+                    {contribution.members.length > 5 && (
+                      <div className="flex items-center justify-center h-8 w-8 rounded-full bg-muted text-xs font-medium ring-2 ring-background">
+                        +{contribution.members.length - 5}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                <div>
+                  <h3 className="font-medium mb-2">Progress</h3>
+                  <Progress value={progressPercentage} className="h-2 mb-2" />
+                  <p className="text-sm text-muted-foreground">
+                    {progressPercentage}% of goal reached
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </main>
       
@@ -566,4 +619,5 @@ const GroupDetail = () => {
       <MobileNav />
     </div>;
 };
+
 export default GroupDetail;
