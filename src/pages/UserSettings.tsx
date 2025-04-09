@@ -5,11 +5,11 @@ import MobileNav from "@/components/layout/MobileNav";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useMobile } from "@/hooks/use-mobile";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const UserSettings = () => {
   const navigate = useNavigate();
-  const isMobile = useMobile();
+  const isMobile = useIsMobile();
   
   return (
     <div className="min-h-screen flex flex-col bg-background pb-20 md:pb-0">
