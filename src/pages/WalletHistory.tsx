@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/layout/Header";
@@ -8,7 +9,6 @@ import { ArrowLeft, ArrowDown, ArrowUp, HelpCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useApp } from "@/contexts/AppContext";
 import { format } from "date-fns";
-import { Switch } from "@/components/ui/switch";
 
 const WalletHistory = () => {
   const navigate = useNavigate();
@@ -91,14 +91,19 @@ const WalletHistory = () => {
             </Button>
           </div>
           
-          {/* Currency Toggle - Fixed to work correctly */}
+          {/* Currency Toggle - Fixed with custom button */}
           <div className="flex items-center bg-green-600/30 dark:bg-green-600/50 rounded-full px-3 py-1.5">
             <span className={`text-xs ${currencyType === 'NGN' ? 'text-foreground' : 'text-muted-foreground'}`}>NGN</span>
-            <Switch 
-              checked={currencyType === "USD"}
-              onCheckedChange={toggleCurrency}
-              className="mx-1.5 data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-green-500"
-            />
+            <button 
+              onClick={toggleCurrency} 
+              className="mx-1.5 w-8 h-4 bg-green-500 rounded-full relative"
+            >
+              <span 
+                className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-transform ${
+                  currencyType === 'USD' ? 'translate-x-4' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
             <span className={`text-xs ${currencyType === 'USD' ? 'text-foreground' : 'text-muted-foreground'}`}>USD</span>
           </div>
         </div>

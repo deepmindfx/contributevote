@@ -12,6 +12,7 @@ import { updateUserBalance } from "@/services/localStorage";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Switch } from "@/components/ui/switch";
+import { Toggle } from "@/components/ui/toggle";
 
 const WalletCard = () => {
   const navigate = useNavigate();
@@ -99,25 +100,26 @@ const WalletCard = () => {
 
   return (
     <Card className="overflow-hidden rounded-3xl border-0 shadow-none">
-      <div className="wallet-gradient p-6 text-white relative overflow-hidden bg-[#2DAE75]">
-        {/* Large circle decorations */}
-        <div className="absolute -top-24 -right-24 w-60 h-60 rounded-full border border-white/10 opacity-20"></div>
-        <div className="absolute -bottom-24 -left-24 w-60 h-60 rounded-full border border-white/10 opacity-20"></div>
-        
-        {/* Currency toggle - Updated to match reference image */}
+      <div className="p-6 text-white relative overflow-hidden bg-[#2DAE75]">
+        {/* Currency toggle - Fixed to work properly */}
         <div className="absolute top-5 right-5 flex items-center bg-green-600/50 rounded-full px-3 py-1.5">
           <span className={`text-xs ${currencyType === 'NGN' ? 'text-white' : 'text-white/60'}`}>NGN</span>
-          <Switch 
-            checked={currencyType === "USD"} 
-            onCheckedChange={toggleCurrency} 
-            className="mx-1.5 data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-green-500" 
-          />
+          <button 
+            onClick={toggleCurrency} 
+            className="mx-1.5 w-8 h-4 bg-green-500 rounded-full relative"
+          >
+            <span 
+              className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-transform ${
+                currencyType === 'USD' ? 'translate-x-4' : 'translate-x-0.5'
+              }`}
+            />
+          </button>
           <span className={`text-xs ${currencyType === 'USD' ? 'text-white' : 'text-white/60'}`}>USD</span>
         </div>
         
         <div className="relative z-10 mx-0 my-[5px]">
           <div className="flex justify-between items-center mb-1 my-[6px]">
-            <p className="text-sm font-medium text-white/80 mb-0 py-[2px]">Available Balance</p>
+            <p className="text-base font-medium text-white/80 mb-0 py-[2px]">Available Balance</p>
           </div>
           
           <div className="flex items-center justify-between">
