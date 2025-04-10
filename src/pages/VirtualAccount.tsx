@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/layout/Header";
@@ -48,13 +49,16 @@ const VirtualAccount = () => {
   useEffect(() => {
     if (!isAuthenticated) {
       navigate("/auth");
+      return;
     }
     
     // Load banks
     const loadBanks = async () => {
       try {
-        const bankList = await getSupportedBanks();
-        setBanks(bankList);
+        if (getSupportedBanks) {
+          const bankList = await getSupportedBanks();
+          setBanks(bankList);
+        }
       } catch (error) {
         console.error("Error loading banks:", error);
       }
@@ -63,12 +67,14 @@ const VirtualAccount = () => {
     loadBanks();
     
     // Load transactions if virtual account exists
-    if (user?.virtualAccount) {
+    if (user && user.virtualAccount) {
       loadTransactions();
     }
-  }, [isAuthenticated, user?.virtualAccount, getSupportedBanks, navigate]);
+  }, [isAuthenticated, user, getSupportedBanks, navigate]);
   
   const loadTransactions = async () => {
+    if (!getVirtualAccountTransactions) return;
+    
     setIsLoading(true);
     try {
       const txns = await getVirtualAccountTransactions();
@@ -81,6 +87,8 @@ const VirtualAccount = () => {
   };
   
   const handleCreateVirtualAccount = async () => {
+    if (!createVirtualAccount) return;
+    
     setIsLoading(true);
     try {
       const success = await createVirtualAccount();
@@ -99,6 +107,8 @@ const VirtualAccount = () => {
       toast.error("Please provide either BVN or NIN");
       return;
     }
+    
+    if (!updateKYCDetails) return;
     
     setIsLoading(true);
     try {
@@ -140,6 +150,8 @@ const VirtualAccount = () => {
       return;
     }
     
+    if (!initiateTransfer || !user) return;
+    
     setIsLoading(true);
     try {
       const success = await initiateTransfer({
@@ -166,7 +178,7 @@ const VirtualAccount = () => {
   };
   
   const handleCopyAccount = () => {
-    if (user.virtualAccount) {
+    if (user && user.virtualAccount) {
       navigator.clipboard.writeText(user.virtualAccount.accountNumber);
       toast.success("Account number copied to clipboard");
     }
@@ -176,6 +188,21 @@ const VirtualAccount = () => {
   const formatDate = (dateString: string) => {
     return format(new Date(dateString), 'MMM d, yyyy h:mm a');
   };
+
+  // Early return if user is not defined
+  if (!user) {
+    return (
+      <div className="min-h-screen pb-20 md:pb-0">
+        <Header />
+        <main className="container max-w-4xl mx-auto px-4 pt-24 pb-12">
+          <div className="text-center">
+            <p>Loading user information...</p>
+          </div>
+        </main>
+        <MobileNav />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen pb-20 md:pb-0">

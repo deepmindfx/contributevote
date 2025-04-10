@@ -33,16 +33,18 @@ const WalletCard = () => {
   } = useApp();
 
   useEffect(() => {
-    if (user?.virtualAccount?.reference) {
+    if (user?.virtualAccount) {
       fetchVirtualAccountTransactions();
     }
-  }, [user.virtualAccount]);
+  }, [user?.virtualAccount]);
 
   const fetchVirtualAccountTransactions = async () => {
     try {
       setIsLoading(true);
-      const transactions = await getVirtualAccountTransactions();
-      setVirtualAccountTransactions(transactions || []);
+      if (getVirtualAccountTransactions) {
+        const transactions = await getVirtualAccountTransactions();
+        setVirtualAccountTransactions(transactions || []);
+      }
     } catch (error) {
       console.error("Error fetching virtual account transactions:", error);
       // Don't show toast here as it's already shown in the context
@@ -58,7 +60,7 @@ const WalletCard = () => {
 
   // Filter only the user's wallet-related transactions 
   // Now merging local transactions with Monnify API transactions
-  const walletTransactions = [...transactions.filter(t => 
+  const walletTransactions = (user ? [...(transactions || []).filter(t => 
     t.userId === user.id && (t.contributionId === "" || t.type === "deposit" || t.type === "withdrawal")
   ).map(t => ({
     ...t,
@@ -74,7 +76,7 @@ const WalletCard = () => {
     createdAt: t.createdOn,
     status: t.paymentStatus === 'PAID' ? 'completed' : 'pending',
     source: 'monnify'
-  }))].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5);
+  }))].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5) : []);
   
   const refreshBalance = () => {
     setIsLoading(true);
@@ -104,7 +106,7 @@ const WalletCard = () => {
       toast.error("Please enter a valid amount");
       return;
     }
-    if (Number(amount) > user.walletBalance) {
+    if (!user || Number(amount) > user.walletBalance) {
       toast.error("Insufficient funds in your wallet");
       return;
     }
@@ -133,6 +135,8 @@ const WalletCard = () => {
 
   // Format the balance based on selected currency
   const getFormattedBalance = () => {
+    if (!user) return currencyType === "NGN" ? "₦0" : "$0.00";
+    
     const balance = user.walletBalance || 0;
     if (currencyType === "NGN") {
       return `₦${balance.toLocaleString()}`;
@@ -141,6 +145,24 @@ const WalletCard = () => {
       return `$${usdBalance.toFixed(2)}`;
     }
   };
+
+  if (!user) {
+    return (
+      <Card className="overflow-hidden rounded-3xl border-0">
+        <div className="p-6 text-white relative overflow-hidden bg-[#2DAE75]">
+          <div className="relative z-10 mx-0 my-[5px]">
+            <div className="flex justify-between items-center mb-1 my-[6px]">
+              <p className="text-base font-medium text-white/80 mb-0 py-[2px]">Available Balance</p>
+            </div>
+            <h2 className="text-3xl font-bold tracking-tight">₦0</h2>
+          </div>
+        </div>
+        <CardContent className="p-4 text-center">
+          <p>Loading wallet information...</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="overflow-hidden rounded-3xl border-0">
