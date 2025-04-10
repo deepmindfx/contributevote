@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/layout/Header";
@@ -15,6 +14,7 @@ import { ArrowLeft, Copy, Building, RefreshCw, ArrowDownToLine, ArrowUpFromLine,
 import { useApp } from "@/contexts/AppContext";
 import { format } from "date-fns";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import "../patches/toast-patch";
 
 const VirtualAccount = () => {
   const navigate = useNavigate();
@@ -141,12 +141,16 @@ const VirtualAccount = () => {
       });
       
       if (success) {
+        toast.success("KYC information updated successfully");
         setKycDialogOpen(false);
         setBvn("");
         setNin("");
+      } else {
+        toast.error("Failed to update KYC information");
       }
     } catch (error) {
       console.error("Error updating KYC:", error);
+      toast.error("An error occurred while updating KYC information");
     } finally {
       setIsLoading(false);
     }
@@ -518,7 +522,16 @@ const VirtualAccount = () => {
       </main>
       
       {/* KYC Dialog */}
-      <Dialog open={kycDialogOpen} onOpenChange={setKycDialogOpen}>
+      <Dialog 
+        open={kycDialogOpen} 
+        onOpenChange={(open) => {
+          setKycDialogOpen(open);
+          if (!open) {
+            // Reset loading state when dialog closes
+            setIsLoading(false);
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Update KYC Information</DialogTitle>
@@ -562,9 +575,23 @@ const VirtualAccount = () => {
           </div>
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setKycDialogOpen(false)}>Cancel</Button>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setKycDialogOpen(false);
+                setIsLoading(false);
+              }}
+              disabled={isLoading}
+            >
+              Cancel
+            </Button>
             <Button onClick={handleUpdateKYC} disabled={isLoading}>
-              {isLoading ? "Updating..." : "Update KYC"}
+              {isLoading ? (
+                <>
+                  <span className="animate-spin mr-2 h-4 w-4 border-t-2 border-b-2 border-current rounded-full"></span>
+                  Updating...
+                </>
+              ) : "Update KYC"}
             </Button>
           </DialogFooter>
         </DialogContent>

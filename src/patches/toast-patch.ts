@@ -5,7 +5,7 @@
 import { toast } from "sonner";
 
 // Add backward compatibility for toast.warn
-const originalToast = toast as typeof toast & { warn?: (message: string, options?: any) => any };
+const originalToast = toast as any;
 
 // Add the warn method if it doesn't exist
 if (!originalToast.warn) {

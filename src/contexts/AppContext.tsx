@@ -310,7 +310,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           console.error("Error parsing withdrawal requests:", error);
         }
       }
-      a
+      
       if (storedStats) {
         try {
           setStats(JSON.parse(storedStats));
