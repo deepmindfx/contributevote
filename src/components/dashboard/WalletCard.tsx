@@ -192,13 +192,16 @@ const WalletCard = () => {
   return (
     <Card className="overflow-hidden rounded-3xl border-0">
       <div className="p-6 text-white relative overflow-hidden bg-[#2DAE75]">
-        {/* Currency toggle - Fixed with Switch component */}
-        <div className="absolute top-5 right-5 flex items-center bg-green-600/50 rounded-full px-3 py-1.5">
+        {/* Currency toggle - Make entire div clickable */}
+        <div 
+          className="absolute top-5 right-5 flex items-center bg-green-600/50 rounded-full px-3 py-1.5 cursor-pointer"
+          onClick={toggleCurrency}
+        >
           <span className={`text-xs ${currencyType === 'NGN' ? 'text-white' : 'text-white/60'}`}>NGN</span>
           <Switch 
             className="mx-1.5 data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-green-500"
             checked={currencyType === "USD"}
-            onCheckedChange={() => toggleCurrency()}
+            onCheckedChange={toggleCurrency}
           />
           <span className={`text-xs ${currencyType === 'USD' ? 'text-white' : 'text-white/60'}`}>USD</span>
         </div>
