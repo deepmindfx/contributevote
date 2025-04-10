@@ -71,6 +71,9 @@ export const useAppContext = () => {
   return context;
 };
 
+// Also export with the name useApp to fix the imports across the codebase
+export const useApp = useAppContext;
+
 // Create the provider component
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
