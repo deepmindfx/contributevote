@@ -1,9 +1,8 @@
-
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
-import { PlusCircle, ArrowDown, Wallet, SendHorizontal, UserPlus, Clock, Eye, EyeOff, DollarSign } from "lucide-react";
+import { PlusCircle, ArrowDown, Wallet, SendHorizontal, UserPlus, Clock, Eye, EyeOff, DollarSign, Bank } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -206,11 +205,11 @@ const WalletCard = () => {
               </Dialog>
               
               <div className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors">
-                <Link to="/create-group" className="flex flex-col items-center">
+                <Link to="/virtual-account" className="flex flex-col items-center">
                   <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-[#2DAE75] mb-1">
-                    <UserPlus size={20} />
+                    <Bank size={20} />
                   </div>
-                  <span className="text-xs">Group</span>
+                  <span className="text-xs">Account</span>
                 </Link>
               </div>
               

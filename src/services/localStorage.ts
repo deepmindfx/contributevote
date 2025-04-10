@@ -20,6 +20,15 @@ export interface User {
   status: 'active' | 'paused';
   pin?: string;
   verified: boolean;
+  virtualAccount?: {
+    accountNumber: string;
+    bankName: string;
+    bankCode: string;
+    reference: string;
+    reservationReference: string;
+  };
+  bvn?: string;
+  nin?: string;
 }
 
 export interface Contribution {
@@ -870,4 +879,62 @@ export const generateContributionReceipt = (transactionId: string): any => {
     contributorName: user.name,
     amount: transaction.amount
   };
+};
+
+// New function to update user virtual account details
+export const updateUserVirtualAccount = (userId: string, virtualAccountDetails: User['virtualAccount']): void => {
+  const users = getUsers();
+  const index = users.findIndex(u => u.id === userId);
+  
+  if (index === -1) {
+    throw new Error('User not found');
+  }
+  
+  users[index].virtualAccount = virtualAccountDetails;
+  users[index].updatedAt = new Date().toISOString();
+  localStorage.setItem('users', JSON.stringify(users));
+  
+  // Update current user if this is the logged-in user
+  const currentUser = getCurrentUser();
+  if (currentUser && currentUser.id === userId) {
+    currentUser.virtualAccount = virtualAccountDetails;
+    currentUser.updatedAt = new Date().toISOString();
+    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+  }
+};
+
+// New function to update user BVN or NIN
+export const updateUserKYC = (userId: string, kycData: { bvn?: string; nin?: string }): void => {
+  const users = getUsers();
+  const index = users.findIndex(u => u.id === userId);
+  
+  if (index === -1) {
+    throw new Error('User not found');
+  }
+  
+  if (kycData.bvn) {
+    users[index].bvn = kycData.bvn;
+  }
+  
+  if (kycData.nin) {
+    users[index].nin = kycData.nin;
+  }
+  
+  users[index].updatedAt = new Date().toISOString();
+  localStorage.setItem('users', JSON.stringify(users));
+  
+  // Update current user if this is the logged-in user
+  const currentUser = getCurrentUser();
+  if (currentUser && currentUser.id === userId) {
+    if (kycData.bvn) {
+      currentUser.bvn = kycData.bvn;
+    }
+    
+    if (kycData.nin) {
+      currentUser.nin = kycData.nin;
+    }
+    
+    currentUser.updatedAt = new Date().toISOString();
+    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+  }
 };

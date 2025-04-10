@@ -36,11 +36,14 @@ import {
   getContributionByAccountNumber,
   generateOTP,
   storeOTP,
-  verifyOTP
+  verifyOTP,
+  updateUserVirtualAccount,
+  updateUserKYC
 } from '@/services/localStorage';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { sendOTPEmail, sendWithdrawalReminderEmail } from '@/services/emailService';
+import { monnifyAPI } from '@/services/monnifyService';
 
 interface AppContextType {
   user: User;
@@ -73,6 +76,11 @@ interface AppContextType {
   isGroupCreator: (contributionId: string) => boolean;
   sendVerificationEmail: (userId: string, email: string) => Promise<boolean>;
   verifyUserWithOTPCode: (userId: string, otp: string) => boolean;
+  createVirtualAccount: () => Promise<boolean>;
+  updateKYCDetails: (kycData: { bvn?: string; nin?: string }) => Promise<boolean>;
+  initiateTransfer: (params: { amount: number; recipientAccountNumber: string; recipientBankCode: string; recipientName: string; narration: string }) => Promise<boolean>;
+  getVirtualAccountTransactions: () => Promise<any[]>;
+  getSupportedBanks: () => Promise<{ bankCode: string; bankName: string }[]>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -518,6 +526,202 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return isValid;
   };
 
+  // New Monnify-related functions
+  const createVirtualAccount = async (): Promise<boolean> => {
+    try {
+      if (!isAuthenticated) {
+        toast.error('You must be logged in to create a virtual account');
+        return false;
+      }
+      
+      // Check if user already has a virtual account
+      if (user.virtualAccount) {
+        toast.info('You already have a virtual account');
+        return true;
+      }
+      
+      toast.loading('Creating your virtual account...');
+      
+      // Create virtual account via Monnify API
+      const virtualAccount = await monnifyAPI.createVirtualAccount({
+        id: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        bvn: user.bvn,
+        nin: user.nin
+      });
+      
+      // Update user with virtual account details
+      const accountDetails = virtualAccount.accounts[0];
+      
+      updateUserVirtualAccount(user.id, {
+        accountNumber: accountDetails.accountNumber,
+        bankName: accountDetails.bankName,
+        bankCode: accountDetails.bankCode,
+        reference: virtualAccount.accountReference,
+        reservationReference: virtualAccount.reservationReference
+      });
+      
+      // Refresh data to get updated user
+      refreshData();
+      
+      toast.dismiss();
+      toast.success('Virtual account created successfully');
+      
+      // Add notification
+      addNotification({
+        userId: user.id,
+        message: `Your virtual account (${accountDetails.bankName}: ${accountDetails.accountNumber}) has been created successfully.`,
+        type: 'success',
+        read: false
+      });
+      
+      return true;
+    } catch (error) {
+      toast.dismiss();
+      console.error('Error creating virtual account:', error);
+      toast.error('Failed to create virtual account. Please try again later.');
+      return false;
+    }
+  };
+  
+  const updateKYCDetails = async (kycData: { bvn?: string; nin?: string }): Promise<boolean> => {
+    try {
+      if (!isAuthenticated) {
+        toast.error('You must be logged in to update KYC details');
+        return false;
+      }
+      
+      if (!kycData.bvn && !kycData.nin) {
+        toast.error('Please provide either BVN or NIN');
+        return false;
+      }
+      
+      // Update user KYC details
+      updateUserKYC(user.id, kycData);
+      
+      // Refresh data to get updated user
+      refreshData();
+      
+      toast.success('KYC details updated successfully');
+      
+      // If user has a virtual account, we would update it with the new KYC info
+      // In a real implementation, this would make a call to Monnify's Update KYC API
+      
+      return true;
+    } catch (error) {
+      console.error('Error updating KYC details:', error);
+      toast.error('Failed to update KYC details. Please try again later.');
+      return false;
+    }
+  };
+  
+  const initiateTransfer = async (params: { 
+    amount: number; 
+    recipientAccountNumber: string; 
+    recipientBankCode: string; 
+    recipientName: string; 
+    narration: string 
+  }): Promise<boolean> => {
+    try {
+      if (!isAuthenticated) {
+        toast.error('You must be logged in to initiate a transfer');
+        return false;
+      }
+      
+      if (user.walletBalance < params.amount) {
+        toast.error('Insufficient funds in your wallet');
+        return false;
+      }
+      
+      toast.loading('Processing transfer...');
+      
+      // Generate a reference for the transfer
+      const reference = `transfer_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+      
+      // Initiate transfer via Monnify API
+      const result = await monnifyAPI.initiateTransfer({
+        ...params,
+        reference
+      });
+      
+      // Update user balance (deduct transfer amount)
+      updateUserBalance(-params.amount);
+      
+      // Record transaction
+      recordTransaction({
+        userId: user.id,
+        contributionId: '',
+        type: 'withdrawal',
+        amount: params.amount,
+        description: `Transfer to ${params.recipientName} (${params.recipientAccountNumber}) - ${params.narration}`
+      });
+      
+      // Refresh data to get updated balance
+      refreshData();
+      
+      toast.dismiss();
+      toast.success('Transfer initiated successfully');
+      
+      return true;
+    } catch (error) {
+      toast.dismiss();
+      console.error('Error initiating transfer:', error);
+      toast.error('Failed to initiate transfer. Please try again later.');
+      return false;
+    }
+  };
+  
+  const getVirtualAccountTransactions = async (): Promise<any[]> => {
+    try {
+      if (!isAuthenticated) {
+        toast.error('You must be logged in to view transactions');
+        return [];
+      }
+      
+      if (!user.virtualAccount) {
+        toast.info('You do not have a virtual account yet');
+        return [];
+      }
+      
+      // Fetch transactions from Monnify API
+      const transactions = await monnifyAPI.getTransactions(user.virtualAccount.reference);
+      
+      return transactions;
+    } catch (error) {
+      console.error('Error fetching virtual account transactions:', error);
+      toast.error('Failed to fetch transactions. Please try again later.');
+      return [];
+    }
+  };
+  
+  const getSupportedBanks = async (): Promise<{ bankCode: string; bankName: string }[]> => {
+    try {
+      // Fetch supported banks from Monnify API
+      const banks = await monnifyAPI.getBanks();
+      return banks;
+    } catch (error) {
+      console.error('Error fetching supported banks:', error);
+      toast.error('Failed to fetch supported banks. Please try again later.');
+      return [];
+    }
+  };
+  
+  // Helper function for recording transactions
+  const recordTransaction = (transaction: Omit<Transaction, 'id' | 'createdAt' | 'status'>) => {
+    const transactions = getTransactions();
+    const newTransaction: Transaction = {
+      id: Math.random().toString(36).substring(2, 15),
+      ...transaction,
+      createdAt: new Date().toISOString(),
+      status: 'completed'
+    };
+    
+    transactions.push(newTransaction);
+    localStorage.setItem('transactions', JSON.stringify(transactions));
+  };
+
   return (
     <AppContext.Provider value={{
       user,
@@ -550,6 +754,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       isGroupCreator,
       sendVerificationEmail,
       verifyUserWithOTPCode,
+      createVirtualAccount,
+      updateKYCDetails,
+      initiateTransfer,
+      getVirtualAccountTransactions,
+      getSupportedBanks
     }}>
       {children}
     </AppContext.Provider>
