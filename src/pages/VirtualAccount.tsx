@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/layout/Header";
@@ -11,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ArrowLeft, Copy, Bank, RefreshCw, ArrowDownToLine, ArrowUpFromLine, Info } from "lucide-react";
+import { ArrowLeft, Copy, Building, RefreshCw, ArrowDownToLine, ArrowUpFromLine, Info } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
 import { format } from "date-fns";
 
@@ -286,7 +285,7 @@ const VirtualAccount = () => {
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="flex flex-col items-center justify-center p-8 border rounded-lg bg-muted/30">
-                    <Bank className="h-16 w-16 text-muted-foreground mb-4" />
+                    <Building className="h-16 w-16 text-muted-foreground mb-4" />
                     <h3 className="text-lg font-medium mb-2">No Virtual Account Yet</h3>
                     <p className="text-center text-muted-foreground mb-6">
                       Create a virtual account to receive money directly into your CollectiPay wallet
