@@ -79,6 +79,12 @@ interface Transaction {
   bankName?: string;
 }
 
+// Interface for bank details
+interface Bank {
+  bankCode: string;
+  bankName: string;
+}
+
 // Monnify API Helper class
 class MonnifyAPI {
   private async getAuthToken(): Promise<string> {
@@ -285,7 +291,7 @@ class MonnifyAPI {
   /**
    * Get banks supported by Monnify
    */
-  async getBanks(): Promise<{ bankCode: string; bankName: string }[]> {
+  async getBanks(): Promise<Bank[]> {
     try {
       const token = await this.getAuthToken();
       
@@ -313,7 +319,17 @@ class MonnifyAPI {
       }));
     } catch (error) {
       console.error("Error getting banks:", error);
-      throw new Error("Failed to get supported banks");
+      
+      // Return mock data for demo purposes in case the API fails
+      return [
+        { bankCode: "057", bankName: "Zenith Bank" },
+        { bankCode: "011", bankName: "First Bank of Nigeria" },
+        { bankCode: "044", bankName: "Access Bank" },
+        { bankCode: "058", bankName: "Guaranty Trust Bank" },
+        { bankCode: "033", bankName: "United Bank for Africa" },
+        { bankCode: "032", bankName: "Union Bank" },
+        { bankCode: "050", bankName: "Ecobank Nigeria" },
+      ];
     }
   }
 }

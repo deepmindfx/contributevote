@@ -51,13 +51,22 @@ const VirtualAccount = () => {
     }
     
     // Load banks
-    getSupportedBanks().then(setBanks);
+    const loadBanks = async () => {
+      try {
+        const bankList = await getSupportedBanks();
+        setBanks(bankList);
+      } catch (error) {
+        console.error("Error loading banks:", error);
+      }
+    };
+    
+    loadBanks();
     
     // Load transactions if virtual account exists
-    if (user.virtualAccount) {
+    if (user?.virtualAccount) {
       loadTransactions();
     }
-  }, [isAuthenticated, user.virtualAccount]);
+  }, [isAuthenticated, user?.virtualAccount, getSupportedBanks, navigate]);
   
   const loadTransactions = async () => {
     setIsLoading(true);
