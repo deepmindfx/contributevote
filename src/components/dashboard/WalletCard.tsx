@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -208,7 +207,7 @@ const WalletCard = () => {
               <div className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors">
                 <Link to="/virtual-account" className="flex flex-col items-center">
                   <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-[#2DAE75] mb-1">
-                    <Bank size={20} />
+                    <Building size={20} />
                   </div>
                   <span className="text-xs">Account</span>
                 </Link>
