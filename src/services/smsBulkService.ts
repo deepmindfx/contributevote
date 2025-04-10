@@ -29,6 +29,13 @@ interface SMSErrorResponse {
   errno: string;
 }
 
+interface BalanceResponse {
+  balance: number;
+  currency: string;
+  symbol: string;
+  country: string;
+}
+
 type SMSResponse = SMSSuccessResponse | SMSErrorResponse;
 
 /**
@@ -52,7 +59,7 @@ export const sendSMS = async (
       return { success: false, error: "Could not verify account balance: " + balanceCheck.error };
     }
     
-    if (balanceCheck.balance === 0 || balanceCheck.balance === undefined) {
+    if (balanceCheck.balance === 0) {
       console.error("Insufficient balance in SMS account");
       return { success: false, error: "Insufficient balance in SMS account. Please top up." };
     }
@@ -191,13 +198,15 @@ export const checkBalance = async (config: Partial<SMSConfig> = {}): Promise<{ s
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     
-    const data = await response.json();
+    const data = await response.json() as BalanceResponse;
     
-    if (data.status === "OK") {
+    // The API returns balance directly, not in a status field
+    if (data.balance !== undefined) {
+      console.log("Balance check successful:", data);
       return { success: true, balance: data.balance };
     } else {
       console.error("Balance check API error:", data);
-      return { success: false, error: data.error || "Failed to check balance" };
+      return { success: false, error: "Invalid response format" };
     }
   } catch (error) {
     console.error("Failed to check balance:", error);
