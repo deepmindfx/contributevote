@@ -533,3 +533,130 @@ const VirtualAccount = () => {
       </main>
       
       {/* KYC Dialog */}
+      <Dialog open={kycDialogOpen} onOpenChange={setKycDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update KYC Information</DialogTitle>
+            <DialogDescription>
+              Provide your BVN (Bank Verification Number) or NIN (National Identification Number) to verify your account.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="bvn">BVN (Bank Verification Number)</Label>
+              <Input id="bvn" value={bvn} onChange={(e) => setBvn(e.target.value)} placeholder="Enter your 11-digit BVN" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="nin">NIN (National Identification Number)</Label>
+              <Input id="nin" value={nin} onChange={(e) => setNin(e.target.value)} placeholder="Enter your NIN" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setKycDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleUpdateKYC} disabled={kycLoading}>
+              {kycLoading ? (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                "Update KYC"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Transfer Dialog */}
+      <Dialog open={transferDialogOpen} onOpenChange={setTransferDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Transfer Money</DialogTitle>
+            <DialogDescription>
+              Send money to any bank account in Nigeria.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="amount">Amount (₦)</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-2.5 text-muted-foreground">₦</span>
+                <Input 
+                  id="amount" 
+                  type="number" 
+                  className="pl-8" 
+                  placeholder="0.00" 
+                  value={amount} 
+                  onChange={(e) => setAmount(e.target.value)} 
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="account-number">Account Number</Label>
+              <Input 
+                id="account-number" 
+                value={accountNumber} 
+                onChange={(e) => setAccountNumber(e.target.value)} 
+                placeholder="Enter 10-digit account number" 
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="bank">Bank</Label>
+              <Select value={bankCode} onValueChange={setBankCode}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a bank" />
+                </SelectTrigger>
+                <SelectContent>
+                  {banks.map((bank) => (
+                    <SelectItem key={bank.bankCode} value={bank.bankCode}>
+                      {bank.bankName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="account-name">Account Name</Label>
+              <Input 
+                id="account-name" 
+                value={accountName} 
+                onChange={(e) => setAccountName(e.target.value)} 
+                placeholder="Enter account holder's name" 
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="narration">Narration (Optional)</Label>
+              <Input 
+                id="narration" 
+                value={narration} 
+                onChange={(e) => setNarration(e.target.value)} 
+                placeholder="What's this transfer for?" 
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTransferDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleInitiateTransfer} disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                "Transfer Money"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      <MobileNav />
+    </div>
+  );
+};
+
+export default VirtualAccount;
