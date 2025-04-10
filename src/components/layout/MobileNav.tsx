@@ -8,10 +8,10 @@ const MobileNav = () => {
   const { withdrawalRequests, user } = useApp();
   
   // Check if there are any pending votes for the current user
-  const pendingVotes = withdrawalRequests.filter(request => 
+  const pendingVotes = user ? withdrawalRequests.filter(request => 
     request.status === 'pending' && 
     !request.votes.some(vote => vote.userId === user.id)
-  );
+  ) : [];
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-background border-t z-50 md:hidden">

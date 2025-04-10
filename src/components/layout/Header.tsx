@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
@@ -247,7 +246,7 @@ const Header = () => {
             <>
               <NavLink href="/">Home</NavLink>
               <NavLink href="/auth">Login / Register</NavLink>
-              <NavLink href="/admin-login">Admin Login</NavLink>
+              <NavLink href="/admin/auth">Admin Login</NavLink>
             </>
           )}
         </div>
@@ -378,7 +377,7 @@ const Header = () => {
                 </Link>
                 
                 <Link 
-                  to="/admin-login" 
+                  to="/admin/auth" 
                   className="block p-3 rounded-md hover:bg-accent"
                 >
                   Admin Login

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AppProvider } from '@/contexts/AppContext';
 import IndexPage from '@/pages/Index';
 import AuthPage from '@/pages/Auth';
