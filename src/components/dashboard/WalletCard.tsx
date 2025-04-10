@@ -159,11 +159,11 @@ const WalletCard = () => {
 
   // Format the balance based on selected currency
   const getFormattedBalance = () => {
-    if (!user) return currencyType === "NGN" ? "₦0" : "$0.00";
+    if (!user) return currencyType === "NGN" ? "₦0.00" : "$0.00";
     
     const balance = user.walletBalance || 0;
     if (currencyType === "NGN") {
-      return `₦${balance.toLocaleString()}`;
+      return `₦${balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     } else {
       const usdBalance = convertToUSD(balance);
       return `$${usdBalance.toFixed(2)}`;
@@ -178,7 +178,7 @@ const WalletCard = () => {
             <div className="flex justify-between items-center mb-1 my-[6px]">
               <p className="text-base font-medium text-white/80 mb-0 py-[2px]">Available Balance</p>
             </div>
-            <h2 className="text-3xl font-bold tracking-tight">₦0</h2>
+            <h2 className="text-3xl font-bold tracking-tight">₦0.00</h2>
           </div>
         </div>
         <CardContent className="p-4 text-center">

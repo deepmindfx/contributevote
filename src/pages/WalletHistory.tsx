@@ -91,13 +91,16 @@ const WalletHistory = () => {
             </Button>
           </div>
           
-          {/* Currency Toggle - Updated with Switch component */}
-          <div className="flex items-center bg-green-600/30 dark:bg-green-600/50 rounded-full px-3 py-1.5">
+          {/* Currency Toggle - Make entire div clickable */}
+          <div 
+            className="flex items-center bg-green-600/30 dark:bg-green-600/50 rounded-full px-3 py-1.5 cursor-pointer"
+            onClick={toggleCurrency}
+          >
             <span className={`text-xs ${currencyType === 'NGN' ? 'text-foreground' : 'text-muted-foreground'}`}>NGN</span>
             <Switch 
               className="mx-1.5 data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-green-500"
               checked={currencyType === "USD"}
-              onCheckedChange={() => toggleCurrency()}
+              onCheckedChange={toggleCurrency}
             />
             <span className={`text-xs ${currencyType === 'USD' ? 'text-foreground' : 'text-muted-foreground'}`}>USD</span>
           </div>
@@ -161,7 +164,7 @@ const WalletHistory = () => {
                              transaction.type === 'withdrawal' ? '-' : ''}
                             {transaction.amount > 0 ? (
                               currencyType === "NGN" ? 
-                                `₦${transaction.amount.toLocaleString()}` : 
+                                `₦${transaction.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 
                                 `$${convertToUSD(transaction.amount).toFixed(2)}`
                             ) : ''}
                           </div>
