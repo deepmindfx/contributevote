@@ -64,18 +64,22 @@ export const sendSMS = async (
     
     console.log("Sending SMS to:", formattedPhone, "with message:", message);
     
-    // Create the form data
-    const formData = new FormData();
+    // Create the form data for the API request
+    const formData = new URLSearchParams();
     formData.append('username', smsConfig.username);
     formData.append('password', smsConfig.password);
     formData.append('sender', smsConfig.sender);
     formData.append('message', message);
     formData.append('mobiles', formattedPhone);
-
-    // Make the API call
+    formData.append('routing', '3'); // Use routing=3 to allow auto price configuration
+    
+    // Make the API call with the proper content type
     const response = await fetch(smsConfig.apiUrl, {
       method: 'POST',
-      body: formData
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: formData.toString()
     });
     
     if (!response.ok) {
@@ -84,17 +88,17 @@ export const sendSMS = async (
     
     const data = await response.json();
     
-    // Check for success based on the example PHP code
+    // Check for success based on the API response
     if (data.status && data.status.toUpperCase() === 'OK') {
       return { success: true, data };
     } else if (data.error) {
       console.error("SMS API error:", data);
       
-      // Check for specific error codes
+      // More detailed error handling
       if (data.errno === "140") {
         return { 
           success: false, 
-          error: "Your SMS account requires price configuration. Please contact Nigeria Bulk SMS support at support@nigeriabulksms.com or visit portal.nigeriabulksms.com." 
+          error: "Price configuration issue. The service will automatically calculate the price based on message length." 
         };
       }
       

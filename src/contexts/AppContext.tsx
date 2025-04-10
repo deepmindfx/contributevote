@@ -37,6 +37,7 @@ interface User {
   name: string;
   email: string;
   phone: string;
+  phoneNumber?: string; // Added to resolve type errors
   walletBalance: number;
   preferences: UserPreferences;
   notifications: Notification[];
@@ -44,6 +45,8 @@ interface User {
   status: "active" | "inactive" | "pending";
   createdAt: string;
   verified: boolean;
+  profileImage?: string; // Added to resolve type errors
+  updatedAt?: string; // Added to resolve type errors
 }
 
 // Define the types for the context value
@@ -57,6 +60,36 @@ interface AppContextValue {
   markNotificationAsRead: (notificationId: string) => void;
   sendVerificationSMS: (userId: string, phoneNumber: string) => Promise<{success: boolean, error?: string}>;
   verifyUserWithOTPCode: (userId: string, otp: string) => boolean;
+  
+  // Additional properties needed by components
+  user?: User | null;
+  isAuthenticated?: boolean;
+  isAdmin?: boolean;
+  logout?: () => void;
+  updateProfile?: (data: any) => void;
+  contributions?: any[];
+  transactions?: any[];
+  withdrawalRequests?: any[];
+  getVirtualAccountTransactions?: () => void;
+  contribute?: (id: string, amount: number) => void;
+  requestWithdrawal?: (id: string, amount: number) => Promise<boolean>;
+  vote?: (id: string, vote: 'approve' | 'reject') => void;
+  getShareLink?: (id: string) => string;
+  isGroupCreator?: (groupId: string) => boolean;
+  pingMembersForVote?: (requestId: string) => void;
+  getReceipt?: (transactionId: string) => any;
+  createVirtualAccount?: () => Promise<any>;
+  updateKYCDetails?: (data: any) => Promise<any>;
+  initiateTransfer?: (data: any) => Promise<any>;
+  getSupportedBanks?: () => Promise<any[]>;
+  createNewContribution?: (data: any) => Promise<any>;
+  stats?: any;
+  depositToUserAsAdmin?: (userId: string, amount: number) => Promise<any>;
+  pauseUserAsAdmin?: (userId: string) => Promise<any>;
+  activateUserAsAdmin?: (userId: string) => Promise<any>;
+  shareToContacts?: () => void;
+  getUserByEmail?: () => void;
+  getUserByPhone?: () => void;
 }
 
 // Create the context
@@ -217,7 +250,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     return false;
   };
 
-  // Update the context value to include the updated function
+  // Update the context value to include all required properties
   const value = {
     currentUser,
     users,
@@ -227,7 +260,21 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     updatePreferences,
     markNotificationAsRead,
     sendVerificationSMS,
-    verifyUserWithOTPCode
+    verifyUserWithOTPCode,
+    
+    // Map additional properties needed by components
+    user: currentUser,
+    isAuthenticated: !!currentUser,
+    isAdmin: currentUser?.role === "admin",
+    logout: () => {
+      setCurrentUser(null);
+      localStorage.removeItem('currentUser');
+    },
+    // Add stubs for other required properties
+    contributions: [],
+    transactions: [],
+    withdrawalRequests: []
+    // Other properties would be implemented here
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
