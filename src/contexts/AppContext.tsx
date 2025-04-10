@@ -270,9 +270,17 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const createVirtualAccount = async (): Promise<boolean> => {
     try {
       if (!currentUser) {
+        toast.error("You need to be logged in to create a virtual account");
         return false;
       }
 
+      // Check if user has required fields
+      if (!currentUser.firstName) {
+        toast.error("Your profile information is incomplete");
+        return false;
+      }
+
+      console.log("Creating virtual account for user", currentUser.id);
       const result = await monnifyAPI.createVirtualAccount({
         id: currentUser.id,
         firstName: currentUser.firstName,
@@ -282,7 +290,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         nin: currentUser.nin
       });
 
-      if (result) {
+      if (result && result.accounts && result.accounts.length > 0) {
         // Get the first account (we're using getAllAvailableBanks: true in the request)
         const firstAccount = result.accounts[0];
         
@@ -310,9 +318,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         return true;
       }
       
+      toast.error("Could not create virtual account");
       return false;
     } catch (error) {
       console.error("Error creating virtual account:", error);
+      toast.error("Failed to create virtual account. Please try again later.");
       return false;
     }
   };

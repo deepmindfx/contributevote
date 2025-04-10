@@ -2,10 +2,10 @@
 // The Monnify API service for virtual accounts and payments
 
 // Base URL and API config
-const MONNIFY_BASE_URL = "https://api.monnify.com"; // Production URL
-const MONNIFY_API_KEY = "MK_PROD_XR897H4H43"; // Production API key
-const MONNIFY_SECRET_KEY = "GPFCA9GTP81DYJGF9VMAPRK220SS6CK9"; // Production secret key
-const MONNIFY_CONTRACT_CODE = "8389328412"; // Would be replaced with your actual contract code
+const MONNIFY_BASE_URL = "https://sandbox.monnify.com"; // Switching to sandbox for testing
+const MONNIFY_API_KEY = "MK_TEST_SAH93H21J0"; // Test API key
+const MONNIFY_SECRET_KEY = "2FD994UT7KNSNAHSA55HGGTK0HHSJ3M6"; // Test secret key
+const MONNIFY_CONTRACT_CODE = "4934121586"; // Updated contract code that works with sandbox
 
 // Interface for Monnify API responses
 interface MonnifyResponse<T> {
@@ -93,6 +93,8 @@ class MonnifyAPI {
       const credentials = `${MONNIFY_API_KEY}:${MONNIFY_SECRET_KEY}`;
       const encodedCredentials = btoa(credentials);
       
+      console.log("Getting auth token from Monnify");
+      
       // Make API call to get token
       const response = await fetch(`${MONNIFY_BASE_URL}/api/v1/auth/login`, {
         method: 'POST',
@@ -105,6 +107,7 @@ class MonnifyAPI {
       const data = await response.json();
       
       if (!data.requestSuccessful) {
+        console.error("Auth token error:", data.responseMessage);
         throw new Error(data.responseMessage || 'Failed to authenticate with Monnify');
       }
       
@@ -167,6 +170,7 @@ class MonnifyAPI {
       const data = await response.json() as MonnifyResponse<ReserveAccountResponse>;
       
       if (!data.requestSuccessful) {
+        console.error("Virtual account creation error:", data.responseMessage);
         throw new Error(data.responseMessage || 'Failed to create virtual account');
       }
       
@@ -309,6 +313,7 @@ class MonnifyAPI {
       const data = await response.json();
       
       if (!data.requestSuccessful) {
+        console.error("Get banks error:", data.responseMessage);
         throw new Error(data.responseMessage || 'Failed to get supported banks');
       }
       
@@ -319,8 +324,6 @@ class MonnifyAPI {
       }));
     } catch (error) {
       console.error("Error getting banks:", error);
-      
-      // Instead of returning mock data, throw the error so it can be handled by the caller
       throw new Error("Failed to get supported banks. Please try again later.");
     }
   }

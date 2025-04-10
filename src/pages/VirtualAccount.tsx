@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/layout/Header";
@@ -57,10 +56,13 @@ const VirtualAccount = () => {
       try {
         if (getSupportedBanks) {
           const bankList = await getSupportedBanks();
-          setBanks(bankList);
+          if (bankList && Array.isArray(bankList)) {
+            setBanks(bankList);
+          }
         }
       } catch (error) {
         console.error("Error loading banks:", error);
+        toast.error("Failed to load banks. Please try again later.");
       }
     };
     
@@ -73,7 +75,7 @@ const VirtualAccount = () => {
   }, [isAuthenticated, user, getSupportedBanks, navigate]);
   
   const loadTransactions = async () => {
-    if (!getVirtualAccountTransactions) return;
+    if (!getVirtualAccountTransactions || !user) return;
     
     setIsLoading(true);
     try {
@@ -81,22 +83,30 @@ const VirtualAccount = () => {
       setTransactions(txns);
     } catch (error) {
       console.error("Error loading transactions:", error);
+      toast.error("Failed to load transactions. Please try again later.");
     } finally {
       setIsLoading(false);
     }
   };
   
   const handleCreateVirtualAccount = async () => {
-    if (!createVirtualAccount) return;
+    if (!createVirtualAccount) {
+      toast.error("Virtual account creation is not available");
+      return;
+    }
     
     setIsLoading(true);
     try {
+      toast.info("Creating your virtual account...");
       const success = await createVirtualAccount();
-      if (!success) {
-        throw new Error("Failed to create virtual account");
+      if (success) {
+        toast.success("Virtual account created successfully");
+      } else {
+        toast.error("Failed to create virtual account");
       }
     } catch (error) {
       console.error("Error creating virtual account:", error);
+      toast.error("Failed to create virtual account. Please try again later.");
     } finally {
       setIsLoading(false);
     }
