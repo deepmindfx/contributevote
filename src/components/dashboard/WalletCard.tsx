@@ -159,11 +159,11 @@ const WalletCard = () => {
 
   // Format the balance based on selected currency
   const getFormattedBalance = () => {
-    if (!user) return currencyType === "NGN" ? "₦0.00" : "$0.00";
+    if (!user) return currencyType === "NGN" ? "₦0" : "$0.00";
     
     const balance = user.walletBalance || 0;
     if (currencyType === "NGN") {
-      return `₦${balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      return `₦${balance.toLocaleString()}`;
     } else {
       const usdBalance = convertToUSD(balance);
       return `$${usdBalance.toFixed(2)}`;
@@ -178,7 +178,7 @@ const WalletCard = () => {
             <div className="flex justify-between items-center mb-1 my-[6px]">
               <p className="text-base font-medium text-white/80 mb-0 py-[2px]">Available Balance</p>
             </div>
-            <h2 className="text-3xl font-bold tracking-tight">₦0.00</h2>
+            <h2 className="text-3xl font-bold tracking-tight">₦0</h2>
           </div>
         </div>
         <CardContent className="p-4 text-center">
@@ -192,16 +192,13 @@ const WalletCard = () => {
   return (
     <Card className="overflow-hidden rounded-3xl border-0">
       <div className="p-6 text-white relative overflow-hidden bg-[#2DAE75]">
-        {/* Currency toggle - Make entire div clickable */}
-        <div 
-          className="absolute top-5 right-5 flex items-center bg-green-600/50 rounded-full px-3 py-1.5 cursor-pointer"
-          onClick={toggleCurrency}
-        >
+        {/* Currency toggle - Fixed with Switch component */}
+        <div className="absolute top-5 right-5 flex items-center bg-green-600/50 rounded-full px-3 py-1.5">
           <span className={`text-xs ${currencyType === 'NGN' ? 'text-white' : 'text-white/60'}`}>NGN</span>
           <Switch 
             className="mx-1.5 data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-green-500"
             checked={currencyType === "USD"}
-            onCheckedChange={toggleCurrency}
+            onCheckedChange={() => toggleCurrency()}
           />
           <span className={`text-xs ${currencyType === 'USD' ? 'text-white' : 'text-white/60'}`}>USD</span>
         </div>

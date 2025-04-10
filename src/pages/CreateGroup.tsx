@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import Header from "@/components/layout/Header";
 import MobileNav from "@/components/layout/MobileNav";
@@ -26,14 +25,12 @@ import { ArrowLeft, Users, Calendar, Check } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useApp } from "@/contexts/AppContext";
-import { toast } from "sonner";
-import { monnifyAPI } from "@/services/monnifyService";
 
 const CreateGroup = () => {
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { createNewContribution, user } = useApp();
+  const { createNewContribution } = useApp();
   
   // Form state
   const [formData, setFormData] = useState({
@@ -67,67 +64,33 @@ const CreateGroup = () => {
     setStep(step - 1);
   };
 
-  const handleCreateGroup = async () => {
-    if (!formData.name || !formData.startDate || formData.targetAmount <= 0 || formData.contributionAmount <= 0) {
-      toast.error("Please fill in all required fields");
-      return;
-    }
-
+  const handleCreateGroup = () => {
     setIsLoading(true);
     
-    try {
-      // Prepare contribution data
-      const contributionData = {
-        name: formData.name,
-        description: formData.description,
-        targetAmount: Number(formData.targetAmount),
-        category: formData.category,
-        frequency: formData.frequency,
-        contributionAmount: Number(formData.contributionAmount),
-        startDate: formData.startDate,
-        endDate: formData.endDate || undefined,
-        votingThreshold: formData.votingThreshold,
-        privacy: formData.privacy,
-        memberRoles: formData.memberRoles,
-        creatorId: user?.id || '1', // Use actual user ID from context
-      };
-      
-      console.log("Creating new contribution with data:", contributionData);
-      
-      // Create contribution
-      const newContribution = await createNewContribution(contributionData);
-      
-      // If we have a successful contribution creation and Monnify integration is active
-      if (newContribution && user?.virtualAccount) {
-        try {
-          // Here we could create a dedicated account for the group if needed
-          // For now we just show success message
-          toast.success(`Group "${formData.name}" created successfully`);
-        } catch (error) {
-          console.error("Error setting up Monnify account for group:", error);
-          // Still allow group creation even if Monnify setup fails
-        }
-      } else {
-        toast.success(`Group "${formData.name}" created successfully`);
-      }
-      
-      // Navigate to dashboard
-      navigate("/dashboard");
-    } catch (error) {
-      console.error("Error creating contribution group:", error);
-      toast.error("Failed to create group. Please try again.");
-    } finally {
+    // Prepare contribution data
+    const contributionData = {
+      name: formData.name,
+      description: formData.description,
+      targetAmount: Number(formData.targetAmount),
+      category: formData.category,
+      frequency: formData.frequency,
+      contributionAmount: Number(formData.contributionAmount),
+      startDate: formData.startDate,
+      endDate: formData.endDate || undefined,
+      votingThreshold: formData.votingThreshold,
+      privacy: formData.privacy,
+      memberRoles: formData.memberRoles,
+      creatorId: '1', // Will be replaced by actual user id from context
+    };
+    
+    // Create contribution
+    createNewContribution(contributionData);
+    
+    // Navigate to dashboard
+    setTimeout(() => {
       setIsLoading(false);
-    }
-  };
-
-  const validateStep = () => {
-    if (step === 1) {
-      return !!formData.name && !!formData.targetAmount;
-    } else if (step === 2) {
-      return !!formData.contributionAmount && !!formData.startDate; 
-    }
-    return true;
+      navigate("/dashboard");
+    }, 1000);
   };
 
   return (
@@ -231,7 +194,7 @@ const CreateGroup = () => {
                 <div className="space-y-2">
                   <Label htmlFor="category">Category</Label>
                   <Select 
-                    value={formData.category}
+                    defaultValue={formData.category}
                     onValueChange={(value) => handleChange('category', value)}
                   >
                     <SelectTrigger>
@@ -249,11 +212,7 @@ const CreateGroup = () => {
                 </div>
               </CardContent>
               <CardFooter>
-                <Button 
-                  onClick={goToNextStep} 
-                  className="w-full"
-                  disabled={!validateStep()}
-                >
+                <Button onClick={goToNextStep} className="w-full">
                   Continue
                 </Button>
               </CardFooter>
@@ -270,7 +229,7 @@ const CreateGroup = () => {
                 <div className="space-y-2">
                   <Label>Contribution Frequency</Label>
                   <RadioGroup 
-                    value={formData.frequency}
+                    defaultValue={formData.frequency}
                     onValueChange={(value) => handleChange('frequency', value)}
                   >
                     <div className="flex items-center space-x-2">
@@ -330,11 +289,7 @@ const CreateGroup = () => {
                 </div>
               </CardContent>
               <CardFooter>
-                <Button 
-                  onClick={goToNextStep} 
-                  className="w-full"
-                  disabled={!validateStep()}
-                >
+                <Button onClick={goToNextStep} className="w-full">
                   Continue
                 </Button>
               </CardFooter>
@@ -354,7 +309,8 @@ const CreateGroup = () => {
                     id="voting-threshold" 
                     type="number" 
                     min="1" 
-                    max="100"
+                    max="100" 
+                    defaultValue="70"
                     value={formData.votingThreshold}
                     onChange={(e) => handleChange('votingThreshold', Number(e.target.value))}
                   />
@@ -364,7 +320,7 @@ const CreateGroup = () => {
                 <div className="space-y-2">
                   <Label>Privacy</Label>
                   <RadioGroup 
-                    value={formData.privacy}
+                    defaultValue={formData.privacy}
                     onValueChange={(value) => handleChange('privacy', value)}
                   >
                     <div className="flex items-center space-x-2">
@@ -381,7 +337,7 @@ const CreateGroup = () => {
                 <div className="space-y-2">
                   <Label>Member Roles</Label>
                   <RadioGroup 
-                    value={formData.memberRoles}
+                    defaultValue={formData.memberRoles}
                     onValueChange={(value) => handleChange('memberRoles', value)}
                   >
                     <div className="flex items-center space-x-2">
