@@ -10,12 +10,14 @@ import "../../patches/toast-patch";
  */
 const ShareContributionHoc = (WrappedComponent: React.ComponentType<any>) => {
   return (props: any) => {
-    // Intercept and redirect toast warnings to our patched toast
-    // This is needed because ShareContribution uses toast.warn which isn't in sonner directly
-    const originalToast = window.toast;
+    // Create a custom toast object with the warn method
+    const customToast = {
+      ...toast,
+      warn: (message: string, options?: any) => toast.error(message, options)
+    };
     
     // Return the wrapped component with all props passed through
-    return <WrappedComponent {...props} toast={originalToast} />;
+    return <WrappedComponent {...props} toast={customToast} />;
   };
 };
 

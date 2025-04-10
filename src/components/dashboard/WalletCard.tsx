@@ -31,7 +31,7 @@ const WalletCard = () => {
 
   // Load virtual account transactions only once when component mounts
   useEffect(() => {
-    if (user?.virtualAccount && !isLoading) {
+    if (user?.virtualAccount && !virtualAccountTransactions.length) {
       fetchVirtualAccountTransactions();
     }
   }, [user?.id, user?.virtualAccount]); // Only depend on user ID and virtualAccount existence
@@ -83,7 +83,7 @@ const WalletCard = () => {
     setIsLoading(true);
     
     try {
-      // First refresh the transactions
+      // First refresh the transactions to ensure we have the latest data
       await fetchVirtualAccountTransactions();
       
       // If user has a virtual account, get the wallet balance directly
@@ -91,12 +91,12 @@ const WalletCard = () => {
         // Get account reference
         const accountRef = `user_${user.id}`;
         
-        // Calculate wallet balance from Monnify transactions
+        // Get wallet balance from Monnify
         const balance = await monnifyAPI.getWalletBalance(accountRef);
         console.log("Wallet balance from Monnify:", balance);
         
-        // Only update if we have a balance and only update localStorage
-        if (balance > 0) {
+        // Only refresh data if we got a balance value
+        if (balance >= 0) {
           refreshData();
         }
       }
