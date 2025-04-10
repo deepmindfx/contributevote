@@ -6,13 +6,6 @@ import React, {
   useCallback
 } from "react";
 import { v4 as uuidv4 } from 'uuid';
-import {
-  sendSMS,
-  sendOTPSMS,
-  generateOTP,
-  storeOTP,
-  verifyOTP
-} from "@/services/smsBulkService";
 import { monnifyAPI } from "@/services/monnifyService";
 import { toast } from "sonner";
 import { markNotificationAsRead as markNotificationAsReadService } from "@/services/localStorage";
@@ -78,8 +71,6 @@ interface AppContextValue {
   refreshData: () => void;
   updatePreferences: (newPreferences: Partial<UserPreferences>) => void;
   markNotificationAsRead: (notificationId: string) => void;
-  sendVerificationSMS: (userId: string, phoneNumber: string) => Promise<{success: boolean, error?: string}>;
-  verifyUserWithOTPCode: (userId: string, otp: string) => boolean;
   
   // Additional properties needed by components
   user: User | null;
@@ -327,63 +318,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     localStorage.setItem('users', JSON.stringify(updatedUsers));
   };
 
-  // Function to mark a notification as read - updated to match the service function
+  // Function to mark a notification as read
   const markNotificationAsRead = (notificationId: string) => {
     markNotificationAsReadService(notificationId);
     refreshData(); // Refresh data after marking notification as read
-  };
-
-  /**
-   * Send verification SMS to user
-   */
-  const sendVerificationSMS = async (userId: string, phoneNumber: string): Promise<{success: boolean, error?: string}> => {
-    try {
-      // Generate an OTP
-      const otp = generateOTP();
-      
-      // Store it for later verification
-      storeOTP(userId, otp);
-      
-      // Send it via SMS
-      const smsResult = await sendOTPSMS(phoneNumber, otp);
-      
-      // Return the SMS sending result
-      return smsResult;
-    } catch (error) {
-      console.error("Failed to send verification SMS:", error);
-      return {
-        success: false,
-        error: "Failed to send verification code. Please try again."
-      };
-    }
-  };
-
-  /**
-   * Verify OTP code for a user
-   */
-  const verifyUserWithOTPCode = (userId: string, otp: string): boolean => {
-    const isVerified = verifyOTP(userId, otp);
-
-    if (isVerified && currentUser) {
-      // Update user's verification status
-      const updatedUser = {
-        ...currentUser,
-        verified: true
-      };
-      setCurrentUser(updatedUser);
-      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-
-      // Update in users array as well
-      const updatedUsers = users.map(user =>
-        user.id === updatedUser.id ? updatedUser : user
-      );
-      setUsers(updatedUsers);
-      localStorage.setItem('users', JSON.stringify(updatedUsers));
-
-      return true;
-    }
-
-    return false;
   };
 
   /**
@@ -667,8 +605,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     refreshData,
     updatePreferences,
     markNotificationAsRead,
-    sendVerificationSMS,
-    verifyUserWithOTPCode,
     
     // Map additional properties needed by components
     user: currentUser,

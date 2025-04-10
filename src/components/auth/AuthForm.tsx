@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -5,17 +6,13 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { LogIn, Mail, Phone, User, Key, Lock, Shield } from "lucide-react";
+import { LogIn, Mail, Phone, User, Key, Lock } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { v4 as uuidv4 } from 'uuid';
 import { useApp } from "@/contexts/AppContext";
-import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 const AuthForm = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const [showOTPScreen, setShowOTPScreen] = useState(false);
-  const [otp, setOtp] = useState("");
-  const [userId, setUserId] = useState("");
   
   const [loginData, setLoginData] = useState({
     phone: "",
@@ -32,23 +29,14 @@ const AuthForm = () => {
   
   const navigate = useNavigate();
   const location = useLocation();
-  const {
-    refreshData,
-    sendVerificationSMS,
-    verifyUserWithOTPCode
-  } = useApp();
+  const { refreshData } = useApp();
 
   // Get return URL if user was redirected from a protected page
-  const {
-    state
-  } = location;
+  const { state } = location;
   const returnUrl = state?.returnUrl || "/dashboard";
   
   const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const {
-      name,
-      value
-    } = e.target;
+    const { name, value } = e.target;
     setLoginData(prev => ({
       ...prev,
       [name]: value
@@ -56,10 +44,7 @@ const AuthForm = () => {
   };
   
   const handleRegisterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const {
-      name,
-      value
-    } = e.target;
+    const { name, value } = e.target;
     setRegisterData(prev => ({
       ...prev,
       [name]: value
@@ -132,7 +117,8 @@ const AuthForm = () => {
         role: "user" as const,
         status: "active" as const,
         createdAt: new Date().toISOString(),
-        verified: false
+        // Set verified to true by default since we're removing OTP verification
+        verified: true
       };
 
       // Add to users array
@@ -146,90 +132,19 @@ const AuthForm = () => {
       // Important: Refresh app context data after registration
       refreshData();
       
-      // Send verification SMS instead of email
-      const smsResult = await sendVerificationSMS(user.id, user.phone);
-      
-      if (smsResult.success) {
-        // Show OTP verification screen
-        setUserId(user.id);
-        setShowOTPScreen(true);
-      } else {
-        // Show specific error message
-        toast.error(smsResult.error || "Failed to send verification code. Please try again.");
-      }
-      
       setIsLoading(false);
+      toast.success("Account created successfully");
+      
+      // Navigate to dashboard after successful registration
+      setTimeout(() => {
+        navigate("/dashboard");
+      }, 500);
     } catch (error) {
       console.error("Registration error:", error);
       toast.error("Failed to create account. Please try again.");
       setIsLoading(false);
     }
   };
-  
-  const handleVerifyOTP = () => {
-    if (!otp || otp.length !== 6) {
-      toast.error("Please enter a valid 6-digit OTP");
-      return;
-    }
-    
-    const isVerified = verifyUserWithOTPCode(userId, otp);
-    
-    if (isVerified) {
-      // Navigate to dashboard after successful verification
-      setTimeout(() => {
-        navigate("/dashboard");
-      }, 1000);
-    }
-  };
-  
-  if (showOTPScreen) {
-    return (
-      <Card className="w-full max-w-md mx-auto animate-scale glass-card">
-        <CardHeader>
-          <CardTitle className="text-2xl text-center">Verify Your Account</CardTitle>
-          <CardDescription className="text-center">
-            We've sent a verification code to your phone number. Please enter it below.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex justify-center">
-              <InputOTP maxLength={6} value={otp} onChange={setOtp}>
-                <InputOTPGroup>
-                  <InputOTPSlot index={0} />
-                  <InputOTPSlot index={1} />
-                  <InputOTPSlot index={2} />
-                  <InputOTPSlot index={3} />
-                  <InputOTPSlot index={4} />
-                  <InputOTPSlot index={5} />
-                </InputOTPGroup>
-              </InputOTP>
-            </div>
-            <Button 
-              onClick={handleVerifyOTP} 
-              className="w-full bg-[#2DAE75] hover:bg-[#259d68]"
-            >
-              <Shield className="mr-2 h-4 w-4" />
-              Verify Account
-            </Button>
-            <p className="text-sm text-center text-muted-foreground mt-4">
-              Didn't receive the code?{" "}
-              <a 
-                href="#" 
-                className="text-primary hover:underline"
-                onClick={(e) => {
-                  e.preventDefault();
-                  sendVerificationSMS(userId, registerData.phone);
-                }}
-              >
-                Resend
-              </a>
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
   
   return (
     <Card className="w-full max-w-md mx-auto animate-scale glass-card">
