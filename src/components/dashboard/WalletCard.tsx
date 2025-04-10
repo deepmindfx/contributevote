@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { monnifyAPI } from "@/services/monnifyService";
 
 const WalletCard = () => {
   const navigate = useNavigate();
@@ -49,7 +49,24 @@ const WalletCard = () => {
             .filter(t => t.paymentStatus === 'PAID')
             .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
           
+          console.log("Total deposits from Monnify:", totalDeposits);
+          
           if (totalDeposits > 0) {
+            // Update local user object with the new balance
+            if (user) {
+              try {
+                const storedUser = localStorage.getItem('user');
+                if (storedUser) {
+                  const updatedUser = JSON.parse(storedUser);
+                  updatedUser.walletBalance = totalDeposits;
+                  localStorage.setItem('user', JSON.stringify(updatedUser));
+                  console.log("Updated user wallet balance in localStorage:", totalDeposits);
+                }
+              } catch (error) {
+                console.error("Error updating user in localStorage:", error);
+              }
+            }
+            
             // Refresh data to update the wallet balance in context
             refreshData();
           }
@@ -87,13 +104,48 @@ const WalletCard = () => {
     source: 'monnify'
   }))].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5) : []);
   
-  const refreshBalance = () => {
+  const refreshBalance = async () => {
     setIsLoading(true);
-    fetchVirtualAccountTransactions();
-    setTimeout(() => {
+    
+    try {
+      // First refresh the transactions
+      await fetchVirtualAccountTransactions();
+      
+      // If user has a virtual account, get the wallet balance directly
+      if (user?.virtualAccount) {
+        // Get account reference
+        const accountRef = `user_${user.id}`;
+        
+        // Calculate wallet balance from Monnify transactions
+        const balance = await monnifyAPI.getWalletBalance(accountRef);
+        console.log("Wallet balance from Monnify:", balance);
+        
+        // Update local user data with the new balance
+        if (balance > 0) {
+          try {
+            const storedUser = localStorage.getItem('user');
+            if (storedUser) {
+              const updatedUser = JSON.parse(storedUser);
+              updatedUser.walletBalance = balance;
+              localStorage.setItem('user', JSON.stringify(updatedUser));
+              console.log("Updated wallet balance in localStorage:", balance);
+            }
+          } catch (error) {
+            console.error("Error updating user in localStorage:", error);
+          }
+        }
+      }
+      
+      // Finally, refresh the app context data
       refreshData();
+      
+      toast.success("Balance updated successfully");
+    } catch (error) {
+      console.error("Error refreshing balance:", error);
+      toast.error("Failed to update balance");
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
   
   const handleDeposit = () => {
@@ -173,6 +225,7 @@ const WalletCard = () => {
     );
   }
 
+  
   return (
     <Card className="overflow-hidden rounded-3xl border-0">
       <div className="p-6 text-white relative overflow-hidden bg-[#2DAE75]">
@@ -216,6 +269,7 @@ const WalletCard = () => {
           </div>
         </div>
       </div>
+      
       
       <CardContent className="p-0">
         {!showHistory ? (

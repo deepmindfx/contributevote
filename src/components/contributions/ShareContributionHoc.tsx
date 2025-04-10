@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { toast } from "sonner";
-import "../patches/toast-patch";
+import "../../patches/toast-patch";
 
 /**
  * This is a HOC (Higher Order Component) that wraps the ShareContribution component

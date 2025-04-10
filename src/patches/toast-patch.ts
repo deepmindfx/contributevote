@@ -21,7 +21,7 @@ declare global {
   }
 }
 
-// Add to the window object for global access
-window.toast = originalToast as any;
+// Expose the patched toast to the window for global access
+window.toast = originalToast;
 
 export default originalToast;

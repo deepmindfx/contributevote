@@ -144,7 +144,6 @@ class MonnifyAPI {
         }
       });
       
-      // Fixed response handling to properly parse JSON
       const data = await response.json();
       
       if (!data.requestSuccessful) {
@@ -213,7 +212,6 @@ class MonnifyAPI {
         body: JSON.stringify(requestData)
       });
       
-      // Fixed response handling to properly parse JSON
       const data = await response.json();
       
       if (!data.requestSuccessful) {
@@ -244,7 +242,7 @@ class MonnifyAPI {
       console.log("Getting transactions for account reference:", accountReference);
       
       // Make API call to get transactions
-      const response = await fetch(`${credentials.baseUrl}/api/v2/transactions/search?accountReference=${accountReference}&page=0&size=20`, {
+      const response = await fetch(`${credentials.baseUrl}/api/v2/transactions/search?accountReference=${accountReference}&page=0&size=100`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -252,7 +250,6 @@ class MonnifyAPI {
         }
       });
       
-      // Fixed response handling to properly parse JSON
       const data = await response.json();
       
       // Handle the case where there are no transactions - this is not an error
@@ -262,6 +259,29 @@ class MonnifyAPI {
           return [];
         }
         throw new Error(data.responseMessage || 'Failed to fetch transactions');
+      }
+      
+      console.log("Transactions response:", data);
+      
+      // Calculate wallet balance from transactions
+      let totalBalance = 0;
+      if (data.responseBody && data.responseBody.content) {
+        const paidTransactions = data.responseBody.content.filter((tx: any) => tx.paymentStatus === "PAID");
+        totalBalance = paidTransactions.reduce((sum: number, tx: any) => sum + Number(tx.amount), 0);
+        console.log("Calculated balance from transactions:", totalBalance);
+        
+        // Update localStorage with the new balance
+        try {
+          const storedUser = localStorage.getItem('user');
+          if (storedUser) {
+            const user = JSON.parse(storedUser);
+            user.walletBalance = totalBalance;
+            localStorage.setItem('user', JSON.stringify(user));
+            console.log("Updated wallet balance in localStorage:", totalBalance);
+          }
+        } catch (error) {
+          console.error("Error updating wallet balance in localStorage:", error);
+        }
       }
       
       // Format and return transactions
@@ -285,6 +305,25 @@ class MonnifyAPI {
       console.error("Error fetching transactions:", error);
       // Return empty array instead of throwing to avoid breaking the UI
       return [];
+    }
+  }
+
+  /**
+   * Get wallet balance by calculating from transactions
+   */
+  async getWalletBalance(accountReference: string): Promise<number> {
+    try {
+      const transactions = await this.getTransactions(accountReference);
+      // Calculate total balance from paid transactions
+      const balance = transactions
+        .filter(tx => tx.paymentStatus === "PAID")
+        .reduce((total, tx) => total + Number(tx.amount), 0);
+      
+      console.log("Calculated wallet balance:", balance);
+      return balance;
+    } catch (error) {
+      console.error("Error calculating wallet balance:", error);
+      return 0;
     }
   }
 
@@ -326,7 +365,6 @@ class MonnifyAPI {
         body: JSON.stringify(requestData)
       });
       
-      // Fixed response handling to properly parse JSON
       const data = await response.json();
       
       if (!data.requestSuccessful) {
@@ -362,7 +400,6 @@ class MonnifyAPI {
         }
       });
       
-      // Fixed response handling to properly parse JSON
       const data = await response.json();
       
       if (!data.requestSuccessful) {
@@ -445,7 +482,6 @@ class MonnifyAPI {
         }
       });
       
-      // Fixed response handling to properly parse JSON
       const data = await response.json();
       return data.requestSuccessful === true;
     } catch (error) {
