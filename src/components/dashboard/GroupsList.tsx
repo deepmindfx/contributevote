@@ -7,30 +7,77 @@ import { Progress } from "@/components/ui/progress";
 import { useApp } from "@/contexts/AppContext";
 import { format } from "date-fns";
 import { Users, Calendar, ArrowRight } from "lucide-react";
+import { useEffect } from "react";
 
 const GroupsList = () => {
   const navigate = useNavigate();
   const {
     contributions,
-    currentUser
+    currentUser,
+    refreshData
   } = useApp();
   
-  // Only show groups where the user is a member or creator
+  // Refresh data when component mounts to ensure we have the latest groups
+  useEffect(() => {
+    if (refreshData) {
+      refreshData();
+    }
+    // Log current user and contributions for debugging
+    console.log("Current user:", currentUser);
+    if (contributions && Array.isArray(contributions)) {
+      contributions.forEach(group => {
+        const isCreator = group.creatorId === currentUser?.id;
+        const isMember = Array.isArray(group.members) && (
+          // Check if members contains the user ID as a string
+          group.members.includes(currentUser?.id) ||
+          // Check if members contains objects with the user ID
+          group.members.some((member: any) => 
+            typeof member === 'object' && member.id === currentUser?.id
+          )
+        );
+        console.log(`Group ${group.name}: isCreator=${isCreator}, isMember=${isMember}`);
+      });
+    }
+    console.log("User's contributions:", contributions);
+  }, [refreshData, currentUser, contributions]);
+  
+  // Get groups where the user is a member or creator
   const getRecentGroups = () => {
     if (!currentUser?.id || !contributions || !Array.isArray(contributions)) {
+      console.log("No user ID or contributions array");
       return [];
     }
     
-    // Filter contributions to only include ones the current user is a member of
+    // Filter contributions to only include ones where the current user is involved
     const userContributions = contributions.filter(group => {
+      // Check if the user is the creator
+      const isCreator = group.creatorId === currentUser.id;
+      
       // Check if the user is a member
-      return group.members && Array.isArray(group.members) && 
-        (group.members.some((member: any) => member.id === currentUser.id) || 
-         group.creatorId === currentUser.id);
+      let isMember = false;
+      if (group.members && Array.isArray(group.members)) {
+        // Handle both cases: when members are strings (IDs) or objects
+        isMember = group.members.includes(currentUser.id) || 
+                  group.members.some((member: any) => 
+                    typeof member === 'object' && member.id === currentUser.id
+                  );
+      }
+      
+      return isCreator || isMember;
     });
     
-    // Get most recent 3 groups
-    return userContributions.slice(0, 3);
+    // Sort by creation date (newest first)
+    const sortedContributions = [...userContributions].sort((a, b) => {
+      const dateA = new Date(a.createdAt || 0).getTime();
+      const dateB = new Date(b.createdAt || 0).getTime();
+      return dateB - dateA;
+    });
+    
+    // Log the groups we're going to display
+    console.log("Recent groups to display:", sortedContributions);
+    
+    // Get most recent groups
+    return sortedContributions.slice(0, 3);
   };
   
   const recentGroups = getRecentGroups();
@@ -62,7 +109,16 @@ const GroupsList = () => {
         ) : (
           <div className="space-y-4">
             {recentGroups.map(group => {
-              const progressPercentage = Math.min(100, Math.round(group.currentAmount / group.targetAmount * 100) || 0);
+              // Handle edge cases with progress calculation
+              const targetAmount = parseFloat(String(group.targetAmount)) || 0;
+              const currentAmount = parseFloat(String(group.currentAmount)) || 0;
+              const progressPercentage = targetAmount > 0 
+                ? Math.min(100, Math.round((currentAmount / targetAmount) * 100) || 0)
+                : 0;
+              
+              const memberCount = Array.isArray(group.members) ? group.members.length : 0;
+              const startDate = group.startDate ? new Date(group.startDate) : new Date();
+              
               return (
                 <div 
                   key={group.id} 
@@ -74,10 +130,10 @@ const GroupsList = () => {
                       <h3 className="font-medium text-base">{group.name}</h3>
                       <div className="flex items-center text-xs text-muted-foreground mt-1">
                         <Users className="h-3 w-3 mr-1 inline" />
-                        <span className="mr-2">{group.members.length} members</span>
+                        <span className="mr-2">{memberCount} members</span>
                         
                         <Calendar className="h-3 w-3 mr-1 inline" />
-                        <span>{format(new Date(group.startDate), 'MMM d, yyyy')}</span>
+                        <span>{format(startDate, 'MMM d, yyyy')}</span>
                       </div>
                     </div>
                     <Badge variant="outline" className="capitalize text-xs">
@@ -89,7 +145,7 @@ const GroupsList = () => {
                     <div className="flex justify-between items-center mb-1 text-xs">
                       <div className="text-muted-foreground">Progress ({progressPercentage}%)</div>
                       <div className="text-sm font-medium">
-                        ₦{group.currentAmount.toLocaleString()} of ₦{group.targetAmount.toLocaleString()}
+                        ₦{currentAmount.toLocaleString()} of ₦{targetAmount.toLocaleString()}
                       </div>
                     </div>
                     <Progress value={progressPercentage} className="h-1.5" />
