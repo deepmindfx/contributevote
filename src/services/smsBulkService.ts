@@ -19,27 +19,27 @@ const DEFAULT_CONFIG: SMSConfig = {
 
 // Response interfaces
 interface SMSSuccessResponse {
-  status: "OK";
-  count: number;
-  price: number;
+  status: string;
+  count?: number;
+  price?: number;
 }
 
 interface SMSErrorResponse {
   error: string;
-  errno: string;
+  errno?: string;
 }
 
 interface BalanceResponse {
   balance: number;
-  currency: string;
-  symbol: string;
-  country: string;
+  currency?: string;
+  symbol?: string;
+  country?: string;
 }
 
 type SMSResponse = SMSSuccessResponse | SMSErrorResponse;
 
 /**
- * Check account balance first and then send SMS
+ * Send SMS using the Nigeria Bulk SMS API
  * @param phoneNumber The recipient's phone number (e.g., 2348030000000)
  * @param message The message to send
  * @param config Optional configuration to override defaults
@@ -51,21 +51,6 @@ export const sendSMS = async (
   config: Partial<SMSConfig> = {}
 ): Promise<{ success: boolean; data?: any; error?: string }> => {
   try {
-    // First check if we have balance
-    const balanceCheck = await checkBalance(config);
-    
-    if (!balanceCheck.success) {
-      console.error("Balance check failed:", balanceCheck.error);
-      return { success: false, error: "Could not verify account balance: " + balanceCheck.error };
-    }
-    
-    if (balanceCheck.balance === 0) {
-      console.error("Insufficient balance in SMS account");
-      return { success: false, error: "Insufficient balance in SMS account. Please top up." };
-    }
-    
-    console.log(`SMS Account balance: ${balanceCheck.balance} units`);
-    
     // Merge default config with any overrides
     const smsConfig = { ...DEFAULT_CONFIG, ...config };
     
@@ -79,17 +64,19 @@ export const sendSMS = async (
     
     console.log("Sending SMS to:", formattedPhone, "with message:", message);
     
-    // Build the query parameters
-    const params = new URLSearchParams({
-      username: smsConfig.username,
-      password: smsConfig.password,
-      sender: smsConfig.sender,
-      message: message,
-      mobiles: formattedPhone
+    // Create the form data
+    const formData = new FormData();
+    formData.append('username', smsConfig.username);
+    formData.append('password', smsConfig.password);
+    formData.append('sender', smsConfig.sender);
+    formData.append('message', message);
+    formData.append('mobiles', formattedPhone);
+
+    // Make the API call
+    const response = await fetch(smsConfig.apiUrl, {
+      method: 'POST',
+      body: formData
     });
-    
-    // Make the actual API call
-    const response = await fetch(`${smsConfig.apiUrl}?${params.toString()}`);
     
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -97,9 +84,10 @@ export const sendSMS = async (
     
     const data = await response.json();
     
-    if (data.status === "OK") {
+    // Check for success based on the example PHP code
+    if (data.status && data.status.toUpperCase() === 'OK') {
       return { success: true, data };
-    } else {
+    } else if (data.error) {
       console.error("SMS API error:", data);
       
       // Check for specific error codes
@@ -111,6 +99,8 @@ export const sendSMS = async (
       }
       
       return { success: false, error: data.error || "Failed to send SMS" };
+    } else {
+      return { success: false, error: "Unable to process SMS request" };
     }
   } catch (error) {
     console.error("Failed to send SMS:", error);
@@ -184,15 +174,17 @@ export const checkBalance = async (config: Partial<SMSConfig> = {}): Promise<{ s
     // Merge default config with any overrides
     const smsConfig = { ...DEFAULT_CONFIG, ...config };
     
-    // Build the query parameters
-    const params = new URLSearchParams({
-      username: smsConfig.username,
-      password: smsConfig.password,
-      action: "balance"
+    // Create the form data
+    const formData = new FormData();
+    formData.append('username', smsConfig.username);
+    formData.append('password', smsConfig.password);
+    formData.append('action', 'balance');
+
+    // Make the API call
+    const response = await fetch(smsConfig.apiUrl, {
+      method: 'POST',
+      body: formData
     });
-    
-    // Make the actual API call
-    const response = await fetch(`${smsConfig.apiUrl}?${params.toString()}`);
     
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
