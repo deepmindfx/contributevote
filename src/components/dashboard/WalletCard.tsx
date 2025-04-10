@@ -1,4 +1,5 @@
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
@@ -7,11 +8,11 @@ import { useApp } from "@/contexts/AppContext";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { updateUserBalance } from "@/services/localStorage";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Switch } from "@/components/ui/switch";
 import { Toggle } from "@/components/ui/toggle";
+import { monnifyAPI } from "@/services/monnifyService";
 
 const WalletCard = () => {
   const navigate = useNavigate();
@@ -22,23 +23,61 @@ const WalletCard = () => {
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [currencyType, setCurrencyType] = useState<"NGN" | "USD">("NGN");
+  const [virtualAccountTransactions, setVirtualAccountTransactions] = useState<any[]>([]);
   const {
     user,
     refreshData,
     isAdmin,
-    transactions
+    transactions,
+    getVirtualAccountTransactions
   } = useApp();
+
+  useEffect(() => {
+    if (user?.virtualAccount?.reference) {
+      fetchVirtualAccountTransactions();
+    }
+  }, [user.virtualAccount]);
+
+  const fetchVirtualAccountTransactions = async () => {
+    try {
+      setIsLoading(true);
+      const transactions = await getVirtualAccountTransactions();
+      setVirtualAccountTransactions(transactions);
+    } catch (error) {
+      console.error("Error fetching virtual account transactions:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Toggle currency function
   const toggleCurrency = () => {
     setCurrencyType(prev => prev === "NGN" ? "USD" : "NGN");
   };
 
-  // Filter only the user's wallet-related transactions
-  const walletTransactions = transactions.filter(t => t.userId === user.id && (t.contributionId === "" || t.type === "deposit" || t.type === "withdrawal")).slice(0, 5);
+  // Filter only the user's wallet-related transactions 
+  // Now merging local transactions with Monnify API transactions
+  const walletTransactions = [...transactions.filter(t => 
+    t.userId === user.id && (t.contributionId === "" || t.type === "deposit" || t.type === "withdrawal")
+  ).map(t => ({
+    ...t,
+    source: 'local'
+  })), 
+  ...virtualAccountTransactions.map(t => ({
+    id: t.id,
+    userId: user.id,
+    contributionId: '',
+    type: t.paymentStatus === 'PAID' ? 'deposit' : 'withdrawal',
+    amount: t.amount,
+    description: `Via ${t.paymentMethod || 'Monnify'} (${t.paymentReference})`,
+    createdAt: t.createdOn,
+    status: t.paymentStatus === 'PAID' ? 'completed' : 'pending',
+    source: 'monnify'
+  }))].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5);
   
   const refreshBalance = () => {
     setIsLoading(true);
+    fetchVirtualAccountTransactions();
     setTimeout(() => {
       refreshData();
       setIsLoading(false);
@@ -50,14 +89,16 @@ const WalletCard = () => {
       toast.error("Please enter a valid amount");
       return;
     }
-    updateUserBalance(Number(amount));
-    refreshData();
+    
+    // For deposits, we'll redirect to the virtual account page
+    // since deposits should come through the virtual account
     setAmount("");
     setIsDepositOpen(false);
-    toast.success(`Successfully deposited ${currencyType === "NGN" ? "₦" : "$"}${Number(amount).toLocaleString()}`);
+    navigate('/virtual-account');
+    toast.info("Please use your virtual account for deposits");
   };
   
-  const handleWithdraw = () => {
+  const handleWithdraw = async () => {
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       toast.error("Please enter a valid amount");
       return;
@@ -66,11 +107,14 @@ const WalletCard = () => {
       toast.error("Insufficient funds in your wallet");
       return;
     }
-    updateUserBalance(-Number(amount));
-    refreshData();
-    setAmount("");
+    
+    // For withdrawals, we'll use the Monnify API (through the context)
     setIsWithdrawOpen(false);
-    toast.success(`Successfully withdrew ${currencyType === "NGN" ? "₦" : "$"}${Number(amount).toLocaleString()}`);
+    
+    // In a real implementation, we would collect banking details
+    // For now we'll just show a toast explaining limitations
+    toast.info("To withdraw funds, please visit the account page to enter your banking details");
+    navigate('/virtual-account');
   };
   
   const formatDate = (dateString: string) => {
@@ -149,23 +193,19 @@ const WalletCard = () => {
                   <DialogHeader>
                     <DialogTitle>Deposit Funds</DialogTitle>
                     <DialogDescription>
-                      Add money to your wallet. Enter the amount you want to deposit.
+                      Add money to your wallet using your virtual account. You can view your account details on the Account page.
                     </DialogDescription>
                   </DialogHeader>
-                  <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="deposit-amount">Amount ({currencyType})</Label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-2.5 text-muted-foreground">
-                          {currencyType === "NGN" ? "₦" : "$"}
-                        </span>
-                        <Input id="deposit-amount" type="number" className="pl-8" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} />
-                      </div>
-                    </div>
+                  <div className="space-y-2 py-4">
+                    <Button className="w-full" onClick={() => {
+                      setIsDepositOpen(false);
+                      navigate('/virtual-account');
+                    }}>
+                      View Account Details
+                    </Button>
                   </div>
                   <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsDepositOpen(false)}>Cancel</Button>
-                    <Button onClick={handleDeposit}>Deposit</Button>
+                    <Button variant="outline" onClick={() => setIsDepositOpen(false)}>Close</Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>

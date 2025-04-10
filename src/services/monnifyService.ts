@@ -2,10 +2,10 @@
 // The Monnify API service for virtual accounts and payments
 
 // Base URL and API config
-const MONNIFY_BASE_URL = "https://sandbox.monnify.com"; // Use sandbox for testing
-const MONNIFY_API_KEY = "MK_TEST_SAM7AJ9NP7"; // This would be replaced with your actual API key
-const MONNIFY_SECRET_KEY = "YDNXNDENP8AXQ4ZFZ4D9QJMVWK3S8MR4"; // This would be replaced with your actual secret key
-const MONNIFY_CONTRACT_CODE = "8389328412"; // This would be replaced with your actual contract code
+const MONNIFY_BASE_URL = "https://api.monnify.com"; // Production URL
+const MONNIFY_API_KEY = "MK_PROD_XR897H4H43"; // Production API key
+const MONNIFY_SECRET_KEY = "GPFCA9GTP81DYJGF9VMAPRK220SS6CK9"; // Production secret key
+const MONNIFY_CONTRACT_CODE = "8389328412"; // Would be replaced with your actual contract code
 
 // Interface for Monnify API responses
 interface MonnifyResponse<T> {
@@ -83,15 +83,27 @@ interface Transaction {
 class MonnifyAPI {
   private async getAuthToken(): Promise<string> {
     try {
-      // In a real implementation, this would make an actual API call
-      // For now, we'll simulate the authentication process
-      console.log("Getting Monnify auth token");
+      // Create auth credentials
+      const credentials = `${MONNIFY_API_KEY}:${MONNIFY_SECRET_KEY}`;
+      const encodedCredentials = btoa(credentials);
       
-      // Simulate API response delay
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Make API call to get token
+      const response = await fetch(`${MONNIFY_BASE_URL}/api/v1/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${encodedCredentials}`,
+          'Content-Type': 'application/json'
+        }
+      });
       
-      // Return a dummy token for development purposes
-      return "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
+      const data = await response.json();
+      
+      if (!data.requestSuccessful) {
+        throw new Error(data.responseMessage || 'Failed to authenticate with Monnify');
+      }
+      
+      // Return the actual token
+      return data.responseBody.accessToken;
     } catch (error) {
       console.error("Error getting auth token:", error);
       throw new Error("Failed to authenticate with Monnify");
@@ -134,43 +146,25 @@ class MonnifyAPI {
         requestData.nin = user.nin;
       }
 
-      // In a real implementation, this would make an actual API call
       console.log("Creating virtual account with Monnify", requestData);
       
-      // Simulate API response delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Make the actual API call
+      const response = await fetch(`${MONNIFY_BASE_URL}/api/v2/bank-transfer/reserved-accounts`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestData)
+      });
       
-      // Mock response for development/demo purposes
-      const mockResponse: MonnifyResponse<ReserveAccountResponse> = {
-        requestSuccessful: true,
-        responseMessage: "success",
-        responseCode: "0",
-        responseBody: {
-          contractCode: MONNIFY_CONTRACT_CODE,
-          accountReference: requestData.accountReference,
-          accountName: requestData.accountName,
-          currencyCode: "NGN",
-          customerEmail: user.email,
-          customerName: requestData.customerName,
-          accounts: [
-            {
-              bankCode: "50515",
-              bankName: "Moniepoint Microfinance Bank",
-              accountNumber: this.generateMockAccountNumber(),
-              accountName: requestData.accountName
-            }
-          ],
-          collectionChannel: "RESERVED_ACCOUNT",
-          reservationReference: this.generateMockReference(),
-          reservedAccountType: "GENERAL",
-          status: "ACTIVE",
-          createdOn: new Date().toISOString(),
-          incomeSplitConfig: [],
-          restrictPaymentSource: false
-        }
-      };
+      const data = await response.json() as MonnifyResponse<ReserveAccountResponse>;
       
-      return mockResponse.responseBody;
+      if (!data.requestSuccessful) {
+        throw new Error(data.responseMessage || 'Failed to create virtual account');
+      }
+      
+      return data.responseBody;
     } catch (error) {
       console.error("Error creating virtual account:", error);
       throw new Error("Failed to create virtual account");
@@ -186,33 +180,38 @@ class MonnifyAPI {
       
       console.log("Getting transactions for account reference:", accountReference);
       
-      // Simulate API response delay
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // Make API call to get transactions
+      const response = await fetch(`${MONNIFY_BASE_URL}/api/v2/transactions/search?accountReference=${accountReference}&page=0&size=20`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
       
-      // Generate mock transactions for development purposes
-      const mockTransactions: Transaction[] = [];
+      const data = await response.json();
       
-      // Create 3 random transactions
-      for (let i = 0; i < 3; i++) {
-        mockTransactions.push({
-          id: this.generateMockReference(),
-          transactionReference: this.generateMockReference(),
-          paymentReference: this.generateMockReference(),
-          amount: Math.floor(Math.random() * 50000) + 1000, // Random amount between 1,000 and 50,000
-          currency: "NGN",
-          paymentStatus: "PAID",
-          paymentMethod: "ACCOUNT_TRANSFER",
-          paidOn: new Date(Date.now() - (i * 86400000)).toISOString(), // Dates spread over the last few days
-          createdOn: new Date(Date.now() - (i * 86400000)).toISOString(),
-          customerName: "Mock Customer",
-          customerEmail: "mock@customer.com",
-          accountName: "Mock Sender",
-          accountNumber: this.generateMockAccountNumber(),
-          bankName: "Mock Bank"
-        });
+      if (!data.requestSuccessful) {
+        throw new Error(data.responseMessage || 'Failed to fetch transactions');
       }
       
-      return mockTransactions;
+      // Format and return transactions
+      return data.responseBody.content.map((tx: any) => ({
+        id: tx.transactionReference,
+        transactionReference: tx.transactionReference,
+        paymentReference: tx.paymentReference,
+        amount: tx.amount,
+        currency: tx.currency,
+        paymentStatus: tx.paymentStatus,
+        paymentMethod: tx.paymentMethod,
+        paidOn: tx.paidOn,
+        createdOn: tx.createdOn,
+        customerName: tx.customerName,
+        customerEmail: tx.customerEmail,
+        accountName: tx.destinationAccountInformation?.accountName,
+        accountNumber: tx.destinationAccountInformation?.accountNumber,
+        bankName: tx.destinationAccountInformation?.bankName
+      }));
     } catch (error) {
       console.error("Error fetching transactions:", error);
       throw new Error("Failed to fetch transactions");
@@ -235,13 +234,36 @@ class MonnifyAPI {
       
       console.log("Initiating transfer:", params);
       
-      // Simulate API response delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const requestData = {
+        amount: params.amount,
+        reference: params.reference,
+        narration: params.narration,
+        destinationBankCode: params.recipientBankCode,
+        destinationAccountNumber: params.recipientAccountNumber,
+        currency: "NGN",
+        sourceAccountNumber: "", // Optional, your reserve account number
+        destinationAccountName: params.recipientName
+      };
       
-      // Mock successful transfer initiation
+      // Make API call to initiate transfer
+      const response = await fetch(`${MONNIFY_BASE_URL}/api/v2/disbursements/single`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestData)
+      });
+      
+      const data = await response.json();
+      
+      if (!data.requestSuccessful) {
+        throw new Error(data.responseMessage || 'Failed to initiate transfer');
+      }
+      
       return {
         reference: params.reference,
-        status: "PROCESSING"
+        status: data.responseBody.status || "PROCESSING"
       };
     } catch (error) {
       console.error("Error initiating transfer:", error);
@@ -258,45 +280,30 @@ class MonnifyAPI {
       
       console.log("Getting supported banks");
       
-      // Simulate API response delay
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Make API call to get banks
+      const response = await fetch(`${MONNIFY_BASE_URL}/api/v1/banks`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
       
-      // Mock bank list
-      return [
-        { bankCode: "057", bankName: "Zenith Bank" },
-        { bankCode: "058", bankName: "GTBank" },
-        { bankCode: "232", bankName: "Sterling Bank" },
-        { bankCode: "033", bankName: "UBA" },
-        { bankCode: "044", bankName: "Access Bank" },
-        { bankCode: "063", bankName: "Diamond Bank" },
-        { bankCode: "050", bankName: "Ecobank" },
-        { bankCode: "221", bankName: "Stanbic IBTC" },
-        { bankCode: "068", bankName: "Standard Chartered" },
-        { bankCode: "215", bankName: "Unity Bank" },
-        { bankCode: "035", bankName: "Wema Bank" },
-        { bankCode: "301", bankName: "JAIZ Bank" },
-        { bankCode: "082", bankName: "Keystone Bank" },
-        { bankCode: "076", bankName: "Polaris Bank" },
-        { bankCode: "50515", bankName: "Moniepoint Microfinance Bank" }
-      ];
+      const data = await response.json();
+      
+      if (!data.requestSuccessful) {
+        throw new Error(data.responseMessage || 'Failed to get supported banks');
+      }
+      
+      // Format and return banks
+      return data.responseBody.map((bank: any) => ({
+        bankCode: bank.code,
+        bankName: bank.name
+      }));
     } catch (error) {
       console.error("Error getting banks:", error);
       throw new Error("Failed to get supported banks");
     }
-  }
-
-  // Utility methods for generating mock data
-  private generateMockAccountNumber(): string {
-    return Math.floor(1000000000 + Math.random() * 9000000000).toString();
-  }
-  
-  private generateMockReference(): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let result = '';
-    for (let i = 0; i < 20; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
   }
 }
 
