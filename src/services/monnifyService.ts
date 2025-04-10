@@ -320,16 +320,8 @@ class MonnifyAPI {
     } catch (error) {
       console.error("Error getting banks:", error);
       
-      // Return mock data for demo purposes in case the API fails
-      return [
-        { bankCode: "057", bankName: "Zenith Bank" },
-        { bankCode: "011", bankName: "First Bank of Nigeria" },
-        { bankCode: "044", bankName: "Access Bank" },
-        { bankCode: "058", bankName: "Guaranty Trust Bank" },
-        { bankCode: "033", bankName: "United Bank for Africa" },
-        { bankCode: "032", bankName: "Union Bank" },
-        { bankCode: "050", bankName: "Ecobank Nigeria" },
-      ];
+      // Instead of returning mock data, throw the error so it can be handled by the caller
+      throw new Error("Failed to get supported banks. Please try again later.");
     }
   }
 }

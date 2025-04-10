@@ -1,3 +1,4 @@
+
 import React, {
   createContext,
   useState,
@@ -14,6 +15,7 @@ import {
   verifyOTP
 } from "@/services/smsBulkService";
 import { monnifyAPI } from "@/services/monnifyService";
+import { toast } from "sonner";
 
 // Define the types for user preferences
 interface UserPreferences {
@@ -430,9 +432,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
    */
   const getSupportedBanks = async (): Promise<any[]> => {
     try {
-      return await monnifyAPI.getBanks();
+      const banks = await monnifyAPI.getBanks();
+      return banks;
     } catch (error) {
       console.error("Error getting supported banks:", error);
+      toast.error("Could not fetch supported banks. Please try again later.");
       return [];
     }
   };
