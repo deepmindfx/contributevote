@@ -210,15 +210,6 @@ const WalletCard = () => {
         <div className="relative z-10 mx-0 my-[5px]">
           <div className="flex justify-between items-center mb-1 my-[6px]">
             <p className="text-base font-medium text-white/80 mb-0 py-[2px]">Available Balance</p>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={refreshBalance} 
-              className="h-8 w-8 text-white hover:bg-white/10 rounded-full"
-              disabled={isLoading}
-            >
-              <RefreshCw size={18} className={isLoading ? "animate-spin" : ""} />
-            </Button>
           </div>
           
           <div className="flex items-center justify-between">
