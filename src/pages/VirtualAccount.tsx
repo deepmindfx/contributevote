@@ -147,6 +147,7 @@ const VirtualAccount = () => {
         setKycDialogOpen(false);
         setBvn("");
         setNin("");
+        refreshData(); // Refresh user data
       } else {
         toast.error("Failed to update KYC information");
       }

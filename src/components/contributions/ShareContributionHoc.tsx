@@ -10,8 +10,12 @@ import "../../patches/toast-patch";
  */
 const ShareContributionHoc = (WrappedComponent: React.ComponentType<any>) => {
   return (props: any) => {
-    // Return the wrapped component
-    return <WrappedComponent {...props} />;
+    // Intercept and redirect toast warnings to our patched toast
+    // This is needed because ShareContribution uses toast.warn which isn't in sonner directly
+    const originalToast = window.toast;
+    
+    // Return the wrapped component with all props passed through
+    return <WrappedComponent {...props} toast={originalToast} />;
   };
 };
 

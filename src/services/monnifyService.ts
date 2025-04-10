@@ -1,4 +1,3 @@
-
 // The Monnify API service for virtual accounts and payments
 
 // Base URL and API config
@@ -108,6 +107,12 @@ interface Transaction {
 interface Bank {
   bankCode: string;
   bankName: string;
+}
+
+// Interface for wallet balance
+interface WalletBalanceResponse {
+  availableBalance: number;
+  ledgerBalance: number;
 }
 
 // Monnify API Helper class
@@ -309,21 +314,90 @@ class MonnifyAPI {
   }
 
   /**
-   * Get wallet balance by calculating from transactions
+   * Get wallet balance using the proper API endpoint
    */
   async getWalletBalance(accountReference: string): Promise<number> {
     try {
+      const token = await this.getAuthToken();
+      const credentials = getCredentials();
+      
+      console.log("Getting wallet balance for account reference:", accountReference);
+      
+      // First try to use the proper wallet balance endpoint
+      try {
+        const response = await fetch(`${credentials.baseUrl}/api/v1/disbursements/wallet/balance?accountNumber=${accountReference}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        const data = await response.json();
+        
+        if (data.requestSuccessful) {
+          const balance = data.responseBody.availableBalance / 100; // Convert from kobo to naira
+          console.log("Retrieved wallet balance from API:", balance);
+          
+          // Save to localStorage for faster access next time
+          this.updateStoredBalance(accountReference, balance);
+          
+          return balance;
+        }
+      } catch (error) {
+        console.warn("Error using wallet balance endpoint, falling back to transactions:", error);
+        // Continue to fallback method
+      }
+      
+      // Fallback: Get transactions and calculate balance
       const transactions = await this.getTransactions(accountReference);
-      // Calculate total balance from paid transactions
+      
+      // Calculate balance from transactions
       const balance = transactions
         .filter(tx => tx.paymentStatus === "PAID")
         .reduce((total, tx) => total + Number(tx.amount), 0);
       
-      console.log("Calculated wallet balance:", balance);
+      console.log("Calculated wallet balance from transactions:", balance);
+      
+      // Save calculated balance to localStorage
+      this.updateStoredBalance(accountReference, balance);
+      
       return balance;
     } catch (error) {
-      console.error("Error calculating wallet balance:", error);
+      console.error("Error getting wallet balance:", error);
+      
+      // If all else fails, try to get balance from localStorage
+      try {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          const user = JSON.parse(storedUser);
+          return user.walletBalance || 0;
+        }
+      } catch (e) {
+        console.error("Error getting balance from localStorage:", e);
+      }
+      
       return 0;
+    }
+  }
+  
+  /**
+   * Helper method to update the stored balance in localStorage
+   */
+  private updateStoredBalance(accountReference: string, balance: number) {
+    try {
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        const user = JSON.parse(storedUser);
+        // Only update if user ID matches the account reference
+        if (accountReference.includes(user.id)) {
+          user.walletBalance = balance;
+          localStorage.setItem('user', JSON.stringify(user));
+          console.log("Updated wallet balance in localStorage:", balance);
+        }
+      }
+    } catch (error) {
+      console.error("Error updating balance in localStorage:", error);
     }
   }
 
