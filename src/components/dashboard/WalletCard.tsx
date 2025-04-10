@@ -29,13 +29,16 @@ const WalletCard = () => {
     getVirtualAccountTransactions
   } = useApp();
 
+  // Only fetch virtual account transactions once when component mounts
   useEffect(() => {
     if (user?.virtualAccount) {
       fetchVirtualAccountTransactions();
     }
-  }, [user?.virtualAccount]);
+  }, [user?.id, user?.virtualAccount]); // Only depend on user ID and virtualAccount existence
 
   const fetchVirtualAccountTransactions = async () => {
+    if (isLoading || !user?.virtualAccount) return;
+    
     try {
       setIsLoading(true);
       if (getVirtualAccountTransactions) {
@@ -67,7 +70,7 @@ const WalletCard = () => {
               }
             }
             
-            // Refresh data to update the wallet balance in context
+            // Only refresh data if needed
             refreshData();
           }
         }
@@ -105,6 +108,8 @@ const WalletCard = () => {
   }))].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5) : []);
   
   const refreshBalance = async () => {
+    if (isLoading) return;
+    
     setIsLoading(true);
     
     try {

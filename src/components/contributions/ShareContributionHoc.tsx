@@ -10,25 +10,8 @@ import "../../patches/toast-patch";
  */
 const ShareContributionHoc = (WrappedComponent: React.ComponentType<any>) => {
   return (props: any) => {
-    // Create a modified toast object that replaces warn with error
-    const customToast = { 
-      ...toast,
-      warn: (message: string, options?: any) => {
-        return toast.error(message, options);
-      }
-    };
-    
-    // Override the global toast in this context
-    const originalToast = window.toast;
-    window.toast = customToast as any;
-    
-    // Render the component with the modified toast
-    const result = <WrappedComponent {...props} toast={customToast} />;
-    
-    // Reset the global toast
-    window.toast = originalToast;
-    
-    return result;
+    // Return the wrapped component
+    return <WrappedComponent {...props} />;
   };
 };
 

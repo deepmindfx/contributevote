@@ -31,6 +31,7 @@ const VirtualAccount = () => {
   
   const [tab, setTab] = useState("account");
   const [isLoading, setIsLoading] = useState(false);
+  const [kycLoading, setKycLoading] = useState(false);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [banks, setBanks] = useState<{ bankCode: string; bankName: string }[]>([]);
   const [hasError, setHasError] = useState(false);
@@ -73,11 +74,11 @@ const VirtualAccount = () => {
     
     loadBanks();
     
-    // Load transactions if virtual account exists
+    // Load transactions if virtual account exists, only once on component mount
     if (user && user.virtualAccount) {
       loadTransactions();
     }
-  }, [isAuthenticated, user, getSupportedBanks, navigate]);
+  }, [isAuthenticated, user?.id, user?.virtualAccount?.accountNumber]);
   
   const loadTransactions = async () => {
     if (!getVirtualAccountTransactions || !user) return;
@@ -133,7 +134,8 @@ const VirtualAccount = () => {
     
     if (!updateKYCDetails) return;
     
-    setIsLoading(true);
+    // Use a separate loading state for KYC updates
+    setKycLoading(true);
     try {
       const success = await updateKYCDetails({
         bvn: bvn || undefined,
@@ -152,7 +154,7 @@ const VirtualAccount = () => {
       console.error("Error updating KYC:", error);
       toast.error("An error occurred while updating KYC information");
     } finally {
-      setIsLoading(false);
+      setKycLoading(false);
     }
   };
   
@@ -332,8 +334,16 @@ const VirtualAccount = () => {
                       <Button 
                         onClick={() => setKycDialogOpen(true)}
                         variant={user.bvn || user.nin ? "outline" : "default"}
+                        disabled={kycLoading}
                       >
-                        {user.bvn || user.nin ? "Update KYC" : "Add KYC"}
+                        {kycLoading ? (
+                          <>
+                            <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                            Updating...
+                          </>
+                        ) : (
+                          user.bvn || user.nin ? "Update KYC" : "Add KYC"
+                        )}
                       </Button>
                     </div>
                     
@@ -527,8 +537,11 @@ const VirtualAccount = () => {
         onOpenChange={(open) => {
           setKycDialogOpen(open);
           if (!open) {
-            // Reset loading state when dialog closes
-            setIsLoading(false);
+            // Reset KYC loading state when dialog closes
+            setKycLoading(false);
+            // Reset the form values
+            setBvn("");
+            setNin("");
           }
         }}
       >
@@ -550,6 +563,7 @@ const VirtualAccount = () => {
                 placeholder="Enter your 11-digit BVN"
                 type="text"
                 maxLength={11}
+                disabled={kycLoading}
               />
               <p className="text-xs text-muted-foreground">Your BVN will not be shared with third parties</p>
             </div>
@@ -569,6 +583,7 @@ const VirtualAccount = () => {
                 placeholder="Enter your 11-digit NIN"
                 type="text"
                 maxLength={11}
+                disabled={kycLoading}
               />
               <p className="text-xs text-muted-foreground">Your NIN will not be shared with third parties</p>
             </div>
@@ -579,16 +594,16 @@ const VirtualAccount = () => {
               variant="outline" 
               onClick={() => {
                 setKycDialogOpen(false);
-                setIsLoading(false);
+                setKycLoading(false);
               }}
-              disabled={isLoading}
+              disabled={kycLoading}
             >
               Cancel
             </Button>
-            <Button onClick={handleUpdateKYC} disabled={isLoading}>
-              {isLoading ? (
+            <Button onClick={handleUpdateKYC} disabled={kycLoading}>
+              {kycLoading ? (
                 <>
-                  <span className="animate-spin mr-2 h-4 w-4 border-t-2 border-b-2 border-current rounded-full"></span>
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
                   Updating...
                 </>
               ) : "Update KYC"}
