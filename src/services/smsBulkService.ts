@@ -32,7 +32,7 @@ interface SMSErrorResponse {
 type SMSResponse = SMSSuccessResponse | SMSErrorResponse;
 
 /**
- * Send an SMS message using the Nigeria Bulk SMS API
+ * Check account balance first and then send SMS
  * @param phoneNumber The recipient's phone number (e.g., 2348030000000)
  * @param message The message to send
  * @param config Optional configuration to override defaults
@@ -44,6 +44,21 @@ export const sendSMS = async (
   config: Partial<SMSConfig> = {}
 ): Promise<{ success: boolean; data?: any; error?: string }> => {
   try {
+    // First check if we have balance
+    const balanceCheck = await checkBalance(config);
+    
+    if (!balanceCheck.success) {
+      console.error("Balance check failed:", balanceCheck.error);
+      return { success: false, error: "Could not verify account balance: " + balanceCheck.error };
+    }
+    
+    if (balanceCheck.balance === 0 || balanceCheck.balance === undefined) {
+      console.error("Insufficient balance in SMS account");
+      return { success: false, error: "Insufficient balance in SMS account. Please top up." };
+    }
+    
+    console.log(`SMS Account balance: ${balanceCheck.balance} units`);
+    
     // Merge default config with any overrides
     const smsConfig = { ...DEFAULT_CONFIG, ...config };
     
@@ -79,6 +94,15 @@ export const sendSMS = async (
       return { success: true, data };
     } else {
       console.error("SMS API error:", data);
+      
+      // Check for specific error codes
+      if (data.errno === "140") {
+        return { 
+          success: false, 
+          error: "Account price configuration error. Please contact Nigeria Bulk SMS support to resolve pricing issues." 
+        };
+      }
+      
       return { success: false, error: data.error || "Failed to send SMS" };
     }
   } catch (error) {
