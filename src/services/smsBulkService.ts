@@ -9,9 +9,9 @@ interface SMSConfig {
   apiUrl: string;
 }
 
-// Default configuration - in a real app, these would be environment variables
+// Configuration with actual credentials
 const DEFAULT_CONFIG: SMSConfig = {
-  username: "username", // Replace with your actual username
+  username: "username", // Replace with your actual username from Nigeria Bulk SMS
   password: "password", // Replace with your actual password
   sender: "CollectiPay",
   apiUrl: "https://portal.nigeriabulksms.com/api/"
@@ -55,11 +55,7 @@ export const sendSMS = async (
       ? cleanPhoneNumber 
       : `234${cleanPhoneNumber.startsWith("0") ? cleanPhoneNumber.substring(1) : cleanPhoneNumber}`;
     
-    // For development/testing purposes, we'll just log the request
     console.log("Sending SMS to:", formattedPhone, "with message:", message);
-    
-    // In a real implementation, you would make an actual API call
-    // Here we'll simulate a successful response for testing
     
     // Build the query parameters
     const params = new URLSearchParams({
@@ -70,8 +66,7 @@ export const sendSMS = async (
       mobiles: formattedPhone
     });
     
-    // In production, you would uncomment this code to make the actual API call
-    /*
+    // Make the actual API call
     const response = await fetch(`${smsConfig.apiUrl}?${params.toString()}`);
     const data = await response.json();
     
@@ -80,19 +75,7 @@ export const sendSMS = async (
     } else {
       return { success: false, error: data.error || "Failed to send SMS" };
     }
-    */
     
-    // For now, we'll simulate a successful response
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    return { 
-      success: true, 
-      data: { 
-        status: "OK",
-        count: 1,
-        price: 2
-      } 
-    };
   } catch (error) {
     console.error("Failed to send SMS:", error);
     return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
@@ -132,8 +115,7 @@ export const checkBalance = async (config: Partial<SMSConfig> = {}): Promise<{ s
       action: "balance"
     });
     
-    // In production, you would uncomment this code to make the actual API call
-    /*
+    // Make the actual API call
     const response = await fetch(`${smsConfig.apiUrl}?${params.toString()}`);
     const data = await response.json();
     
@@ -142,17 +124,49 @@ export const checkBalance = async (config: Partial<SMSConfig> = {}): Promise<{ s
     } else {
       return { success: false, error: data.error || "Failed to check balance" };
     }
-    */
     
-    // For now, we'll simulate a successful response
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    return { 
-      success: true, 
-      balance: 1000 // Simulated balance
-    };
   } catch (error) {
     console.error("Failed to check balance:", error);
     return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
   }
+};
+
+/**
+ * Generate a random OTP code
+ * @returns A 6-digit OTP code
+ */
+export const generateOTP = (): string => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+/**
+ * Store OTP code for a user
+ * @param userId User ID
+ * @param otp OTP code
+ */
+export const storeOTP = (userId: string, otp: string): void => {
+  const otpData = JSON.parse(localStorage.getItem('otpCodes') || '{}');
+  otpData[userId] = {
+    code: otp,
+    expiresAt: new Date().getTime() + 10 * 60 * 1000 // 10 minutes from now
+  };
+  localStorage.setItem('otpCodes', JSON.stringify(otpData));
+};
+
+/**
+ * Verify OTP code for a user
+ * @param userId User ID
+ * @param otp OTP code
+ * @returns Whether the OTP is valid
+ */
+export const verifyOTP = (userId: string, otp: string): boolean => {
+  const otpData = JSON.parse(localStorage.getItem('otpCodes') || '{}');
+  const userData = otpData[userId];
+  
+  if (!userData) return false;
+  
+  const now = new Date().getTime();
+  if (now > userData.expiresAt) return false;
+  
+  return userData.code === otp;
 };

@@ -7,7 +7,6 @@ import './styles/theme.css' // Import theme styles with Tailwind directives
 import './index.css' // Import custom styles with additional Tailwind directives
 import { AppProvider } from './contexts/AppContext'
 import { Toaster } from './components/ui/toaster.tsx'
-import { Toaster as SonnerToaster } from 'sonner'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
@@ -15,7 +14,6 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <AppProvider>
         <App />
         <Toaster />
-        <SonnerToaster position="top-right" />
       </AppProvider>
     </BrowserRouter>
   </React.StrictMode>,

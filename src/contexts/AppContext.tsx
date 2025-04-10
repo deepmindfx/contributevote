@@ -44,6 +44,12 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { sendOTPEmail, sendWithdrawalReminderEmail } from '@/services/emailService';
 import { monnifyAPI } from '@/services/monnifyService';
+import { 
+  sendOTPSMS, 
+  generateOTP, 
+  storeOTP, 
+  verifyOTP 
+} from '@/services/smsBulkService';
 
 interface AppContextType {
   user: User;
@@ -81,6 +87,7 @@ interface AppContextType {
   initiateTransfer: (params: { amount: number; recipientAccountNumber: string; recipientBankCode: string; recipientName: string; narration: string }) => Promise<boolean>;
   getVirtualAccountTransactions: () => Promise<any[]>;
   getSupportedBanks: () => Promise<{ bankCode: string; bankName: string }[]>;
+  sendVerificationSMS: (userId: string, phone: string) => Promise<boolean>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -95,7 +102,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   
-  // Effect for dark mode
   useEffect(() => {
     if (user?.preferences?.darkMode) {
       document.documentElement.classList.add('dark');
@@ -109,7 +115,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     refreshData();
   }, []);
 
-  // New effect to check for expired withdrawal requests
   useEffect(() => {
     if (isAuthenticated) {
       const checkExpiredRequests = () => {
@@ -117,13 +122,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         refreshData();
       };
       
-      // Run once at start
       checkExpiredRequests();
       
-      // Then set interval to check every minute
       const interval = setInterval(checkExpiredRequests, 60000);
       
-      // Clear interval on unmount
       return () => clearInterval(interval);
     }
   }, [isAuthenticated]);
@@ -133,19 +135,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setUser(currentUser);
     setUsers(getUsers());
     
-    // Check if user is authenticated
     const isUserAuthenticated = !!currentUser && !!currentUser.id;
     setIsAuthenticated(isUserAuthenticated);
     
     if (isUserAuthenticated) {
-      // Only get contributions for this user if authenticated
       setContributions(getUserContributions(currentUser.id));
       setWithdrawalRequests(getWithdrawalRequests());
       setTransactions(getTransactions());
       setStats(getStatistics());
       setIsAdmin(currentUser?.role === 'admin');
     } else {
-      // Reset data if not authenticated
       setContributions([]);
       setWithdrawalRequests([]);
       setTransactions([]);
@@ -204,7 +203,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const requestWithdrawal = (request: Omit<WithdrawalRequest, 'id' | 'createdAt' | 'status' | 'votes' | 'deadline'>) => {
     try {
-      // Check if user has set up a PIN
       if (!user.pin) {
         toast.error('Please set up a transaction PIN in settings before requesting withdrawals');
         return;
@@ -217,7 +215,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return;
       }
       
-      // Check if user is the creator of the group
       if (contribution.creatorId !== user.id) {
         toast.error('Only the group creator can request withdrawals');
         return;
@@ -239,7 +236,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const vote = (requestId: string, vote: 'approve' | 'reject') => {
     try {
-      // This now leverages the updated voteOnWithdrawalRequest function which checks for contribution eligibility
       voteOnWithdrawalRequest(requestId, vote);
       refreshData();
       toast.success(`Vote ${vote === 'approve' ? 'approved' : 'rejected'} successfully`);
@@ -268,7 +264,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Admin functions
   const updateUserAsAdmin = (userId: string, userData: Partial<User>) => {
     try {
       if (!isAdmin) {
@@ -346,23 +341,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const shareUrl = `${window.location.origin}/contribute/share/${contributionId}`;
       const allUsers = getUsers();
       
-      // Log share event to console - in a real app we'd send actual notifications
       console.log(`Sharing contribution "${contribution.name}" to ${recipients.length} recipients`);
       console.log(`Share URL: ${shareUrl}`);
       console.log(`Recipients: ${recipients.join(', ')}`);
       
-      // Process each recipient
       recipients.forEach(recipient => {
-        // Check if recipient is an email or phone number
         let recipientUser = getUserByEmail(recipient);
         if (!recipientUser) {
           recipientUser = getUserByPhone(recipient);
         }
         
         if (recipientUser) {
-          // Recipient is a registered user
           
-          // Add notification to the recipient
           addNotification({
             userId: recipientUser.id,
             message: `${currentUser.name} shared "${contribution.name}" contribution with you`,
@@ -371,7 +361,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
             relatedId: contributionId,
           });
           
-          // Add recipient to contribution members if not already there
           if (!contribution.members.includes(recipientUser.id)) {
             const contributions = getContributions();
             const contribIndex = contributions.findIndex(c => c.id === contributionId);
@@ -382,8 +371,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
             }
           }
         } else {
-          // Recipient is not a registered user
-          // In a real app, we would send an invitation email/SMS
           console.log(`Recipient ${recipient} is not registered. Invitation would be sent.`);
         }
       });
@@ -395,8 +382,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       console.error(error);
     }
   };
-  
-  // New functions for the new features
   
   const pingMembersForVote = (requestId: string) => {
     try {
@@ -416,14 +401,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return;
       }
       
-      // Get the requester name
       const requester = users.find(u => u.id === request.requesterId);
       const requesterName = requester ? requester.name : 'Unknown user';
       
-      // First call the local storage function to create notifications
       pingGroupMembersForVote(requestId);
       
-      // Now send emails to non-voting members
       const nonVotingMembers = contribution.members.filter(memberId => {
         const hasVoted = request.votes.some(vote => vote.userId === memberId);
         return !hasVoted && memberId !== request.requesterId;
@@ -432,7 +414,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       nonVotingMembers.forEach(async (memberId) => {
         const member = users.find(u => u.id === memberId);
         if (member && member.email) {
-          // Send email reminder
           await sendWithdrawalReminderEmail(
             member.email,
             { amount: request.amount, purpose: request.purpose },
@@ -471,7 +452,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   
   const verifyUser = (userId: string) => {
     try {
-      // In a real app, this would be called after OTP verification
       verifyUserWithOTP(userId);
       refreshData();
       toast.success('User verified successfully');
@@ -486,16 +466,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return !!(contribution && contribution.creatorId === user.id);
   };
 
-  // New function to send verification email with OTP
   const sendVerificationEmail = async (userId: string, email: string): Promise<boolean> => {
     try {
-      // Generate OTP
       const otp = generateOTP();
       
-      // Store OTP
       storeOTP(userId, otp);
       
-      // Send email with OTP
       const result = await sendOTPEmail(email, otp);
       
       if (result.success) {
@@ -512,7 +488,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
   
-  // New function to verify user with OTP code
   const verifyUserWithOTPCode = (userId: string, otp: string): boolean => {
     const isValid = verifyOTP(userId, otp);
     
@@ -526,7 +501,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return isValid;
   };
 
-  // New Monnify-related functions
   const createVirtualAccount = async (): Promise<boolean> => {
     try {
       if (!isAuthenticated) {
@@ -534,7 +508,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return false;
       }
       
-      // Check if user already has a virtual account
       if (user.virtualAccount) {
         toast.info('You already have a virtual account');
         return true;
@@ -542,7 +515,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       
       toast.loading('Creating your virtual account...');
       
-      // Create virtual account via Monnify API
       const virtualAccount = await monnifyAPI.createVirtualAccount({
         id: user.id,
         firstName: user.firstName,
@@ -552,7 +524,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         nin: user.nin
       });
       
-      // Update user with virtual account details
       const accountDetails = virtualAccount.accounts[0];
       
       updateUserVirtualAccount(user.id, {
@@ -563,13 +534,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         reservationReference: virtualAccount.reservationReference
       });
       
-      // Refresh data to get updated user
       refreshData();
       
       toast.dismiss();
       toast.success('Virtual account created successfully');
       
-      // Add notification
       addNotification({
         userId: user.id,
         message: `Your virtual account (${accountDetails.bankName}: ${accountDetails.accountNumber}) has been created successfully.`,
@@ -598,16 +567,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return false;
       }
       
-      // Update user KYC details
       updateUserKYC(user.id, kycData);
       
-      // Refresh data to get updated user
       refreshData();
       
       toast.success('KYC details updated successfully');
-      
-      // If user has a virtual account, we would update it with the new KYC info
-      // In a real implementation, this would make a call to Monnify's Update KYC API
       
       return true;
     } catch (error) {
@@ -637,19 +601,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       
       toast.loading('Processing transfer...');
       
-      // Generate a reference for the transfer
       const reference = `transfer_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
       
-      // Initiate transfer via Monnify API
       const result = await monnifyAPI.initiateTransfer({
         ...params,
         reference
       });
       
-      // Update user balance (deduct transfer amount)
       updateUserBalance(-params.amount);
       
-      // Record transaction
       recordTransaction({
         userId: user.id,
         contributionId: '',
@@ -658,7 +618,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         description: `Transfer to ${params.recipientName} (${params.recipientAccountNumber}) - ${params.narration}`
       });
       
-      // Refresh data to get updated balance
       refreshData();
       
       toast.dismiss();
@@ -685,7 +644,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return [];
       }
       
-      // Fetch transactions from Monnify API
       const transactions = await monnifyAPI.getTransactions(user.virtualAccount.reference);
       
       return transactions;
@@ -698,7 +656,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   
   const getSupportedBanks = async (): Promise<{ bankCode: string; bankName: string }[]> => {
     try {
-      // Fetch supported banks from Monnify API
       const banks = await monnifyAPI.getBanks();
       return banks;
     } catch (error) {
@@ -708,7 +665,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
   
-  // Helper function for recording transactions
   const recordTransaction = (transaction: Omit<Transaction, 'id' | 'createdAt' | 'status'>) => {
     const transactions = getTransactions();
     const newTransaction: Transaction = {
@@ -720,6 +676,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
     
     transactions.push(newTransaction);
     localStorage.setItem('transactions', JSON.stringify(transactions));
+  };
+
+  const sendVerificationSMS = async (userId: string, phone: string): Promise<boolean> => {
+    try {
+      const otp = generateOTP();
+      
+      storeOTP(userId, otp);
+      
+      const result = await sendOTPSMS(phone, otp);
+      
+      if (result) {
+        toast.success('Verification code sent! Please check your phone.');
+        return true;
+      } else {
+        toast.error('Failed to send verification code. Please try again.');
+        return false;
+      }
+    } catch (error) {
+      console.error('Error sending verification SMS:', error);
+      toast.error('Failed to send verification SMS');
+      return false;
+    }
   };
 
   return (
@@ -758,7 +736,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       updateKYCDetails,
       initiateTransfer,
       getVirtualAccountTransactions,
-      getSupportedBanks
+      getSupportedBanks,
+      sendVerificationSMS
     }}>
       {children}
     </AppContext.Provider>
