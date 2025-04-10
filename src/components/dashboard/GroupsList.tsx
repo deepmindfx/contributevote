@@ -8,6 +8,7 @@ import { useApp } from "@/contexts/AppContext";
 import { format } from "date-fns";
 import { Users, Calendar, ArrowRight } from "lucide-react";
 import { useEffect } from "react";
+import ShareContribution from "../contributions/ShareContribution";
 
 const GroupsList = () => {
   const navigate = useNavigate();
@@ -39,7 +40,7 @@ const GroupsList = () => {
     console.log("All contributions:", contributions);
     console.log("Current user:", currentUser);
     
-    // Filter contributions to only include ones the current user is a member of or has created
+    // Fix: Properly handle group membership and creator checking
     const userContributions = contributions.filter(group => {
       // Check if the user is a creator
       const isCreator = group.creatorId === currentUser.id;
@@ -47,7 +48,14 @@ const GroupsList = () => {
       // Check if the user is a member
       let isMember = false;
       if (group.members && Array.isArray(group.members)) {
-        isMember = group.members.some((member) => member.id === currentUser.id);
+        // Check if members contains the user ID as a string
+        if (group.members.includes(currentUser.id)) {
+          isMember = true;
+        }
+        // Also check if members is an array of objects with id property
+        else if (group.members.some(member => typeof member === 'object' && member?.id === currentUser.id)) {
+          isMember = true;
+        }
       }
       
       console.log(`Group ${group.name}: isCreator=${isCreator}, isMember=${isMember}`);
@@ -107,11 +115,10 @@ const GroupsList = () => {
                 return (
                   <div 
                     key={group.id} 
-                    className="border rounded-lg p-4 cursor-pointer hover:bg-muted/50 transition-colors" 
-                    onClick={() => navigate(`/groups/${group.id}`)}
+                    className="border rounded-lg p-4 hover:bg-muted/50 transition-colors" 
                   >
                     <div className="flex justify-between items-start mb-2">
-                      <div>
+                      <div className="cursor-pointer" onClick={() => navigate(`/groups/${group.id}`)}>
                         <h3 className="font-medium text-base">{group.name || "Unnamed Group"}</h3>
                         <div className="flex items-center text-xs text-muted-foreground mt-1">
                           <Users className="h-3 w-3 mr-1 inline" />
@@ -129,12 +136,20 @@ const GroupsList = () => {
                           </span>
                         </div>
                       </div>
-                      <Badge variant="outline" className="capitalize text-xs">
-                        {group.frequency || "N/A"}
-                      </Badge>
+                      <div className="flex items-center space-x-2">
+                        <ShareContribution 
+                          contributionId={group.id} 
+                          title={group.name} 
+                          description={group.description}
+                          shareCode={group.shareCode || group.id.substring(0, 8)}
+                        />
+                        <Badge variant="outline" className="capitalize text-xs">
+                          {group.frequency || "N/A"}
+                        </Badge>
+                      </div>
                     </div>
                     
-                    <div className="mt-3">
+                    <div className="mt-3 cursor-pointer" onClick={() => navigate(`/groups/${group.id}`)}>
                       <div className="flex justify-between items-center mb-1 text-xs">
                         <div className="text-muted-foreground">Progress ({progressPercentage}%)</div>
                         <div className="text-sm font-medium">
