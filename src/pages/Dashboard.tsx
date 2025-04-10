@@ -27,21 +27,27 @@ const Dashboard = () => {
   
   useEffect(() => {
     // Refresh data when dashboard loads to ensure shared contributions are visible
-    refreshData();
+    if (refreshData) {
+      refreshData();
+    }
   }, [refreshData]);
 
   // Force an additional refresh a few seconds after the component mounts 
   // to ensure we have the latest notifications and shared contributions
   useEffect(() => {
     const timer = setTimeout(() => {
-      refreshData();
+      if (refreshData) {
+        refreshData();
+      }
     }, 1500);
     return () => clearTimeout(timer);
   }, [refreshData]);
   
   const handleNotificationRead = (id: string, relatedId?: string) => {
     markNotificationAsRead(id);
-    refreshData();
+    if (refreshData) {
+      refreshData();
+    }
 
     // If notification is related to a contribution, navigate to it
     if (relatedId) {
@@ -56,7 +62,9 @@ const Dashboard = () => {
   
   const handleMarkAllRead = () => {
     markAllNotificationsAsRead();
-    refreshData();
+    if (refreshData) {
+      refreshData();
+    }
   };
   
   // Safely access notifications with null checking

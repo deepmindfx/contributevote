@@ -1,4 +1,3 @@
-
 import React, {
   createContext,
   useState,
@@ -16,6 +15,7 @@ import {
 } from "@/services/smsBulkService";
 import { monnifyAPI } from "@/services/monnifyService";
 import { toast } from "sonner";
+import { markNotificationAsRead as markNotificationAsReadService } from "@/services/localStorage";
 
 // Define the types for user preferences
 interface UserPreferences {
@@ -327,25 +327,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     localStorage.setItem('users', JSON.stringify(updatedUsers));
   };
 
-  // Function to mark a notification as read
+  // Function to mark a notification as read - updated to match the service function
   const markNotificationAsRead = (notificationId: string) => {
-    if (currentUser && currentUser.notifications) {
-      const updatedUser = {
-        ...currentUser,
-        notifications: currentUser.notifications.map(notification =>
-          notification.id === notificationId ? { ...notification, isRead: true, read: true } : notification
-        ),
-      };
-      setCurrentUser(updatedUser);
-      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-
-      // Update in users array as well
-      const updatedUsers = users.map(user =>
-        user.id === updatedUser.id ? updatedUser : user
-      );
-      setUsers(updatedUsers);
-      localStorage.setItem('users', JSON.stringify(updatedUsers));
-    }
+    markNotificationAsReadService(notificationId);
+    refreshData(); // Refresh data after marking notification as read
   };
 
   /**
@@ -375,9 +360,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
   /**
    * Verify OTP code for a user
-   * @param userId User ID
-   * @param otp OTP code
-   * @returns Whether the OTP is valid
    */
   const verifyUserWithOTPCode = (userId: string, otp: string): boolean => {
     const isVerified = verifyOTP(userId, otp);
