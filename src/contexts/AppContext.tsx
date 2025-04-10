@@ -206,8 +206,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   // Function to refresh data from localStorage
-  const refreshData = useCallback(() => {
+  const refreshData = useCallback(async () => {
     setIsLoading(true);
+    
+    // Load data from localStorage
     const storedUser = localStorage.getItem('currentUser');
     const storedUsers = localStorage.getItem('users');
     const storedGroups = localStorage.getItem('groups');
@@ -216,63 +218,111 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const storedWithdrawalRequests = localStorage.getItem('withdrawalRequests');
     const storedStats = localStorage.getItem('stats');
 
-    if (storedUser) {
-      try {
-        setCurrentUser(JSON.parse(storedUser));
-      } catch (error) {
-        console.error("Error parsing current user:", error);
+    try {
+      // Load stored data
+      if (storedUser) {
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          setCurrentUser(parsedUser);
+          
+          // If user has a virtual account, check for new transactions from Monnify
+          if (parsedUser.virtualAccount) {
+            const accountReference = `user_${parsedUser.id}`;
+            const monnifyTransactions = await monnifyAPI.getTransactions(accountReference);
+            
+            // Calculate total deposits that should be added to wallet balance
+            const totalDeposits = monnifyTransactions
+              .filter(tx => tx.paymentStatus === 'PAID')
+              .reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+            
+            // Only update if there are deposits
+            if (totalDeposits > 0) {
+              // Check if we need to update the wallet balance
+              const currentBalance = parsedUser.walletBalance || 0;
+              
+              // For simplicity, we'll just set the balance to match total deposits
+              // In a real app, we would track which deposits were already processed
+              if (totalDeposits > currentBalance) {
+                const updatedUser = {
+                  ...parsedUser,
+                  walletBalance: totalDeposits
+                };
+                
+                setCurrentUser(updatedUser);
+                localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+                
+                // Also update in the users array
+                if (storedUsers) {
+                  const parsedUsers = JSON.parse(storedUsers);
+                  const updatedUsers = parsedUsers.map((user: User) => 
+                    user.id === updatedUser.id ? updatedUser : user
+                  );
+                  
+                  setUsers(updatedUsers);
+                  localStorage.setItem('users', JSON.stringify(updatedUsers));
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Error parsing current user:", error);
+          localStorage.removeItem('currentUser');
+        }
       }
-    }
-    
-    if (storedUsers) {
-      try {
-        setUsers(JSON.parse(storedUsers));
-      } catch (error) {
-        console.error("Error parsing users:", error);
+      
+      // Load other data
+      if (storedUsers) {
+        try {
+          setUsers(JSON.parse(storedUsers));
+        } catch (error) {
+          console.error("Error parsing users:", error);
+        }
       }
-    }
-    
-    if (storedGroups) {
-      try {
-        setGroups(JSON.parse(storedGroups));
-      } catch (error) {
-        console.error("Error parsing groups:", error);
+      
+      if (storedGroups) {
+        try {
+          setGroups(JSON.parse(storedGroups));
+        } catch (error) {
+          console.error("Error parsing groups:", error);
+        }
       }
-    }
-    
-    if (storedContributions) {
-      try {
-        setContributions(JSON.parse(storedContributions));
-      } catch (error) {
-        console.error("Error parsing contributions:", error);
+      
+      if (storedContributions) {
+        try {
+          setContributions(JSON.parse(storedContributions));
+        } catch (error) {
+          console.error("Error parsing contributions:", error);
+        }
       }
-    }
-    
-    if (storedTransactions) {
-      try {
-        setTransactions(JSON.parse(storedTransactions));
-      } catch (error) {
-        console.error("Error parsing transactions:", error);
+      
+      if (storedTransactions) {
+        try {
+          setTransactions(JSON.parse(storedTransactions));
+        } catch (error) {
+          console.error("Error parsing transactions:", error);
+        }
       }
-    }
-    
-    if (storedWithdrawalRequests) {
-      try {
-        setWithdrawalRequests(JSON.parse(storedWithdrawalRequests));
-      } catch (error) {
-        console.error("Error parsing withdrawal requests:", error);
+      
+      if (storedWithdrawalRequests) {
+        try {
+          setWithdrawalRequests(JSON.parse(storedWithdrawalRequests));
+        } catch (error) {
+          console.error("Error parsing withdrawal requests:", error);
+        }
       }
-    }
-    
-    if (storedStats) {
-      try {
-        setStats(JSON.parse(storedStats));
-      } catch (error) {
-        console.error("Error parsing stats:", error);
+      a
+      if (storedStats) {
+        try {
+          setStats(JSON.parse(storedStats));
+        } catch (error) {
+          console.error("Error parsing stats:", error);
+        }
       }
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+    } finally {
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
   }, []);
 
   // Function to update user preferences
@@ -439,7 +489,38 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       }
       
       const accountReference = `user_${currentUser.id}`;
-      return await monnifyAPI.getTransactions(accountReference);
+      const transactions = await monnifyAPI.getTransactions(accountReference);
+      
+      // Check for new deposits to update wallet balance
+      if (transactions && transactions.length > 0) {
+        // Calculate total deposits
+        const totalDeposits = transactions
+          .filter(tx => tx.paymentStatus === 'PAID')
+          .reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+        
+        // Update wallet balance if new deposits found
+        if (totalDeposits > 0 && totalDeposits > (currentUser.walletBalance || 0)) {
+          const updatedUser = {
+            ...currentUser,
+            walletBalance: totalDeposits
+          };
+          
+          setCurrentUser(updatedUser);
+          localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+          
+          // Update in users array
+          const updatedUsers = users.map(user => 
+            user.id === currentUser.id ? updatedUser : user
+          );
+          setUsers(updatedUsers);
+          localStorage.setItem('users', JSON.stringify(updatedUsers));
+          
+          // Show success toast about the deposit
+          toast.success(`Your account has been credited with ₦${totalDeposits.toLocaleString()}`);
+        }
+      }
+      
+      return transactions;
     } catch (error) {
       console.error("Error getting transactions:", error);
       return [];

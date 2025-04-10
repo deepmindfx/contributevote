@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/layout/Header";
@@ -24,7 +25,8 @@ const VirtualAccount = () => {
     updateKYCDetails,
     initiateTransfer,
     getVirtualAccountTransactions,
-    getSupportedBanks
+    getSupportedBanks,
+    refreshData
   } = useApp();
   
   const [tab, setTab] = useState("account");
@@ -84,6 +86,9 @@ const VirtualAccount = () => {
     try {
       const txns = await getVirtualAccountTransactions();
       setTransactions(txns);
+      
+      // After loading transactions, refresh user data to update balance
+      refreshData();
     } catch (error) {
       console.error("Error loading transactions:", error);
       toast.error("Failed to load transactions. Please try again later.");
@@ -105,6 +110,8 @@ const VirtualAccount = () => {
       const success = await createVirtualAccount();
       if (success) {
         toast.success("Virtual account created successfully");
+        // Refresh to get the latest user data with virtual account
+        refreshData();
       } else {
         setHasError(true);
         toast.error("Failed to create virtual account. Please check admin settings.");
@@ -260,7 +267,7 @@ const VirtualAccount = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <p className="text-sm text-muted-foreground">Account Name</p>
-                        <p className="text-lg font-medium">{user.name}</p>
+                        <p className="text-lg font-medium">{user.virtualAccount.accountName}</p>
                       </div>
                       
                       <div>
@@ -284,6 +291,25 @@ const VirtualAccount = () => {
                           Active
                         </div>
                       </div>
+                    </div>
+                  </div>
+                  
+                  {/* Current Balance */}
+                  <div className="p-4 border rounded-lg bg-muted/30">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Current Balance</p>
+                        <p className="text-2xl font-semibold">₦{user.walletBalance?.toLocaleString() || 0}</p>
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        onClick={loadTransactions} 
+                        disabled={isLoading}
+                        className="gap-2"
+                      >
+                        <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                        Refresh
+                      </Button>
                     </div>
                   </div>
                   
@@ -383,8 +409,9 @@ const VirtualAccount = () => {
                     size="sm" 
                     onClick={loadTransactions} 
                     disabled={isLoading || !user.virtualAccount}
+                    className="gap-2"
                   >
-                    <RefreshCw className="h-4 w-4 mr-2" />
+                    <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
                     Refresh
                   </Button>
                 </div>
@@ -413,12 +440,12 @@ const VirtualAccount = () => {
                           <div>
                             <p className="font-medium">{transaction.customerName || "Anonymous"}</p>
                             <p className="text-sm text-muted-foreground">
-                              {formatDate(transaction.paidOn)}
+                              {formatDate(transaction.paidOn || transaction.createdOn)}
                             </p>
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="font-semibold text-green-600">₦{transaction.amount.toLocaleString()}</p>
+                          <p className="font-semibold text-green-600">₦{Number(transaction.amount).toLocaleString()}</p>
                           <p className="text-xs text-muted-foreground">{transaction.paymentStatus}</p>
                         </div>
                       </div>

@@ -3,16 +3,13 @@ import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
-import { PlusCircle, ArrowDown, Wallet, SendHorizontal, UserPlus, Clock, Eye, EyeOff, DollarSign, Building } from "lucide-react";
+import { PlusCircle, ArrowDown, SendHorizontal, UserPlus, Clock, Eye, EyeOff, DollarSign, Building, RefreshCw } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Switch } from "@/components/ui/switch";
-import { Toggle } from "@/components/ui/toggle";
-import { monnifyAPI } from "@/services/monnifyService";
 
 const WalletCard = () => {
   const navigate = useNavigate();
@@ -44,10 +41,22 @@ const WalletCard = () => {
       if (getVirtualAccountTransactions) {
         const transactions = await getVirtualAccountTransactions();
         setVirtualAccountTransactions(transactions || []);
+        
+        // When transactions come in from Monnify, update the local wallet balance
+        if (transactions && transactions.length > 0) {
+          // Calculate total deposits from Monnify
+          const totalDeposits = transactions
+            .filter(t => t.paymentStatus === 'PAID')
+            .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+          
+          if (totalDeposits > 0) {
+            // Refresh data to update the wallet balance in context
+            refreshData();
+          }
+        }
       }
     } catch (error) {
       console.error("Error fetching virtual account transactions:", error);
-      // Don't show toast here as it's already shown in the context
     } finally {
       setIsLoading(false);
     }
@@ -73,7 +82,7 @@ const WalletCard = () => {
     type: t.paymentStatus === 'PAID' ? 'deposit' : 'withdrawal',
     amount: t.amount,
     description: `Via ${t.paymentMethod || 'Monnify'} (${t.paymentReference})`,
-    createdAt: t.createdOn,
+    createdAt: t.createdOn || t.paidOn,
     status: t.paymentStatus === 'PAID' ? 'completed' : 'pending',
     source: 'monnify'
   }))].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5) : []);
@@ -186,6 +195,15 @@ const WalletCard = () => {
         <div className="relative z-10 mx-0 my-[5px]">
           <div className="flex justify-between items-center mb-1 my-[6px]">
             <p className="text-base font-medium text-white/80 mb-0 py-[2px]">Available Balance</p>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={refreshBalance} 
+              className="h-8 w-8 text-white hover:bg-white/10 rounded-full"
+              disabled={isLoading}
+            >
+              <RefreshCw size={18} className={isLoading ? "animate-spin" : ""} />
+            </Button>
           </div>
           
           <div className="flex items-center justify-between">
