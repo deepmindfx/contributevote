@@ -14,7 +14,7 @@ const ShareContributionHoc = (WrappedComponent: React.ComponentType<any>) => {
     // The issue is that ShareContribution.tsx tries to use toast.warn which doesn't exist
     const customToast = {
       ...toast,
-      // Map warn to error as a workaround
+      // Map warn to error as a workaround for ShareContribution.tsx
       warn: (message: string, options?: any) => toast.error(message, options)
     };
     

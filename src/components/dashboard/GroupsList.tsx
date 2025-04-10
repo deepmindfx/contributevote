@@ -11,12 +11,26 @@ import { Users, Calendar, ArrowRight } from "lucide-react";
 const GroupsList = () => {
   const navigate = useNavigate();
   const {
-    contributions
+    contributions,
+    currentUser
   } = useApp();
   
+  // Only show groups where the user is a member or creator
   const getRecentGroups = () => {
+    if (!currentUser?.id || !contributions || !Array.isArray(contributions)) {
+      return [];
+    }
+    
+    // Filter contributions to only include ones the current user is a member of
+    const userContributions = contributions.filter(group => {
+      // Check if the user is a member
+      return group.members && Array.isArray(group.members) && 
+        (group.members.some((member: any) => member.id === currentUser.id) || 
+         group.creatorId === currentUser.id);
+    });
+    
     // Get most recent 3 groups
-    return contributions.slice(0, 3);
+    return userContributions.slice(0, 3);
   };
   
   const recentGroups = getRecentGroups();

@@ -88,31 +88,34 @@ const ActivityItem = ({ type, title, description, amount, date, status }: Activi
 };
 
 const RecentActivity = () => {
-  const { transactions, contributions } = useApp();
+  const { transactions, contributions, currentUser } = useApp();
   
-  // Format and sort transactions
-  const formattedTransactions = transactions
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 5)
-    .map(transaction => {
-      const contribution = contributions.find(c => c.id === transaction.contributionId);
-      
-      let type: "deposit" | "withdrawal" | "vote" = "deposit";
-      if (transaction.type === "withdrawal") type = "withdrawal";
-      if (transaction.type === "vote") type = "vote";
-      
-      return {
-        type,
-        title: transaction.type === 'deposit' ? 'Contribution' : 
-               transaction.type === 'withdrawal' ? 'Fund Withdrawal' : 'Vote',
-        description: contribution ? contribution.name : '',
-        amount: transaction.type === 'vote' ? 
-                `₦ ${transaction.amount.toLocaleString()}` : 
-                `${transaction.type === 'deposit' ? '+' : '-'}₦ ${transaction.amount.toLocaleString()}`,
-        date: formatDate(transaction.createdAt),
-        status: transaction.status,
-      }
-    });
+  // Format and sort transactions, only showing the current user's transactions
+  const formattedTransactions = !transactions || !Array.isArray(transactions) ? [] : 
+    transactions
+      .filter(transaction => transaction.userId === currentUser?.id) // Only show current user's transactions
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 5)
+      .map(transaction => {
+        const contribution = contributions && Array.isArray(contributions) ? 
+          contributions.find(c => c.id === transaction.contributionId) : null;
+        
+        let type: "deposit" | "withdrawal" | "vote" = "deposit";
+        if (transaction.type === "withdrawal") type = "withdrawal";
+        if (transaction.type === "vote") type = "vote";
+        
+        return {
+          type,
+          title: transaction.type === 'deposit' ? 'Contribution' : 
+                transaction.type === 'withdrawal' ? 'Fund Withdrawal' : 'Vote',
+          description: contribution ? contribution.name : '',
+          amount: transaction.type === 'vote' ? 
+                  `₦ ${transaction.amount.toLocaleString()}` : 
+                  `${transaction.type === 'deposit' ? '+' : '-'}₦ ${transaction.amount.toLocaleString()}`,
+          date: formatDate(transaction.createdAt),
+          status: transaction.status,
+        }
+      });
 
   function formatDate(dateString: string) {
     const date = new Date(dateString);

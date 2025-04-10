@@ -18,7 +18,16 @@ import { Progress } from "@/components/ui/progress";
 
 const AllGroups = () => {
   const navigate = useNavigate();
-  const { contributions } = useApp();
+  const { contributions, currentUser } = useApp();
+  
+  // Filter contributions to only include ones the current user is a member of
+  const userContributions = !contributions || !Array.isArray(contributions) ? [] :
+    contributions.filter(group => {
+      // Check if the user is a member
+      return currentUser && group.members && Array.isArray(group.members) && 
+        (group.members.some((member: any) => member.id === currentUser.id) || 
+         group.creatorId === currentUser.id);
+    });
 
   return (
     <div className="min-h-screen pb-20 md:pb-0">
@@ -38,7 +47,7 @@ const AllGroups = () => {
           </div>
         </div>
         
-        {contributions.length === 0 ? (
+        {userContributions.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
@@ -55,7 +64,7 @@ const AllGroups = () => {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {contributions.map(contribution => {
+            {userContributions.map(contribution => {
               const progressPercentage = Math.min(
                 100,
                 Math.round((contribution.currentAmount / contribution.targetAmount) * 100)
