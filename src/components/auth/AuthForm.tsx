@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -113,7 +112,7 @@ const AuthForm = () => {
           anonymousContributions: false,
           darkMode: false
         },
-        notifications: [],
+        notifications: [], // Initialize with empty notifications
         role: "user" as const,
         status: "active" as const,
         createdAt: new Date().toISOString(),
@@ -128,6 +127,19 @@ const AuthForm = () => {
 
       // Set as current user
       localStorage.setItem('currentUser', JSON.stringify(user));
+
+      // Make sure to initialize empty contributions and transactions if they don't exist
+      if (!localStorage.getItem('contributions')) {
+        localStorage.setItem('contributions', JSON.stringify([]));
+      }
+      
+      if (!localStorage.getItem('transactions')) {
+        localStorage.setItem('transactions', JSON.stringify([]));
+      }
+      
+      if (!localStorage.getItem('withdrawalRequests')) {
+        localStorage.setItem('withdrawalRequests', JSON.stringify([]));
+      }
 
       // Important: Refresh app context data after registration
       refreshData();

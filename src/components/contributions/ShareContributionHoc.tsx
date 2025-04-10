@@ -10,9 +10,11 @@ import "../../patches/toast-patch";
  */
 const ShareContributionHoc = (WrappedComponent: React.ComponentType<any>) => {
   return (props: any) => {
-    // Create a custom toast object with the warn method
+    // Create a custom toast object that maps warn to error since warn doesn't exist
+    // The issue is that ShareContribution.tsx tries to use toast.warn which doesn't exist
     const customToast = {
       ...toast,
+      // Map warn to error as a workaround
       warn: (message: string, options?: any) => toast.error(message, options)
     };
     

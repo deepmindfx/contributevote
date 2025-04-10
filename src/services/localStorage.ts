@@ -1,4 +1,3 @@
-
 // Fix the markNotificationAsRead function to accept only one parameter
 export const markNotificationAsRead = (notificationId: string) => {
   try {
@@ -63,11 +62,23 @@ export const markAllNotificationsAsRead = () => {
   }
 };
 
-// Add missing functions needed by other components
+// Update getCurrentUser to ensure it handles empty states
 export const getCurrentUser = () => {
   try {
     const storedUser = localStorage.getItem('currentUser');
-    return storedUser ? JSON.parse(storedUser) : null;
+    if (!storedUser) return null;
+    
+    const user = JSON.parse(storedUser);
+    
+    // Ensure user has the required properties
+    if (!user.notifications) user.notifications = [];
+    if (!user.walletBalance) user.walletBalance = 0;
+    if (!user.preferences) user.preferences = {
+      anonymousContributions: false,
+      darkMode: false
+    };
+    
+    return user;
   } catch (error) {
     console.error("Error getting current user:", error);
     return null;

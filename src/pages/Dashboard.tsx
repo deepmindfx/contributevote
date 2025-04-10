@@ -71,6 +71,9 @@ const Dashboard = () => {
   const userNotifications = user?.notifications || [];
   const unreadNotifications = userNotifications.filter(n => !n.read) || [];
   
+  // Initialize empty arrays if contributions doesn't exist
+  const userContributions = contributions || [];
+  
   return (
     <div className="min-h-screen pb-20 md:pb-0">
       <Header />

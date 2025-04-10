@@ -147,7 +147,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
     if (storedUser) {
       try {
-        setCurrentUser(JSON.parse(storedUser));
+        const parsedUser = JSON.parse(storedUser);
+        // Ensure user has notifications array
+        if (!parsedUser.notifications) {
+          parsedUser.notifications = [];
+        }
+        setCurrentUser(parsedUser);
       } catch (error) {
         console.error("Error parsing current user:", error);
         localStorage.removeItem('currentUser');
@@ -159,7 +164,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         setUsers(JSON.parse(storedUsers));
       } catch (error) {
         console.error("Error parsing users:", error);
+        // Initialize with empty array if there's an error
+        setUsers([]);
       }
+    } else {
+      // Initialize with empty array if not found
+      setUsers([]);
     }
     
     if (storedGroups) {
@@ -167,7 +177,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         setGroups(JSON.parse(storedGroups));
       } catch (error) {
         console.error("Error parsing groups:", error);
+        // Initialize with empty array if there's an error
+        setGroups([]);
       }
+    } else {
+      // Initialize with empty array if not found
+      setGroups([]);
     }
     
     if (storedContributions) {
@@ -175,7 +190,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         setContributions(JSON.parse(storedContributions));
       } catch (error) {
         console.error("Error parsing contributions:", error);
+        // Initialize with empty array if there's an error
+        setContributions([]);
       }
+    } else {
+      // Initialize with empty array if not found
+      setContributions([]);
     }
     
     if (storedTransactions) {
@@ -183,7 +203,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         setTransactions(JSON.parse(storedTransactions));
       } catch (error) {
         console.error("Error parsing transactions:", error);
+        // Initialize with empty array if there's an error
+        setTransactions([]);
       }
+    } else {
+      // Initialize with empty array if not found
+      setTransactions([]);
     }
     
     if (storedWithdrawalRequests) {
@@ -191,7 +216,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         setWithdrawalRequests(JSON.parse(storedWithdrawalRequests));
       } catch (error) {
         console.error("Error parsing withdrawal requests:", error);
+        // Initialize with empty array if there's an error
+        setWithdrawalRequests([]);
       }
+    } else {
+      // Initialize with empty array if not found
+      setWithdrawalRequests([]);
     }
     
     if (storedStats) {
@@ -199,7 +229,24 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         setStats(JSON.parse(storedStats));
       } catch (error) {
         console.error("Error parsing stats:", error);
+        // Initialize with default stats if there's an error
+        setStats({
+          totalUsers: 0,
+          totalContributions: 0,
+          totalTransactions: 0,
+          totalAmount: 0,
+          activeRequests: 0
+        });
       }
+    } else {
+      // Initialize with default stats if not found
+      setStats({
+        totalUsers: 0,
+        totalContributions: 0,
+        totalTransactions: 0,
+        totalAmount: 0,
+        activeRequests: 0
+      });
     }
     
     setIsLoading(false);
