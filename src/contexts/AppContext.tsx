@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { 
   User, 
@@ -34,9 +35,10 @@ import {
   updateWithdrawalRequestsStatus,
   verifyUserWithOTP,
   getContributionByAccountNumber,
-  generateOTP,
-  storeOTP,
-  verifyOTP,
+  // Remove these imports to avoid duplication
+  // generateOTP,
+  // storeOTP,
+  // verifyOTP,
   updateUserVirtualAccount,
   updateUserKYC
 } from '@/services/localStorage';

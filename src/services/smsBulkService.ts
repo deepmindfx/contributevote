@@ -11,8 +11,8 @@ interface SMSConfig {
 
 // Configuration with actual credentials
 const DEFAULT_CONFIG: SMSConfig = {
-  username: "username", // Replace with your actual username from Nigeria Bulk SMS
-  password: "password", // Replace with your actual password
+  username: "your_username", // Replace with your actual username from Nigeria Bulk SMS
+  password: "your_password", // Replace with your actual password
   sender: "CollectiPay",
   apiUrl: "https://portal.nigeriabulksms.com/api/"
 };

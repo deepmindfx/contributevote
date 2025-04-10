@@ -1,3 +1,4 @@
+
 let initialized = false;
 
 export interface User {
@@ -6,7 +7,7 @@ export interface User {
   lastName?: string;
   name: string;
   email: string;
-  phone?: string;
+  phone: string; // Changed from optional to required
   profileImage?: string;
   walletBalance: number;
   role: 'user' | 'admin';
@@ -15,6 +16,7 @@ export interface User {
   preferences?: {
     darkMode: boolean;
     anonymousContributions: boolean;
+    notificationsEnabled?: boolean; // Added this field
   };
   notifications?: Notification[];
   status: 'active' | 'paused';
