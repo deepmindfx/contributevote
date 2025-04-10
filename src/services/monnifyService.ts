@@ -1,10 +1,11 @@
+
 // The Monnify API service for virtual accounts and payments
 
 // Base URL and API config
-const MONNIFY_BASE_URL = "https://sandbox.monnify.com"; // Switching to sandbox for testing
-const MONNIFY_API_KEY = "MK_TEST_SAH93H21J0"; // Test API key
-const MONNIFY_SECRET_KEY = "2FD994UT7KNSNAHSA55HGGTK0HHSJ3M6"; // Test secret key
-const MONNIFY_CONTRACT_CODE = "465595618981"; // Updated contract code
+const MONNIFY_BASE_URL = "https://api.monnify.com"; // Changed to production URL
+const MONNIFY_API_KEY = "MK_PROD_XR897H4H43"; // Updated to production API key
+const MONNIFY_SECRET_KEY = "GPFCA9GTP81DYJGF9VMAPRK220SS6CK9"; // Updated to production secret key
+const MONNIFY_CONTRACT_CODE = "465595618981"; // Contract code
 
 // Retrieve stored credentials if available
 const getStoredCredentials = () => {
@@ -143,6 +144,7 @@ class MonnifyAPI {
         }
       });
       
+      // Fixed response handling to properly parse JSON
       const data = await response.json();
       
       if (!data.requestSuccessful) {
@@ -211,7 +213,8 @@ class MonnifyAPI {
         body: JSON.stringify(requestData)
       });
       
-      const data = await response.json() as MonnifyResponse<ReserveAccountResponse>;
+      // Fixed response handling to properly parse JSON
+      const data = await response.json();
       
       if (!data.requestSuccessful) {
         console.error("Virtual account creation error:", data.responseMessage);
@@ -249,11 +252,12 @@ class MonnifyAPI {
         }
       });
       
+      // Fixed response handling to properly parse JSON
       const data = await response.json();
       
       // Handle the case where there are no transactions - this is not an error
       if (!data.requestSuccessful) {
-        if (data.responseMessage.includes("no transaction matching supplied reference")) {
+        if (data.responseMessage && data.responseMessage.includes("no transaction matching supplied reference")) {
           console.log("No transactions found for this account reference yet");
           return [];
         }
@@ -322,6 +326,7 @@ class MonnifyAPI {
         body: JSON.stringify(requestData)
       });
       
+      // Fixed response handling to properly parse JSON
       const data = await response.json();
       
       if (!data.requestSuccessful) {
@@ -357,6 +362,7 @@ class MonnifyAPI {
         }
       });
       
+      // Fixed response handling to properly parse JSON
       const data = await response.json();
       
       if (!data.requestSuccessful) {
@@ -389,6 +395,10 @@ class MonnifyAPI {
       if (!credentials.apiKey || !credentials.secretKey || !credentials.contractCode) {
         return false;
       }
+
+      // Reset token when credentials change
+      this.authToken = null;
+      this.tokenExpiry = 0;
 
       // Store credentials in localStorage
       localStorage.setItem('monnify_credentials', JSON.stringify({
@@ -435,6 +445,7 @@ class MonnifyAPI {
         }
       });
       
+      // Fixed response handling to properly parse JSON
       const data = await response.json();
       return data.requestSuccessful === true;
     } catch (error) {

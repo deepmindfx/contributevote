@@ -1,4 +1,3 @@
-
 import React, {
   createContext,
   useState,
@@ -21,6 +20,7 @@ import { toast } from "sonner";
 interface UserPreferences {
   darkMode: boolean;
   anonymousContributions: boolean;
+  notificationsEnabled?: boolean; // Added to fix errors in UserSettingsForm
 }
 
 // Define the types for a notification
@@ -30,6 +30,9 @@ interface Notification {
   message: string;
   timestamp: string;
   isRead: boolean;
+  read?: boolean; // Added for backward compatibility
+  relatedId?: string; // Added to fix errors in Dashboard
+  createdAt?: string; // Added to fix errors in Dashboard
 }
 
 // Define the types for virtual account
@@ -56,11 +59,13 @@ interface User {
   status: "active" | "inactive" | "pending";
   createdAt: string;
   verified: boolean;
-  profileImage?: string; // Added to resolve type errors
-  updatedAt?: string; // Added to resolve type errors
-  virtualAccount?: VirtualAccount; // Add virtual account property
+  profileImage?: string;
+  updatedAt?: string;
+  virtualAccount?: VirtualAccount;
   bvn?: string; // Bank Verification Number
   nin?: string; // National Identification Number
+  username?: string; // Added to fix errors in UserSettingsForm
+  pin?: string; // Added to fix errors in UserSettingsForm
 }
 
 // Define the types for the context value

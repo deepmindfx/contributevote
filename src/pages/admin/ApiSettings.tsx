@@ -226,7 +226,7 @@ const ApiSettings = () => {
                             name="baseUrl"
                             value={monnifyCredentials.baseUrl}
                             onChange={handleInputChange}
-                            placeholder="https://sandbox.monnify.com"
+                            placeholder="https://api.monnify.com"
                           />
                           <p className="text-xs text-muted-foreground">
                             Use https://sandbox.monnify.com for testing or https://api.monnify.com for production
