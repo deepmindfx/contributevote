@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -148,12 +147,15 @@ const AuthForm = () => {
       refreshData();
       
       // Send verification SMS instead of email
-      const smsSent = await sendVerificationSMS(user.id, user.phone);
+      const smsResult = await sendVerificationSMS(user.id, user.phone);
       
-      if (smsSent) {
+      if (smsResult.success) {
         // Show OTP verification screen
         setUserId(user.id);
         setShowOTPScreen(true);
+      } else {
+        // Show specific error message
+        toast.error(smsResult.error || "Failed to send verification code. Please try again.");
       }
       
       setIsLoading(false);

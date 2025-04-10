@@ -106,7 +106,7 @@ export const sendSMS = async (
       if (data.errno === "140") {
         return { 
           success: false, 
-          error: "Account price configuration error. Please contact Nigeria Bulk SMS support to resolve pricing issues." 
+          error: "Your SMS account requires price configuration. Please contact Nigeria Bulk SMS support at support@nigeriabulksms.com or visit portal.nigeriabulksms.com." 
         };
       }
       
@@ -124,14 +124,14 @@ export const sendSMS = async (
  * @param otp The OTP code to send
  * @returns Promise with the result of the SMS sending operation
  */
-export const sendOTPSMS = async (phoneNumber: string, otp: string): Promise<boolean> => {
+export const sendOTPSMS = async (phoneNumber: string, otp: string): Promise<{ success: boolean; error?: string }> => {
   // Create an OTP message
   const otpMessage = `Your CollectiPay verification code is: ${otp}. This code will expire in 10 minutes.`;
   
   // Send the SMS
   const result = await sendSMS(phoneNumber, otpMessage);
   
-  return result.success;
+  return result;
 };
 
 /**
