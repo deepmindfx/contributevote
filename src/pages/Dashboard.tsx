@@ -45,7 +45,7 @@ const Dashboard = () => {
 
     // If notification is related to a contribution, navigate to it
     if (relatedId) {
-      const isContribution = contributions.some(c => c.id === relatedId);
+      const isContribution = contributions?.some(c => c.id === relatedId);
       if (isContribution) {
         setNotificationsOpen(false);
         // Use window.location to ensure full page reload if needed
@@ -59,7 +59,9 @@ const Dashboard = () => {
     refreshData();
   };
   
-  const unreadNotifications = user.notifications?.filter(n => !n.read) || [];
+  // Safely access notifications with null checking
+  const userNotifications = user?.notifications || [];
+  const unreadNotifications = userNotifications.filter(n => !n.read) || [];
   
   return (
     <div className="min-h-screen pb-20 md:pb-0">
@@ -86,22 +88,22 @@ const Dashboard = () => {
               <PopoverContent className="w-80 p-0">
                 <div className="flex items-center justify-between p-4 border-b">
                   <h4 className="font-semibold">Notifications</h4>
-                  {user.notifications && user.notifications.length > 0 && <Button variant="ghost" size="sm" onClick={handleMarkAllRead}>
+                  {userNotifications.length > 0 && <Button variant="ghost" size="sm" onClick={handleMarkAllRead}>
                       Mark all read
                     </Button>}
                 </div>
                 <ScrollArea className="h-[400px]">
-                  {!user.notifications || user.notifications.length === 0 ? <div className="p-4 text-center text-muted-foreground">
+                  {!userNotifications || userNotifications.length === 0 ? <div className="p-4 text-center text-muted-foreground">
                       <Bell className="h-10 w-10 mx-auto mb-2 opacity-20" />
                       <p>No notifications</p>
-                    </div> : user.notifications.map(notification => <div key={notification.id} className={`p-4 border-b last:border-b-0 ${!notification.read ? 'bg-muted/50' : ''} 
+                    </div> : userNotifications.map(notification => <div key={notification.id} className={`p-4 border-b last:border-b-0 ${!notification.read ? 'bg-muted/50' : ''} 
                           hover:bg-muted/30 cursor-pointer transition-colors`} onClick={() => handleNotificationRead(notification.id, notification.relatedId)}>
                         <div className="flex items-start gap-3">
                           <div className={`rounded-full w-2 h-2 mt-1.5 ${!notification.read ? 'bg-green-600' : 'bg-transparent'}`} />
                           <div className="flex-1">
                             <p className="text-sm">{notification.message}</p>
                             <p className="text-xs text-muted-foreground mt-1">
-                              {format(new Date(notification.createdAt), 'MMM d, h:mm a')}
+                              {notification.createdAt && format(new Date(notification.createdAt), 'MMM d, h:mm a')}
                             </p>
                           </div>
                           {notification.read && <div className="text-muted-foreground opacity-50">
@@ -117,7 +119,7 @@ const Dashboard = () => {
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
                   <User className="h-4 w-4 mr-2" />
-                  {user.name?.split(' ')[0]}
+                  {user?.name?.split(' ')[0] || 'User'}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">

@@ -30,7 +30,7 @@ import { Badge } from "@/components/ui/badge";
 const AdminDashboard = () => {
   const { user, users, stats, isAdmin, depositToUserAsAdmin, pauseUserAsAdmin, activateUserAsAdmin } = useApp();
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null); 
   const [depositAmount, setDepositAmount] = useState("");
   const [isDepositOpen, setIsDepositOpen] = useState(false);
 
@@ -47,23 +47,23 @@ const AdminDashboard = () => {
   );
 
   const handleDeposit = () => {
-    if (!selectedUser) return;
+    if (!selectedUserId) return;
     
     if (!depositAmount || isNaN(Number(depositAmount)) || Number(depositAmount) <= 0) {
       alert("Please enter a valid amount");
       return;
     }
     
-    depositToUserAsAdmin(selectedUser.id, Number(depositAmount));
+    depositToUserAsAdmin(selectedUserId, Number(depositAmount));
     setDepositAmount("");
     setIsDepositOpen(false);
   };
 
-  const toggleUserStatus = (user: User) => {
-    if (user.status === 'active') {
-      pauseUserAsAdmin(user.id);
+  const toggleUserStatus = (userId: string, status: string) => {
+    if (status === 'active') {
+      pauseUserAsAdmin(userId);
     } else {
-      activateUserAsAdmin(user.id);
+      activateUserAsAdmin(userId);
     }
   };
 
@@ -109,11 +109,11 @@ const AdminDashboard = () => {
           <div className="p-4 border-t">
             <div className="flex items-center">
               <Avatar className="h-8 w-8 mr-2">
-                <AvatarFallback>{user?.name.charAt(0)}</AvatarFallback>
+                <AvatarFallback>{user?.name?.charAt(0) || "A"}</AvatarFallback>
               </Avatar>
               <div>
-                <p className="text-sm font-medium">{user?.name}</p>
-                <p className="text-xs text-muted-foreground">{user?.email}</p>
+                <p className="text-sm font-medium">{user?.name || "Admin"}</p>
+                <p className="text-xs text-muted-foreground">{user?.email || "admin@example.com"}</p>
               </div>
             </div>
             <Button variant="outline" className="w-full mt-4" size="sm" asChild>
@@ -134,7 +134,7 @@ const AdminDashboard = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-muted-foreground">Total Users</p>
-                      <h3 className="text-2xl font-bold">{stats.totalUsers}</h3>
+                      <h3 className="text-2xl font-bold">{stats?.totalUsers || 0}</h3>
                     </div>
                     <div className="bg-primary/10 p-2 rounded-full">
                       <Users className="h-5 w-5 text-primary" />
@@ -148,7 +148,7 @@ const AdminDashboard = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-muted-foreground">Contributions</p>
-                      <h3 className="text-2xl font-bold">{stats.totalContributions}</h3>
+                      <h3 className="text-2xl font-bold">{stats?.totalContributions || 0}</h3>
                     </div>
                     <div className="bg-primary/10 p-2 rounded-full">
                       <CreditCard className="h-5 w-5 text-primary" />
@@ -162,7 +162,7 @@ const AdminDashboard = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-muted-foreground">Transactions</p>
-                      <h3 className="text-2xl font-bold">{stats.totalTransactions}</h3>
+                      <h3 className="text-2xl font-bold">{stats?.totalTransactions || 0}</h3>
                     </div>
                     <div className="bg-primary/10 p-2 rounded-full">
                       <FileText className="h-5 w-5 text-primary" />
@@ -176,7 +176,7 @@ const AdminDashboard = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-muted-foreground">Total Amount</p>
-                      <h3 className="text-2xl font-bold">₦{stats.totalAmount.toLocaleString()}</h3>
+                      <h3 className="text-2xl font-bold">₦{stats?.totalAmount?.toLocaleString() || 0}</h3>
                     </div>
                     <div className="bg-primary/10 p-2 rounded-full">
                       <BarChart3 className="h-5 w-5 text-primary" />
@@ -240,9 +240,9 @@ const AdminDashboard = () => {
                                 {user.status === 'active' ? 'Active' : 'Paused'}
                               </Badge>
                               <div className="flex space-x-2">
-                                <Dialog open={isDepositOpen && selectedUser?.id === user.id} onOpenChange={(open) => {
+                                <Dialog open={isDepositOpen && selectedUserId === user.id} onOpenChange={(open) => {
                                   setIsDepositOpen(open);
-                                  if (open) setSelectedUser(user);
+                                  if (open) setSelectedUserId(user.id);
                                 }}>
                                   <DialogTrigger asChild>
                                     <Button variant="outline" size="sm">
@@ -283,7 +283,7 @@ const AdminDashboard = () => {
                                 <Button
                                   variant="ghost" 
                                   size="sm"
-                                  onClick={() => toggleUserStatus(user)}
+                                  onClick={() => toggleUserStatus(user.id, user.status)}
                                 >
                                   {user.status === 'active' ? (
                                     <Pause className="h-4 w-4 mr-1" />
@@ -328,7 +328,7 @@ const AdminDashboard = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="text-center py-8 text-muted-foreground">
-                      <p>There are currently {stats.activeRequests} pending withdrawal requests.</p>
+                      <p>There are currently {stats?.activeRequests || 0} pending withdrawal requests.</p>
                       <p className="mt-2">Detailed view coming soon.</p>
                     </div>
                   </CardContent>

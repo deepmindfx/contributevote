@@ -1,3 +1,4 @@
+
 import React, {
   createContext,
   useState,
@@ -20,7 +21,7 @@ import { toast } from "sonner";
 interface UserPreferences {
   darkMode: boolean;
   anonymousContributions: boolean;
-  notificationsEnabled?: boolean; // Added to fix errors in UserSettingsForm
+  notificationsEnabled?: boolean;
 }
 
 // Define the types for a notification
@@ -30,9 +31,9 @@ interface Notification {
   message: string;
   timestamp: string;
   isRead: boolean;
-  read?: boolean; // Added for backward compatibility
-  relatedId?: string; // Added to fix errors in Dashboard
-  createdAt?: string; // Added to fix errors in Dashboard
+  read?: boolean;
+  relatedId?: string;
+  createdAt?: string;
 }
 
 // Define the types for virtual account
@@ -51,21 +52,21 @@ interface User {
   name: string;
   email: string;
   phone: string;
-  phoneNumber?: string; // Added to resolve type errors
+  phoneNumber?: string;
   walletBalance: number;
   preferences: UserPreferences;
   notifications: Notification[];
   role: "admin" | "user";
   status: "active" | "inactive" | "pending";
   createdAt: string;
+  updatedAt: string;
   verified: boolean;
   profileImage?: string;
-  updatedAt?: string;
   virtualAccount?: VirtualAccount;
-  bvn?: string; // Bank Verification Number
-  nin?: string; // National Identification Number
-  username?: string; // Added to fix errors in UserSettingsForm
-  pin?: string; // Added to fix errors in UserSettingsForm
+  bvn?: string;
+  nin?: string;
+  username?: string;
+  pin?: string;
 }
 
 // Define the types for the context value
@@ -81,34 +82,34 @@ interface AppContextValue {
   verifyUserWithOTPCode: (userId: string, otp: string) => boolean;
   
   // Additional properties needed by components
-  user?: User | null;
-  isAuthenticated?: boolean;
-  isAdmin?: boolean;
-  logout?: () => void;
-  updateProfile?: (data: any) => void;
-  contributions?: any[];
-  transactions?: any[];
-  withdrawalRequests?: any[];
-  getVirtualAccountTransactions?: () => Promise<any[]>;
-  contribute?: (id: string, amount: number) => void;
-  requestWithdrawal?: (id: string, amount: number) => Promise<boolean>;
-  vote?: (id: string, vote: 'approve' | 'reject') => void;
-  getShareLink?: (id: string) => string;
-  isGroupCreator?: (groupId: string) => boolean;
-  pingMembersForVote?: (requestId: string) => void;
-  getReceipt?: (transactionId: string) => any;
-  createVirtualAccount?: () => Promise<boolean>;
-  updateKYCDetails?: (data: {bvn?: string, nin?: string}) => Promise<boolean>;
-  initiateTransfer?: (data: any) => Promise<boolean>;
-  getSupportedBanks?: () => Promise<any[]>;
-  createNewContribution?: (data: any) => Promise<any>;
-  stats?: any;
-  depositToUserAsAdmin?: (userId: string, amount: number) => Promise<any>;
-  pauseUserAsAdmin?: (userId: string) => Promise<any>;
-  activateUserAsAdmin?: (userId: string) => Promise<any>;
-  shareToContacts?: () => void;
-  getUserByEmail?: () => void;
-  getUserByPhone?: () => void;
+  user: User | null;
+  isAuthenticated: boolean;
+  isAdmin: boolean;
+  logout: () => void;
+  updateProfile: (data: any) => void;
+  contributions: any[];
+  transactions: any[];
+  withdrawalRequests: any[];
+  getVirtualAccountTransactions: () => Promise<any[]>;
+  contribute: (id: string, amount: number) => void;
+  requestWithdrawal: (id: string, amount: number) => Promise<boolean>;
+  vote: (id: string, vote: 'approve' | 'reject') => void;
+  getShareLink: (id: string) => string;
+  isGroupCreator: (groupId: string) => boolean;
+  pingMembersForVote: (requestId: string) => void;
+  getReceipt: (transactionId: string) => any;
+  createVirtualAccount: () => Promise<boolean>;
+  updateKYCDetails: (data: {bvn?: string, nin?: string}) => Promise<boolean>;
+  initiateTransfer: (data: any) => Promise<boolean>;
+  getSupportedBanks: () => Promise<any[]>;
+  createNewContribution: (data: any) => Promise<any>;
+  stats: any;
+  depositToUserAsAdmin: (userId: string, amount: number) => Promise<any>;
+  pauseUserAsAdmin: (userId: string) => Promise<any>;
+  activateUserAsAdmin: (userId: string) => Promise<any>;
+  shareToContacts: () => void;
+  getUserByEmail: (email: string) => User | null;
+  getUserByPhone: (phone: string) => User | null;
 }
 
 // Create the context
@@ -132,22 +133,84 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [users, setUsers] = useState<User[]>([]);
   const [groups, setGroups] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [contributions, setContributions] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [withdrawalRequests, setWithdrawalRequests] = useState<any[]>([]);
+  const [stats, setStats] = useState<any>({
+    totalUsers: 0,
+    totalContributions: 0,
+    totalTransactions: 0,
+    totalAmount: 0,
+    activeRequests: 0
+  });
 
   // Load data from localStorage on component mount
   useEffect(() => {
     const storedUser = localStorage.getItem('currentUser');
     const storedUsers = localStorage.getItem('users');
     const storedGroups = localStorage.getItem('groups');
+    const storedContributions = localStorage.getItem('contributions');
+    const storedTransactions = localStorage.getItem('transactions');
+    const storedWithdrawalRequests = localStorage.getItem('withdrawalRequests');
+    const storedStats = localStorage.getItem('stats');
 
     if (storedUser) {
-      setCurrentUser(JSON.parse(storedUser));
+      try {
+        setCurrentUser(JSON.parse(storedUser));
+      } catch (error) {
+        console.error("Error parsing current user:", error);
+        localStorage.removeItem('currentUser');
+      }
     }
+    
     if (storedUsers) {
-      setUsers(JSON.parse(storedUsers));
+      try {
+        setUsers(JSON.parse(storedUsers));
+      } catch (error) {
+        console.error("Error parsing users:", error);
+      }
     }
+    
     if (storedGroups) {
-      setGroups(JSON.parse(storedGroups));
+      try {
+        setGroups(JSON.parse(storedGroups));
+      } catch (error) {
+        console.error("Error parsing groups:", error);
+      }
     }
+    
+    if (storedContributions) {
+      try {
+        setContributions(JSON.parse(storedContributions));
+      } catch (error) {
+        console.error("Error parsing contributions:", error);
+      }
+    }
+    
+    if (storedTransactions) {
+      try {
+        setTransactions(JSON.parse(storedTransactions));
+      } catch (error) {
+        console.error("Error parsing transactions:", error);
+      }
+    }
+    
+    if (storedWithdrawalRequests) {
+      try {
+        setWithdrawalRequests(JSON.parse(storedWithdrawalRequests));
+      } catch (error) {
+        console.error("Error parsing withdrawal requests:", error);
+      }
+    }
+    
+    if (storedStats) {
+      try {
+        setStats(JSON.parse(storedStats));
+      } catch (error) {
+        console.error("Error parsing stats:", error);
+      }
+    }
+    
     setIsLoading(false);
   }, []);
 
@@ -157,16 +220,67 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const storedUser = localStorage.getItem('currentUser');
     const storedUsers = localStorage.getItem('users');
     const storedGroups = localStorage.getItem('groups');
+    const storedContributions = localStorage.getItem('contributions');
+    const storedTransactions = localStorage.getItem('transactions');
+    const storedWithdrawalRequests = localStorage.getItem('withdrawalRequests');
+    const storedStats = localStorage.getItem('stats');
 
     if (storedUser) {
-      setCurrentUser(JSON.parse(storedUser));
+      try {
+        setCurrentUser(JSON.parse(storedUser));
+      } catch (error) {
+        console.error("Error parsing current user:", error);
+      }
     }
+    
     if (storedUsers) {
-      setUsers(JSON.parse(storedUsers));
+      try {
+        setUsers(JSON.parse(storedUsers));
+      } catch (error) {
+        console.error("Error parsing users:", error);
+      }
     }
+    
     if (storedGroups) {
-      setGroups(JSON.parse(storedGroups));
+      try {
+        setGroups(JSON.parse(storedGroups));
+      } catch (error) {
+        console.error("Error parsing groups:", error);
+      }
     }
+    
+    if (storedContributions) {
+      try {
+        setContributions(JSON.parse(storedContributions));
+      } catch (error) {
+        console.error("Error parsing contributions:", error);
+      }
+    }
+    
+    if (storedTransactions) {
+      try {
+        setTransactions(JSON.parse(storedTransactions));
+      } catch (error) {
+        console.error("Error parsing transactions:", error);
+      }
+    }
+    
+    if (storedWithdrawalRequests) {
+      try {
+        setWithdrawalRequests(JSON.parse(storedWithdrawalRequests));
+      } catch (error) {
+        console.error("Error parsing withdrawal requests:", error);
+      }
+    }
+    
+    if (storedStats) {
+      try {
+        setStats(JSON.parse(storedStats));
+      } catch (error) {
+        console.error("Error parsing stats:", error);
+      }
+    }
+    
     setIsLoading(false);
   }, []);
 
@@ -192,13 +306,34 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  // Function to update user profile
+  const updateProfile = (userData: Partial<User>) => {
+    if (!currentUser) return;
+    
+    const updatedUser = {
+      ...currentUser,
+      ...userData,
+      updatedAt: new Date().toISOString()
+    };
+    
+    setCurrentUser(updatedUser);
+    localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+    
+    // Update in users array as well
+    const updatedUsers = users.map(user =>
+      user.id === updatedUser.id ? updatedUser : user
+    );
+    setUsers(updatedUsers);
+    localStorage.setItem('users', JSON.stringify(updatedUsers));
+  };
+
   // Function to mark a notification as read
   const markNotificationAsRead = (notificationId: string) => {
-    if (currentUser) {
+    if (currentUser && currentUser.notifications) {
       const updatedUser = {
         ...currentUser,
         notifications: currentUser.notifications.map(notification =>
-          notification.id === notificationId ? { ...notification, isRead: true } : notification
+          notification.id === notificationId ? { ...notification, isRead: true, read: true } : notification
         ),
       };
       setCurrentUser(updatedUser);
@@ -464,6 +599,83 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  // Stub implementation for contribute
+  const contribute = (id: string, amount: number) => {
+    console.log(`Contributing ${amount} to ${id}`);
+  };
+
+  // Stub implementation for requestWithdrawal
+  const requestWithdrawal = async (id: string, amount: number): Promise<boolean> => {
+    console.log(`Requesting withdrawal of ${amount} from ${id}`);
+    return true;
+  };
+
+  // Stub implementation for vote
+  const vote = (id: string, vote: 'approve' | 'reject') => {
+    console.log(`Voting ${vote} on ${id}`);
+  };
+
+  // Stub implementation for getShareLink
+  const getShareLink = (id: string): string => {
+    return `https://collectipay.com/share/${id}`;
+  };
+
+  // Stub implementation for isGroupCreator
+  const isGroupCreator = (groupId: string): boolean => {
+    return true;
+  };
+
+  // Stub implementation for pingMembersForVote
+  const pingMembersForVote = (requestId: string) => {
+    console.log(`Pinging members for vote on ${requestId}`);
+  };
+
+  // Stub implementation for getReceipt
+  const getReceipt = (transactionId: string): any => {
+    return { id: transactionId, date: new Date().toISOString() };
+  };
+
+  // Stub implementation for createNewContribution
+  const createNewContribution = async (data: any): Promise<any> => {
+    console.log(`Creating new contribution with data:`, data);
+    return { id: uuidv4(), ...data };
+  };
+
+  // Stub implementation for depositToUserAsAdmin
+  const depositToUserAsAdmin = async (userId: string, amount: number): Promise<any> => {
+    console.log(`Admin depositing ${amount} to user ${userId}`);
+    return true;
+  };
+
+  // Stub implementation for pauseUserAsAdmin
+  const pauseUserAsAdmin = async (userId: string): Promise<any> => {
+    console.log(`Admin pausing user ${userId}`);
+    return true;
+  };
+
+  // Stub implementation for activateUserAsAdmin
+  const activateUserAsAdmin = async (userId: string): Promise<any> => {
+    console.log(`Admin activating user ${userId}`);
+    return true;
+  };
+
+  // Stub implementation for shareToContacts
+  const shareToContacts = () => {
+    console.log(`Sharing to contacts`);
+  };
+
+  // Function to get user by email
+  const getUserByEmail = (email: string): User | null => {
+    const user = users.find(u => u.email === email);
+    return user || null;
+  };
+
+  // Function to get user by phone
+  const getUserByPhone = (phone: string): User | null => {
+    const user = users.find(u => u.phone === phone);
+    return user || null;
+  };
+
   // Update the context value to include all required properties
   const value = {
     currentUser,
@@ -484,17 +696,32 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       setCurrentUser(null);
       localStorage.removeItem('currentUser');
     },
+    updateProfile,
     // Add implementations for virtual account features
     createVirtualAccount,
     updateKYCDetails,
     getVirtualAccountTransactions,
     initiateTransfer,
     getSupportedBanks,
-    // Add stubs for other required properties
-    contributions: [],
-    transactions: [],
-    withdrawalRequests: []
-    // Other properties would be implemented here
+    // Add remaining required properties
+    contributions,
+    transactions,
+    withdrawalRequests,
+    contribute,
+    requestWithdrawal,
+    vote,
+    getShareLink,
+    isGroupCreator,
+    pingMembersForVote,
+    getReceipt,
+    createNewContribution,
+    stats,
+    depositToUserAsAdmin,
+    pauseUserAsAdmin,
+    activateUserAsAdmin,
+    shareToContacts,
+    getUserByEmail,
+    getUserByPhone
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
