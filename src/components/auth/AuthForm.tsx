@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,7 +35,7 @@ const AuthForm = () => {
   const location = useLocation();
   const {
     refreshData,
-    sendVerificationEmail,
+    sendVerificationSMS,
     verifyUserWithOTPCode
   } = useApp();
 
@@ -146,10 +147,10 @@ const AuthForm = () => {
       // Important: Refresh app context data after registration
       refreshData();
       
-      // Send verification email
-      const emailSent = await sendVerificationEmail(user.id, user.email);
+      // Send verification SMS instead of email
+      const smsSent = await sendVerificationSMS(user.id, user.phone);
       
-      if (emailSent) {
+      if (smsSent) {
         // Show OTP verification screen
         setUserId(user.id);
         setShowOTPScreen(true);
@@ -185,7 +186,7 @@ const AuthForm = () => {
         <CardHeader>
           <CardTitle className="text-2xl text-center">Verify Your Account</CardTitle>
           <CardDescription className="text-center">
-            We've sent a verification code to your email address. Please enter it below.
+            We've sent a verification code to your phone number. Please enter it below.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -216,7 +217,7 @@ const AuthForm = () => {
                 className="text-primary hover:underline"
                 onClick={(e) => {
                   e.preventDefault();
-                  sendVerificationEmail(userId, registerData.email);
+                  sendVerificationSMS(userId, registerData.phone);
                 }}
               >
                 Resend
