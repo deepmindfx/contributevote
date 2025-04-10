@@ -18,7 +18,8 @@ import {
   Plus, 
   Play,
   Pause,
-  ChevronRight
+  ChevronRight,
+  Key
 } from "lucide-react";
 import { User } from "@/services/localStorage";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -96,6 +97,10 @@ const AdminDashboard = () => {
               <AlertCircle className="h-5 w-5 mr-3" />
               <span>Disputes</span>
             </Link>
+            <Link to="/admin/api-settings" className="flex items-center p-2 rounded-md hover:bg-muted">
+              <Key className="h-5 w-5 mr-3" />
+              <span>API Settings</span>
+            </Link>
             <Link to="/admin/settings" className="flex items-center p-2 rounded-md hover:bg-muted">
               <Settings className="h-5 w-5 mr-3" />
               <span>Settings</span>
@@ -104,11 +109,11 @@ const AdminDashboard = () => {
           <div className="p-4 border-t">
             <div className="flex items-center">
               <Avatar className="h-8 w-8 mr-2">
-                <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                <AvatarFallback>{user?.name.charAt(0)}</AvatarFallback>
               </Avatar>
               <div>
-                <p className="text-sm font-medium">{user.name}</p>
-                <p className="text-xs text-muted-foreground">{user.email}</p>
+                <p className="text-sm font-medium">{user?.name}</p>
+                <p className="text-xs text-muted-foreground">{user?.email}</p>
               </div>
             </div>
             <Button variant="outline" className="w-full mt-4" size="sm" asChild>

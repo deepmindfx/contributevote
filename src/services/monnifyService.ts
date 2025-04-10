@@ -5,7 +5,32 @@
 const MONNIFY_BASE_URL = "https://sandbox.monnify.com"; // Switching to sandbox for testing
 const MONNIFY_API_KEY = "MK_TEST_SAH93H21J0"; // Test API key
 const MONNIFY_SECRET_KEY = "2FD994UT7KNSNAHSA55HGGTK0HHSJ3M6"; // Test secret key
-const MONNIFY_CONTRACT_CODE = "4934121586"; // Updated contract code that works with sandbox
+const MONNIFY_CONTRACT_CODE = "465595618981"; // Updated contract code
+
+// Retrieve stored credentials if available
+const getStoredCredentials = () => {
+  try {
+    const storedCredentials = localStorage.getItem('monnify_credentials');
+    if (storedCredentials) {
+      return JSON.parse(storedCredentials);
+    }
+  } catch (error) {
+    console.error("Error retrieving stored credentials:", error);
+  }
+  return null;
+};
+
+// Get the credentials, preferring stored ones if available
+const getCredentials = () => {
+  const storedCredentials = getStoredCredentials();
+  
+  return {
+    apiKey: storedCredentials?.apiKey || MONNIFY_API_KEY,
+    secretKey: storedCredentials?.secretKey || MONNIFY_SECRET_KEY,
+    contractCode: storedCredentials?.contractCode || MONNIFY_CONTRACT_CODE,
+    baseUrl: storedCredentials?.baseUrl || MONNIFY_BASE_URL
+  };
+};
 
 // Interface for Monnify API responses
 interface MonnifyResponse<T> {
@@ -89,14 +114,15 @@ interface Bank {
 class MonnifyAPI {
   private async getAuthToken(): Promise<string> {
     try {
+      const credentials = getCredentials();
       // Create auth credentials
-      const credentials = `${MONNIFY_API_KEY}:${MONNIFY_SECRET_KEY}`;
-      const encodedCredentials = btoa(credentials);
+      const auth = `${credentials.apiKey}:${credentials.secretKey}`;
+      const encodedCredentials = btoa(auth);
       
       console.log("Getting auth token from Monnify");
       
       // Make API call to get token
-      const response = await fetch(`${MONNIFY_BASE_URL}/api/v1/auth/login`, {
+      const response = await fetch(`${credentials.baseUrl}/api/v1/auth/login`, {
         method: 'POST',
         headers: {
           'Authorization': `Basic ${encodedCredentials}`,
@@ -133,6 +159,7 @@ class MonnifyAPI {
     try {
       // Get authentication token
       const token = await this.getAuthToken();
+      const credentials = getCredentials();
       
       // Format the user data for the Monnify API
       const requestData: ReserveAccountRequest = {
@@ -141,7 +168,7 @@ class MonnifyAPI {
         customerEmail: user.email,
         customerName: `${user.firstName} ${user.lastName || ""}`.trim(),
         currencyCode: "NGN",
-        contractCode: MONNIFY_CONTRACT_CODE,
+        contractCode: credentials.contractCode,
         getAllAvailableBanks: true
       };
       
@@ -158,7 +185,7 @@ class MonnifyAPI {
       console.log("Creating virtual account with Monnify", requestData);
       
       // Make the actual API call
-      const response = await fetch(`${MONNIFY_BASE_URL}/api/v2/bank-transfer/reserved-accounts`, {
+      const response = await fetch(`${credentials.baseUrl}/api/v2/bank-transfer/reserved-accounts`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -192,11 +219,12 @@ class MonnifyAPI {
       }
       
       const token = await this.getAuthToken();
+      const credentials = getCredentials();
       
       console.log("Getting transactions for account reference:", accountReference);
       
       // Make API call to get transactions
-      const response = await fetch(`${MONNIFY_BASE_URL}/api/v2/transactions/search?accountReference=${accountReference}&page=0&size=20`, {
+      const response = await fetch(`${credentials.baseUrl}/api/v2/transactions/search?accountReference=${accountReference}&page=0&size=20`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -252,6 +280,7 @@ class MonnifyAPI {
   }): Promise<{ reference: string; status: string }> {
     try {
       const token = await this.getAuthToken();
+      const credentials = getCredentials();
       
       console.log("Initiating transfer:", params);
       
@@ -267,7 +296,7 @@ class MonnifyAPI {
       };
       
       // Make API call to initiate transfer
-      const response = await fetch(`${MONNIFY_BASE_URL}/api/v2/disbursements/single`, {
+      const response = await fetch(`${credentials.baseUrl}/api/v2/disbursements/single`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -298,11 +327,12 @@ class MonnifyAPI {
   async getBanks(): Promise<Bank[]> {
     try {
       const token = await this.getAuthToken();
+      const credentials = getCredentials();
       
       console.log("Getting supported banks");
       
       // Make API call to get banks
-      const response = await fetch(`${MONNIFY_BASE_URL}/api/v1/banks`, {
+      const response = await fetch(`${credentials.baseUrl}/api/v1/banks`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -326,6 +356,43 @@ class MonnifyAPI {
       console.error("Error getting banks:", error);
       throw new Error("Failed to get supported banks. Please try again later.");
     }
+  }
+
+  /**
+   * Update Monnify API credentials
+   */
+  updateCredentials(credentials: {
+    apiKey: string;
+    secretKey: string;
+    contractCode: string;
+    baseUrl?: string;
+  }): boolean {
+    try {
+      // Validate required fields
+      if (!credentials.apiKey || !credentials.secretKey || !credentials.contractCode) {
+        return false;
+      }
+
+      // Store credentials in localStorage
+      localStorage.setItem('monnify_credentials', JSON.stringify({
+        apiKey: credentials.apiKey,
+        secretKey: credentials.secretKey,
+        contractCode: credentials.contractCode,
+        baseUrl: credentials.baseUrl || MONNIFY_BASE_URL
+      }));
+      
+      return true;
+    } catch (error) {
+      console.error("Error updating credentials:", error);
+      return false;
+    }
+  }
+
+  /**
+   * Get current Monnify API credentials
+   */
+  getApiCredentials() {
+    return getCredentials();
   }
 }
 
