@@ -281,45 +281,53 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       console.log("Creating virtual account for user", currentUser.id);
-      const result = await monnifyAPI.createVirtualAccount({
-        id: currentUser.id,
-        firstName: currentUser.firstName,
-        lastName: currentUser.lastName || "",
-        email: currentUser.email,
-        bvn: currentUser.bvn,
-        nin: currentUser.nin
-      });
-
-      if (result && result.accounts && result.accounts.length > 0) {
-        // Get the first account (we're using getAllAvailableBanks: true in the request)
-        const firstAccount = result.accounts[0];
-        
-        // Update the current user with the new virtual account
-        const updatedUser = {
-          ...currentUser,
-          virtualAccount: {
-            accountNumber: firstAccount.accountNumber,
-            bankName: firstAccount.bankName,
-            accountName: firstAccount.accountName,
-            bankCode: firstAccount.bankCode,
-          }
-        };
-        
-        setCurrentUser(updatedUser);
-        localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-        
-        // Update in users array
-        const updatedUsers = users.map(user => 
-          user.id === currentUser.id ? updatedUser : user
-        );
-        setUsers(updatedUsers);
-        localStorage.setItem('users', JSON.stringify(updatedUsers));
-        
-        return true;
-      }
       
-      toast.error("Could not create virtual account");
-      return false;
+      try {
+        const result = await monnifyAPI.createVirtualAccount({
+          id: currentUser.id,
+          firstName: currentUser.firstName,
+          lastName: currentUser.lastName || "",
+          email: currentUser.email,
+          bvn: currentUser.bvn,
+          nin: currentUser.nin
+        });
+  
+        if (result && result.accounts && result.accounts.length > 0) {
+          // Get the first account (we're using getAllAvailableBanks: true in the request)
+          const firstAccount = result.accounts[0];
+          
+          // Update the current user with the new virtual account
+          const updatedUser = {
+            ...currentUser,
+            virtualAccount: {
+              accountNumber: firstAccount.accountNumber,
+              bankName: firstAccount.bankName,
+              accountName: firstAccount.accountName,
+              bankCode: firstAccount.bankCode,
+            }
+          };
+          
+          setCurrentUser(updatedUser);
+          localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+          
+          // Update in users array
+          const updatedUsers = users.map(user => 
+            user.id === currentUser.id ? updatedUser : user
+          );
+          setUsers(updatedUsers);
+          localStorage.setItem('users', JSON.stringify(updatedUsers));
+          
+          toast.success("Virtual account created successfully");
+          return true;
+        } else {
+          toast.error("Could not create virtual account - incomplete response");
+          return false;
+        }
+      } catch (error: any) {
+        console.error("Error creating virtual account:", error);
+        toast.error(error.message || "Failed to create virtual account. Please try again later.");
+        return false;
+      }
     } catch (error) {
       console.error("Error creating virtual account:", error);
       toast.error("Failed to create virtual account. Please try again later.");

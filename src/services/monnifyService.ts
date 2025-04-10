@@ -1,4 +1,3 @@
-
 // The Monnify API service for virtual accounts and payments
 
 // Base URL and API config
@@ -112,9 +111,23 @@ interface Bank {
 
 // Monnify API Helper class
 class MonnifyAPI {
+  private authToken: string | null = null;
+  private tokenExpiry: number = 0;
+
+  // Check if token is expired
+  private isTokenExpired(): boolean {
+    return !this.authToken || Date.now() > this.tokenExpiry;
+  }
+
   private async getAuthToken(): Promise<string> {
     try {
+      // If we have a valid token, return it
+      if (!this.isTokenExpired()) {
+        return this.authToken as string;
+      }
+
       const credentials = getCredentials();
+      
       // Create auth credentials
       const auth = `${credentials.apiKey}:${credentials.secretKey}`;
       const encodedCredentials = btoa(auth);
@@ -133,12 +146,16 @@ class MonnifyAPI {
       const data = await response.json();
       
       if (!data.requestSuccessful) {
-        console.error("Auth token error:", data.responseMessage);
+        console.error("Auth token error:", data.responseMessage || "Authentication failed");
         throw new Error(data.responseMessage || 'Failed to authenticate with Monnify');
       }
       
+      // Set token and expiry (1 hour from now)
+      this.authToken = data.responseBody.accessToken;
+      this.tokenExpiry = Date.now() + (55 * 60 * 1000); // 55 minutes to be safe
+      
       // Return the actual token
-      return data.responseBody.accessToken;
+      return this.authToken;
     } catch (error) {
       console.error("Error getting auth token:", error);
       throw new Error("Failed to authenticate with Monnify");
@@ -343,7 +360,7 @@ class MonnifyAPI {
       const data = await response.json();
       
       if (!data.requestSuccessful) {
-        console.error("Get banks error:", data.responseMessage);
+        console.error("Get banks error:", data.responseMessage || "Could not fetch banks");
         throw new Error(data.responseMessage || 'Failed to get supported banks');
       }
       
@@ -393,6 +410,37 @@ class MonnifyAPI {
    */
   getApiCredentials() {
     return getCredentials();
+  }
+
+  /**
+   * Test API credentials with Monnify
+   */
+  async testCredentials(credentials: {
+    apiKey: string;
+    secretKey: string;
+    contractCode: string;
+    baseUrl: string;
+  }): Promise<boolean> {
+    try {
+      // Create auth credentials
+      const auth = `${credentials.apiKey}:${credentials.secretKey}`;
+      const encodedCredentials = btoa(auth);
+      
+      // Make API call to get token
+      const response = await fetch(`${credentials.baseUrl}/api/v1/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${encodedCredentials}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const data = await response.json();
+      return data.requestSuccessful === true;
+    } catch (error) {
+      console.error("Error testing credentials:", error);
+      return false;
+    }
   }
 }
 

@@ -10,9 +10,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ArrowLeft, Copy, Building, RefreshCw, ArrowDownToLine, ArrowUpFromLine, Info } from "lucide-react";
+import { ArrowLeft, Copy, Building, RefreshCw, ArrowDownToLine, ArrowUpFromLine, Info, AlertTriangle } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
 import { format } from "date-fns";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const VirtualAccount = () => {
   const navigate = useNavigate();
@@ -30,6 +31,7 @@ const VirtualAccount = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [banks, setBanks] = useState<{ bankCode: string; bankName: string }[]>([]);
+  const [hasError, setHasError] = useState(false);
   
   // KYC Dialog state
   const [kycDialogOpen, setKycDialogOpen] = useState(false);
@@ -54,6 +56,7 @@ const VirtualAccount = () => {
     // Load banks
     const loadBanks = async () => {
       try {
+        setHasError(false);
         if (getSupportedBanks) {
           const bankList = await getSupportedBanks();
           if (bankList && Array.isArray(bankList)) {
@@ -62,7 +65,7 @@ const VirtualAccount = () => {
         }
       } catch (error) {
         console.error("Error loading banks:", error);
-        toast.error("Failed to load banks. Please try again later.");
+        setHasError(true);
       }
     };
     
@@ -96,16 +99,19 @@ const VirtualAccount = () => {
     }
     
     setIsLoading(true);
+    setHasError(false);
     try {
       toast.info("Creating your virtual account...");
       const success = await createVirtualAccount();
       if (success) {
         toast.success("Virtual account created successfully");
       } else {
-        toast.error("Failed to create virtual account");
+        setHasError(true);
+        toast.error("Failed to create virtual account. Please check admin settings.");
       }
     } catch (error) {
       console.error("Error creating virtual account:", error);
+      setHasError(true);
       toast.error("Failed to create virtual account. Please try again later.");
     } finally {
       setIsLoading(false);
@@ -330,6 +336,15 @@ const VirtualAccount = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                  {hasError && (
+                    <Alert variant="destructive" className="mb-4">
+                      <AlertTriangle className="h-4 w-4 mr-2" />
+                      <AlertDescription>
+                        There was an error connecting to the payment provider. Please check the API settings in the admin panel or try again later.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                  
                   <div className="flex flex-col items-center justify-center p-8 border rounded-lg bg-muted/30">
                     <Building className="h-16 w-16 text-muted-foreground mb-4" />
                     <h3 className="text-lg font-medium mb-2">No Virtual Account Yet</h3>
@@ -337,7 +352,14 @@ const VirtualAccount = () => {
                       Create a virtual account to receive money directly into your CollectiPay wallet
                     </p>
                     <Button onClick={handleCreateVirtualAccount} disabled={isLoading}>
-                      {isLoading ? "Creating Account..." : "Create Virtual Account"}
+                      {isLoading ? (
+                        <>
+                          <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                          Creating Account...
+                        </>
+                      ) : (
+                        "Create Virtual Account"
+                      )}
                     </Button>
                   </div>
                 </CardContent>

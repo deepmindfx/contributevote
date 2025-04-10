@@ -7,8 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { ArrowLeft, Save, RefreshCw, Settings, Key } from "lucide-react";
+import { ArrowLeft, Save, RefreshCw, Settings, Key, CheckCircle2, XCircle } from "lucide-react";
 import { monnifyAPI } from "@/services/monnifyService";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const ApiSettings = () => {
   const [monnifyCredentials, setMonnifyCredentials] = useState({
@@ -19,6 +20,8 @@ const ApiSettings = () => {
   });
   
   const [isLoading, setIsLoading] = useState(false);
+  const [testingCredentials, setTestingCredentials] = useState(false);
+  const [testResult, setTestResult] = useState<{success: boolean, message: string} | null>(null);
   
   // Load current credentials on mount
   useEffect(() => {
@@ -39,6 +42,41 @@ const ApiSettings = () => {
     }));
   };
   
+  const handleTestMonnifyCredentials = async () => {
+    // Basic validation
+    if (!monnifyCredentials.apiKey || !monnifyCredentials.secretKey || !monnifyCredentials.contractCode) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+    
+    setTestingCredentials(true);
+    setTestResult(null);
+    
+    try {
+      const success = await monnifyAPI.testCredentials(monnifyCredentials);
+      
+      if (success) {
+        setTestResult({
+          success: true,
+          message: "Authentication successful! The API credentials are valid."
+        });
+      } else {
+        setTestResult({
+          success: false,
+          message: "Authentication failed. Please check your API credentials and try again."
+        });
+      }
+    } catch (error) {
+      console.error("Error testing Monnify credentials:", error);
+      setTestResult({
+        success: false,
+        message: "An error occurred while testing the credentials. Please try again."
+      });
+    } finally {
+      setTestingCredentials(false);
+    }
+  };
+  
   const handleSaveMonnifyCredentials = async () => {
     setIsLoading(true);
     try {
@@ -52,6 +90,9 @@ const ApiSettings = () => {
       
       if (success) {
         toast.success("Monnify API credentials updated successfully");
+        
+        // Reset test result when saving new credentials
+        setTestResult(null);
       } else {
         toast.error("Failed to update Monnify API credentials");
       }
@@ -127,6 +168,19 @@ const ApiSettings = () => {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6">
+                    {testResult && (
+                      <Alert variant={testResult.success ? "default" : "destructive"} className="mb-4">
+                        {testResult.success ? (
+                          <CheckCircle2 className="h-4 w-4 mr-2 text-green-500" />
+                        ) : (
+                          <XCircle className="h-4 w-4 mr-2" />
+                        )}
+                        <AlertDescription>
+                          {testResult.message}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
@@ -181,7 +235,25 @@ const ApiSettings = () => {
                       </div>
                     </div>
 
-                    <div className="flex justify-end">
+                    <div className="flex justify-end gap-2">
+                      <Button 
+                        variant="outline"
+                        onClick={handleTestMonnifyCredentials}
+                        disabled={testingCredentials || isLoading}
+                      >
+                        {testingCredentials ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            Testing...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="h-4 w-4 mr-2" />
+                            Test Connection
+                          </>
+                        )}
+                      </Button>
+                      
                       <Button 
                         onClick={handleSaveMonnifyCredentials}
                         disabled={isLoading}
