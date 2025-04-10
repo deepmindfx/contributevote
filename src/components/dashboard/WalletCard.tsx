@@ -42,9 +42,10 @@ const WalletCard = () => {
     try {
       setIsLoading(true);
       const transactions = await getVirtualAccountTransactions();
-      setVirtualAccountTransactions(transactions);
+      setVirtualAccountTransactions(transactions || []);
     } catch (error) {
       console.error("Error fetching virtual account transactions:", error);
+      // Don't show toast here as it's already shown in the context
     } finally {
       setIsLoading(false);
     }

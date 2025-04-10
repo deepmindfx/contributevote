@@ -176,6 +176,11 @@ class MonnifyAPI {
    */
   async getTransactions(accountReference: string): Promise<Transaction[]> {
     try {
+      if (!accountReference) {
+        console.warn("No account reference provided for transaction fetch");
+        return [];
+      }
+      
       const token = await this.getAuthToken();
       
       console.log("Getting transactions for account reference:", accountReference);
@@ -191,7 +196,12 @@ class MonnifyAPI {
       
       const data = await response.json();
       
+      // Handle the case where there are no transactions - this is not an error
       if (!data.requestSuccessful) {
+        if (data.responseMessage.includes("no transaction matching supplied reference")) {
+          console.log("No transactions found for this account reference yet");
+          return [];
+        }
         throw new Error(data.responseMessage || 'Failed to fetch transactions');
       }
       
@@ -214,7 +224,8 @@ class MonnifyAPI {
       }));
     } catch (error) {
       console.error("Error fetching transactions:", error);
-      throw new Error("Failed to fetch transactions");
+      // Return empty array instead of throwing to avoid breaking the UI
+      return [];
     }
   }
 
