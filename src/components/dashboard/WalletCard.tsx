@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { monnifyAPI } from "@/services/monnifyService";
+import { Switch } from "@/components/ui/switch";
 
 const WalletCard = () => {
   const navigate = useNavigate();
@@ -191,19 +192,14 @@ const WalletCard = () => {
   return (
     <Card className="overflow-hidden rounded-3xl border-0">
       <div className="p-6 text-white relative overflow-hidden bg-[#2DAE75]">
-        {/* Currency toggle - Fixed positioning and default state */}
+        {/* Currency toggle - Fixed with Switch component */}
         <div className="absolute top-5 right-5 flex items-center bg-green-600/50 rounded-full px-3 py-1.5">
           <span className={`text-xs ${currencyType === 'NGN' ? 'text-white' : 'text-white/60'}`}>NGN</span>
-          <button 
-            onClick={toggleCurrency} 
-            className="mx-1.5 w-8 h-4 bg-green-500 rounded-full relative"
-          >
-            <span 
-              className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-transform ${
-                currencyType === 'USD' ? 'translate-x-4' : 'translate-x-0.5'
-              }`}
-            />
-          </button>
+          <Switch 
+            className="mx-1.5 data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-green-500"
+            checked={currencyType === "USD"}
+            onCheckedChange={() => toggleCurrency()}
+          />
           <span className={`text-xs ${currencyType === 'USD' ? 'text-white' : 'text-white/60'}`}>USD</span>
         </div>
         

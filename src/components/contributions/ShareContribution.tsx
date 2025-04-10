@@ -1,161 +1,155 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState } from 'react';
 import {
-  FacebookShareButton,
-  FacebookIcon,
-  TwitterShareButton,
-  TwitterIcon,
-  WhatsappShareButton,
-  WhatsappIcon,
-  TelegramShareButton,
-  TelegramIcon,
   EmailShareButton,
+  FacebookShareButton,
+  TwitterShareButton,
+  WhatsappShareButton,
   EmailIcon,
-  LinkedinShareButton,
-  LinkedinIcon,
+  FacebookIcon,
+  TwitterIcon,
+  WhatsappIcon,
 } from 'react-share';
+import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Copy, Share } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Button } from "@/components/ui/button";
-import { useApp } from '@/contexts/AppContext';
-import { useParams } from 'react-router-dom';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Copy, Check } from 'lucide-react';
 
 interface ShareContributionProps {
   contributionId: string;
-  shareUrl: string;
   title: string;
-  description: string;
+  description?: string;
+  shareCode?: string;
+  shareUrl?: string;
 }
 
-const ShareContribution: React.FC<ShareContributionProps> = ({ contributionId, shareUrl, title, description }) => {
-  const { markNotificationAsRead } = useApp();
-  const [isCopied, setIsCopied] = useState(false);
-  const [open, setOpen] = React.useState(false)
-  const params = useParams();
-  const contributionID = params.contributionId;
-  const [contribution, setContribution] = useState<any>(null);
-  const { contributions, user } = useApp();
-
-  useEffect(() => {
-    if (contributions && contributionID) {
-      const foundContribution = contributions.find((c: any) => c.id === contributionID);
-      setContribution(foundContribution);
-    }
-  }, [contributions, contributionID]);
-
-  const handleCopyClick = () => {
-    navigator.clipboard.writeText(shareUrl)
-      .then(() => {
-        setIsCopied(true);
-        toast.success("Link copied to clipboard!");
-        setTimeout(() => setIsCopied(false), 2000);
-      })
-      .catch(err => {
-        console.error("Failed to copy link: ", err);
-        toast.error("Failed to copy link to clipboard.");
-      });
+const ShareContribution = ({ contributionId, title, description, shareCode, shareUrl }: ShareContributionProps) => {
+  const [isOpen, setIsOpen] = useState(false);
+  
+  const shareTitle = `Join ${title} contribution on Crowdfund`;
+  const shareDesc = description || `Help us reach our goal for ${title}. Join the contribution`;
+  
+  // Calculate share URL
+  const defaultShareUrl = `${window.location.origin}/share/${contributionId}`;
+  const shareLink = shareUrl || defaultShareUrl;
+  
+  // Copy share URL to clipboard
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(shareLink).then(
+      () => {
+        toast.success('Link copied to clipboard!');
+      },
+      (err) => {
+        toast.error('Failed to copy link');
+        console.error('Could not copy text: ', err);
+      }
+    );
   };
-
-  const handleShareToContacts = () => {
-    if (navigator.share) {
-      navigator.share({
-        title: title,
-        text: description,
-        url: shareUrl,
-      }).then(() => {
-        toast.success("Shared successfully!");
-      }).catch((error) => {
-        console.error("Error sharing:", error);
-        toast.error("Sharing failed.");
-      });
-    } else {
-      toast.warn("Web Share API not supported.");
+  
+  // Copy share code to clipboard
+  const copyCodeToClipboard = () => {
+    if (!shareCode) {
+      toast.error('Share code not available');
+      return;
     }
+    
+    navigator.clipboard.writeText(shareCode).then(
+      () => {
+        toast.success('Code copied to clipboard!');
+      },
+      (err) => {
+        toast.error('Failed to copy code');
+        console.error('Could not copy text: ', err);
+      }
+    );
   };
-
-  // Function to handle marking notification as read and navigating
-  const handleNotificationClick = (notification: any) => {
-    if (notification && markNotificationAsRead) {
-      markNotificationAsRead(notification.id);
-      window.location.href = `/groups/${contributionId}`;
-    }
-  };
-
-  // Find unread notification related to this contribution
-  const unreadNotification = user?.notifications?.find(
-    (notification: any) => !notification.read && notification.relatedId === contributionId
-  );
 
   return (
-    <div>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>
-          <Button className="w-full bg-[#2DAE75] hover:bg-[#249e69]">Share Contribution</Button>
-        </DialogTrigger>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Share this contribution</DialogTitle>
-            <DialogDescription>
-              Share this contribution with your friends and family.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="flex justify-center space-x-3">
-              <FacebookShareButton url={shareUrl} quote={title}>
-                <FacebookIcon size={40} round />
-              </FacebookShareButton>
-              <TwitterShareButton url={shareUrl} title={title}>
-                <TwitterIcon size={40} round />
-              </TwitterShareButton>
-              <WhatsappShareButton url={shareUrl} title={title}>
-                <WhatsappIcon size={40} round />
-              </WhatsappShareButton>
-              <TelegramShareButton url={shareUrl} title={title}>
-                <TelegramIcon size={40} round />
-              </TelegramShareButton>
-              <EmailShareButton url={shareUrl} subject={title} body={description}>
-                <EmailIcon size={40} round />
-              </EmailShareButton>
-              <LinkedinShareButton url={shareUrl} title={title} summary={description} source={window.location.origin}>
-                <LinkedinIcon size={40} round />
-              </LinkedinShareButton>
-            </div>
-            <div className="flex items-center justify-between">
-              <Button variant="outline" className="w-full" onClick={handleCopyClick} disabled={isCopied}>
-                {isCopied ? (
-                  <><Check className="mr-2 h-4 w-4" /> Copied!</>
-                ) : (
-                  <><Copy className="mr-2 h-4 w-4" /> Copy Link</>
-                )}
-              </Button>
-            </div>
-            <div className="flex items-center justify-between">
-              <Button className="w-full" onClick={handleShareToContacts}>
-                Share to Contacts
-              </Button>
-            </div>
-            {unreadNotification && (
-              <div
-                className="p-3 bg-muted rounded-md cursor-pointer hover:bg-muted/80 transition-colors"
-                onClick={() => {
-                  setOpen(false);
-                  handleNotificationClick(unreadNotification);
-                }}
-              >
-                You have a new notification for this contribution!
-              </div>
-            )}
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" className="gap-2">
+          <Share className="h-4 w-4" />
+          Share
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Share this contribution</DialogTitle>
+          <DialogDescription>
+            Share this link with others to allow them to contribute
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex items-center space-x-2 mt-4">
+          <div className="grid flex-1 gap-2">
+            <Input
+              value={shareLink}
+              readOnly
+              className="w-full"
+            />
           </div>
-        </DialogContent>
-      </Dialog>
-    </div>
+          <Button
+            type="submit"
+            size="sm"
+            className="px-3"
+            onClick={copyToClipboard}
+          >
+            <span className="sr-only">Copy</span>
+            <Copy className="h-4 w-4" />
+          </Button>
+        </div>
+        
+        {shareCode && (
+          <div className="flex items-center space-x-2 mt-2">
+            <div className="grid flex-1 gap-2">
+              <div className="text-sm mb-1">Or share the code:</div>
+              <Input
+                value={shareCode}
+                readOnly
+                className="w-full"
+              />
+            </div>
+            <Button
+              type="submit"
+              size="sm"
+              className="px-3"
+              onClick={copyCodeToClipboard}
+            >
+              <span className="sr-only">Copy</span>
+              <Copy className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+        
+        <div className="mt-4">
+          <div className="text-sm mb-2">Share via:</div>
+          <div className="flex space-x-2">
+            <WhatsappShareButton url={shareLink} title={shareTitle}>
+              <WhatsappIcon size={32} round />
+            </WhatsappShareButton>
+            
+            <FacebookShareButton url={shareLink} quote={shareTitle}>
+              <FacebookIcon size={32} round />
+            </FacebookShareButton>
+            
+            <TwitterShareButton url={shareLink} title={shareTitle}>
+              <TwitterIcon size={32} round />
+            </TwitterShareButton>
+            
+            <EmailShareButton url={shareLink} subject={shareTitle} body={shareDesc}>
+              <EmailIcon size={32} round />
+            </EmailShareButton>
+          </div>
+        </div>
+        
+        <div className="mt-4 text-center">
+          <Link to={`/share/${contributionId}`} onClick={() => setIsOpen(false)}>
+            <Button variant="link">View Share Page</Button>
+          </Link>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 
