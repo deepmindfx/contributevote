@@ -15,22 +15,37 @@ const GroupsList = () => {
     currentUser
   } = useApp();
   
-  // Only show groups where the user is a member or creator
+  // Get recent groups where the user is a member or creator
   const getRecentGroups = () => {
     if (!currentUser?.id || !contributions || !Array.isArray(contributions)) {
       return [];
     }
     
-    // Filter contributions to only include ones the current user is a member of
+    // Filter contributions to only include ones the current user is a member of or has created
     const userContributions = contributions.filter(group => {
+      // Check if the user is a creator
+      if (group.creatorId === currentUser.id) {
+        return true;
+      }
+      
       // Check if the user is a member
-      return group.members && Array.isArray(group.members) && 
-        (group.members.some((member: any) => member.id === currentUser.id) || 
-         group.creatorId === currentUser.id);
+      if (group.members && Array.isArray(group.members)) {
+        return group.members.some((member: any) => member.id === currentUser.id);
+      }
+      
+      return false;
+    });
+    
+    // Sort by creation date (newest first) - assuming we have a createdAt field
+    // If not, we'll just take the most recent 3
+    const sortedContributions = [...userContributions].sort((a, b) => {
+      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return dateB - dateA;
     });
     
     // Get most recent 3 groups
-    return userContributions.slice(0, 3);
+    return sortedContributions.slice(0, 3);
   };
   
   const recentGroups = getRecentGroups();
@@ -62,7 +77,7 @@ const GroupsList = () => {
         ) : (
           <div className="space-y-4">
             {recentGroups.map(group => {
-              const progressPercentage = Math.min(100, Math.round(group.currentAmount / group.targetAmount * 100) || 0);
+              const progressPercentage = Math.min(100, Math.round((group.currentAmount || 0) / (group.targetAmount || 1) * 100) || 0);
               return (
                 <div 
                   key={group.id} 
@@ -74,7 +89,7 @@ const GroupsList = () => {
                       <h3 className="font-medium text-base">{group.name}</h3>
                       <div className="flex items-center text-xs text-muted-foreground mt-1">
                         <Users className="h-3 w-3 mr-1 inline" />
-                        <span className="mr-2">{group.members.length} members</span>
+                        <span className="mr-2">{group.members?.length || 1} members</span>
                         
                         <Calendar className="h-3 w-3 mr-1 inline" />
                         <span>{format(new Date(group.startDate), 'MMM d, yyyy')}</span>
@@ -89,7 +104,7 @@ const GroupsList = () => {
                     <div className="flex justify-between items-center mb-1 text-xs">
                       <div className="text-muted-foreground">Progress ({progressPercentage}%)</div>
                       <div className="text-sm font-medium">
-                        ₦{group.currentAmount.toLocaleString()} of ₦{group.targetAmount.toLocaleString()}
+                        ₦{(group.currentAmount || 0).toLocaleString()} of ₦{(group.targetAmount || 0).toLocaleString()}
                       </div>
                     </div>
                     <Progress value={progressPercentage} className="h-1.5" />
