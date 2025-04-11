@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -19,6 +20,7 @@ import UserProfile from "./pages/UserProfile";
 import { useEffect } from "react";
 import MobileNav from "./components/layout/MobileNav";
 import WalletHistory from "./pages/WalletHistory";
+import ActivityHistory from "./pages/ActivityHistory";
 import Votes from "./pages/Votes";
 import AllGroups from "./pages/AllGroups";
 
@@ -103,6 +105,11 @@ const AppRoutes = () => {
       <Route path="/wallet-history" element={
         <ProtectedRoute>
           <WalletHistory />
+        </ProtectedRoute>
+      } />
+      <Route path="/activity" element={
+        <ProtectedRoute>
+          <ActivityHistory />
         </ProtectedRoute>
       } />
       <Route path="/votes" element={
