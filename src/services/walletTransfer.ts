@@ -7,8 +7,7 @@ import {
   updateUser, 
   getCurrentUser, 
   addTransaction,
-  getTransactions,
-  updateUser as updateUserData
+  getTransactions
 } from "./localStorage";
 
 /**
@@ -93,14 +92,6 @@ export const sendMoneyToBank = async (request: BankTransferRequest): Promise<Tra
     console.log("Transfer API response:", result);
     
     if (!result.requestSuccessful) {
-      // Handle specific error codes
-      if (result.responseCode === "D06") {
-        return {
-          success: false,
-          message: "API configuration error: This is a demo environment. In production, your account would need proper setup by Monnify."
-        };
-      }
-      
       return {
         success: false,
         message: result.responseMessage || "Failed to process transfer"
@@ -204,7 +195,7 @@ export const checkTransferStatus = async (reference: string): Promise<TransferRe
           // Refund the money if the transfer failed
           const currentUser = getCurrentUser();
           if (currentUser && newStatus === "failed") {
-            updateUserData({
+            updateUser({
               ...currentUser,
               walletBalance: (currentUser.walletBalance || 0) + transaction.amount
             });

@@ -18,6 +18,8 @@ export const updatePendingTransfers = async () => {
       t.metaData.transferReference
     );
     
+    console.log(`Found ${pendingTransfers.length} pending transfers to check`);
+    
     // Check status for each pending transfer
     for (const transfer of pendingTransfers) {
       // Check transfer status

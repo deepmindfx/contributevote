@@ -10,13 +10,14 @@ const BASE_URL = 'https://api.monnify.com';
  */
 export const getAuthToken = async () => {
   try {
+    // Production credentials
     const apiKey = "MK_PROD_XR897H4H43"; 
     const secretKey = "GPFCA9GTP81DYJGF9VMAPRK220SS6CK9";
     
     // Encode API credentials with proper encoding
     const credentials = btoa(`${apiKey}:${secretKey}`);
     
-    console.log("Attempting to authenticate with Monnify...");
+    console.log("Authenticating with Monnify using production credentials...");
     
     const response = await fetch(`${BASE_URL}/api/v1/auth/login`, {
       method: 'POST',
