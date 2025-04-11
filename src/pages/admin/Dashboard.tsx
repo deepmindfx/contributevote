@@ -18,13 +18,19 @@ import {
   Plus, 
   Play,
   Pause,
-  ChevronRight
+  ChevronRight,
+  BadgeAlert,
+  ShieldX,
+  ShieldCheck,
+  MessageSquareWarning,
+  CalendarClock
 } from "lucide-react";
 import { User } from "@/services/localStorage";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 
 const AdminDashboard = () => {
   const { user, users, stats, isAdmin, depositToUserAsAdmin, pauseUserAsAdmin, activateUserAsAdmin } = useApp();
@@ -32,6 +38,7 @@ const AdminDashboard = () => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [depositAmount, setDepositAmount] = useState("");
   const [isDepositOpen, setIsDepositOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("users");
 
   // Redirect if not admin
   if (!isAdmin) {
@@ -44,7 +51,9 @@ const AdminDashboard = () => {
     totalContributions: stats?.totalContributions || 0,
     totalTransactions: stats?.totalTransactions || 0,
     totalAmount: stats?.totalAmount || 0,
-    activeRequests: stats?.activeRequests || 0
+    activeRequests: stats?.activeRequests || 0,
+    totalWithdrawals: stats?.totalWithdrawals || 0,
+    totalAmountContributed: stats?.totalAmountContributed || 0
   };
 
   const filteredUsers = users.filter(u => 
@@ -54,11 +63,15 @@ const AdminDashboard = () => {
      (u.phone && u.phone.includes(searchQuery)))
   );
 
+  const activeUsers = users.filter(u => u.role !== 'admin' && u.status === 'active').length;
+  const pausedUsers = users.filter(u => u.role !== 'admin' && u.status === 'paused').length;
+  const verifiedUsers = users.filter(u => u.role !== 'admin' && u.verified).length;
+
   const handleDeposit = () => {
     if (!selectedUser) return;
     
     if (!depositAmount || isNaN(Number(depositAmount)) || Number(depositAmount) <= 0) {
-      alert("Please enter a valid amount");
+      toast.error("Please enter a valid amount");
       return;
     }
     
@@ -102,7 +115,7 @@ const AdminDashboard = () => {
               <span>Transactions</span>
             </Link>
             <Link to="/admin/disputes" className="flex items-center p-2 rounded-md hover:bg-muted">
-              <AlertCircle className="h-5 w-5 mr-3" />
+              <MessageSquareWarning className="h-5 w-5 mr-3" />
               <span>Disputes</span>
             </Link>
             <Link to="/admin/settings" className="flex items-center p-2 rounded-md hover:bg-muted">
@@ -139,6 +152,10 @@ const AdminDashboard = () => {
                     <div>
                       <p className="text-sm text-muted-foreground">Total Users</p>
                       <h3 className="text-2xl font-bold">{safeStats.totalUsers}</h3>
+                      <div className="flex items-center mt-2 text-xs">
+                        <span className="text-green-500 mr-2">Active: {activeUsers}</span>
+                        <span className="text-red-500">Paused: {pausedUsers}</span>
+                      </div>
                     </div>
                     <div className="bg-primary/10 p-2 rounded-full">
                       <Users className="h-5 w-5 text-primary" />
@@ -153,6 +170,9 @@ const AdminDashboard = () => {
                     <div>
                       <p className="text-sm text-muted-foreground">Contributions</p>
                       <h3 className="text-2xl font-bold">{safeStats.totalContributions}</h3>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Total: ₦{safeStats.totalAmountContributed.toLocaleString()}
+                      </p>
                     </div>
                     <div className="bg-primary/10 p-2 rounded-full">
                       <CreditCard className="h-5 w-5 text-primary" />
@@ -167,6 +187,9 @@ const AdminDashboard = () => {
                     <div>
                       <p className="text-sm text-muted-foreground">Transactions</p>
                       <h3 className="text-2xl font-bold">{safeStats.totalTransactions}</h3>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Withdrawals: {safeStats.totalWithdrawals}
+                      </p>
                     </div>
                     <div className="bg-primary/10 p-2 rounded-full">
                       <FileText className="h-5 w-5 text-primary" />
@@ -179,11 +202,59 @@ const AdminDashboard = () => {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-muted-foreground">Total Amount</p>
-                      <h3 className="text-2xl font-bold">₦{safeStats.totalAmount.toLocaleString()}</h3>
+                      <p className="text-sm text-muted-foreground">Pending Requests</p>
+                      <h3 className="text-2xl font-bold">{safeStats.activeRequests}</h3>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Require admin attention
+                      </p>
                     </div>
                     <div className="bg-primary/10 p-2 rounded-full">
-                      <BarChart3 className="h-5 w-5 text-primary" />
+                      <CalendarClock className="h-5 w-5 text-primary" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* User verification stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center">
+                    <div className="p-2 rounded-full bg-green-100 mr-4">
+                      <ShieldCheck className="h-5 w-5 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">Verified Users</p>
+                      <p className="text-2xl font-bold">{verifiedUsers}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center">
+                    <div className="p-2 rounded-full bg-yellow-100 mr-4">
+                      <BadgeAlert className="h-5 w-5 text-yellow-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">Unverified Users</p>
+                      <p className="text-2xl font-bold">{safeStats.totalUsers - verifiedUsers}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center">
+                    <div className="p-2 rounded-full bg-red-100 mr-4">
+                      <ShieldX className="h-5 w-5 text-red-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">Suspended Users</p>
+                      <p className="text-2xl font-bold">{pausedUsers}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -191,11 +262,12 @@ const AdminDashboard = () => {
             </div>
 
             {/* Main content tabs */}
-            <Tabs defaultValue="users">
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="mb-6">
                 <TabsTrigger value="users">Users</TabsTrigger>
                 <TabsTrigger value="contributions">Contributions</TabsTrigger>
                 <TabsTrigger value="pending_requests">Pending Requests</TabsTrigger>
+                <TabsTrigger value="disputes">Disputes</TabsTrigger>
               </TabsList>
 
               <TabsContent value="users">
@@ -232,7 +304,12 @@ const AdminDashboard = () => {
                                 )}
                               </Avatar>
                               <div>
-                                <h4 className="font-medium">{user.name}</h4>
+                                <h4 className="font-medium flex items-center">
+                                  {user.name}
+                                  {user.verified && (
+                                    <Badge variant="outline" className="ml-2 bg-green-100 text-green-800 text-xs">Verified</Badge>
+                                  )}
+                                </h4>
                                 <p className="text-sm text-muted-foreground">{user.email}</p>
                                 {user.phone && (
                                   <p className="text-xs text-muted-foreground">{user.phone}</p>
@@ -296,6 +373,21 @@ const AdminDashboard = () => {
                                   )}
                                   {user.status === 'active' ? 'Pause' : 'Activate'}
                                 </Button>
+
+                                {!user.verified && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      // Call the verifyUser function from useApp
+                                      const { verifyUser } = useApp();
+                                      verifyUser(user.id);
+                                    }}
+                                  >
+                                    <ShieldCheck className="h-4 w-4 mr-1" />
+                                    Verify
+                                  </Button>
+                                )}
                                 
                                 <Button variant="ghost" size="sm" asChild>
                                   <Link to={`/admin/users/${user.id}`}>
@@ -334,6 +426,20 @@ const AdminDashboard = () => {
                     <div className="text-center py-8 text-muted-foreground">
                       <p>There are currently {safeStats.activeRequests} pending withdrawal requests.</p>
                       <p className="mt-2">Detailed view coming soon.</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="disputes">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Dispute Management</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p>No active disputes at the moment.</p>
+                      <p className="mt-2">This section will show user disputes that require admin attention.</p>
                     </div>
                   </CardContent>
                 </Card>

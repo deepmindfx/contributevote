@@ -90,6 +90,9 @@ export interface Stats {
   totalContributions: number;
   totalWithdrawals: number;
   totalAmountContributed: number;
+  totalTransactions: number;
+  totalAmount: number;
+  activeRequests: number;
 }
 
 const generateId = (): string => {
@@ -628,14 +631,19 @@ const updateStatistics = (): void => {
   const users = getUsers();
   const contributions = getContributions();
   const transactions = getTransactions();
+  const withdrawalRequests = getWithdrawalRequests();
   const withdrawals = transactions.filter(t => t.type === 'withdrawal');
   const totalAmountContributed = contributions.reduce((acc, c) => acc + c.currentAmount, 0);
+  const activeRequests = withdrawalRequests.filter(r => r.status === 'pending').length;
 
   const stats: Stats = {
     totalUsers: users.length,
     totalContributions: contributions.length,
     totalWithdrawals: withdrawals.length,
-    totalAmountContributed: totalAmountContributed
+    totalAmountContributed: totalAmountContributed,
+    totalTransactions: transactions.length,
+    totalAmount: totalAmountContributed,
+    activeRequests: activeRequests
   };
 
   localStorage.setItem('stats', JSON.stringify(stats));
