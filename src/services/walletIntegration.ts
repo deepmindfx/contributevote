@@ -107,6 +107,7 @@ export const createUserReservedAccount = async (
       customerEmail: user.email,
       customerName: user.name || `${user.firstName} ${user.lastName}`,
       currencyCode: "NGN",
+      contractCode: "YOUR_CONTRACT_CODE", // Replace with your Monnify contract code
       getAllAvailableBanks: true
     };
     
@@ -120,22 +121,23 @@ export const createUserReservedAccount = async (
     // Create a reserved account using the provided ID
     const result = await monnifyApi.createReservedAccount(requestBody);
     
-    if (!result) {
+    if (!result || !result.responseBody) {
       toast.error("Failed to create reserved account");
       return null;
     }
     
     // Extract relevant account data
+    const responseBody = result.responseBody;
     const reservedAccount: ReservedAccountData = {
-      accountReference: result.accountReference,
-      accountName: result.accountName,
-      accountNumber: result.accounts && result.accounts.length > 0 ? result.accounts[0].accountNumber : "",
-      bankName: result.accounts && result.accounts.length > 0 ? result.accounts[0].bankName : "",
-      bankCode: result.accounts && result.accounts.length > 0 ? result.accounts[0].bankCode : "",
-      reservationReference: result.reservationReference,
-      status: result.status,
-      createdOn: result.createdOn,
-      accounts: result.accounts?.map(acc => ({
+      accountReference: responseBody.accountReference,
+      accountName: responseBody.accountName,
+      accountNumber: responseBody.accounts && responseBody.accounts.length > 0 ? responseBody.accounts[0].accountNumber : "",
+      bankName: responseBody.accounts && responseBody.accounts.length > 0 ? responseBody.accounts[0].bankName : "",
+      bankCode: responseBody.accounts && responseBody.accounts.length > 0 ? responseBody.accounts[0].bankCode : "",
+      reservationReference: responseBody.reservationReference,
+      status: responseBody.status,
+      createdOn: responseBody.createdOn,
+      accounts: responseBody.accounts?.map(acc => ({
         bankCode: acc.bankCode,
         bankName: acc.bankName,
         accountNumber: acc.accountNumber
@@ -189,22 +191,23 @@ export const getUserReservedAccount = async (userId: string): Promise<ReservedAc
     // Fetch the latest details from Monnify
     const result = await monnifyApi.getReservedAccountDetails(user.reservedAccount.accountReference);
     
-    if (!result) {
+    if (!result || !result.responseBody) {
       toast.error("Failed to get reserved account details");
       return user.reservedAccount; // Return cached version
     }
     
     // Extract relevant account data
+    const responseBody = result.responseBody;
     const reservedAccount: ReservedAccountData = {
-      accountReference: result.accountReference,
-      accountName: result.accountName,
-      accountNumber: result.accounts && result.accounts.length > 0 ? result.accounts[0].accountNumber : "",
-      bankName: result.accounts && result.accounts.length > 0 ? result.accounts[0].bankName : "",
-      bankCode: result.accounts && result.accounts.length > 0 ? result.accounts[0].bankCode : "",
-      reservationReference: result.reservationReference,
-      status: result.status,
-      createdOn: result.createdOn,
-      accounts: result.accounts?.map(acc => ({
+      accountReference: responseBody.accountReference,
+      accountName: responseBody.accountName,
+      accountNumber: responseBody.accounts && responseBody.accounts.length > 0 ? responseBody.accounts[0].accountNumber : "",
+      bankName: responseBody.accounts && responseBody.accounts.length > 0 ? responseBody.accounts[0].bankName : "",
+      bankCode: responseBody.accounts && responseBody.accounts.length > 0 ? responseBody.accounts[0].bankCode : "",
+      reservationReference: responseBody.reservationReference,
+      status: responseBody.status,
+      createdOn: responseBody.createdOn,
+      accounts: responseBody.accounts?.map(acc => ({
         bankCode: acc.bankCode,
         bankName: acc.bankName,
         accountNumber: acc.accountNumber
@@ -246,10 +249,17 @@ export const getReservedAccountTransactions = async (accountReference: string) =
   try {
     const result = await monnifyApi.getReservedAccountTransactions(accountReference);
     
-    if (result && result.content) {
-      // Process the transactions and add them to the local storage
-      for (const transaction of result.content) {
-        processReservedAccountTransaction({
+    if (!result || !result.responseBody) {
+      toast.error("Failed to fetch transactions");
+      return null;
+    }
+    
+    const responseBody = result.responseBody;
+    
+    // Process the transactions and add them to the local storage
+    if (responseBody.content && Array.isArray(responseBody.content)) {
+      for (const transaction of responseBody.content) {
+        await processReservedAccountTransaction({
           transactionReference: transaction.transactionReference,
           paymentReference: transaction.paymentReference,
           amountPaid: transaction.amount,
@@ -257,21 +267,19 @@ export const getReservedAccountTransactions = async (accountReference: string) =
           settlementAmount: transaction.amount,
           paidOn: transaction.paidOn,
           paymentStatus: transaction.paymentStatus,
-          paymentDescription: `Bank transfer from ${transaction.destinationBankName}`,
+          paymentDescription: `Bank transfer from ${transaction.destinationBankName || 'bank'}`,
           metaData: {},
           accountDetails: {
-            accountName: transaction.destinationAccountName,
-            accountNumber: transaction.destinationAccountNumber,
+            accountName: transaction.destinationAccountName || '',
+            accountNumber: transaction.destinationAccountNumber || '',
             bankCode: '',
-            bankName: transaction.destinationBankName
+            bankName: transaction.destinationBankName || ''
           }
         });
       }
-      
-      return result;
     }
     
-    return null;
+    return responseBody;
   } catch (error) {
     console.error("Error fetching reserved account transactions:", error);
     toast.error("Failed to fetch transactions. Please try again.");
@@ -317,6 +325,7 @@ export const createPaymentInvoice = async (data: {
       customerEmail,
       customerName,
       currencyCode: "NGN",
+      contractCode: "YOUR_CONTRACT_CODE", // Replace with your Monnify contract code
       expiryDate: expiryDate ? expiryDate.toISOString() : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       redirectUrl: redirectUrl || window.location.origin + "/dashboard"
     };
@@ -333,26 +342,36 @@ export const createPaymentInvoice = async (data: {
     
     // If this is for a contribution, add it to the metadata
     const metaData = contributionId ? { contributionId } : undefined;
+    if (metaData) {
+      Object.assign(invoiceData, { metaData });
+    }
     
     // Create the invoice
-    const result = await monnifyApi.createInvoice({
-      ...invoiceData,
-      metaData
-    });
+    const result = await monnifyApi.createInvoice(invoiceData);
     
-    if (!result) {
+    if (!result || !result.responseBody) {
       toast.error("Failed to create invoice");
       return null;
     }
     
+    const responseBody = result.responseBody;
+    
     // Store the invoice in the user's data
     const userInvoices = user?.invoices || [];
     const newInvoice: InvoiceData = {
-      ...result,
+      invoiceReference: responseBody.invoiceReference,
+      description: responseBody.description,
+      amount: responseBody.amount,
+      currencyCode: responseBody.currencyCode,
+      status: responseBody.status,
+      customerEmail: responseBody.customerEmail,
+      customerName: responseBody.customerName,
+      expiryDate: responseBody.expiryDate,
+      redirectUrl: responseBody.redirectUrl,
+      checkoutUrl: responseBody.checkoutUrl,
+      createdOn: responseBody.createdOn,
       createdAt: new Date().toISOString(),
-      status: result.status,
-      contributionId: contributionId || "",
-      currencyCode: "NGN"
+      contributionId: contributionId || ""
     };
     
     if (userId === currentUser.id) {
@@ -369,7 +388,7 @@ export const createPaymentInvoice = async (data: {
     }
     
     toast.success("Invoice created successfully");
-    return result;
+    return responseBody;
   } catch (error) {
     console.error("Error creating invoice:", error);
     toast.error("Failed to create invoice. Please try again.");
@@ -447,8 +466,8 @@ export const processReservedAccountTransaction = async (data: {
       createdAt: new Date(paidOn || Date.now()).toISOString(),
       metaData: {
         paymentReference,
-        bankName: accountDetails.bankName,
-        accountNumber: accountDetails.accountNumber
+        bankName: accountDetails?.bankName || '',
+        accountNumber: accountDetails?.accountNumber || ''
       }
     };
     
@@ -578,20 +597,22 @@ export const chargeSavedCard = async (
       customerEmail: user.email,
       paymentReference,
       paymentDescription: description,
+      currencyCode: "NGN",
+      contractCode: "YOUR_CONTRACT_CODE", // Replace with your Monnify contract code
       metaData
     });
     
-    if (!result) {
+    if (!result || !result.responseBody) {
       toast.error("Failed to charge card");
       return false;
     }
     
+    const responseBody = result.responseBody;
+    
     // Process the payment
-    if (result.paymentStatus === "PAID") {
+    if (responseBody.paymentStatus === "PAID") {
       if (contributionId) {
         // Process as a contribution payment
-        // This would call the existing contribution logic
-        // But we're just logging it for now to avoid modifying existing code
         console.log("Processing contribution payment:", contributionId, amount);
         
         // You would call your existing contribution logic here
@@ -601,7 +622,7 @@ export const chargeSavedCard = async (
         // Process as a wallet top-up
         // Add transaction record
         addTransaction({
-          id: result.transactionReference,
+          id: responseBody.transactionReference,
           userId,
           type: "deposit" as "deposit" | "withdrawal" | "transfer" | "vote",
           amount,
@@ -611,7 +632,7 @@ export const chargeSavedCard = async (
           createdAt: new Date().toISOString(),
           metaData: {
             paymentReference,
-            cardType: result.cardType
+            cardType: responseBody.cardType
           }
         });
         
@@ -632,7 +653,7 @@ export const chargeSavedCard = async (
       toast.success(`Card charged successfully: ₦${amount.toLocaleString()}`);
       return true;
     } else {
-      toast.error(`Payment failed: ${result.paymentStatus}`);
+      toast.error(`Payment failed: ${responseBody.paymentStatus}`);
       return false;
     }
   } catch (error) {

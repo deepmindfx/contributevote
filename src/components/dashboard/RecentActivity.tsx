@@ -13,8 +13,9 @@ import {
 import { Link } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
 import { format, isValid } from "date-fns";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { getReservedAccountTransactions } from "@/services/walletIntegration";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface ActivityItemProps {
   type: "deposit" | "withdrawal" | "vote";
@@ -100,22 +101,26 @@ const ActivityItem = ({ type, title, description, amount, date, status }: Activi
 
 const RecentActivity = () => {
   const { transactions, contributions, user, refreshData } = useApp();
+  const [isLoading, setIsLoading] = useState(false);
   
   // Fetch transactions when component mounts
   useEffect(() => {
     if (user?.reservedAccount?.accountReference) {
       const fetchData = async () => {
+        setIsLoading(true);
         try {
           await getReservedAccountTransactions(user.reservedAccount.accountReference);
           refreshData();
         } catch (error) {
           console.error("Error fetching transactions:", error);
+        } finally {
+          setIsLoading(false);
         }
       };
       
       fetchData();
     }
-  }, [user?.reservedAccount]);
+  }, [user?.reservedAccount, refreshData]);
   
   // Format and sort transactions
   const formattedTransactions = transactions
@@ -193,17 +198,37 @@ const RecentActivity = () => {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="space-y-1">
-          {formattedTransactions.length === 0 ? (
-            <div className="text-center py-6 text-muted-foreground">
-              <p>No recent activities to display.</p>
-            </div>
-          ) : (
-            formattedTransactions.map((activity, index) => (
+        {isLoading ? (
+          <div className="space-y-4">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="flex items-start py-3 border-b last:border-b-0">
+                <Skeleton className="w-10 h-10 rounded-full" />
+                <div className="ml-3 flex-1">
+                  <div className="flex justify-between">
+                    <div>
+                      <Skeleton className="h-4 w-24 mb-2" />
+                      <Skeleton className="h-3 w-32" />
+                    </div>
+                    <div className="text-right">
+                      <Skeleton className="h-4 w-16 mb-2" />
+                      <Skeleton className="h-3 w-12" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : formattedTransactions.length === 0 ? (
+          <div className="text-center py-6 text-muted-foreground">
+            <p>No recent activities to display.</p>
+          </div>
+        ) : (
+          <div className="space-y-1">
+            {formattedTransactions.map((activity, index) => (
               <ActivityItem key={index} {...activity} />
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
