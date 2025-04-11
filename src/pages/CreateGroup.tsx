@@ -81,6 +81,13 @@ const CreateGroup = () => {
       privacy: formData.privacy,
       memberRoles: formData.memberRoles,
       creatorId: '1', // Will be replaced by actual user id from context
+      
+      // Adding required properties to fix type errors
+      goalAmount: Number(formData.targetAmount), // Setting this equal to targetAmount
+      status: 'active' as 'active' | 'completed' | 'pending' | 'rejected',
+      updatedAt: new Date().toISOString(),
+      isPublic: formData.privacy === 'public',
+      isAnonymousAllowed: true,
     };
     
     // Create contribution

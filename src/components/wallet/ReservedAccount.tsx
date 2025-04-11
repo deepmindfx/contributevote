@@ -1,178 +1,152 @@
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Clipboard, RefreshCw, Plus } from "lucide-react";
-import { Dialog } from "@/components/ui/dialog";
-import { Skeleton } from "@/components/ui/skeleton";
-import IdFormDialog from "@/components/wallet/IdFormDialog";
-import AccountDetailsList from "@/components/wallet/AccountDetailsList";
-import { useReservedAccount } from "@/hooks/useReservedAccount";
+import React, { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogTrigger,
+  DialogFooter,
+  DialogClose
+} from '@/components/ui/dialog';
+import { Copy, RefreshCw, Plus, AlertTriangle } from 'lucide-react';
+import { toast } from 'sonner';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { useApp } from '@/contexts/AppContext';
+import { useReservedAccount } from '@/hooks/useReservedAccount';
+import IdFormDialog from './IdFormDialog';
+import { useForm } from 'react-hook-form';
+
+// Define the interface for IdFormData here to be used in this component
+export interface IdFormData {
+  idType: "bvn" | "nin";
+  idNumber: string;
+}
 
 const ReservedAccount = () => {
-  const {
-    loading: isLoading,
-    reservedAccount: accountDetails,
-    hasReservedAccount,
-    showFullDetails,
-    setShowFullDetails,
-    showIdForm,
-    setShowIdForm,
-    form,
-    handleCreateAccount,
-    handleRefresh,
-    copyToClipboard,
-    onSubmitIdForm
-  } = useReservedAccount();
+  const { user } = useApp();
+  const { reservedAccount, loading, error, refreshReservedAccount, requestReservedAccount } = useReservedAccount();
+  const [showAccountInfo, setShowAccountInfo] = useState(false);
+  const [showIdForm, setShowIdForm] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
 
-  if (!accountDetails) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Virtual Account</CardTitle>
-          <CardDescription>
-            Create a dedicated virtual account for easy deposits
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col items-center justify-center py-8">
-          {isLoading ? (
-            <div className="space-y-3 w-full">
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-10 w-32 mx-auto" />
-            </div>
-          ) : (
-            <>
-              <div className="text-center mb-6">
-                <p className="text-muted-foreground mb-3">
-                  You don't have a virtual account yet. Create one to easily fund your wallet from any bank.
-                </p>
-              </div>
-              <Button 
-                onClick={handleCreateAccount} 
-                className="flex items-center gap-2"
-              >
-                <Plus size={16} />
-                Create Virtual Account
-              </Button>
-              
-              {/* BVN/NIN Input Dialog */}
-              <Dialog open={showIdForm} onOpenChange={setShowIdForm}>
-                <IdFormDialog 
-                  form={form}
-                  onSubmit={onSubmitIdForm}
-                  isLoading={isLoading}
-                  onClose={() => setShowIdForm(false)}
-                />
-              </Dialog>
-            </>
-          )}
-        </CardContent>
-      </Card>
-    );
-  }
-  
-  // Display account details
+  const handleCopyAccountNumber = () => {
+    if (reservedAccount?.accountNumber) {
+      navigator.clipboard.writeText(reservedAccount.accountNumber)
+        .then(() => {
+          setCopySuccess(true);
+          toast.success('Account number copied!');
+          setTimeout(() => setCopySuccess(false), 2000);
+        })
+        .catch(() => {
+          toast.error('Failed to copy account number');
+        });
+    }
+  };
+
+  const handleRequestAccount = () => {
+    setShowIdForm(true);
+  };
+
+  const handleRefreshAccount = () => {
+    refreshReservedAccount();
+    toast.success('Refreshing account information...');
+  };
+
+  const handleIdSubmission = (data: IdFormData) => {
+    requestReservedAccount(data.idType, data.idNumber);
+    setShowIdForm(false);
+  };
+
+  // Configure the form with the correct type
+  const form = useForm<IdFormData>({
+    defaultValues: {
+      idType: "bvn",
+      idNumber: ""
+    }
+  });
+
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-start justify-between pb-2">
-        <div>
-          <CardTitle>Virtual Account</CardTitle>
-          <CardDescription>
-            Fund your wallet directly from any bank
-          </CardDescription>
-        </div>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={handleRefresh} 
-          disabled={isLoading}
-          className="h-8 w-8"
-        >
-          <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
-        </Button>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="space-y-3">
-            <Skeleton className="h-6 w-48" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-6 w-36" />
-            <Skeleton className="h-10 w-full" />
+    <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+      <div className="flex flex-col space-y-1.5 p-6">
+        <h3 className="text-2xl font-semibold leading-none tracking-tight">Reserved Account</h3>
+        <p className="text-sm text-muted-foreground">Your dedicated account for deposits</p>
+      </div>
+      <div className="p-6 pt-0">
+        {error ? (
+          <div className="flex flex-col items-center justify-center text-center py-6">
+            <AlertTriangle className="h-12 w-12 text-amber-500 mb-2" />
+            <h3 className="font-medium text-lg mb-1">Account Unavailable</h3>
+            <p className="text-sm text-muted-foreground mb-4">{error}</p>
+            <Button onClick={handleRequestAccount}>
+              <Plus className="mr-2 h-4 w-4" />
+              Set Up Account
+            </Button>
+          </div>
+        ) : loading ? (
+          <div className="flex flex-col items-center justify-center py-6">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
+            <p className="text-sm text-muted-foreground">Loading your account information...</p>
+          </div>
+        ) : reservedAccount ? (
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <Label className="text-sm font-medium">Account Name</Label>
+                <p className="text-md font-medium">{reservedAccount.accountName}</p>
+              </div>
+              <Button variant="outline" size="icon" onClick={handleRefreshAccount} title="Refresh Account">
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-sm font-medium">Account Number</Label>
+              <div className="flex justify-between items-center">
+                <p className="text-xl font-mono font-bold">{reservedAccount.accountNumber}</p>
+                <Button variant="outline" size="sm" onClick={handleCopyAccountNumber}>
+                  {copySuccess ? 'Copied!' : 'Copy'}
+                  <Copy className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-sm font-medium">Bank Name</Label>
+              <p className="text-md">{reservedAccount.bankName}</p>
+            </div>
+
+            <div className="pt-2 text-sm">
+              <p className="text-muted-foreground">
+                Funds deposited to this account will appear in your wallet balance within minutes.
+              </p>
+            </div>
           </div>
         ) : (
-          <div className="space-y-4">
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-sm font-medium text-muted-foreground">Account Number</label>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => copyToClipboard(accountDetails.accountNumber, "Account number")}
-                  className="h-6 px-2"
-                >
-                  <Clipboard size={14} />
-                </Button>
-              </div>
-              <div className="font-mono text-xl bg-muted/50 rounded-md py-2 px-3 flex items-center justify-between">
-                {accountDetails.accountNumber || (accountDetails.accounts && accountDetails.accounts.length > 0 
-                  ? accountDetails.accounts[0].accountNumber 
-                  : "Pending...")}
-              </div>
+          <div className="flex flex-col items-center justify-center text-center py-6">
+            <div className="bg-muted h-12 w-12 rounded-full flex items-center justify-center mb-4">
+              <Plus className="h-6 w-6 text-muted-foreground" />
             </div>
-            
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-sm font-medium text-muted-foreground">Bank Name</label>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => copyToClipboard(accountDetails.bankName, "Bank name")}
-                  className="h-6 px-2"
-                >
-                  <Clipboard size={14} />
-                </Button>
-              </div>
-              <div className="font-medium text-lg bg-muted/50 rounded-md py-2 px-3">
-                {accountDetails.bankName || (accountDetails.accounts && accountDetails.accounts.length > 0 
-                  ? accountDetails.accounts[0].bankName 
-                  : "Pending...")}
-              </div>
-            </div>
-            
-            <div className="pt-1">
-              <label className="text-sm font-medium text-muted-foreground block mb-1">Account Name</label>
-              <div className="font-medium text-lg">
-                {accountDetails.accountName || "Pending..."}
-              </div>
-            </div>
-            
-            <div className="flex gap-2">
-              {!showFullDetails && accountDetails.accounts && accountDetails.accounts.length > 1 && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="flex-1 mt-2" 
-                  onClick={() => setShowFullDetails(true)}
-                >
-                  Show All Bank Accounts
-                </Button>
-              )}
-            </div>
-            
-            <Dialog open={showFullDetails} onOpenChange={setShowFullDetails}>
-              <AccountDetailsList 
-                accounts={accountDetails.accounts || []} 
-                onClose={() => setShowFullDetails(false)} 
-              />
-            </Dialog>
-            
-            <p className="text-sm text-muted-foreground mt-2">
-              Transfer to this account from any bank and your wallet will be credited automatically.
-            </p>
+            <h3 className="font-medium text-lg mb-1">No Reserved Account</h3>
+            <p className="text-sm text-muted-foreground mb-4">Set up a dedicated account for easy deposits</p>
+            <Button onClick={handleRequestAccount}>
+              <Plus className="mr-2 h-4 w-4" />
+              Set Up Account
+            </Button>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+
+      <IdFormDialog 
+        open={showIdForm} 
+        onOpenChange={setShowIdForm}
+        onSubmit={handleIdSubmission}
+        form={form}
+      />
+    </div>
   );
 };
 
