@@ -315,14 +315,17 @@ export const initiateAsyncTransfer = async (data: {
     
     console.log("Sending async transfer request...");
     
-    // Make the API call
+    // Make the API call using production credentials
     const response = await fetch(`${BASE_URL}/api/v2/disbursements/single`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(data)
+      body: JSON.stringify({
+        ...data,
+        contractCode: "465595618981" // Add the contract code you provided
+      })
     });
     
     const responseText = await response.text();
