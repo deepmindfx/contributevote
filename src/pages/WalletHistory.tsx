@@ -91,13 +91,13 @@ const WalletHistory = () => {
             </Button>
           </div>
           
-          {/* Currency Toggle - Updated with Switch component */}
+          {/* Currency Toggle - Fixed to work correctly */}
           <div className="flex items-center bg-green-600/30 dark:bg-green-600/50 rounded-full px-3 py-1.5">
             <span className={`text-xs ${currencyType === 'NGN' ? 'text-foreground' : 'text-muted-foreground'}`}>NGN</span>
             <Switch 
-              className="mx-1.5 data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-green-500"
               checked={currencyType === "USD"}
-              onCheckedChange={() => toggleCurrency()}
+              onCheckedChange={toggleCurrency}
+              className="mx-1.5 data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-green-500"
             />
             <span className={`text-xs ${currencyType === 'USD' ? 'text-foreground' : 'text-muted-foreground'}`}>USD</span>
           </div>

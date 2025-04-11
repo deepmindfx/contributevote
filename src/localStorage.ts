@@ -1,21 +1,6 @@
 
-// Import the functions from the correct source
-import { 
-  getCurrentUser, 
-  getUsers,
-  markNotificationAsRead,
-  markAllNotificationsAsRead,
-  hasContributed
-} from "@/services/localStorage";
-
-// Export them again to maintain compatibility
-export {
-  getCurrentUser,
-  getUsers,
-  markNotificationAsRead,
-  markAllNotificationsAsRead,
-  hasContributed
-};
+// First import any required functions from the original file to fix the errors
+import { getCurrentUser, getUsers } from "@/services/localStorage";
 
 // Add the missing function to localStorage.ts
 export const verifyUserWithOTP = (userId: string): void => {
@@ -28,7 +13,7 @@ export const verifyUserWithOTP = (userId: string): void => {
     
     // If this is the current user, update that too
     const currentUser = getCurrentUser();
-    if (currentUser && currentUser.id === userId) {
+    if (currentUser.id === userId) {
       currentUser.verified = true;
       localStorage.setItem('currentUser', JSON.stringify(currentUser));
     }

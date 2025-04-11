@@ -1,15 +1,16 @@
-import { useState, useEffect } from "react";
+
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
-import { PlusCircle, ArrowDown, SendHorizontal, UserPlus, Clock, Eye, EyeOff, DollarSign, Building, RefreshCw } from "lucide-react";
+import { PlusCircle, ArrowDown, Wallet, SendHorizontal, UserPlus, Clock, Eye, EyeOff, DollarSign } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { updateUserBalance } from "@/services/localStorage";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { monnifyAPI } from "@/services/monnifyService";
 import { Switch } from "@/components/ui/switch";
 
 const WalletCard = () => {
@@ -21,94 +22,27 @@ const WalletCard = () => {
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [currencyType, setCurrencyType] = useState<"NGN" | "USD">("NGN");
-  const [virtualAccountTransactions, setVirtualAccountTransactions] = useState<any[]>([]);
   const {
     user,
     refreshData,
     isAdmin,
-    transactions,
-    getVirtualAccountTransactions
+    transactions
   } = useApp();
-
-  // Load virtual account transactions only once when component mounts
-  useEffect(() => {
-    if (user?.virtualAccount && !virtualAccountTransactions.length) {
-      fetchVirtualAccountTransactions();
-    }
-  }, [user?.id, user?.virtualAccount]); // Only depend on user ID and virtualAccount existence
-
-  const fetchVirtualAccountTransactions = async () => {
-    if (isLoading || !user?.virtualAccount) return;
-    
-    try {
-      setIsLoading(true);
-      if (getVirtualAccountTransactions) {
-        const transactions = await getVirtualAccountTransactions();
-        setVirtualAccountTransactions(transactions || []);
-      }
-    } catch (error) {
-      console.error("Error fetching virtual account transactions:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   // Toggle currency function
   const toggleCurrency = () => {
     setCurrencyType(prev => prev === "NGN" ? "USD" : "NGN");
   };
 
-  // Filter only the user's wallet-related transactions 
-  // Now merging local transactions with Monnify API transactions
-  const walletTransactions = (user ? [...(transactions || []).filter(t => 
-    t.userId === user.id && (t.contributionId === "" || t.type === "deposit" || t.type === "withdrawal")
-  ).map(t => ({
-    ...t,
-    source: 'local'
-  })), 
-  ...virtualAccountTransactions.map(t => ({
-    id: t.id,
-    userId: user.id,
-    contributionId: '',
-    type: t.paymentStatus === 'PAID' ? 'deposit' : 'withdrawal',
-    amount: t.amount,
-    description: `Via ${t.paymentMethod || 'Monnify'} (${t.paymentReference})`,
-    createdAt: t.createdOn || t.paidOn,
-    status: t.paymentStatus === 'PAID' ? 'completed' : 'pending',
-    source: 'monnify'
-  }))].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5) : []);
+  // Filter only the user's wallet-related transactions
+  const walletTransactions = transactions.filter(t => t.userId === user.id && (t.contributionId === "" || t.type === "deposit" || t.type === "withdrawal")).slice(0, 5);
   
-  const refreshBalance = async () => {
-    if (isLoading) return;
-    
+  const refreshBalance = () => {
     setIsLoading(true);
-    
-    try {
-      // First refresh the transactions to ensure we have the latest data
-      await fetchVirtualAccountTransactions();
-      
-      // If user has a virtual account, get the wallet balance directly
-      if (user?.virtualAccount) {
-        // Get account reference
-        const accountRef = `user_${user.id}`;
-        
-        // Get wallet balance from Monnify
-        const balance = await monnifyAPI.getWalletBalance(accountRef);
-        console.log("Wallet balance from Monnify:", balance);
-        
-        // Only refresh data if we got a balance value
-        if (balance >= 0) {
-          refreshData();
-        }
-      }
-      
-      toast.success("Balance updated successfully");
-    } catch (error) {
-      console.error("Error refreshing balance:", error);
-      toast.error("Failed to update balance");
-    } finally {
+    setTimeout(() => {
+      refreshData();
       setIsLoading(false);
-    }
+    }, 1000);
   };
   
   const handleDeposit = () => {
@@ -116,32 +50,27 @@ const WalletCard = () => {
       toast.error("Please enter a valid amount");
       return;
     }
-    
-    // For deposits, we'll redirect to the virtual account page
-    // since deposits should come through the virtual account
+    updateUserBalance(Number(amount));
+    refreshData();
     setAmount("");
     setIsDepositOpen(false);
-    navigate('/virtual-account');
-    toast.info("Please use your virtual account for deposits");
+    toast.success(`Successfully deposited ${currencyType === "NGN" ? "₦" : "$"}${Number(amount).toLocaleString()}`);
   };
   
-  const handleWithdraw = async () => {
+  const handleWithdraw = () => {
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       toast.error("Please enter a valid amount");
       return;
     }
-    if (!user || Number(amount) > user.walletBalance) {
+    if (Number(amount) > user.walletBalance) {
       toast.error("Insufficient funds in your wallet");
       return;
     }
-    
-    // For withdrawals, we'll use the Monnify API (through the context)
+    updateUserBalance(-Number(amount));
+    refreshData();
+    setAmount("");
     setIsWithdrawOpen(false);
-    
-    // In a real implementation, we would collect banking details
-    // For now we'll just show a toast explaining limitations
-    toast.info("To withdraw funds, please visit the account page to enter your banking details");
-    navigate('/virtual-account');
+    toast.success(`Successfully withdrew ${currencyType === "NGN" ? "₦" : "$"}${Number(amount).toLocaleString()}`);
   };
   
   const formatDate = (dateString: string) => {
@@ -159,8 +88,6 @@ const WalletCard = () => {
 
   // Format the balance based on selected currency
   const getFormattedBalance = () => {
-    if (!user) return currencyType === "NGN" ? "₦0" : "$0.00";
-    
     const balance = user.walletBalance || 0;
     if (currencyType === "NGN") {
       return `₦${balance.toLocaleString()}`;
@@ -170,42 +97,27 @@ const WalletCard = () => {
     }
   };
 
-  if (!user) {
-    return (
-      <Card className="overflow-hidden rounded-3xl border-0">
-        <div className="p-6 text-white relative overflow-hidden bg-[#2DAE75]">
-          <div className="relative z-10 mx-0 my-[5px]">
-            <div className="flex justify-between items-center mb-1 my-[6px]">
-              <p className="text-base font-medium text-white/80 mb-0 py-[2px]">Available Balance</p>
-            </div>
-            <h2 className="text-3xl font-bold tracking-tight">₦0</h2>
-          </div>
-        </div>
-        <CardContent className="p-4 text-center">
-          <p>Loading wallet information...</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  
   return (
-    <Card className="overflow-hidden rounded-3xl border-0">
-      <div className="p-6 text-white relative overflow-hidden bg-[#2DAE75]">
-        {/* Currency toggle - Fixed with Switch component */}
+    <Card className="overflow-hidden rounded-3xl border-0 shadow-none">
+      <div className="wallet-gradient p-6 text-white relative overflow-hidden bg-[#2DAE75]">
+        {/* Large circle decorations */}
+        <div className="absolute -top-24 -right-24 w-60 h-60 rounded-full border border-white/10 opacity-20"></div>
+        <div className="absolute -bottom-24 -left-24 w-60 h-60 rounded-full border border-white/10 opacity-20"></div>
+        
+        {/* Currency toggle - Updated to match reference image */}
         <div className="absolute top-5 right-5 flex items-center bg-green-600/50 rounded-full px-3 py-1.5">
           <span className={`text-xs ${currencyType === 'NGN' ? 'text-white' : 'text-white/60'}`}>NGN</span>
           <Switch 
-            className="mx-1.5 data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-green-500"
-            checked={currencyType === "USD"}
-            onCheckedChange={() => toggleCurrency()}
+            checked={currencyType === "USD"} 
+            onCheckedChange={toggleCurrency} 
+            className="mx-1.5 data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-green-500" 
           />
           <span className={`text-xs ${currencyType === 'USD' ? 'text-white' : 'text-white/60'}`}>USD</span>
         </div>
         
         <div className="relative z-10 mx-0 my-[5px]">
           <div className="flex justify-between items-center mb-1 my-[6px]">
-            <p className="text-base font-medium text-white/80 mb-0 py-[2px]">Available Balance</p>
+            <p className="text-sm font-medium text-white/80 mb-0 py-[2px]">Available Balance</p>
           </div>
           
           <div className="flex items-center justify-between">
@@ -218,7 +130,6 @@ const WalletCard = () => {
           </div>
         </div>
       </div>
-      
       
       <CardContent className="p-0">
         {!showHistory ? (
@@ -237,19 +148,23 @@ const WalletCard = () => {
                   <DialogHeader>
                     <DialogTitle>Deposit Funds</DialogTitle>
                     <DialogDescription>
-                      Add money to your wallet using your virtual account. You can view your account details on the Account page.
+                      Add money to your wallet. Enter the amount you want to deposit.
                     </DialogDescription>
                   </DialogHeader>
-                  <div className="space-y-2 py-4">
-                    <Button className="w-full" onClick={() => {
-                      setIsDepositOpen(false);
-                      navigate('/virtual-account');
-                    }}>
-                      View Account Details
-                    </Button>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="deposit-amount">Amount ({currencyType})</Label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-2.5 text-muted-foreground">
+                          {currencyType === "NGN" ? "₦" : "$"}
+                        </span>
+                        <Input id="deposit-amount" type="number" className="pl-8" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} />
+                      </div>
+                    </div>
                   </div>
                   <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsDepositOpen(false)}>Close</Button>
+                    <Button variant="outline" onClick={() => setIsDepositOpen(false)}>Cancel</Button>
+                    <Button onClick={handleDeposit}>Deposit</Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
@@ -289,11 +204,11 @@ const WalletCard = () => {
               </Dialog>
               
               <div className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors">
-                <Link to="/virtual-account" className="flex flex-col items-center">
+                <Link to="/create-group" className="flex flex-col items-center">
                   <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-[#2DAE75] mb-1">
-                    <Building size={20} />
+                    <UserPlus size={20} />
                   </div>
-                  <span className="text-xs">Account</span>
+                  <span className="text-xs">Group</span>
                 </Link>
               </div>
               

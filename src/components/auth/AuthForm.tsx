@@ -9,15 +9,12 @@ import { LogIn, Mail, Phone, User, Key, Lock } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { v4 as uuidv4 } from 'uuid';
 import { useApp } from "@/contexts/AppContext";
-
 const AuthForm = () => {
   const [isLoading, setIsLoading] = useState(false);
-  
   const [loginData, setLoginData] = useState({
     phone: "",
     password: ""
   });
-  
   const [registerData, setRegisterData] = useState({
     firstName: "",
     lastName: "",
@@ -25,31 +22,37 @@ const AuthForm = () => {
     email: "",
     password: ""
   });
-  
   const navigate = useNavigate();
   const location = useLocation();
-  const { refreshData } = useApp();
+  const {
+    refreshData
+  } = useApp();
 
   // Get return URL if user was redirected from a protected page
-  const { state } = location;
+  const {
+    state
+  } = location;
   const returnUrl = state?.returnUrl || "/dashboard";
-  
   const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
+    const {
+      name,
+      value
+    } = e.target;
     setLoginData(prev => ({
       ...prev,
       [name]: value
     }));
   };
-  
   const handleRegisterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
+    const {
+      name,
+      value
+    } = e.target;
     setRegisterData(prev => ({
       ...prev,
       [name]: value
     }));
   };
-  
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -63,7 +66,7 @@ const AuthForm = () => {
 
     // For regular users - check if user exists
     const users = JSON.parse(localStorage.getItem('users') || '[]');
-    const foundUser = users.find((u: any) => u.phone === loginData.phone || u.email === loginData.phone);
+    const foundUser = users.find((u: any) => u.phoneNumber === loginData.phone || u.email === loginData.phone);
     if (!foundUser) {
       toast.error("User not found. Please check your credentials or register.");
       setIsLoading(false);
@@ -85,7 +88,6 @@ const AuthForm = () => {
       navigate(returnUrl);
     }, 500);
   };
-  
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -97,7 +99,8 @@ const AuthForm = () => {
       return;
     }
 
-    try {
+    // For demonstration purposes - simulate registration
+    setTimeout(() => {
       // Store new user in localStorage
       const fullName = `${registerData.firstName} ${registerData.lastName}`;
       const user = {
@@ -106,18 +109,17 @@ const AuthForm = () => {
         lastName: registerData.lastName,
         name: fullName,
         email: registerData.email,
-        phone: registerData.phone,
+        phoneNumber: registerData.phone,
         walletBalance: 0,
         preferences: {
           anonymousContributions: false,
-          darkMode: false
+          darkMode: false,
+          notificationsEnabled: true
         },
-        notifications: [], // Initialize with empty notifications
+        notifications: [],
         role: "user" as const,
         status: "active" as const,
-        createdAt: new Date().toISOString(),
-        // Set verified to true by default since we're removing OTP verification
-        verified: true
+        createdAt: new Date().toISOString()
       };
 
       // Add to users array
@@ -128,38 +130,18 @@ const AuthForm = () => {
       // Set as current user
       localStorage.setItem('currentUser', JSON.stringify(user));
 
-      // Make sure to initialize empty contributions and transactions if they don't exist
-      if (!localStorage.getItem('contributions')) {
-        localStorage.setItem('contributions', JSON.stringify([]));
-      }
-      
-      if (!localStorage.getItem('transactions')) {
-        localStorage.setItem('transactions', JSON.stringify([]));
-      }
-      
-      if (!localStorage.getItem('withdrawalRequests')) {
-        localStorage.setItem('withdrawalRequests', JSON.stringify([]));
-      }
-
       // Important: Refresh app context data after registration
       refreshData();
-      
       setIsLoading(false);
       toast.success("Account created successfully");
-      
-      // Navigate to dashboard after successful registration
+
+      // Navigate to returnUrl or dashboard
       setTimeout(() => {
         navigate("/dashboard");
       }, 500);
-    } catch (error) {
-      console.error("Registration error:", error);
-      toast.error("Failed to create account. Please try again.");
-      setIsLoading(false);
-    }
+    }, 1500);
   };
-  
-  return (
-    <Card className="w-full max-w-md mx-auto animate-scale glass-card">
+  return <Card className="w-full max-w-md mx-auto animate-scale glass-card">
       <Tabs defaultValue="login" className="w-full">
         <TabsList className="grid w-full grid-cols-2 mb-4">
           <TabsTrigger value="login">Login</TabsTrigger>
@@ -176,14 +158,14 @@ const AuthForm = () => {
               <div className="space-y-2">
                 <div className="relative">
                   <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Phone Number or Email" type="text" name="phone" className="pl-10" value={loginData.phone} onChange={handleLoginChange} required />
+                  <Input placeholder="Phone Number" type="tel" name="phone" className="pl-10" value={loginData.phone} onChange={handleLoginChange} required />
                 </div>
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input placeholder="Password" type="password" name="password" className="pl-10" value={loginData.password} onChange={handleLoginChange} required />
                 </div>
               </div>
-              <Button type="submit" disabled={isLoading} className="w-full text-white bg-[#2DAE75] hover:bg-[#259d68]">
+              <Button type="submit" disabled={isLoading} className="w-full text-white">
                 {isLoading ? <div className="flex items-center">
                     <div className="animate-spin mr-2 h-4 w-4 border-t-2 border-b-2 border-current rounded-full"></div>
                     Logging in...
@@ -258,7 +240,7 @@ const AuthForm = () => {
                   <Input placeholder="Create Password" type="password" name="password" className="pl-10" value={registerData.password} onChange={handleRegisterChange} required />
                 </div>
               </div>
-              <Button type="submit" className="w-full bg-[#2DAE75] hover:bg-[#259d68]" disabled={isLoading}>
+              <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? <div className="flex items-center">
                     <div className="animate-spin mr-2 h-4 w-4 border-t-2 border-b-2 border-current rounded-full"></div>
                     Creating account...
@@ -304,8 +286,6 @@ const AuthForm = () => {
           </CardFooter>
         </TabsContent>
       </Tabs>
-    </Card>
-  );
+    </Card>;
 };
-
 export default AuthForm;

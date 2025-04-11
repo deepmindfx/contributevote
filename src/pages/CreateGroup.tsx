@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import Header from "@/components/layout/Header";
 import MobileNav from "@/components/layout/MobileNav";
@@ -26,13 +25,12 @@ import { ArrowLeft, Users, Calendar, Check } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useApp } from "@/contexts/AppContext";
-import { toast } from "sonner";
 
 const CreateGroup = () => {
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { createNewContribution, refreshData } = useApp();
+  const { createNewContribution } = useApp();
   
   // Form state
   const [formData, setFormData] = useState({
@@ -85,20 +83,12 @@ const CreateGroup = () => {
       creatorId: '1', // Will be replaced by actual user id from context
     };
     
-    console.log("Creating new contribution with data:", contributionData);
-    
     // Create contribution
     createNewContribution(contributionData);
     
-    // Show toast notification
-    toast.success(`Group "${formData.name}" created successfully`);
-    
-    // Navigate to dashboard & refresh data to show new group
+    // Navigate to dashboard
     setTimeout(() => {
       setIsLoading(false);
-      if (refreshData) {
-        refreshData();
-      }
       navigate("/dashboard");
     }, 1000);
   };
@@ -204,7 +194,7 @@ const CreateGroup = () => {
                 <div className="space-y-2">
                   <Label htmlFor="category">Category</Label>
                   <Select 
-                    value={formData.category}
+                    defaultValue={formData.category}
                     onValueChange={(value) => handleChange('category', value)}
                   >
                     <SelectTrigger>
@@ -239,7 +229,7 @@ const CreateGroup = () => {
                 <div className="space-y-2">
                   <Label>Contribution Frequency</Label>
                   <RadioGroup 
-                    value={formData.frequency}
+                    defaultValue={formData.frequency}
                     onValueChange={(value) => handleChange('frequency', value)}
                   >
                     <div className="flex items-center space-x-2">
@@ -320,6 +310,7 @@ const CreateGroup = () => {
                     type="number" 
                     min="1" 
                     max="100" 
+                    defaultValue="70"
                     value={formData.votingThreshold}
                     onChange={(e) => handleChange('votingThreshold', Number(e.target.value))}
                   />
@@ -329,7 +320,7 @@ const CreateGroup = () => {
                 <div className="space-y-2">
                   <Label>Privacy</Label>
                   <RadioGroup 
-                    value={formData.privacy}
+                    defaultValue={formData.privacy}
                     onValueChange={(value) => handleChange('privacy', value)}
                   >
                     <div className="flex items-center space-x-2">
@@ -346,7 +337,7 @@ const CreateGroup = () => {
                 <div className="space-y-2">
                   <Label>Member Roles</Label>
                   <RadioGroup 
-                    value={formData.memberRoles}
+                    defaultValue={formData.memberRoles}
                     onValueChange={(value) => handleChange('memberRoles', value)}
                   >
                     <div className="flex items-center space-x-2">

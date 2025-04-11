@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
@@ -11,7 +12,8 @@ import {
   Bell, 
   Moon,
   Sun,
-  ShieldCheck
+  ShieldCheck,
+  LucideIcon
 } from "lucide-react";
 import { 
   NavigationMenu,
@@ -20,6 +22,7 @@ import {
   NavigationMenuLink,
   NavigationMenuList,
   NavigationMenuTrigger,
+  navigationMenuTriggerStyle
 } from "@/components/ui/navigation-menu";
 import {
   DropdownMenu,
@@ -96,8 +99,7 @@ const Header = () => {
     </Link>
   );
   
-  // Safely handle notifications
-  const unreadNotifications = user?.notifications?.filter(n => !n.read)?.length || 0;
+  const unreadNotifications = user?.notifications?.filter(n => !n.read).length || 0;
   
   return (
     <header 
@@ -199,9 +201,9 @@ const Header = () => {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Avatar className="h-8 w-8 cursor-pointer">
-                      <AvatarImage src={user?.profileImage} alt={user?.name || "User"} />
+                      <AvatarImage src={user.profileImage} alt={user.name} />
                       <AvatarFallback>
-                        {user?.firstName?.charAt(0) || ""}{user?.lastName?.charAt(0) || ""}
+                        {user.firstName?.charAt(0)}{user.lastName?.charAt(0) || ""}
                       </AvatarFallback>
                     </Avatar>
                   </DropdownMenuTrigger>
@@ -246,7 +248,7 @@ const Header = () => {
             <>
               <NavLink href="/">Home</NavLink>
               <NavLink href="/auth">Login / Register</NavLink>
-              <NavLink href="/admin/auth">Admin Login</NavLink>
+              <NavLink href="/admin-login">Admin Login</NavLink>
             </>
           )}
         </div>
@@ -306,15 +308,15 @@ const Header = () => {
               <>
                 <div className="flex items-center space-x-3 p-3 bg-muted rounded-md">
                   <Avatar className="h-10 w-10">
-                    <AvatarImage src={user?.profileImage} alt={user?.name || "User"} />
+                    <AvatarImage src={user.profileImage} alt={user.name} />
                     <AvatarFallback>
-                      {user?.firstName?.charAt(0) || ""}{user?.lastName?.charAt(0) || ""}
+                      {user.firstName?.charAt(0)}{user.lastName?.charAt(0) || ""}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="font-medium">{user?.name || "User"}</p>
+                    <p className="font-medium">{user.name}</p>
                     <p className="text-sm text-muted-foreground">
-                      Balance: ₦{user?.walletBalance?.toLocaleString() || 0}
+                      Balance: ₦{user.walletBalance?.toLocaleString() || 0}
                     </p>
                   </div>
                 </div>
@@ -377,7 +379,7 @@ const Header = () => {
                 </Link>
                 
                 <Link 
-                  to="/admin/auth" 
+                  to="/admin-login" 
                   className="block p-3 rounded-md hover:bg-accent"
                 >
                   Admin Login
