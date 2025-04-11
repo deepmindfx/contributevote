@@ -6,15 +6,16 @@ export interface User {
   lastName?: string;
   name: string;
   email: string;
-  phone?: string;
+  phone?: string; // Changed from phoneNumber to phone
   profileImage?: string;
   walletBalance: number;
   role: 'user' | 'admin';
   createdAt: string;
-  updatedAt: string;
+  updatedAt?: string;
   preferences?: {
     darkMode: boolean;
     anonymousContributions: boolean;
+    notificationsEnabled?: boolean;
   };
   notifications?: Notification[];
   status: 'active' | 'paused';
@@ -146,7 +147,8 @@ export const registerUser = (user: Omit<User, 'id' | 'walletBalance' | 'role' | 
     updatedAt: new Date().toISOString(),
     preferences: {
       darkMode: false,
-      anonymousContributions: false
+      anonymousContributions: false,
+      notificationsEnabled: true
     },
     notifications: [],
     status: 'active',
@@ -824,4 +826,19 @@ export const generateContributionReceipt = (transactionId: string): any => {
     contributorName: user.name,
     amount: transaction.amount
   };
+};
+
+// Make sure validateDate function exists
+import { isValid } from "date-fns";
+
+export const validateDate = (dateString: string): boolean => {
+  if (!dateString) return false;
+  
+  try {
+    const date = new Date(dateString);
+    return isValid(date);
+  } catch (error) {
+    console.error("Error validating date:", error);
+    return false;
+  }
 };

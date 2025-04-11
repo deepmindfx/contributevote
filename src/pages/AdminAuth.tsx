@@ -30,7 +30,9 @@ const AdminAuth = () => {
     }
     
     // Check admin credentials
-    if (loginData.username === "admin" && loginData.password === "1234") {
+    // Updated admin credentials
+    if ((loginData.username === "admin" && loginData.password === "admin123") || 
+        (loginData.username === "superadmin" && loginData.password === "superadmin123")) {
       // Admin login successful
       const adminUser = {
         id: "admin-user-id",
@@ -38,7 +40,7 @@ const AdminAuth = () => {
         lastName: "User",
         name: "Admin User",
         email: "admin@collectipay.com",
-        phoneNumber: "admin",
+        phone: "admin", // Changed from phoneNumber to phone to match User interface
         walletBalance: 0,
         preferences: {
           anonymousContributions: false,
@@ -49,6 +51,7 @@ const AdminAuth = () => {
         role: "admin" as const,
         status: "active" as const,
         createdAt: new Date().toISOString(),
+        verified: true, // Add verified property to match User interface
       };
       
       localStorage.setItem('currentUser', JSON.stringify(adminUser));

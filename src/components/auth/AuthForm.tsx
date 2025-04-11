@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +10,7 @@ import { LogIn, Mail, Phone, User, Key, Lock } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { v4 as uuidv4 } from 'uuid';
 import { useApp } from "@/contexts/AppContext";
+
 const AuthForm = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [loginData, setLoginData] = useState({
@@ -33,6 +35,7 @@ const AuthForm = () => {
     state
   } = location;
   const returnUrl = state?.returnUrl || "/dashboard";
+  
   const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const {
       name,
@@ -43,6 +46,7 @@ const AuthForm = () => {
       [name]: value
     }));
   };
+  
   const handleRegisterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const {
       name,
@@ -53,6 +57,7 @@ const AuthForm = () => {
       [name]: value
     }));
   };
+  
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -66,7 +71,7 @@ const AuthForm = () => {
 
     // For regular users - check if user exists
     const users = JSON.parse(localStorage.getItem('users') || '[]');
-    const foundUser = users.find((u: any) => u.phoneNumber === loginData.phone || u.email === loginData.phone);
+    const foundUser = users.find((u: any) => u.phone === loginData.phone || u.email === loginData.phone);
     if (!foundUser) {
       toast.error("User not found. Please check your credentials or register.");
       setIsLoading(false);
@@ -88,6 +93,7 @@ const AuthForm = () => {
       navigate(returnUrl);
     }, 500);
   };
+  
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -109,7 +115,7 @@ const AuthForm = () => {
         lastName: registerData.lastName,
         name: fullName,
         email: registerData.email,
-        phoneNumber: registerData.phone,
+        phone: registerData.phone, // Changed from phoneNumber to phone to match User interface
         walletBalance: 0,
         preferences: {
           anonymousContributions: false,
@@ -119,7 +125,8 @@ const AuthForm = () => {
         notifications: [],
         role: "user" as const,
         status: "active" as const,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        verified: false // Add verified property
       };
 
       // Add to users array
@@ -141,6 +148,7 @@ const AuthForm = () => {
       }, 500);
     }, 1500);
   };
+  
   return <Card className="w-full max-w-md mx-auto animate-scale glass-card">
       <Tabs defaultValue="login" className="w-full">
         <TabsList className="grid w-full grid-cols-2 mb-4">
@@ -158,7 +166,7 @@ const AuthForm = () => {
               <div className="space-y-2">
                 <div className="relative">
                   <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Phone Number" type="tel" name="phone" className="pl-10" value={loginData.phone} onChange={handleLoginChange} required />
+                  <Input placeholder="Phone Number or Email" type="text" name="phone" className="pl-10" value={loginData.phone} onChange={handleLoginChange} required />
                 </div>
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -288,4 +296,5 @@ const AuthForm = () => {
       </Tabs>
     </Card>;
 };
+
 export default AuthForm;
