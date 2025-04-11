@@ -79,7 +79,8 @@ export const sendMoneyToBank = async (request: BankTransferRequest): Promise<Tra
       destinationBankCode: request.destinationBankCode,
       destinationAccountNumber: request.destinationAccountNumber,
       currency: "NGN",
-      sourceAccountNumber: currentUser.reservedAccount.accountNumber
+      sourceAccountNumber: currentUser.reservedAccount.accountNumber,
+      async: true
     };
     
     // Initiate the async transfer
@@ -88,7 +89,7 @@ export const sendMoneyToBank = async (request: BankTransferRequest): Promise<Tra
     if (!result.requestSuccessful) {
       return {
         success: false,
-        message: result.message || "Failed to process transfer"
+        message: result.responseMessage || "Failed to process transfer"
       };
     }
     

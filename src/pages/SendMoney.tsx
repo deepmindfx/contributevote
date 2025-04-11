@@ -31,12 +31,15 @@ import {
   DialogTitle 
 } from "@/components/ui/dialog";
 
-// Nigerian banks list (simplified)
+// Nigerian banks list (expanded)
 const NIGERIAN_BANKS = [
   { code: "044", name: "Access Bank" },
   { code: "063", name: "Access Bank (Diamond)" },
   { code: "035A", name: "ALAT by WEMA" },
   { code: "401", name: "ASO Savings and Loans" },
+  { code: "50931", name: "Bowen Microfinance Bank" },
+  { code: "50823", name: "CEMCS Microfinance Bank" },
+  { code: "023", name: "Citibank Nigeria" },
   { code: "050", name: "Ecobank Nigeria" },
   { code: "562", name: "Ekondo Microfinance Bank" },
   { code: "070", name: "Fidelity Bank" },
@@ -46,6 +49,10 @@ const NIGERIAN_BANKS = [
   { code: "030", name: "Heritage Bank" },
   { code: "301", name: "Jaiz Bank" },
   { code: "082", name: "Keystone Bank" },
+  { code: "50211", name: "Kuda Bank" },
+  { code: "90052", name: "Moniepoint Microfinance Bank" },
+  { code: "100002", name: "Opay" },
+  { code: "100003", name: "Palmpay" },
   { code: "526", name: "Parallex Bank" },
   { code: "076", name: "Polaris Bank" },
   { code: "101", name: "Providus Bank" },
@@ -163,7 +170,7 @@ const SendMoney = () => {
         {!hasVirtualAccount ? (
           <Card className="mb-6">
             <CardContent className="p-6">
-              <Alert variant="warning">
+              <Alert>
                 <Building className="h-4 w-4" />
                 <AlertTitle>Virtual Account Required</AlertTitle>
                 <AlertDescription>

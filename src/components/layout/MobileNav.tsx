@@ -31,11 +31,6 @@ const MobileNav = () => {
     navigate(-1);
   };
 
-  // Ensure each route exists and can be navigated to properly
-  const handleNavigation = (path: string) => {
-    navigate(path);
-  };
-
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-background border-t z-50 md:hidden">
       {showBackButton ? (

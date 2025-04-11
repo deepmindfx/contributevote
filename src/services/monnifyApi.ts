@@ -295,6 +295,7 @@ export const initiateAsyncTransfer = async (data: {
   destinationAccountNumber: string;
   currency: string;
   sourceAccountNumber: string;
+  async: boolean;
 }) => {
   try {
     console.log("Initiating async transfer with data:", data);
@@ -310,12 +311,6 @@ export const initiateAsyncTransfer = async (data: {
       };
     }
     
-    // Add async flag to the data
-    const transferData = {
-      ...data,
-      async: true
-    };
-    
     console.log("Sending async transfer request...");
     const response = await fetch(`${BASE_URL}/api/v2/disbursements/single`, {
       method: 'POST',
@@ -323,7 +318,7 @@ export const initiateAsyncTransfer = async (data: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(transferData)
+      body: JSON.stringify(data)
     });
     
     const responseData = await response.json();
