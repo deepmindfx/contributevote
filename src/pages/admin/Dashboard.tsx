@@ -13,15 +13,11 @@ import {
   BarChart3, 
   Settings, 
   FileText, 
-  AlertCircle, 
   Search, 
   Plus, 
   Play,
   Pause,
   ChevronRight,
-  BadgeAlert,
-  ShieldX,
-  ShieldCheck,
   MessageSquareWarning,
   CalendarClock
 } from "lucide-react";
@@ -58,14 +54,13 @@ const AdminDashboard = () => {
 
   const filteredUsers = users.filter(u => 
     u.role !== 'admin' && 
-    (u.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-     u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (u.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+     u.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
      (u.phone && u.phone.includes(searchQuery)))
   );
 
   const activeUsers = users.filter(u => u.role !== 'admin' && u.status === 'active').length;
   const pausedUsers = users.filter(u => u.role !== 'admin' && u.status === 'paused').length;
-  const verifiedUsers = users.filter(u => u.role !== 'admin' && u.verified).length;
 
   const handleDeposit = () => {
     if (!selectedUser) return;
@@ -171,7 +166,7 @@ const AdminDashboard = () => {
                       <p className="text-sm text-muted-foreground">Contributions</p>
                       <h3 className="text-2xl font-bold">{safeStats.totalContributions}</h3>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Total: ₦{safeStats.totalAmountContributed.toLocaleString()}
+                        Total: ₦{safeStats.totalAmountContributed?.toLocaleString() || '0'}
                       </p>
                     </div>
                     <div className="bg-primary/10 p-2 rounded-full">
@@ -216,58 +211,14 @@ const AdminDashboard = () => {
               </Card>
             </div>
 
-            {/* User verification stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center">
-                    <div className="p-2 rounded-full bg-green-100 mr-4">
-                      <ShieldCheck className="h-5 w-5 text-green-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">Verified Users</p>
-                      <p className="text-2xl font-bold">{verifiedUsers}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center">
-                    <div className="p-2 rounded-full bg-yellow-100 mr-4">
-                      <BadgeAlert className="h-5 w-5 text-yellow-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">Unverified Users</p>
-                      <p className="text-2xl font-bold">{safeStats.totalUsers - verifiedUsers}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center">
-                    <div className="p-2 rounded-full bg-red-100 mr-4">
-                      <ShieldX className="h-5 w-5 text-red-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">Suspended Users</p>
-                      <p className="text-2xl font-bold">{pausedUsers}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
             {/* Main content tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="mb-6">
                 <TabsTrigger value="users">Users</TabsTrigger>
                 <TabsTrigger value="contributions">Contributions</TabsTrigger>
-                <TabsTrigger value="pending_requests">Pending Requests</TabsTrigger>
+                <TabsTrigger value="transactions">Transactions</TabsTrigger>
                 <TabsTrigger value="disputes">Disputes</TabsTrigger>
+                <TabsTrigger value="settings">Settings</TabsTrigger>
               </TabsList>
 
               <TabsContent value="users">
@@ -300,16 +251,11 @@ const AdminDashboard = () => {
                                 {user.profileImage ? (
                                   <AvatarImage src={user.profileImage} alt={user.name} />
                                 ) : (
-                                  <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                                  <AvatarFallback>{user.name?.charAt(0) || 'U'}</AvatarFallback>
                                 )}
                               </Avatar>
                               <div>
-                                <h4 className="font-medium flex items-center">
-                                  {user.name}
-                                  {user.verified && (
-                                    <Badge variant="outline" className="ml-2 bg-green-100 text-green-800 text-xs">Verified</Badge>
-                                  )}
-                                </h4>
+                                <h4 className="font-medium">{user.name}</h4>
                                 <p className="text-sm text-muted-foreground">{user.email}</p>
                                 {user.phone && (
                                   <p className="text-xs text-muted-foreground">{user.phone}</p>
@@ -373,21 +319,6 @@ const AdminDashboard = () => {
                                   )}
                                   {user.status === 'active' ? 'Pause' : 'Activate'}
                                 </Button>
-
-                                {!user.verified && (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => {
-                                      // Call the verifyUser function from useApp
-                                      const { verifyUser } = useApp();
-                                      verifyUser(user.id);
-                                    }}
-                                  >
-                                    <ShieldCheck className="h-4 w-4 mr-1" />
-                                    Verify
-                                  </Button>
-                                )}
                                 
                                 <Button variant="ghost" size="sm" asChild>
                                   <Link to={`/admin/users/${user.id}`}>
@@ -410,22 +341,46 @@ const AdminDashboard = () => {
                     <CardTitle>Contributions Management</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-center py-8 text-muted-foreground">
-                      <p>Contribution management features coming soon.</p>
+                    <div className="space-y-4">
+                      {/* Display real contributions data here */}
+                      {stats?.totalContributions ? (
+                        <div className="space-y-4">
+                          {/* We'll use real contribution data from the app context */}
+                          <p className="text-muted-foreground">Total contributions: {safeStats.totalContributions}</p>
+                          <p className="text-muted-foreground">Total amount contributed: ₦{safeStats.totalAmountContributed?.toLocaleString() || '0'}</p>
+                          
+                          {/* Additional contribution management functions would go here */}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <p>No contributions data available.</p>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
               </TabsContent>
 
-              <TabsContent value="pending_requests">
+              <TabsContent value="transactions">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Pending Withdrawal Requests</CardTitle>
+                    <CardTitle>Transactions Management</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-center py-8 text-muted-foreground">
-                      <p>There are currently {safeStats.activeRequests} pending withdrawal requests.</p>
-                      <p className="mt-2">Detailed view coming soon.</p>
+                    <div className="space-y-4">
+                      {/* Display real transactions data here */}
+                      {stats?.totalTransactions ? (
+                        <div className="space-y-4">
+                          <p className="text-muted-foreground">Total transactions: {safeStats.totalTransactions}</p>
+                          <p className="text-muted-foreground">Total withdrawals: {safeStats.totalWithdrawals}</p>
+                          
+                          {/* Additional transaction management functions would go here */}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <p>No transactions data available.</p>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -437,9 +392,65 @@ const AdminDashboard = () => {
                     <CardTitle>Dispute Management</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-center py-8 text-muted-foreground">
-                      <p>No active disputes at the moment.</p>
-                      <p className="mt-2">This section will show user disputes that require admin attention.</p>
+                    <div className="space-y-4">
+                      {/* Display real disputes data here if available */}
+                      <div className="text-center py-8 text-muted-foreground">
+                        <p>No active disputes at the moment.</p>
+                        <p className="mt-2">This section will show user disputes that require admin attention.</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="settings">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Admin Settings</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-6">
+                      <div>
+                        <h3 className="text-lg font-medium mb-2">System Settings</h3>
+                        <Separator className="mb-4" />
+                        
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="system-name">System Name</Label>
+                              <Input id="system-name" defaultValue="CollectiPay" />
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <Label htmlFor="admin-email">Admin Email</Label>
+                              <Input id="admin-email" defaultValue={user?.email || 'admin@collectipay.com'} />
+                            </div>
+                          </div>
+                          
+                          <Button>Save System Settings</Button>
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <h3 className="text-lg font-medium mb-2">Security Settings</h3>
+                        <Separator className="mb-4" />
+                        
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="current-password">Current Password</Label>
+                              <Input id="current-password" type="password" />
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <Label htmlFor="new-password">New Password</Label>
+                              <Input id="new-password" type="password" />
+                            </div>
+                          </div>
+                          
+                          <Button>Update Password</Button>
+                        </div>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
