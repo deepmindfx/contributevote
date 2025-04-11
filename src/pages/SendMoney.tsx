@@ -118,6 +118,7 @@ const SendMoney = () => {
     
     setIsLoading(true);
     setShowConfirmDialog(false);
+    setTransferError(null);
     
     try {
       console.log("Sending money with data:", {
@@ -148,7 +149,7 @@ const SendMoney = () => {
       }
     } catch (error) {
       console.error("Error processing transfer:", error);
-      setTransferError("An unexpected error occurred. Please try again.");
+      setTransferError("An unexpected error occurred. Please try again later.");
       toast.error("Failed to process transfer. Please try again.");
     } finally {
       setIsLoading(false);
@@ -209,7 +210,7 @@ const SendMoney = () => {
             {transferError && (
               <Alert variant="destructive" className="mb-6">
                 <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Error</AlertTitle>
+                <AlertTitle>Transfer Failed</AlertTitle>
                 <AlertDescription>
                   {transferError}
                 </AlertDescription>
