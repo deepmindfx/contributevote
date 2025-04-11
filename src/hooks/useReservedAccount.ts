@@ -4,7 +4,6 @@ import { useApp } from "@/contexts/AppContext";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { createReservedAccount, getReservedAccount } from "@/services/wallet/reservedAccountService";
-import { ReservedAccountData } from "@/services/wallet/types";
 import { IdFormData } from "@/components/wallet/ReservedAccount";
 
 export const useReservedAccount = () => {
