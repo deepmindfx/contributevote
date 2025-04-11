@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -23,6 +24,7 @@ import ActivityHistory from "./pages/ActivityHistory";
 import Votes from "./pages/Votes";
 import AllGroups from "./pages/AllGroups";
 import SendMoney from "./pages/SendMoney";
+import { updatePendingTransfers } from "@/utils/transferUtils";
 
 const queryClient = new QueryClient();
 
@@ -52,6 +54,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+// The routes component must be used inside an AppProvider context
 const AppRoutes = () => {
   const { user, isAdmin, isAuthenticated } = useApp();
   
@@ -63,6 +66,14 @@ const AppRoutes = () => {
       document.documentElement.classList.remove('dark');
     }
   }, [user?.preferences?.darkMode]);
+
+  // Check for pending transfers when app loads
+  useEffect(() => {
+    if (isAuthenticated) {
+      // Update any pending transfers when the app loads
+      updatePendingTransfers();
+    }
+  }, [isAuthenticated]);
   
   return (
     <Routes>
@@ -165,7 +176,9 @@ const App = () => {
           <Toaster />
           <Sonner />
           <BrowserRouter>
-            <AppRoutes />
+            <AppProvider>
+              <AppRoutes />
+            </AppProvider>
           </BrowserRouter>
         </TooltipProvider>
       </AppProvider>
