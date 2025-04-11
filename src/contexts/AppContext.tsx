@@ -116,7 +116,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const refreshData = () => {
     const currentUser = getCurrentUser();
-    setUser(currentUser);
+    // If you pass currentUser to setUser, you need to check if it's null
+    if (currentUser) {
+      setUser(currentUser);
+    } else {
+      // Handle case where user is not logged in
+      setUser({} as User);
+    }
     setUsers(getUsers());
     
     // Check if user is authenticated
@@ -351,20 +357,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
           // Add notification to the recipient
           addNotification({
             userId: recipientUser.id,
-            message: `${currentUser.name} shared "${contribution.name}" contribution with you`,
+            message: `${currentUser?.name} shared "${contribution.name}" contribution with you`,
             type: 'info',
             read: false,
             relatedId: contributionId,
           });
           
           // Add recipient to contribution members if not already there
-          if (!contribution.members.includes(recipientUser.id)) {
+          if (contribution.members && !contribution.members.includes(recipientUser.id)) {
             const contributions = getContributions();
             const contribIndex = contributions.findIndex(c => c.id === contributionId);
             
-            if (contribIndex >= 0) {
+            if (contribIndex >= 0 && contributions[contribIndex].members) {
               contributions[contribIndex].members.push(recipientUser.id);
-              localStorage.setItem('contributions', JSON.stringify(contributions));
+              localStorage.setItem(localStorageKeys.contributions, JSON.stringify(contributions));
             }
           }
         } else {
