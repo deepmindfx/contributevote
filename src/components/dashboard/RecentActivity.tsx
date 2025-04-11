@@ -103,7 +103,7 @@ const RecentActivity = () => {
   const [isLoading, setIsLoading] = useState(false);
   const hasInitiallyFetched = useRef(false);
   
-  // Fetch transactions when component mounts, but only once
+  // Fetch transactions only once when the component mounts
   useEffect(() => {
     const fetchData = async () => {
       if (user?.reservedAccount?.accountReference && !hasInitiallyFetched.current) {
@@ -123,8 +123,9 @@ const RecentActivity = () => {
     fetchData();
   }, [user?.reservedAccount, refreshData]);
   
-  // Format and sort transactions
+  // Format and sort transactions, filtering to only show the current user's transactions
   const formattedTransactions = transactions
+    .filter(transaction => transaction.userId === user?.id) // Only show current user's transactions
     .filter(transaction => transaction.createdAt) // Filter out transactions without createdAt
     .sort((a, b) => {
       try {

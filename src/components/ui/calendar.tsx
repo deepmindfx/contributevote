@@ -33,14 +33,22 @@ function Calendar({
     }
     // Handle range
     else if (safeProps.mode === 'range' && safeProps.selected !== null && typeof safeProps.selected === 'object') {
-      const range = safeProps.selected as { from?: Date | string, to?: Date | string };
-      if (range.from && (typeof range.from === 'string' || typeof range.from === 'number')) {
-        range.from = new Date(range.from);
+      const range = safeProps.selected as any;
+      const typedRange: { from?: Date, to?: Date } = {};
+      
+      if (range.from) {
+        typedRange.from = typeof range.from === 'string' || typeof range.from === 'number' 
+          ? new Date(range.from) 
+          : range.from;
       }
-      if (range.to && (typeof range.to === 'string' || typeof range.to === 'number')) {
-        range.to = new Date(range.to);
+      
+      if (range.to) {
+        typedRange.to = typeof range.to === 'string' || typeof range.to === 'number'
+          ? new Date(range.to)
+          : range.to;
       }
-      safeProps.selected = range;
+      
+      safeProps.selected = typedRange;
     }
   }
 
