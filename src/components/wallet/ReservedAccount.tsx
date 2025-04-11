@@ -9,6 +9,7 @@ import {
   getUserReservedAccount, 
   createUserReservedAccount, 
   ReservedAccountData,
+  getReservedAccountTransactions
 } from "@/services/walletIntegration";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -52,6 +53,11 @@ const ReservedAccount = () => {
     // Check if user already has a reserved account
     if (user?.reservedAccount) {
       setAccountDetails(user.reservedAccount);
+      
+      // If account details exist but the accountNumber or bankName is undefined, refresh account details
+      if (!user.reservedAccount.accountNumber || !user.reservedAccount.bankName) {
+        handleRefresh();
+      }
     }
   }, [user]);
   
@@ -77,6 +83,13 @@ const ReservedAccount = () => {
         console.log("Reserved account created:", result);
         setAccountDetails(result);
         refreshData();
+        
+        // Also fetch transactions after creating account
+        if (result.accountReference) {
+          await getReservedAccountTransactions(result.accountReference);
+          refreshData();
+        }
+        
         toast.success("Virtual account created successfully");
       }
     } catch (error) {
@@ -99,7 +112,14 @@ const ReservedAccount = () => {
       if (result) {
         console.log("Retrieved account details:", result);
         setAccountDetails(result);
+        
+        // Fetch transactions when refreshing account details
+        if (result.accountReference) {
+          await getReservedAccountTransactions(result.accountReference);
+        }
+        
         refreshData();
+        toast.success("Account details refreshed");
       }
     } catch (error) {
       console.error("Error refreshing reserved account:", error);
@@ -276,7 +296,9 @@ const ReservedAccount = () => {
                 </Button>
               </div>
               <div className="font-mono text-xl bg-muted/50 rounded-md py-2 px-3 flex items-center justify-between">
-                {accountDetails.accountNumber || "Pending..."}
+                {accountDetails.accountNumber || (accountDetails.accounts && accountDetails.accounts.length > 0 
+                  ? accountDetails.accounts[0].accountNumber 
+                  : "Pending...")}
               </div>
             </div>
             
@@ -293,7 +315,9 @@ const ReservedAccount = () => {
                 </Button>
               </div>
               <div className="font-medium text-lg bg-muted/50 rounded-md py-2 px-3">
-                {accountDetails.bankName || "Pending..."}
+                {accountDetails.bankName || (accountDetails.accounts && accountDetails.accounts.length > 0 
+                  ? accountDetails.accounts[0].bankName 
+                  : "Pending...")}
               </div>
             </div>
             

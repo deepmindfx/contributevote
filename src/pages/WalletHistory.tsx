@@ -11,7 +11,7 @@ import { useApp } from "@/contexts/AppContext";
 import { format } from "date-fns";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getReservedAccountTransactions } from "@/services/monnifyApi";
+import { getReservedAccountTransactions } from "@/services/walletIntegration";
 import { Skeleton } from "@/components/ui/skeleton";
 
 // Define interface for Monnify transaction
@@ -36,7 +36,7 @@ const WalletHistory = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"app" | "bank">("app");
   
-  // Fetch reserved account transactions on component mount
+  // Fetch reserved account transactions on component mount and when tab changes
   useEffect(() => {
     const fetchReservedAccountTransactions = async () => {
       if (user?.reservedAccount?.accountReference) {
@@ -45,6 +45,8 @@ const WalletHistory = () => {
           const result = await getReservedAccountTransactions(user.reservedAccount.accountReference);
           if (result && result.content) {
             setApiTransactions(result.content);
+            // After fetching transactions, refresh app data to update balances
+            refreshData();
           }
         } catch (error) {
           console.error("Error fetching reserved account transactions:", error);
@@ -57,7 +59,7 @@ const WalletHistory = () => {
     if (activeTab === "bank") {
       fetchReservedAccountTransactions();
     }
-  }, [user?.reservedAccount?.accountReference, activeTab]);
+  }, [user?.reservedAccount?.accountReference, activeTab, refreshData]);
   
   // Fixed toggle currency function
   const toggleCurrency = () => {
@@ -66,7 +68,7 @@ const WalletHistory = () => {
   
   // Filter transactions based on the current filter and only show user's transactions
   const filteredTransactions = transactions
-    .filter(t => t.userId === user.id)
+    .filter(t => t.userId === user?.id)
     .filter(t => filter === "all" || t.type === filter)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   
@@ -280,6 +282,12 @@ const WalletHistory = () => {
               ) : apiTransactions.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <p>No bank transactions found</p>
+                  <Button
+                    className="mt-4"
+                    onClick={() => getReservedAccountTransactions(user.reservedAccount.accountReference).then(() => refreshData())}
+                  >
+                    Refresh Transactions
+                  </Button>
                 </div>
               ) : (
                 <div className="space-y-4">

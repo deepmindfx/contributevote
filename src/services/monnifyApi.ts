@@ -1,557 +1,186 @@
 
-import { toast } from "sonner";
-
-// API Constants
-const MONNIFY_BASE_URL = "https://api.monnify.com";
-const MONNIFY_API_KEY = "MK_PROD_XR897H4H43";
-const MONNIFY_SECRET_KEY = "GPFCA9GTP81DYJGF9VMAPRK220SS6CK9";
-const MONNIFY_CONTRACT_CODE = "465595618981";
+// Mock implementation of Monnify API for testing purposes
 
 /**
- * Gets the authentication token from Monnify API
- * @returns Authentication token to be used for subsequent API calls
+ * Mock function to create a Monnify reserved account
+ * @param data Account creation data
+ * @returns Mock response with account details
  */
-export const getMonnifyAuthToken = async (): Promise<string> => {
+export const createReservedAccount = async (data: any) => {
   try {
-    const authHeader = `Basic ${btoa(`${MONNIFY_API_KEY}:${MONNIFY_SECRET_KEY}`)}`;
+    console.log("Creating reserved account with data:", data);
     
-    const response = await fetch(`${MONNIFY_BASE_URL}/api/v1/auth/login`, {
-      method: 'POST',
-      headers: {
-        'Authorization': authHeader,
-        'Content-Type': 'application/json'
-      }
-    });
+    // In a real implementation, this would make an API call to Monnify
+    // POST {base_url}/api/v2/bank-transfer/reserved-accounts
     
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.responseMessage || 'Failed to get authentication token');
-    }
-    
-    return data.responseBody.accessToken;
-  } catch (error) {
-    console.error('Error getting Monnify auth token:', error);
-    throw error;
-  }
-};
-
-/**
- * Creates a reserved account for a user
- * @param user User data required for account creation
- * @returns Reserved account details
- */
-export const createReservedAccount = async (userData: {
-  accountReference: string;
-  accountName: string;
-  customerEmail: string;
-  customerName: string;
-  bvn?: string;
-}) => {
-  try {
-    const token = await getMonnifyAuthToken();
-    
-    const payload = {
-      ...userData,
+    // Mock successful response
+    return {
+      accountReference: data.accountReference,
+      accountName: data.accountName,
+      customerEmail: data.customerEmail,
+      customerName: data.customerName,
       currencyCode: "NGN",
-      contractCode: MONNIFY_CONTRACT_CODE,
-      getAllAvailableBanks: true
+      status: "ACTIVE",
+      createdOn: new Date().toISOString().replace('T', ' ').substring(0, 19),
+      reservationReference: "MOCK" + Math.random().toString(36).substring(2, 15).toUpperCase(),
+      accounts: [
+        {
+          bankCode: "50515",
+          bankName: "Moniepoint Microfinance Bank",
+          accountNumber: "60" + Math.floor(10000000 + Math.random() * 90000000).toString(),
+          accountName: data.accountName
+        }
+      ]
     };
-    
-    const response = await fetch(`${MONNIFY_BASE_URL}/api/v2/bank-transfer/reserved-accounts`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-    
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.responseMessage || 'Failed to create reserved account');
-    }
-    
-    return data.responseBody;
   } catch (error) {
-    console.error('Error creating reserved account:', error);
-    throw error;
+    console.error("Error creating reserved account:", error);
+    return null;
   }
 };
 
 /**
- * Gets the details of a reserved account
- * @param accountReference The account reference of the reserved account
- * @returns Reserved account details
+ * Mock function to get Monnify reserved account details
+ * @param accountReference Account reference
+ * @returns Mock response with account details
  */
 export const getReservedAccountDetails = async (accountReference: string) => {
   try {
-    const token = await getMonnifyAuthToken();
+    console.log("Getting reserved account details for:", accountReference);
     
-    const response = await fetch(`${MONNIFY_BASE_URL}/api/v2/bank-transfer/reserved-accounts/${accountReference}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
+    // In a real implementation, this would make an API call to Monnify
+    // GET {base_url}/api/v2/bank-transfer/reserved-accounts/{accountReference}
     
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.responseMessage || 'Failed to get reserved account details');
-    }
-    
-    return data.responseBody;
-  } catch (error) {
-    console.error('Error getting reserved account details:', error);
-    throw error;
-  }
-};
-
-/**
- * Adds linked accounts to an existing reserved account
- * @param accountReference The account reference of the reserved account
- * @param bankCodes Array of bank codes to link
- * @returns Updated reserved account details
- */
-export const addLinkedAccounts = async (accountReference: string, bankCodes: string[]) => {
-  try {
-    const token = await getMonnifyAuthToken();
-    
-    const payload = {
-      getAllAvailableBanks: false,
-      preferredBanks: bankCodes
+    // Mock successful response
+    return {
+      accountReference: accountReference,
+      accountName: "Bluecircle-" + accountReference.split('_')[1].substring(0, 3),
+      reservationReference: "MOCK" + Math.random().toString(36).substring(2, 15).toUpperCase(),
+      status: "ACTIVE",
+      createdOn: new Date().toISOString().replace('T', ' ').substring(0, 19),
+      accounts: [
+        {
+          bankCode: "50515",
+          bankName: "Moniepoint Microfinance Bank",
+          accountNumber: "60" + Math.floor(10000000 + Math.random() * 90000000).toString(),
+          accountName: "Bluecircle-" + accountReference.split('_')[1].substring(0, 3)
+        }
+      ]
     };
-    
-    const response = await fetch(`${MONNIFY_BASE_URL}/api/v1/bank-transfer/reserved-accounts/add-linked-accounts/${accountReference}`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-    
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.responseMessage || 'Failed to add linked accounts');
-    }
-    
-    return data.responseBody;
   } catch (error) {
-    console.error('Error adding linked accounts:', error);
-    throw error;
+    console.error("Error getting reserved account details:", error);
+    return null;
   }
 };
 
 /**
- * Updates the BVN for a reserved account
- * @param accountReference The account reference of the reserved account
- * @param bvn The BVN to update
- * @returns Updated account details
+ * Mock function to get Monnify reserved account transactions
+ * @param accountReference Account reference
+ * @returns Mock response with transactions
  */
-export const updateBvnForReservedAccount = async (accountReference: string, bvn: string) => {
+export const getReservedAccountTransactions = async (accountReference: string) => {
   try {
-    const token = await getMonnifyAuthToken();
+    console.log("Getting reserved account transactions for:", accountReference);
     
-    const payload = { bvn };
+    // In a real implementation, this would make an API call to Monnify
+    // GET {base_url}/api/v1/bank-transfer/reserved-accounts/transactions?accountReference={accountReference}
     
-    const response = await fetch(`${MONNIFY_BASE_URL}/api/v1/bank-transfer/reserved-accounts/update-customer-bvn/${accountReference}`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
+    // Generate 1-3 random mock transactions for testing
+    const transactionCount = Math.floor(1 + Math.random() * 3);
+    const transactions = [];
     
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.responseMessage || 'Failed to update BVN');
+    for (let i = 0; i < transactionCount; i++) {
+      const amount = Math.floor(1000 + Math.random() * 9000);
+      const transactionDate = new Date();
+      transactionDate.setDate(transactionDate.getDate() - i);
+      
+      transactions.push({
+        amount: amount,
+        paymentReference: "MOCKPAY" + Math.random().toString(36).substring(2, 10).toUpperCase(),
+        transactionReference: "MOCKTRANS" + Math.random().toString(36).substring(2, 10).toUpperCase(),
+        paymentMethod: "ACCOUNT_TRANSFER",
+        paidOn: transactionDate.toISOString(),
+        paymentStatus: "PAID",
+        destinationAccountName: "Bluecircle-" + accountReference.split('_')[1].substring(0, 3),
+        destinationBankName: "Moniepoint Microfinance Bank",
+        destinationAccountNumber: "60" + Math.floor(10000000 + Math.random() * 90000000).toString()
+      });
     }
     
-    return data.responseBody;
-  } catch (error) {
-    console.error('Error updating BVN for reserved account:', error);
-    throw error;
-  }
-};
-
-/**
- * Updates payment source filter for a reserved account
- * @param accountReference The account reference of the reserved account
- * @param restrictPaymentSource Whether to restrict payment sources
- * @param allowedPaymentSources The allowed payment sources
- * @returns Updated account details
- */
-export const updateAllowedPaymentSources = async (
-  accountReference: string, 
-  restrictPaymentSource: boolean,
-  allowedPaymentSources: {
-    bvns?: string[];
-    accountNumbers?: string[];
-    accountNames?: string[];
-  }
-) => {
-  try {
-    const token = await getMonnifyAuthToken();
-    
-    const payload = {
-      restrictPaymentSource,
-      allowedPaymentSources
+    // Mock successful response
+    return {
+      content: transactions,
+      totalElements: transactions.length,
+      totalPages: 1,
+      size: 10,
+      page: 0,
+      first: true,
+      last: true
     };
-    
-    const response = await fetch(`${MONNIFY_BASE_URL}/api/v1/bank-transfer/reserved-accounts/update-payment-source-filter/${accountReference}`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-    
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.responseMessage || 'Failed to update allowed payment sources');
-    }
-    
-    return data.responseBody;
   } catch (error) {
-    console.error('Error updating allowed payment sources:', error);
-    throw error;
+    console.error("Error getting reserved account transactions:", error);
+    return null;
   }
 };
 
 /**
- * Updates income split configuration for a reserved account
- * @param accountReference The account reference of the reserved account
- * @param splitConfig The split configuration
- * @returns Updated account details
+ * Mock function to create a Monnify invoice
+ * @param data Invoice creation data
+ * @returns Mock response with invoice details
  */
-export const updateIncomeSplitConfig = async (
-  accountReference: string,
-  splitConfig: Array<{
-    subAccountCode: string;
-    feePercentage?: number;
-    splitPercentage?: number;
-  }>
-) => {
+export const createInvoice = async (data: any) => {
   try {
-    const token = await getMonnifyAuthToken();
+    console.log("Creating invoice with data:", data);
     
-    const response = await fetch(`${MONNIFY_BASE_URL}/api/v1/bank-transfer/reserved-accounts/update-income-split-config/${accountReference}`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(splitConfig)
-    });
+    // In a real implementation, this would make an API call to Monnify
+    // POST {base_url}/api/v1/invoice/create
     
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.responseMessage || 'Failed to update income split configuration');
-    }
-    
-    return data.responseBody;
-  } catch (error) {
-    console.error('Error updating income split configuration:', error);
-    throw error;
-  }
-};
-
-/**
- * Deallocates a reserved account
- * @param accountReference The account reference of the reserved account
- * @returns Confirmation of deallocation
- */
-export const deallocateReservedAccount = async (accountReference: string) => {
-  try {
-    const token = await getMonnifyAuthToken();
-    
-    const response = await fetch(`${MONNIFY_BASE_URL}/api/v1/bank-transfer/reserved-accounts/reference/${accountReference}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.responseMessage || 'Failed to deallocate reserved account');
-    }
-    
-    return data.responseBody;
-  } catch (error) {
-    console.error('Error deallocating reserved account:', error);
-    throw error;
-  }
-};
-
-/**
- * Gets reserved account transactions
- * @param accountReference The account reference of the reserved account
- * @param page Page number (starting from 0)
- * @param size Number of records per page
- * @returns Transaction details
- */
-export const getReservedAccountTransactions = async (accountReference: string, page = 0, size = 10) => {
-  try {
-    const token = await getMonnifyAuthToken();
-    
-    const response = await fetch(`${MONNIFY_BASE_URL}/api/v1/bank-transfer/reserved-accounts/transactions?accountReference=${accountReference}&page=${page}&size=${size}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.responseMessage || 'Failed to get reserved account transactions');
-    }
-    
-    return data.responseBody;
-  } catch (error) {
-    console.error('Error getting reserved account transactions:', error);
-    throw error;
-  }
-};
-
-/**
- * Updates KYC info for a reserved account
- * @param accountReference The account reference of the reserved account
- * @param bvn The BVN to update
- * @returns Updated account details
- */
-export const updateKycInfoForReservedAccount = async (accountReference: string, bvn: string) => {
-  try {
-    const token = await getMonnifyAuthToken();
-    
-    const payload = { bvn };
-    
-    const response = await fetch(`${MONNIFY_BASE_URL}/api/v1/bank-transfer/reserved-accounts/${accountReference}/kyc-info`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-    
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.responseMessage || 'Failed to update KYC info');
-    }
-    
-    return data.responseBody;
-  } catch (error) {
-    console.error('Error updating KYC info for reserved account:', error);
-    throw error;
-  }
-};
-
-/**
- * Creates an invoice
- * @param invoiceData Invoice data
- * @returns Invoice details
- */
-export const createInvoice = async (invoiceData: {
-  amount: number;
-  invoiceReference: string;
-  description: string;
-  customerEmail: string;
-  customerName: string;
-  expiryDate: string;
-  accountReference?: string;
-  incomeSplitConfig?: Array<{
-    subAccountCode: string;
-    feePercentage?: number;
-    splitAmount?: number;
-    feeBearer?: boolean;
-  }>;
-  redirectUrl?: string;
-}) => {
-  try {
-    const token = await getMonnifyAuthToken();
-    
-    const payload = {
-      ...invoiceData,
-      currencyCode: "NGN",
-      contractCode: MONNIFY_CONTRACT_CODE
+    // Mock successful response
+    return {
+      invoiceReference: data.invoiceReference,
+      description: data.description,
+      amount: data.amount,
+      status: "PENDING",
+      customerEmail: data.customerEmail,
+      customerName: data.customerName,
+      expiryDate: data.expiryDate,
+      redirectUrl: data.redirectUrl,
+      checkoutUrl: "#",
+      createdOn: new Date().toISOString()
     };
-    
-    const response = await fetch(`${MONNIFY_BASE_URL}/api/v1/invoice/create`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-    
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.responseMessage || 'Failed to create invoice');
-    }
-    
-    return data.responseBody;
   } catch (error) {
-    console.error('Error creating invoice:', error);
-    throw error;
+    console.error("Error creating invoice:", error);
+    return null;
   }
 };
 
 /**
- * Gets invoice details
- * @param invoiceReference The invoice reference
- * @returns Invoice details
+ * Mock function to charge a Monnify card token
+ * @param data Card token charging data
+ * @returns Mock response with payment details
  */
-export const getInvoiceDetails = async (invoiceReference: string) => {
+export const chargeCardToken = async (data: any) => {
   try {
-    const token = await getMonnifyAuthToken();
+    console.log("Charging card token with data:", data);
     
-    const response = await fetch(`${MONNIFY_BASE_URL}/api/v1/invoice/${invoiceReference}/details`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
+    // In a real implementation, this would make an API call to Monnify
+    // POST {base_url}/api/v1/payments/charge-card-token
     
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.responseMessage || 'Failed to get invoice details');
-    }
-    
-    return data.responseBody;
-  } catch (error) {
-    console.error('Error getting invoice details:', error);
-    throw error;
-  }
-};
-
-/**
- * Lists all invoices
- * @returns List of all invoices
- */
-export const listAllInvoices = async () => {
-  try {
-    const token = await getMonnifyAuthToken();
-    
-    const response = await fetch(`${MONNIFY_BASE_URL}/api/v1/invoice/all`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.responseMessage || 'Failed to list all invoices');
-    }
-    
-    return data.responseBody;
-  } catch (error) {
-    console.error('Error listing all invoices:', error);
-    throw error;
-  }
-};
-
-/**
- * Cancels an invoice
- * @param invoiceReference The invoice reference
- * @returns Confirmation of cancellation
- */
-export const cancelInvoice = async (invoiceReference: string) => {
-  try {
-    const token = await getMonnifyAuthToken();
-    
-    const response = await fetch(`${MONNIFY_BASE_URL}/api/v1/invoice/${invoiceReference}/cancel`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.responseMessage || 'Failed to cancel invoice');
-    }
-    
-    return data.responseBody;
-  } catch (error) {
-    console.error('Error canceling invoice:', error);
-    throw error;
-  }
-};
-
-/**
- * Charges a card token
- * @param cardData Card data for charging
- * @returns Charge details
- */
-export const chargeCardToken = async (cardData: {
-  cardToken: string;
-  amount: number;
-  customerName: string;
-  customerEmail: string;
-  paymentReference: string;
-  paymentDescription: string;
-  metaData?: Record<string, any>;
-  incomeSplitConfig?: Array<{
-    subAccountCode: string;
-    feePercentage?: number;
-    splitPercentage?: number;
-    splitAmount?: number;
-    feeBearer?: boolean;
-  }>;
-}) => {
-  try {
-    const token = await getMonnifyAuthToken();
-    
-    const payload = {
-      ...cardData,
-      currencyCode: "NGN",
-      contractCode: MONNIFY_CONTRACT_CODE,
-      apiKey: MONNIFY_API_KEY
+    // Mock successful response
+    return {
+      transactionReference: "MOCKTRANS" + Math.random().toString(36).substring(2, 10).toUpperCase(),
+      paymentReference: data.paymentReference,
+      amount: data.amount,
+      totalPayment: data.amount,
+      settlementAmount: data.amount,
+      paidOn: new Date().toISOString(),
+      paymentStatus: "PAID",
+      paymentDescription: data.paymentDescription,
+      paymentMethod: "CARD",
+      cardType: "VISA",
+      metaData: data.metaData
     };
-    
-    const response = await fetch(`${MONNIFY_BASE_URL}/api/v1/merchant/cards/charge-card-token`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-    
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.responseMessage || 'Failed to charge card token');
-    }
-    
-    return data.responseBody;
   } catch (error) {
-    console.error('Error charging card token:', error);
-    throw error;
+    console.error("Error charging card token:", error);
+    return null;
   }
 };

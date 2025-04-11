@@ -86,7 +86,9 @@ export const createUserReservedAccount = async (
       accountReference,
       accountName: user.name || `${user.firstName} ${user.lastName}`,
       customerEmail: user.email,
-      customerName: user.name || `${user.firstName} ${user.lastName}`
+      customerName: user.name || `${user.firstName} ${user.lastName}`,
+      currencyCode: "NGN",
+      getAllAvailableBanks: true
     };
     
     // Add either BVN or NIN based on the user's selection
@@ -160,7 +162,7 @@ export const getUserReservedAccount = async (userId: string): Promise<ReservedAc
     }
     
     // Check if user has a reserved account
-    if (!user.reservedAccount) {
+    if (!user.reservedAccount || !user.reservedAccount.accountReference) {
       toast.info("User doesn't have a reserved account");
       return null;
     }
@@ -177,9 +179,9 @@ export const getUserReservedAccount = async (userId: string): Promise<ReservedAc
     const reservedAccount: ReservedAccountData = {
       accountReference: result.accountReference,
       accountName: result.accountName,
-      accountNumber: result.accountNumber,
-      bankName: result.bankName,
-      bankCode: result.bankCode,
+      accountNumber: result.accounts && result.accounts.length > 0 ? result.accounts[0].accountNumber : "",
+      bankName: result.accounts && result.accounts.length > 0 ? result.accounts[0].bankName : "",
+      bankCode: result.accounts && result.accounts.length > 0 ? result.accounts[0].bankCode : "",
       reservationReference: result.reservationReference,
       status: result.status,
       createdOn: result.createdOn,
@@ -213,6 +215,48 @@ export const getUserReservedAccount = async (userId: string): Promise<ReservedAc
     const user = allUsers.find(u => u.id === userId);
     
     return user?.reservedAccount || null;
+  }
+};
+
+/**
+ * Fetches transactions for a reserved account
+ * @param accountReference The account reference
+ * @returns Array of transactions
+ */
+export const getReservedAccountTransactions = async (accountReference: string) => {
+  try {
+    const result = await monnifyApi.getReservedAccountTransactions(accountReference);
+    
+    if (result && result.content) {
+      // Process the transactions and add them to the local storage
+      for (const transaction of result.content) {
+        processReservedAccountTransaction({
+          transactionReference: transaction.transactionReference,
+          paymentReference: transaction.paymentReference,
+          amountPaid: transaction.amount,
+          totalPayable: transaction.amount,
+          settlementAmount: transaction.amount,
+          paidOn: transaction.paidOn,
+          paymentStatus: transaction.paymentStatus,
+          paymentDescription: `Bank transfer from ${transaction.destinationBankName}`,
+          metaData: {},
+          accountDetails: {
+            accountName: transaction.destinationAccountName,
+            accountNumber: transaction.destinationAccountNumber,
+            bankCode: '',
+            bankName: transaction.destinationBankName
+          }
+        });
+      }
+      
+      return result;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error("Error fetching reserved account transactions:", error);
+    toast.error("Failed to fetch transactions. Please try again.");
+    return null;
   }
 };
 
@@ -358,6 +402,18 @@ export const processReservedAccountTransaction = async (data: {
     // but for this demo, we'll use the current user
     const userId = metaData?.userId || currentUser.id;
     
+    // Check if transaction already exists to prevent duplicates
+    const existingTransactions = getTransactions();
+    const existingTransaction = existingTransactions.find(t => 
+      t.id === transactionReference || 
+      (t.metaData && t.metaData.paymentReference === paymentReference)
+    );
+    
+    if (existingTransaction) {
+      // Transaction already processed
+      return existingTransaction;
+    }
+    
     // Add transaction record
     const transaction = {
       id: transactionReference || uuidv4(),
@@ -366,8 +422,8 @@ export const processReservedAccountTransaction = async (data: {
       amount: amountPaid,
       contributionId: metaData?.contributionId || "",
       description: paymentDescription || "Bank transfer to virtual account",
-      status: paymentStatus === "PAID" ? "completed" : "pending",
-      createdAt: new Date().toISOString(),
+      status: paymentStatus === "PAID" ? "completed" as "completed" | "pending" | "failed" : "pending" as "completed" | "pending" | "failed",
+      createdAt: new Date(paidOn || Date.now()).toISOString(),
       metaData: {
         paymentReference,
         bankName: accountDetails.bankName,
@@ -530,7 +586,7 @@ export const chargeSavedCard = async (
           amount,
           contributionId: "",
           description: description || "Wallet top-up via card",
-          status: "completed",
+          status: "completed" as "completed" | "pending" | "failed",
           createdAt: new Date().toISOString(),
           metaData: {
             paymentReference,
