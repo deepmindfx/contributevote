@@ -1,6 +1,6 @@
 
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, Wallet, VoteIcon, Users, Settings, ArrowLeft } from "lucide-react";
+import { Home, Wallet, VoteIcon, Users, Settings, ArrowLeft, Send } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
 import { useState, useEffect } from "react";
 
@@ -18,7 +18,12 @@ const MobileNav = () => {
 
   // Determine if back button should be shown based on current route
   useEffect(() => {
-    setShowBackButton(location.pathname === '/settings');
+    setShowBackButton(
+      location.pathname === '/settings' || 
+      location.pathname === '/send-money' || 
+      location.pathname.startsWith('/groups/') ||
+      location.pathname.startsWith('/contribute/')
+    );
   }, [location.pathname]);
 
   // Handle back button click
@@ -63,6 +68,16 @@ const MobileNav = () => {
           >
             <Wallet className="h-5 w-5" />
             <span className="text-xs mt-1">Wallet</span>
+          </Link>
+          
+          <Link 
+            to="/send-money" 
+            className={`flex flex-col items-center py-3 px-2 ${
+              location.pathname === "/send-money" ? "text-[#2DAE75]" : "text-muted-foreground"
+            }`}
+          >
+            <Send className="h-5 w-5" />
+            <span className="text-xs mt-1">Send</span>
           </Link>
           
           <Link 

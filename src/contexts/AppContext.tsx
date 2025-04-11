@@ -35,6 +35,7 @@ import {
   verifyUserWithOTP,
   getContributionByAccountNumber
 } from '@/services/localStorage';
+import { BankTransferRequest, sendMoneyToBank, checkTransferStatus } from '@/services/walletTransfer';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
@@ -67,6 +68,8 @@ interface AppContextType {
   getReceipt: (transactionId: string) => any;
   verifyUser: (userId: string) => void;
   isGroupCreator: (contributionId: string) => boolean;
+  sendMoneyToBank: (request: BankTransferRequest) => Promise<any>;
+  checkTransferStatus: (reference: string) => Promise<any>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -430,6 +433,46 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return !!(contribution && contribution.creatorId === user.id);
   };
 
+  // Add the new sendMoneyToBank function
+  const handleSendMoneyToBank = async (request: BankTransferRequest) => {
+    try {
+      const result = await sendMoneyToBank(request);
+      if (result.success) {
+        toast.success(result.message);
+        refreshData();
+        return result;
+      } else {
+        toast.error(result.message);
+        return result;
+      }
+    } catch (error) {
+      console.error("Error sending money to bank:", error);
+      toast.error("Failed to process your transfer");
+      return {
+        success: false,
+        message: "An error occurred while processing your transfer"
+      };
+    }
+  };
+
+  // Add the new checkTransferStatus function
+  const handleCheckTransferStatus = async (reference: string) => {
+    try {
+      const result = await checkTransferStatus(reference);
+      if (!result.success) {
+        toast.error(result.message);
+      }
+      return result;
+    } catch (error) {
+      console.error("Error checking transfer status:", error);
+      toast.error("Failed to check transfer status");
+      return {
+        success: false,
+        message: "An error occurred while checking your transfer status"
+      };
+    }
+  };
+
   return (
     <AppContext.Provider value={{
       user,
@@ -460,6 +503,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       getReceipt,
       verifyUser,
       isGroupCreator,
+      sendMoneyToBank: handleSendMoneyToBank,
+      checkTransferStatus: handleCheckTransferStatus,
     }}>
       {children}
     </AppContext.Provider>

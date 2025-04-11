@@ -281,3 +281,133 @@ export const chargeCardToken = async (data: any) => {
     throw error;
   }
 };
+
+/**
+ * Initiate an async bank transfer (disbursement)
+ * @param data Transfer data
+ * @returns Response with transfer details
+ */
+export const initiateAsyncTransfer = async (data: {
+  amount: number;
+  reference: string;
+  narration: string;
+  destinationBankCode: string;
+  destinationAccountNumber: string;
+  currency: string;
+  sourceAccountNumber: string;
+}) => {
+  try {
+    console.log("Initiating async transfer with data:", data);
+    
+    // Get authentication token
+    const token = await getAuthToken();
+    if (!token) {
+      console.error("Failed to authenticate with payment provider");
+      return { 
+        success: false, 
+        message: "Failed to authenticate with payment provider",
+        requestSuccessful: false
+      };
+    }
+    
+    // Add async flag to the data
+    const transferData = {
+      ...data,
+      async: true
+    };
+    
+    console.log("Sending async transfer request...");
+    const response = await fetch(`${BASE_URL}/api/v2/disbursements/single`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(transferData)
+    });
+    
+    const responseData = await response.json();
+    
+    if (!response.ok) {
+      console.error("Async transfer failed:", responseData);
+      return { 
+        success: false, 
+        message: responseData.responseMessage || `Failed to initiate transfer: ${response.status}`,
+        requestSuccessful: false
+      };
+    }
+    
+    if (!responseData.requestSuccessful) {
+      console.error("Async transfer failed with error:", responseData);
+      return { 
+        success: false, 
+        message: responseData.responseMessage || "Failed to initiate transfer",
+        requestSuccessful: false
+      };
+    }
+    
+    console.log("Async transfer initiated successfully:", responseData);
+    return {
+      ...responseData,
+      success: true
+    };
+  } catch (error) {
+    console.error("Error initiating async transfer:", error);
+    return { 
+      success: false, 
+      message: "Unable to connect to payment provider",
+      requestSuccessful: false
+    };
+  }
+};
+
+/**
+ * Check status of a transfer
+ * @param reference Transfer reference
+ * @returns Response with transfer status
+ */
+export const checkTransferStatus = async (reference: string) => {
+  try {
+    console.log("Checking transfer status for reference:", reference);
+    
+    // Get authentication token
+    const token = await getAuthToken();
+    if (!token) {
+      console.error("Failed to authenticate with payment provider");
+      return { success: false, message: "Failed to authenticate with payment provider" };
+    }
+    
+    console.log("Sending transfer status request...");
+    const response = await fetch(`${BASE_URL}/api/v2/disbursements/single/summary?reference=${reference}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    const responseData = await response.json();
+    
+    if (!response.ok) {
+      console.error("Failed to get transfer status:", responseData);
+      return { 
+        success: false, 
+        message: responseData.responseMessage || `Failed to get transfer status: ${response.status}` 
+      };
+    }
+    
+    if (!responseData.requestSuccessful) {
+      console.error("Transfer status request failed:", responseData);
+      return { 
+        success: false, 
+        message: responseData.responseMessage || "Failed to get transfer status" 
+      };
+    }
+    
+    console.log("Transfer status retrieved successfully");
+    return responseData;
+  } catch (error) {
+    console.error("Error getting transfer status:", error);
+    return { success: false, message: "Unable to connect to payment provider" };
+  }
+};
