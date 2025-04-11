@@ -1,143 +1,28 @@
 
-import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Clipboard, RefreshCw, Plus, ArrowRight, Building } from "lucide-react";
-import { toast } from "sonner";
-import { useApp } from "@/contexts/AppContext";
-import { 
-  getUserReservedAccount, 
-  createUserReservedAccount, 
-  ReservedAccountData,
-  getReservedAccountTransactions
-} from "@/services/walletIntegration";
+import { Clipboard, RefreshCw, Plus } from "lucide-react";
+import { Dialog } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Form, FormField, FormItem, FormLabel, FormControl, FormDescription, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { useForm } from "react-hook-form";
-import * as z from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
-
-// Form schema for validation
-const idFormSchema = z.object({
-  idType: z.enum(["bvn", "nin"], {
-    required_error: "Please select an ID type",
-  }),
-  idNumber: z.string()
-    .min(10, "ID number must be at least 10 digits")
-    .max(11, "ID number cannot exceed 11 digits")
-    .regex(/^\d+$/, "ID number must contain only digits"),
-});
-
-type IdFormValues = z.infer<typeof idFormSchema>;
+import IdFormDialog from "@/components/wallet/IdFormDialog";
+import AccountDetailsList from "@/components/wallet/AccountDetailsList";
+import { useReservedAccount } from "@/hooks/useReservedAccount";
 
 const ReservedAccount = () => {
-  const { user, refreshData } = useApp();
-  const [isLoading, setIsLoading] = useState(false);
-  const [accountDetails, setAccountDetails] = useState<ReservedAccountData | null>(null);
-  const [showFullDetails, setShowFullDetails] = useState(false);
-  const [showIdForm, setShowIdForm] = useState(false);
-  
-  // Initialize the form
-  const form = useForm<IdFormValues>({
-    resolver: zodResolver(idFormSchema),
-    defaultValues: {
-      idType: "bvn",
-      idNumber: "",
-    },
-  });
-  
-  useEffect(() => {
-    // Check if user already has a reserved account
-    if (user?.reservedAccount) {
-      setAccountDetails(user.reservedAccount);
-      
-      // If account details exist but the accountNumber or bankName is undefined, refresh account details
-      if (!user.reservedAccount.accountNumber || !user.reservedAccount.bankName) {
-        handleRefresh();
-      }
-    }
-  }, [user]);
-  
-  const handleCreateAccount = async (values?: IdFormValues) => {
-    setIsLoading(true);
-    try {
-      if (!user || !user.id) {
-        toast.error("User information not available. Please log in again.");
-        return;
-      }
-      
-      if (!values) {
-        setShowIdForm(true);
-        setIsLoading(false);
-        return;
-      }
-      
-      // Close the ID form dialog after submission
-      setShowIdForm(false);
-      
-      const result = await createUserReservedAccount(user.id, values.idType, values.idNumber);
-      if (result) {
-        console.log("Reserved account created:", result);
-        setAccountDetails(result);
-        refreshData();
-        
-        // Also fetch transactions after creating account
-        if (result.accountReference) {
-          await getReservedAccountTransactions(result.accountReference);
-          refreshData();
-        }
-        
-        toast.success("Virtual account created successfully");
-      }
-    } catch (error) {
-      console.error("Error creating reserved account:", error);
-      toast.error("Failed to create reserved account. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  const handleRefresh = async () => {
-    setIsLoading(true);
-    try {
-      if (!user || !user.id) {
-        toast.error("User information not available. Please log in again.");
-        return;
-      }
-      
-      const result = await getUserReservedAccount(user.id);
-      if (result) {
-        console.log("Retrieved account details:", result);
-        setAccountDetails(result);
-        
-        // Fetch transactions when refreshing account details
-        if (result.accountReference) {
-          await getReservedAccountTransactions(result.accountReference);
-        }
-        
-        refreshData();
-        toast.success("Account details refreshed");
-      }
-    } catch (error) {
-      console.error("Error refreshing reserved account:", error);
-      toast.error("Failed to refresh account details. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  const copyToClipboard = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success(`${label} copied to clipboard`);
-  };
-  
-  const onSubmitIdForm = (values: IdFormValues) => {
-    handleCreateAccount(values);
-  };
-  
+  const {
+    isLoading,
+    accountDetails,
+    showFullDetails,
+    setShowFullDetails,
+    showIdForm,
+    setShowIdForm,
+    form,
+    handleCreateAccount,
+    handleRefresh,
+    copyToClipboard,
+    onSubmitIdForm
+  } = useReservedAccount();
+
   if (!accountDetails) {
     return (
       <Card>
@@ -171,80 +56,12 @@ const ReservedAccount = () => {
               
               {/* BVN/NIN Input Dialog */}
               <Dialog open={showIdForm} onOpenChange={setShowIdForm}>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Provide Identification</DialogTitle>
-                    <DialogDescription>
-                      We need your BVN or NIN to create your virtual account. This information is required by financial regulations.
-                    </DialogDescription>
-                  </DialogHeader>
-                  
-                  <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmitIdForm)} className="space-y-4">
-                      <FormField
-                        control={form.control}
-                        name="idType"
-                        render={({ field }) => (
-                          <FormItem className="space-y-3">
-                            <FormLabel>ID Type</FormLabel>
-                            <RadioGroup 
-                              onValueChange={field.onChange} 
-                              defaultValue={field.value}
-                              className="flex flex-col space-y-1"
-                            >
-                              <FormItem className="flex items-center space-x-3 space-y-0">
-                                <FormControl>
-                                  <RadioGroupItem value="bvn" />
-                                </FormControl>
-                                <FormLabel className="font-normal">
-                                  Bank Verification Number (BVN)
-                                </FormLabel>
-                              </FormItem>
-                              <FormItem className="flex items-center space-x-3 space-y-0">
-                                <FormControl>
-                                  <RadioGroupItem value="nin" />
-                                </FormControl>
-                                <FormLabel className="font-normal">
-                                  National Identification Number (NIN)
-                                </FormLabel>
-                              </FormItem>
-                            </RadioGroup>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="idNumber"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>ID Number</FormLabel>
-                            <FormControl>
-                              <Input 
-                                placeholder={field.value === "bvn" ? "Enter your 11-digit BVN" : "Enter your NIN"}
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormDescription>
-                              Your information is encrypted and secure.
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setShowIdForm(false)}>
-                          Cancel
-                        </Button>
-                        <Button type="submit" disabled={isLoading}>
-                          {isLoading ? "Processing..." : "Create Account"}
-                        </Button>
-                      </DialogFooter>
-                    </form>
-                  </Form>
-                </DialogContent>
+                <IdFormDialog 
+                  form={form}
+                  onSubmit={onSubmitIdForm}
+                  isLoading={isLoading}
+                  onClose={() => setShowIdForm(false)}
+                />
               </Dialog>
             </>
           )}
@@ -337,46 +154,15 @@ const ReservedAccount = () => {
                   onClick={() => setShowFullDetails(true)}
                 >
                   Show All Bank Accounts
-                  <ArrowRight size={14} className="ml-2" />
                 </Button>
               )}
             </div>
             
             <Dialog open={showFullDetails} onOpenChange={setShowFullDetails}>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>All Virtual Accounts</DialogTitle>
-                  <DialogDescription>
-                    Your reserved account is available across multiple banks
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4 max-h-[400px] overflow-y-auto">
-                  {accountDetails.accounts?.map((account, index) => (
-                    <div key={index} className="border rounded-lg p-3">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm font-medium text-muted-foreground">Account Number</span>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => copyToClipboard(account.accountNumber, "Account number")}
-                          className="h-6 px-2"
-                        >
-                          <Clipboard size={14} />
-                        </Button>
-                      </div>
-                      <div className="font-mono text-lg">{account.accountNumber}</div>
-                      
-                      <div className="mt-2">
-                        <span className="text-sm font-medium text-muted-foreground">Bank</span>
-                        <div>{account.bankName}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <DialogFooter>
-                  <Button onClick={() => setShowFullDetails(false)}>Close</Button>
-                </DialogFooter>
-              </DialogContent>
+              <AccountDetailsList 
+                accounts={accountDetails.accounts || []} 
+                onClose={() => setShowFullDetails(false)} 
+              />
             </Dialog>
             
             <p className="text-sm text-muted-foreground mt-2">
