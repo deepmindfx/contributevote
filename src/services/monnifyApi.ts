@@ -26,7 +26,13 @@ export const getAuthToken = async () => {
     });
     
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
+      const errorText = await response.text();
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch (e) {
+        errorData = { message: errorText || "Unknown error" };
+      }
       console.error("Authentication error details:", errorData);
       throw new Error(`Authentication failed: ${response.status} - ${errorData.message || response.statusText}`);
     }
@@ -42,7 +48,6 @@ export const getAuthToken = async () => {
     return data.responseBody.accessToken;
   } catch (error) {
     console.error("Error getting auth token:", error);
-    // Return null instead of throwing, so we can handle it gracefully
     return null;
   }
 };
