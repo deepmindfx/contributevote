@@ -28,9 +28,7 @@ export interface IdFormData {
 
 const ReservedAccount = () => {
   const { user } = useApp();
-  const { reservedAccount, loading, error, refreshReservedAccount, requestReservedAccount } = useReservedAccount();
-  const [showAccountInfo, setShowAccountInfo] = useState(false);
-  const [showIdForm, setShowIdForm] = useState(false);
+  const { reservedAccount, loading, error, handleRefresh, createAccount, handleCreateAccount, setShowIdForm, showIdForm, onSubmitIdForm, form } = useReservedAccount();
   const [copySuccess, setCopySuccess] = useState(false);
 
   const handleCopyAccountNumber = () => {
@@ -47,28 +45,6 @@ const ReservedAccount = () => {
     }
   };
 
-  const handleRequestAccount = () => {
-    setShowIdForm(true);
-  };
-
-  const handleRefreshAccount = () => {
-    refreshReservedAccount();
-    toast.success('Refreshing account information...');
-  };
-
-  const handleIdSubmission = (data: IdFormData) => {
-    requestReservedAccount(data.idType, data.idNumber);
-    setShowIdForm(false);
-  };
-
-  // Configure the form with the correct type
-  const form = useForm<IdFormData>({
-    defaultValues: {
-      idType: "bvn",
-      idNumber: ""
-    }
-  });
-
   return (
     <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
       <div className="flex flex-col space-y-1.5 p-6">
@@ -81,7 +57,7 @@ const ReservedAccount = () => {
             <AlertTriangle className="h-12 w-12 text-amber-500 mb-2" />
             <h3 className="font-medium text-lg mb-1">Account Unavailable</h3>
             <p className="text-sm text-muted-foreground mb-4">{error}</p>
-            <Button onClick={handleRequestAccount}>
+            <Button onClick={handleCreateAccount}>
               <Plus className="mr-2 h-4 w-4" />
               Set Up Account
             </Button>
@@ -98,7 +74,7 @@ const ReservedAccount = () => {
                 <Label className="text-sm font-medium">Account Name</Label>
                 <p className="text-md font-medium">{reservedAccount.accountName}</p>
               </div>
-              <Button variant="outline" size="icon" onClick={handleRefreshAccount} title="Refresh Account">
+              <Button variant="outline" size="icon" onClick={handleRefresh} title="Refresh Account">
                 <RefreshCw className="h-4 w-4" />
               </Button>
             </div>
@@ -132,7 +108,7 @@ const ReservedAccount = () => {
             </div>
             <h3 className="font-medium text-lg mb-1">No Reserved Account</h3>
             <p className="text-sm text-muted-foreground mb-4">Set up a dedicated account for easy deposits</p>
-            <Button onClick={handleRequestAccount}>
+            <Button onClick={handleCreateAccount}>
               <Plus className="mr-2 h-4 w-4" />
               Set Up Account
             </Button>
@@ -143,7 +119,7 @@ const ReservedAccount = () => {
       <IdFormDialog 
         open={showIdForm} 
         onOpenChange={setShowIdForm}
-        onSubmit={handleIdSubmission}
+        onSubmit={onSubmitIdForm}
         form={form}
       />
     </div>

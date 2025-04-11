@@ -5,11 +5,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { createReservedAccount, getReservedAccount } from "@/services/wallet/reservedAccountService";
 import { ReservedAccountData } from "@/services/wallet/types";
-
-interface IdFormData {
-  idType: "bvn" | "nin";
-  idNumber: string;
-}
+import { IdFormData } from "@/components/wallet/ReservedAccount";
 
 export const useReservedAccount = () => {
   const { user, refreshData } = useApp();
@@ -35,7 +31,6 @@ export const useReservedAccount = () => {
     setLoading(true);
     setError("");
     try {
-      const idValue = data.idNumber;
       const result = await createReservedAccount();
       
       if (result) {
