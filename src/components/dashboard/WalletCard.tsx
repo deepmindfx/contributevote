@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
-import { PlusCircle, ArrowDown, Wallet, SendHorizontal, UserPlus, Clock, Eye, EyeOff, DollarSign } from "lucide-react";
+import { PlusCircle, ArrowDown, Wallet, SendHorizontal, UserPlus, Clock, Eye, EyeOff, DollarSign, CreditCard, Bank } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,8 @@ import { updateUserBalance } from "@/services/localStorage";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { createPaymentInvoice } from "@/services/walletIntegration";
 
 const WalletCard = () => {
   const navigate = useNavigate();
@@ -22,6 +24,14 @@ const WalletCard = () => {
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [currencyType, setCurrencyType] = useState<"NGN" | "USD">("NGN");
+  const [depositMethod, setDepositMethod] = useState<"manual" | "card" | "bank">("manual");
+  const [cardDetails, setCardDetails] = useState({
+    cardNumber: "",
+    cardName: "",
+    expiryDate: "",
+    cvv: ""
+  });
+  
   const {
     user,
     refreshData,
@@ -35,7 +45,10 @@ const WalletCard = () => {
   };
 
   // Filter only the user's wallet-related transactions
-  const walletTransactions = transactions.filter(t => t.userId === user.id && (t.contributionId === "" || t.type === "deposit" || t.type === "withdrawal")).slice(0, 5);
+  const walletTransactions = transactions.filter(t => 
+    t.userId === user?.id && 
+    (t.contributionId === "" || t.type === "deposit" || t.type === "withdrawal")
+  ).slice(0, 5);
   
   const refreshBalance = () => {
     setIsLoading(true);
@@ -45,16 +58,56 @@ const WalletCard = () => {
     }, 1000);
   };
   
-  const handleDeposit = () => {
+  const handleDeposit = async () => {
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       toast.error("Please enter a valid amount");
       return;
     }
-    updateUserBalance(Number(amount));
-    refreshData();
-    setAmount("");
-    setIsDepositOpen(false);
-    toast.success(`Successfully deposited ${currencyType === "NGN" ? "₦" : "$"}${Number(amount).toLocaleString()}`);
+    
+    setIsLoading(true);
+    
+    try {
+      if (depositMethod === "manual") {
+        // Original manual deposit logic
+        updateUserBalance(Number(amount));
+        refreshData();
+        toast.success(`Successfully deposited ${currencyType === "NGN" ? "₦" : "$"}${Number(amount).toLocaleString()}`);
+      } 
+      else if (depositMethod === "card") {
+        // Create an invoice for card payment
+        const result = await createPaymentInvoice({
+          amount: Number(amount),
+          description: "Wallet top-up via card",
+          customerEmail: user.email,
+          customerName: user.name || `${user.firstName} ${user.lastName}`,
+          userId: user.id
+        });
+        
+        if (result && result.checkoutUrl) {
+          // Open the checkout URL in a new tab
+          window.open(result.checkoutUrl, "_blank");
+          toast.success("Payment page opened. Complete your payment to fund your wallet.");
+        } else {
+          toast.error("Failed to create payment invoice");
+        }
+      } 
+      else if (depositMethod === "bank") {
+        // For bank transfer, direct to dashboard to see account details
+        if (user.reservedAccount) {
+          toast.success("Use your virtual account details to make a bank transfer");
+        } else {
+          toast.info("You need to set up a virtual account first");
+          navigate("/dashboard");
+        }
+      }
+    } catch (error) {
+      console.error("Error processing deposit:", error);
+      toast.error("Failed to process deposit. Please try again.");
+    } finally {
+      setIsLoading(false);
+      setAmount("");
+      setIsDepositOpen(false);
+    }
   };
   
   const handleWithdraw = () => {
@@ -88,7 +141,7 @@ const WalletCard = () => {
 
   // Format the balance based on selected currency
   const getFormattedBalance = () => {
-    const balance = user.walletBalance || 0;
+    const balance = user?.walletBalance || 0;
     if (currencyType === "NGN") {
       return `₦${balance.toLocaleString()}`;
     } else {
@@ -148,23 +201,89 @@ const WalletCard = () => {
                   <DialogHeader>
                     <DialogTitle>Deposit Funds</DialogTitle>
                     <DialogDescription>
-                      Add money to your wallet. Enter the amount you want to deposit.
+                      Add money to your wallet. Choose your preferred method.
                     </DialogDescription>
                   </DialogHeader>
-                  <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="deposit-amount">Amount ({currencyType})</Label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-2.5 text-muted-foreground">
-                          {currencyType === "NGN" ? "₦" : "$"}
-                        </span>
-                        <Input id="deposit-amount" type="number" className="pl-8" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} />
+                  
+                  <Tabs value={depositMethod} onValueChange={(value) => setDepositMethod(value as "manual" | "card" | "bank")}>
+                    <TabsList className="grid grid-cols-3 mb-4">
+                      <TabsTrigger value="manual">
+                        <Wallet className="h-4 w-4 mr-2" />
+                        Manual
+                      </TabsTrigger>
+                      <TabsTrigger value="card">
+                        <CreditCard className="h-4 w-4 mr-2" />
+                        Card
+                      </TabsTrigger>
+                      <TabsTrigger value="bank">
+                        <Bank className="h-4 w-4 mr-2" />
+                        Bank
+                      </TabsTrigger>
+                    </TabsList>
+                    
+                    <TabsContent value="manual" className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="deposit-amount">Amount ({currencyType})</Label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-2.5 text-muted-foreground">
+                            {currencyType === "NGN" ? "₦" : "$"}
+                          </span>
+                          <Input id="deposit-amount" type="number" className="pl-8" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} />
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Use this option for demo purposes only. In a real app, this would be replaced by actual payment methods.
+                        </p>
                       </div>
-                    </div>
-                  </div>
+                    </TabsContent>
+                    
+                    <TabsContent value="card" className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="card-deposit-amount">Amount ({currencyType})</Label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-2.5 text-muted-foreground">
+                            {currencyType === "NGN" ? "₦" : "$"}
+                          </span>
+                          <Input id="card-deposit-amount" type="number" className="pl-8" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} />
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          You'll be redirected to a secure payment page to complete your transaction.
+                        </p>
+                      </div>
+                    </TabsContent>
+                    
+                    <TabsContent value="bank" className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="bank-deposit-amount">Amount ({currencyType})</Label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-2.5 text-muted-foreground">
+                            {currencyType === "NGN" ? "₦" : "$"}
+                          </span>
+                          <Input id="bank-deposit-amount" type="number" className="pl-8" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} />
+                        </div>
+                        
+                        {user?.reservedAccount ? (
+                          <div className="p-3 bg-muted/50 rounded-md text-sm">
+                            <p className="font-medium">Your Virtual Account:</p>
+                            <p className="mt-1">{user.reservedAccount.bankName}</p>
+                            <p className="font-mono">{user.reservedAccount.accountNumber}</p>
+                            <p className="text-xs text-muted-foreground mt-2">
+                              Transfer the amount to this account and your wallet will be credited automatically.
+                            </p>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">
+                            You need to set up a virtual account first. This will be done after clicking deposit.
+                          </p>
+                        )}
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+                  
                   <DialogFooter>
                     <Button variant="outline" onClick={() => setIsDepositOpen(false)}>Cancel</Button>
-                    <Button onClick={handleDeposit}>Deposit</Button>
+                    <Button onClick={handleDeposit} disabled={isLoading}>
+                      {isLoading ? "Processing..." : "Deposit"}
+                    </Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>

@@ -5,6 +5,7 @@ import MobileNav from "@/components/layout/MobileNav";
 import WalletCard from "@/components/dashboard/WalletCard";
 import GroupsList from "@/components/dashboard/GroupsList";
 import RecentActivity from "@/components/dashboard/RecentActivity";
+import ReservedAccount from "@/components/wallet/ReservedAccount";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { UserPlus, Bell, Settings, User, X } from "lucide-react";
@@ -16,6 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { markAllNotificationsAsRead, markNotificationAsRead } from "@/services/localStorage";
 import { useApp } from "@/contexts/AppContext";
 import { format } from "date-fns";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Dashboard = () => {
   const {
@@ -24,6 +26,7 @@ const Dashboard = () => {
     contributions
   } = useApp();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("wallet");
   
   useEffect(() => {
     // Refresh data when dashboard loads to ensure shared contributions are visible
@@ -163,7 +166,20 @@ const Dashboard = () => {
         
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 mt-[30px]">
           <div className="md:col-span-5 animate-slide-up">
-            <WalletCard />
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="grid grid-cols-2 mb-4">
+                <TabsTrigger value="wallet">Wallet</TabsTrigger>
+                <TabsTrigger value="account">Bank Account</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="wallet" className="m-0">
+                <WalletCard />
+              </TabsContent>
+              
+              <TabsContent value="account" className="m-0">
+                <ReservedAccount />
+              </TabsContent>
+            </Tabs>
           </div>
           
           <div className="md:col-span-7">
