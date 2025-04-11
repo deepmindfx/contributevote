@@ -680,3 +680,16 @@ export const initializeLocalStorage = () => {
   // Initialize bank list
   getBankList();
 };
+
+// Add the hasContributed function
+export const hasContributed = (userId: string, contributionId: string): boolean => {
+  try {
+    const contribution = getContributionById(contributionId);
+    if (!contribution) return false;
+    
+    return contribution.contributors.some(contributor => contributor.userId === userId);
+  } catch (error) {
+    console.error("Error in hasContributed:", error);
+    return false;
+  }
+};
