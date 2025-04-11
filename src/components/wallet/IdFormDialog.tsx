@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { UseFormReturn } from "react-hook-form";
-import { IdFormData } from "@/hooks/useReservedAccount";
+import { IdFormData } from "@/services/wallet/types";
 
 interface IdFormDialogProps {
   form: UseFormReturn<IdFormData>;

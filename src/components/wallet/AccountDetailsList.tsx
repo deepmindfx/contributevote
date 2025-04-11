@@ -13,9 +13,9 @@ const AccountDetailsList = ({ account, onCopy }: AccountDetailsListProps) => {
     { label: 'Account Name', value: account.accountName },
     { label: 'Account Reference', value: account.accountReference },
     { label: 'Bank Code', value: account.bankCode },
-    { label: 'Created On', value: new Date(account.createdAt || '').toLocaleDateString() },
-    { label: 'Currency', value: account.currencyCode || 'NGN' },
-    { label: 'Collection Channel', value: account.collectionChannel || 'Bank Transfer' },
+    { label: 'Created On', value: new Date(account.createdOn || '').toLocaleDateString() },
+    { label: 'Currency', value: 'NGN' },
+    { label: 'Collection Channel', value: 'Bank Transfer' },
     { label: 'Status', value: account.status || 'Active' },
   ];
 

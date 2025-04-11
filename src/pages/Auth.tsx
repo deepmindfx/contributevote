@@ -13,6 +13,7 @@ const Auth = () => {
   useEffect(() => {
     if (isAuthenticated) {
       console.log("User is authenticated, navigating to dashboard");
+      // Use replace: true to prevent back button from returning to login
       navigate("/dashboard", { replace: true });
     }
   }, [isAuthenticated, navigate]);

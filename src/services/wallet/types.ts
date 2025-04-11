@@ -95,3 +95,11 @@ export interface BankTransactionResponse {
     totalRecords: number;
   };
 }
+
+/**
+ * Interface for ID form data
+ */
+export interface IdFormData {
+  idType: 'bvn' | 'nin';
+  idNumber: string;
+}

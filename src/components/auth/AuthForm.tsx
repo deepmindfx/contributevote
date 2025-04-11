@@ -44,25 +44,13 @@ const AuthForm = () => {
   const returnUrl = state?.returnUrl || "/dashboard";
   
   const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const {
-      name,
-      value
-    } = e.target;
-    setLoginData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    const { name, value } = e.target;
+    setLoginData(prev => ({ ...prev, [name]: value }));
   };
   
   const handleRegisterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const {
-      name,
-      value
-    } = e.target;
-    setRegisterData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    const { name, value } = e.target;
+    setRegisterData(prev => ({ ...prev, [name]: value }));
   };
   
   const handleLogin = async (e: React.FormEvent) => {
@@ -86,19 +74,16 @@ const AuthForm = () => {
         return;
       }
 
-      // In a real app, we would verify the password here
+      // Save user to localStorage
       localStorage.setItem('currentUser', JSON.stringify(foundUser));
-
+      
       // Important: Refresh app context data after login
       await refreshData();
       
       toast.success("Login successful");
-
-      // Give the context a chance to update
-      setTimeout(() => {
-        console.log("Redirecting to dashboard after login");
-        navigate(returnUrl, { replace: true });
-      }, 500);
+      
+      // Navigate to dashboard
+      navigate(returnUrl, { replace: true });
     } catch (error) {
       console.error("Login error:", error);
       toast.error("An error occurred during login");
@@ -154,12 +139,9 @@ const AuthForm = () => {
       await refreshData();
       
       toast.success("Account created successfully");
-
-      // Give the context a chance to update
-      setTimeout(() => {
-        console.log("Redirecting to dashboard after registration");
-        navigate("/dashboard", { replace: true });
-      }, 500);
+      
+      // Navigate to dashboard
+      navigate("/dashboard", { replace: true });
     } catch (error) {
       console.error("Registration error:", error);
       toast.error("An error occurred during registration");
