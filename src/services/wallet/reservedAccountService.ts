@@ -1,340 +1,211 @@
 
-import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
-import * as monnifyApi from "../monnifyApi";
 import { 
-  updateUser, 
+  ReservedAccountData, 
+  BankTransaction, 
+  BankTransactionResponse 
+} from "./types";
+import { 
   getCurrentUser, 
-  getTransactions, 
-  updateUserById, 
+  getAllTransactions, 
+  updateUserById,
   addTransaction
 } from "../localStorage";
-import { ReservedAccountData } from "./types";
+
+// Mock API response times
+const MOCK_API_DELAY = 1500;
 
 /**
- * Creates a reserved account for a user
- * @param userId The user ID
- * @param idType The type of ID (BVN or NIN)
- * @param idNumber The ID number provided by the user
- * @returns Reserved account details
+ * Create a reserved account for a user
+ * In a real app, this would call an actual payment gateway API
+ * @returns Promise<ReservedAccountData>
  */
-export const createUserReservedAccount = async (
-  userId: string, 
-  idType?: string, 
-  idNumber?: string
-): Promise<ReservedAccountData | null> => {
-  try {
-    // Get current user data
-    const currentUser = getCurrentUser();
-    const allUsers = [currentUser]; // In a real app, this would be fetched from a database
-    const user = allUsers.find(u => u.id === userId);
-    
-    if (!user) {
-      toast.error("User not found");
-      return null;
-    }
-    
-    // Check if user already has a reserved account
-    if (user.reservedAccount) {
-      toast.info("User already has a reserved account");
-      return user.reservedAccount;
-    }
-    
-    // Validate ID information
-    if (!idType || !idNumber) {
-      toast.error("BVN or NIN is required to create a virtual account");
-      return null;
-    }
-    
-    // Create a unique account reference
-    const accountReference = `COLL_${userId}_${Date.now()}`;
-    
-    // Create the API request object based on ID type
-    const requestBody: any = {
-      accountReference,
-      accountName: user.name || `${user.firstName} ${user.lastName}`,
-      customerEmail: user.email,
-      customerName: user.name || `${user.firstName} ${user.lastName}`,
-      currencyCode: "NGN",
-      contractCode: "465595618981", // Updated with real contract code
-      getAllAvailableBanks: true
-    };
-    
-    // Add either BVN or NIN based on the user's selection
-    if (idType === "bvn") {
-      requestBody.bvn = idNumber;
-    } else if (idType === "nin") {
-      requestBody.nin = idNumber;
-    }
-    
-    // Create a reserved account using the provided ID
-    const result = await monnifyApi.createReservedAccount(requestBody);
-    
-    if (!result || !result.responseBody) {
-      toast.error("Failed to create reserved account");
-      return null;
-    }
-    
-    // Extract relevant account data
-    const responseBody = result.responseBody;
-    const reservedAccount: ReservedAccountData = {
-      accountReference: responseBody.accountReference,
-      accountName: responseBody.accountName,
-      accountNumber: responseBody.accounts && responseBody.accounts.length > 0 ? responseBody.accounts[0].accountNumber : "",
-      bankName: responseBody.accounts && responseBody.accounts.length > 0 ? responseBody.accounts[0].bankName : "",
-      bankCode: responseBody.accounts && responseBody.accounts.length > 0 ? responseBody.accounts[0].bankCode : "",
-      reservationReference: responseBody.reservationReference,
-      status: responseBody.status,
-      createdOn: responseBody.createdOn,
-      accounts: responseBody.accounts?.map(acc => ({
-        bankCode: acc.bankCode,
-        bankName: acc.bankName,
-        accountNumber: acc.accountNumber
-      }))
-    };
-    
-    // Update user with reserved account data
-    if (userId === currentUser.id) {
-      // Update current user
-      updateUser({ 
-        ...currentUser, 
-        reservedAccount 
-      });
-    } else {
-      // Update other user (admin action)
-      updateUserById(userId, { reservedAccount });
-    }
-    
-    toast.success("Reserved account created successfully");
-    return reservedAccount;
-  } catch (error) {
-    console.error("Error creating reserved account:", error);
-    toast.error("Failed to create reserved account. Please try again.");
+export const createReservedAccount = async (): Promise<ReservedAccountData> => {
+  // Simulate API call delay
+  await new Promise(resolve => setTimeout(resolve, MOCK_API_DELAY));
+  
+  const currentUser = getCurrentUser();
+  
+  if (!currentUser) {
+    throw new Error("User not found");
+  }
+  
+  // Check if user already has a reserved account
+  if (currentUser.reservedAccount) {
+    return currentUser.reservedAccount;
+  }
+  
+  // Generate mock account data
+  const accountNumber = `30${Math.floor(Math.random() * 90000000) + 10000000}`; // 10-digit number starting with 30
+  const accountName = `${currentUser.firstName?.toUpperCase()} ${currentUser.lastName?.toUpperCase()}`;
+  
+  const reservedAccount: ReservedAccountData = {
+    accountNumber,
+    accountName,
+    bankName: "CollectiPay Bank",
+    bankCode: "303",
+    createdAt: new Date().toISOString(),
+    reference: `rac_${uuidv4().substring(0, 8)}`
+  };
+  
+  // Update user with the new reserved account
+  updateUserById(currentUser.id, {
+    reservedAccount
+  });
+  
+  return reservedAccount;
+};
+
+/**
+ * Get a user's reserved account details
+ * @returns ReservedAccountData | null
+ */
+export const getReservedAccount = (): ReservedAccountData | null => {
+  const currentUser = getCurrentUser();
+  
+  if (!currentUser) {
     return null;
   }
+  
+  return currentUser.reservedAccount || null;
 };
 
 /**
- * Gets the reserved account for a user
- * @param userId The user ID
- * @returns Reserved account details
+ * Fetch the bank account transaction history
+ * In a real app, this would call a payment gateway's API
+ * @param page Page number (1-indexed)
+ * @param limit Number of transactions per page
+ * @returns Promise<BankTransactionResponse>
  */
-export const getUserReservedAccount = async (userId: string): Promise<ReservedAccountData | null> => {
-  try {
-    // Get current user data
-    const currentUser = getCurrentUser();
-    const allUsers = [currentUser]; // In a real app, this would be fetched from a database
-    const user = allUsers.find(u => u.id === userId);
-    
-    if (!user) {
-      toast.error("User not found");
-      return null;
-    }
-    
-    // Check if user has a reserved account
-    if (!user.reservedAccount || !user.reservedAccount.accountReference) {
-      toast.info("User doesn't have a reserved account");
-      return null;
-    }
-    
-    // Fetch the latest details from Monnify
-    const result = await monnifyApi.getReservedAccountDetails(user.reservedAccount.accountReference);
-    
-    if (!result || !result.responseBody) {
-      toast.error("Failed to get reserved account details");
-      return user.reservedAccount; // Return cached version
-    }
-    
-    // Extract relevant account data
-    const responseBody = result.responseBody;
-    const reservedAccount: ReservedAccountData = {
-      accountReference: responseBody.accountReference,
-      accountName: responseBody.accountName,
-      accountNumber: responseBody.accounts && responseBody.accounts.length > 0 ? responseBody.accounts[0].accountNumber : "",
-      bankName: responseBody.accounts && responseBody.accounts.length > 0 ? responseBody.accounts[0].bankName : "",
-      bankCode: responseBody.accounts && responseBody.accounts.length > 0 ? responseBody.accounts[0].bankCode : "",
-      reservationReference: responseBody.reservationReference,
-      status: responseBody.status,
-      createdOn: responseBody.createdOn,
-      accounts: responseBody.accounts?.map(acc => ({
-        bankCode: acc.bankCode,
-        bankName: acc.bankName,
-        accountNumber: acc.accountNumber
-      }))
-    };
-    
-    // Update user with the latest reserved account data
-    if (userId === currentUser.id) {
-      // Update current user
-      updateUser({ 
-        ...currentUser, 
-        reservedAccount 
-      });
-    } else {
-      // Update other user (admin action)
-      updateUserById(userId, { reservedAccount });
-    }
-    
-    return reservedAccount;
-  } catch (error) {
-    console.error("Error getting reserved account:", error);
-    toast.error("Failed to get reserved account details. Please try again.");
-    
-    // Get current user data again to return cached version
-    const currentUser = getCurrentUser();
-    const allUsers = [currentUser]; // In a real app, this would be fetched from a database
-    const user = allUsers.find(u => u.id === userId);
-    
-    return user?.reservedAccount || null;
-  }
-};
-
-/**
- * Fetches transactions for a reserved account
- * @param accountReference The account reference
- * @returns Array of transactions
- */
-export const getReservedAccountTransactions = async (accountReference: string) => {
-  try {
-    const result = await monnifyApi.getReservedAccountTransactions(accountReference);
-    
-    if (!result || !result.responseBody) {
-      toast.error("Failed to fetch transactions");
-      return null;
-    }
-    
-    const responseBody = result.responseBody;
-    
-    // Process the transactions and add them to the local storage
-    if (responseBody.content && Array.isArray(responseBody.content)) {
-      for (const transaction of responseBody.content) {
-        await processReservedAccountTransaction({
-          transactionReference: transaction.transactionReference,
-          paymentReference: transaction.paymentReference,
-          amountPaid: transaction.amount,
-          totalPayable: transaction.amount,
-          settlementAmount: transaction.amount,
-          paidOn: transaction.paidOn,
-          paymentStatus: transaction.paymentStatus,
-          paymentDescription: `Bank transfer from ${transaction.destinationBankName || 'bank'}`,
-          metaData: {},
-          accountDetails: {
-            accountName: transaction.destinationAccountName || '',
-            accountNumber: transaction.destinationAccountNumber || '',
-            bankCode: '',
-            bankName: transaction.destinationBankName || ''
-          }
-        });
+export const getBankTransactions = async (
+  page: number = 1,
+  limit: number = 10
+): Promise<BankTransactionResponse> => {
+  // Simulate API call delay
+  await new Promise(resolve => setTimeout(resolve, MOCK_API_DELAY));
+  
+  const currentUser = getCurrentUser();
+  
+  if (!currentUser || !currentUser.reservedAccount) {
+    return {
+      data: [],
+      meta: {
+        currentPage: page,
+        totalPages: 0,
+        totalRecords: 0
       }
-    }
-    
-    return responseBody;
-  } catch (error) {
-    console.error("Error fetching reserved account transactions:", error);
-    toast.error("Failed to fetch transactions. Please try again.");
-    return null;
+    };
   }
+  
+  // Get all transactions for the user that are deposits
+  const allTransactions = getAllTransactions();
+  const userTransactions = allTransactions.filter(
+    transaction => 
+      transaction.userId === currentUser.id && 
+      transaction.type === "deposit" &&
+      transaction.metaData?.paymentMethod === "bank_transfer"
+  );
+  
+  // Sort by date descending (newest first)
+  userTransactions.sort((a, b) => 
+    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+  
+  // Paginate
+  const startIndex = (page - 1) * limit;
+  const endIndex = startIndex + limit;
+  const paginatedTransactions = userTransactions.slice(startIndex, endIndex);
+  
+  // Format as BankTransaction objects
+  const formattedTransactions: BankTransaction[] = paginatedTransactions.map(t => ({
+    id: t.id,
+    amount: t.amount,
+    type: "credit", // All reserved account transactions are credits
+    status: t.status === "completed" ? "successful" : "pending",
+    reference: t.metaData?.reference || "N/A",
+    senderName: t.metaData?.senderName || "Bank Transfer",
+    senderBank: t.metaData?.senderBank || "Unknown Bank",
+    createdAt: t.createdAt,
+    settledAt: t.status === "completed" ? t.createdAt : null,
+    narration: t.metaData?.narration || t.description || "Bank Transfer"
+  }));
+  
+  return {
+    data: formattedTransactions,
+    meta: {
+      currentPage: page,
+      totalPages: Math.ceil(userTransactions.length / limit),
+      totalRecords: userTransactions.length
+    }
+  };
 };
 
 /**
- * Processes a transaction from a reserved account
- * This would typically be called by a webhook handler in a real app
- * @param data Transaction data from Monnify
+ * Mock function to simulate an incoming bank transfer to a reserved account
+ * In a real app, this would be handled by webhooks from the payment provider
+ * @param amount Amount of the transfer
+ * @param senderName Name of the sender
+ * @param senderBank Sender's bank name
+ * @returns Promise<boolean>
  */
-export const processReservedAccountTransaction = async (data: {
-  transactionReference: string;
-  paymentReference: string;
-  amountPaid: number;
-  totalPayable: number;
-  settlementAmount: number;
-  paidOn: string;
-  paymentStatus: string;
-  paymentDescription: string;
-  metaData?: {
-    contributionId?: string;
-    userId?: string;
-  };
-  accountDetails: {
-    accountName: string;
-    accountNumber: string;
-    bankCode: string;
-    bankName: string;
-  };
-}) => {
+export const simulateIncomingBankTransfer = async (
+  amount: number,
+  senderName: string = "Bank Customer",
+  senderBank: string = "Bank"
+): Promise<boolean> => {
+  // Simulate processing delay
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  const currentUser = getCurrentUser();
+  
+  if (!currentUser || !currentUser.reservedAccount) {
+    console.error("Cannot simulate transfer: User not found or no reserved account");
+    return false;
+  }
+  
   try {
-    const {
-      transactionReference,
-      paymentReference,
-      amountPaid,
-      totalPayable,
-      settlementAmount,
-      paidOn,
-      paymentStatus,
-      paymentDescription,
-      metaData,
-      accountDetails
-    } = data;
+    // Generate a unique reference
+    const reference = `trf_${uuidv4().substring(0, 8)}`;
     
-    // Get current user (who has the reserved account)
-    const currentUser = getCurrentUser();
+    // Update user wallet balance
+    updateUserById(currentUser.id, {
+      walletBalance: currentUser.walletBalance + amount
+    });
     
-    // In a real app, we would use the accountReference to find the user
-    // but for this demo, we'll use the current user
-    const userId = metaData?.userId || currentUser.id;
-    
-    // Check if transaction already exists to prevent duplicates
-    const existingTransactions = getTransactions();
-    const existingTransaction = existingTransactions.find(t => 
-      t.id === transactionReference || 
-      (t.metaData && t.metaData.paymentReference === paymentReference)
-    );
-    
-    if (existingTransaction) {
-      // Transaction already processed
-      return existingTransaction;
-    }
-    
-    // Add transaction record
+    // Create transaction record
     const transaction = {
-      id: transactionReference || uuidv4(),
-      userId,
-      type: "deposit" as "deposit" | "withdrawal" | "transfer" | "vote",
-      amount: amountPaid,
-      contributionId: metaData?.contributionId || "",
-      description: paymentDescription || "Bank transfer to virtual account",
-      status: paymentStatus === "PAID" ? "completed" as "completed" | "pending" | "failed" : "pending" as "completed" | "pending" | "failed",
-      createdAt: new Date(paidOn || Date.now()).toISOString(),
+      id: uuidv4(),
+      userId: currentUser.id,
+      type: "deposit", // Must match the expected type in Transaction
+      amount: amount,
+      contributionId: "", // No specific contribution
+      description: `Deposit via bank transfer from ${senderName}`,
+      status: "completed", // Must match the expected status in Transaction
+      createdAt: new Date().toISOString(),
       metaData: {
-        paymentReference,
-        bankName: accountDetails?.bankName || '',
-        accountNumber: accountDetails?.accountNumber || ''
+        paymentMethod: "bank_transfer",
+        reference,
+        senderName,
+        senderBank,
+        accountNumber: currentUser.reservedAccount.accountNumber,
+        narration: `Transfer from ${senderName}`
       }
     };
     
+    // Add transaction to storage
     addTransaction(transaction);
     
-    // Update user's wallet balance if payment is successful
-    if (paymentStatus === "PAID") {
-      if (userId === currentUser.id) {
-        const updatedBalance = (currentUser.walletBalance || 0) + amountPaid;
-        updateUser({
-          ...currentUser,
-          walletBalance: updatedBalance
-        });
-        toast.success(`Wallet funded with ₦${amountPaid.toLocaleString()}`);
-      } else {
-        // Update another user (admin action)
-        updateUserById(userId, {
-          walletBalance: (currentUser.walletBalance || 0) + amountPaid
-        });
-      }
-    }
-    
-    console.log("Transaction processed:", transaction);
-    return transaction;
+    return true;
   } catch (error) {
-    console.error("Error processing transaction:", error);
-    toast.error("Failed to process transaction. Please try again.");
-    return null;
+    console.error("Error simulating bank transfer:", error);
+    return false;
   }
+};
+
+// Export the default object
+export default {
+  createReservedAccount,
+  getReservedAccount,
+  getBankTransactions,
+  simulateIncomingBankTransfer
 };

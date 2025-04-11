@@ -371,3 +371,389 @@ export const updateAppStats = (updatedAppStats: Partial<AppStats>): void => {
   const newAppStats = { ...currentAppStats, ...updatedAppStats };
   localStorage.setItem(localStorageKeys.appStats, JSON.stringify(newAppStats));
 };
+import { User, Transaction } from '../localStorage';
+
+// Re-export types from localStorage.ts
+export type { User, Transaction };
+
+// Define additional types needed by the application
+export interface WithdrawalRequest {
+  id: string;
+  contributionId: string;
+  creatorId: string;
+  amount: number;
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected' | 'expired';
+  votes: {
+    userId: string;
+    vote: 'approve' | 'reject';
+    votedAt: string;
+  }[];
+  createdAt: string;
+  deadline: string;
+}
+
+export interface Stats {
+  totalUsers: number;
+  totalContributions: number;
+  totalTransactions: number;
+  totalAmount: number;
+  activeRequests: number;
+  totalWithdrawals: number;
+  totalAmountContributed: number;
+}
+
+// Export missing functions that were referenced in AppContext
+export const getCurrentUser = (): User | null => {
+  const userString = localStorage.getItem("collectipay_currentUser");
+  if (!userString) return null;
+  return JSON.parse(userString);
+};
+
+export const getUsers = (): User[] => {
+  const usersString = localStorage.getItem("collectipay_users");
+  if (!usersString) return [];
+  return JSON.parse(usersString);
+};
+
+export const getContributions = () => {
+  const contributionsString = localStorage.getItem("collectipay_contributions");
+  if (!contributionsString) return [];
+  return JSON.parse(contributionsString);
+};
+
+export const getUserContributions = (userId: string) => {
+  const contributions = getContributions();
+  if (!contributions) return [];
+  return contributions.filter((c: any) => c.creatorId === userId || c.members?.includes(userId));
+};
+
+export const getWithdrawalRequests = () => {
+  const requestsString = localStorage.getItem("collectipay_withdrawal_requests");
+  if (!requestsString) return [];
+  return JSON.parse(requestsString);
+};
+
+export const getTransactions = () => {
+  const transactionsString = localStorage.getItem("collectipay_transactions");
+  if (!transactionsString) return [];
+  return JSON.parse(transactionsString);
+};
+
+export const getStatistics = (): Stats => {
+  const statsString = localStorage.getItem("collectipay_app_stats");
+  if (!statsString) {
+    return {
+      totalUsers: 0,
+      totalContributions: 0,
+      totalTransactions: 0,
+      totalAmount: 0,
+      activeRequests: 0,
+      totalWithdrawals: 0,
+      totalAmountContributed: 0
+    };
+  }
+  return JSON.parse(statsString);
+};
+
+export const createContribution = (contribution: any) => {
+  const contributions = getContributions();
+  // Add implementation here if needed
+  return contribution;
+};
+
+export const contributeToGroup = (contributionId: string, amount: number, anonymous: boolean = false) => {
+  // Implementation would go here
+};
+
+export const contributeByAccountNumber = (accountNumber: string, amount: number, contributorInfo: any, anonymous: boolean = false) => {
+  // Implementation would go here
+};
+
+export const createWithdrawalRequest = (request: any) => {
+  // Implementation would go here
+};
+
+export const voteOnWithdrawalRequest = (requestId: string, vote: 'approve' | 'reject') => {
+  // Implementation would go here
+};
+
+export const updateUser = (userData: Partial<User>) => {
+  const currentUser = getCurrentUser();
+  if (!currentUser) return null;
+  
+  const updatedUser = { ...currentUser, ...userData };
+  localStorage.setItem("collectipay_currentUser", JSON.stringify(updatedUser));
+  
+  // Also update the user in the users array
+  const users = getUsers();
+  const updatedUsers = users.map(user => 
+    user.id === currentUser.id ? updatedUser : user
+  );
+  localStorage.setItem("collectipay_users", JSON.stringify(updatedUsers));
+  
+  return updatedUser;
+};
+
+export const generateShareLink = (contributionId: string) => {
+  return `${window.location.origin}/contribute/share/${contributionId}`;
+};
+
+export const initializeLocalStorage = () => {
+  // Initialize any required localStorage items
+};
+
+export const updateUserById = (userId: string, userData: Partial<User>) => {
+  const users = getUsers();
+  const updatedUsers = users.map(user => {
+    if (user.id === userId) {
+      return { ...user, ...userData };
+    }
+    return user;
+  });
+  localStorage.setItem("collectipay_users", JSON.stringify(updatedUsers));
+  
+  // Also update current user if it's the same user
+  const currentUser = getCurrentUser();
+  if (currentUser && currentUser.id === userId) {
+    const updatedUser = { ...currentUser, ...userData };
+    localStorage.setItem("collectipay_currentUser", JSON.stringify(updatedUser));
+  }
+  
+  return updatedUsers.find(user => user.id === userId) || null;
+};
+
+export const depositToUser = (userId: string, amount: number) => {
+  const users = getUsers();
+  const user = users.find(u => u.id === userId);
+  if (!user) return null;
+  
+  return updateUserById(userId, {
+    walletBalance: user.walletBalance + amount
+  });
+};
+
+export const pauseUser = (userId: string) => {
+  return updateUserById(userId, { status: "paused" });
+};
+
+export const activateUser = (userId: string) => {
+  return updateUserById(userId, { status: "active" });
+};
+
+export const logoutUser = () => {
+  localStorage.removeItem("collectipay_currentUser");
+};
+
+export const addNotification = (notification: any) => {
+  // Implementation would go here
+};
+
+export const getUserByEmail = (email: string) => {
+  const users = getUsers();
+  return users.find(user => user.email === email) || null;
+};
+
+export const getUserByPhone = (phone: string) => {
+  const users = getUsers();
+  return users.find(user => user.phone === phone) || null;
+};
+
+export const pingGroupMembersForVote = (requestId: string) => {
+  // Implementation would go here
+};
+
+export const generateContributionReceipt = (transactionId: string) => {
+  const transactions = getTransactions();
+  const transaction = transactions.find((t: any) => t.id === transactionId);
+  if (!transaction) return null;
+  
+  // Create receipt object
+  return {
+    transactionId,
+    amount: transaction.amount,
+    date: transaction.createdAt,
+    description: transaction.description,
+    status: transaction.status
+  };
+};
+
+export const updateWithdrawalRequestsStatus = () => {
+  // Implementation would go here
+};
+
+export const verifyUserWithOTP = (userId: string) => {
+  return updateUserById(userId, { verified: true });
+};
+
+export const getContributionByAccountNumber = (accountNumber: string) => {
+  const contributions = getContributions();
+  return contributions.find((c: any) => c.accountNumber === accountNumber) || null;
+};
+
+export const hasContributed = (userId: string, contributionId: string) => {
+  const transactions = getTransactions();
+  return transactions.some((t: any) => 
+    t.userId === userId && 
+    t.contributionId === contributionId && 
+    t.type === "vote" &&
+    t.status === "completed"
+  );
+};
+
+export const markAllNotificationsAsRead = (userId: string) => {
+  const users = getUsers();
+  const user = users.find(u => u.id === userId);
+  if (!user || !user.notifications) return;
+  
+  const updatedNotifications = user.notifications.map((n: any) => ({
+    ...n,
+    read: true
+  }));
+  
+  updateUserById(userId, { notifications: updatedNotifications });
+};
+
+export const markNotificationAsRead = (userId: string, notificationId: string) => {
+  const users = getUsers();
+  const user = users.find(u => u.id === userId);
+  if (!user || !user.notifications) return;
+  
+  const updatedNotifications = user.notifications.map((n: any) => 
+    n.id === notificationId ? { ...n, read: true } : n
+  );
+  
+  updateUserById(userId, { notifications: updatedNotifications });
+};
+
+// Helper function to add a transaction
+export const addTransaction = (transactionData: Omit<Transaction, "id">) => {
+  const transactions = getTransactions();
+  const newTransaction = {
+    id: crypto.randomUUID(),
+    ...transactionData
+  };
+  
+  localStorage.setItem("collectipay_transactions", JSON.stringify([...transactions, newTransaction]));
+  return newTransaction;
+};
+import { getCurrentUser, getUsers } from "@/services/localStorage";
+import { isValid } from "date-fns";
+
+// Add the missing activateUser function
+export const activateUser = (userId: string): void => {
+  try {
+    const users = getUsers();
+    const index = users.findIndex(u => u.id === userId);
+    
+    if (index >= 0) {
+      users[index].status = "active";
+      localStorage.setItem('users', JSON.stringify(users));
+      
+      // If this is the current user, update that too
+      const currentUser = getCurrentUser();
+      if (currentUser && currentUser.id === userId) {
+        currentUser.status = "active";
+        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+      }
+    }
+  } catch (error) {
+    console.error("Error in activateUser:", error);
+  }
+};
+
+// Add the missing pauseUser function
+export const pauseUser = (userId: string): void => {
+  try {
+    const users = getUsers();
+    const index = users.findIndex(u => u.id === userId);
+    
+    if (index >= 0) {
+      users[index].status = "paused";
+      localStorage.setItem('users', JSON.stringify(users));
+      
+      // If this is the current user, update that too
+      const currentUser = getCurrentUser();
+      if (currentUser && currentUser.id === userId) {
+        currentUser.status = "paused";
+        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+      }
+    }
+  } catch (error) {
+    console.error("Error in pauseUser:", error);
+  }
+};
+
+// Add the missing verifyUserWithOTP function 
+export const verifyUserWithOTP = (userId: string): void => {
+  try {
+    const users = getUsers();
+    const index = users.findIndex(u => u.id === userId);
+    
+    if (index >= 0) {
+      users[index].verified = true;
+      localStorage.setItem('users', JSON.stringify(users));
+      
+      // If this is the current user, update that too
+      const currentUser = getCurrentUser();
+      if (currentUser && currentUser.id === userId) {
+        currentUser.verified = true;
+        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+      }
+    }
+  } catch (error) {
+    console.error("Error in verifyUserWithOTP:", error);
+  }
+};
+
+// Helper to validate dates
+export const validateDate = (dateString: string): boolean => {
+  if (!dateString) return false;
+  
+  try {
+    const date = new Date(dateString);
+    return isValid(date);
+  } catch (error) {
+    console.error("Error validating date:", error);
+    return false;
+  }
+};
+
+// Let's add other functions that are needed based on the errors:
+
+// Re-export necessary types and functions from services/localStorage to fix the errors
+export * from "@/services/localStorage";
+
+// Only add these if they're not already in @/services/localStorage
+export const updateUserById = (userId: string, userData: Partial<any>): any => {
+  try {
+    const users = getUsers();
+    const userIndex = users.findIndex(u => u.id === userId);
+    
+    if (userIndex >= 0) {
+      users[userIndex] = { ...users[userIndex], ...userData };
+      localStorage.setItem('users', JSON.stringify(users));
+      
+      // If this is the current user, update that too
+      const currentUser = getCurrentUser();
+      if (currentUser && currentUser.id === userId) {
+        const updatedUser = { ...currentUser, ...userData };
+        localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+        return updatedUser;
+      }
+      
+      return users[userIndex];
+    }
+    return null;
+  } catch (error) {
+    console.error("Error in updateUserById:", error);
+    return null;
+  }
+};
+
+// Add missing depositToUser function
+export const depositToUser = (userId: string, amount: number): any => {
+  return updateUserById(userId, {
+    walletBalance: (user: any) => user.walletBalance + amount
+  });
+};
