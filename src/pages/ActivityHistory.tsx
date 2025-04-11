@@ -7,7 +7,12 @@ import {
   ArrowDown, 
   ArrowLeft, 
   ArrowUp, 
-  HelpCircle 
+  Vote as VoteIcon,
+  Wallet,
+  MessageSquare,
+  DollarSign,
+  CreditCard,
+  PiggyBank
 } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
 import { format, isValid } from "date-fns";
@@ -34,19 +39,19 @@ const ActivityItem = ({ type, title, description, amount, date, status }: Activi
       case "deposit":
         return (
           <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center text-green-600 dark:text-green-400">
-            <ArrowDown size={18} />
+            <PiggyBank size={18} />
           </div>
         );
       case "withdrawal":
         return (
           <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/20 flex items-center justify-center text-amber-600 dark:text-amber-400">
-            <ArrowUp size={18} />
+            <Wallet size={18} />
           </div>
         );
       case "vote":
         return (
           <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center text-blue-600 dark:text-blue-400">
-            <HelpCircle size={18} />
+            <VoteIcon size={18} />
           </div>
         );
     }
