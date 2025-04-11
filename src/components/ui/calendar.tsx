@@ -14,6 +14,36 @@ function Calendar({
   showOutsideDays = true,
   ...props
 }: CalendarProps) {
+  // Create a safe version of the selected prop
+  const safeProps = { ...props };
+  
+  // Handle conversion of selected dates if needed
+  if (safeProps.selected !== undefined && typeof safeProps.selected !== 'undefined') {
+    // Handle single date
+    if (safeProps.mode === 'single' && !Array.isArray(safeProps.selected) && safeProps.selected !== null) {
+      if (typeof safeProps.selected === 'string' || typeof safeProps.selected === 'number') {
+        safeProps.selected = new Date(safeProps.selected);
+      }
+    }
+    // Handle multiple dates
+    else if (safeProps.mode === 'multiple' && Array.isArray(safeProps.selected)) {
+      safeProps.selected = safeProps.selected.map(date => 
+        typeof date === 'string' || typeof date === 'number' ? new Date(date) : date
+      );
+    }
+    // Handle range
+    else if (safeProps.mode === 'range' && safeProps.selected !== null && typeof safeProps.selected === 'object') {
+      const range = safeProps.selected as { from?: Date | string, to?: Date | string };
+      if (range.from && (typeof range.from === 'string' || typeof range.from === 'number')) {
+        range.from = new Date(range.from);
+      }
+      if (range.to && (typeof range.to === 'string' || typeof range.to === 'number')) {
+        range.to = new Date(range.to);
+      }
+      safeProps.selected = range;
+    }
+  }
+
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
@@ -56,10 +86,7 @@ function Calendar({
         IconLeft: ({ ...props }) => <ChevronLeft className="h-4 w-4" />,
         IconRight: ({ ...props }) => <ChevronRight className="h-4 w-4" />,
       }}
-      // Fix for the TypeScript error by ensuring date is properly parsed
-      selected={typeof props.selected === 'string' || typeof props.selected === 'number' ? 
-        new Date(props.selected) : props.selected as Date}
-      {...props}
+      {...safeProps}
     />
   )
 }

@@ -2,7 +2,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
   ArrowDown, 
-  ArrowUp, 
   Vote as VoteIcon,
   Wallet,
   MessageSquare,
@@ -13,7 +12,7 @@ import {
 import { Link } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
 import { format, isValid } from "date-fns";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { getReservedAccountTransactions } from "@/services/walletIntegration";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -102,24 +101,26 @@ const ActivityItem = ({ type, title, description, amount, date, status }: Activi
 const RecentActivity = () => {
   const { transactions, contributions, user, refreshData } = useApp();
   const [isLoading, setIsLoading] = useState(false);
+  const hasInitiallyFetched = useRef(false);
   
-  // Fetch transactions when component mounts
+  // Fetch transactions when component mounts, but only once
   useEffect(() => {
-    if (user?.reservedAccount?.accountReference) {
-      const fetchData = async () => {
+    const fetchData = async () => {
+      if (user?.reservedAccount?.accountReference && !hasInitiallyFetched.current) {
         setIsLoading(true);
         try {
           await getReservedAccountTransactions(user.reservedAccount.accountReference);
           refreshData();
+          hasInitiallyFetched.current = true;
         } catch (error) {
           console.error("Error fetching transactions:", error);
         } finally {
           setIsLoading(false);
         }
-      };
-      
-      fetchData();
-    }
+      }
+    };
+    
+    fetchData();
   }, [user?.reservedAccount, refreshData]);
   
   // Format and sort transactions
