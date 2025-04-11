@@ -3,13 +3,12 @@ import { useState } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { createReservedAccount, getReservedAccountDetails } from "@/services/wallet/reservedAccountService";
+import { createReservedAccount, getReservedAccount } from "@/services/wallet/reservedAccountService";
 import { ReservedAccountData } from "@/services/wallet/types";
 
 interface IdFormData {
-  bvn: string;
-  nin: string;
   idType: "bvn" | "nin";
+  idNumber: string;
 }
 
 export const useReservedAccount = () => {
@@ -23,8 +22,7 @@ export const useReservedAccount = () => {
 
   const form = useForm<IdFormData>({
     defaultValues: {
-      bvn: "",
-      nin: "",
+      idNumber: "",
       idType: "bvn"
     }
   });
@@ -37,8 +35,8 @@ export const useReservedAccount = () => {
     setLoading(true);
     setError("");
     try {
-      const idValue = data.idType === "bvn" ? data.bvn : data.nin;
-      const result = await createReservedAccount(idValue, data.idType);
+      const idValue = data.idNumber;
+      const result = await createReservedAccount();
       
       if (result) {
         refreshData();
@@ -62,7 +60,7 @@ export const useReservedAccount = () => {
 
     setLoading(true);
     try {
-      const result = await getReservedAccountDetails(user.reservedAccount.accountReference);
+      const result = await getReservedAccount();
       if (result) {
         refreshData();
         toast.success("Account details refreshed");
@@ -89,8 +87,8 @@ export const useReservedAccount = () => {
   const createAccount = async () => {
     setLoading(true);
     try {
-      // This placeholder implementation uses a fake BVN
-      const result = await createReservedAccount("22222222222", "bvn");
+      // This placeholder implementation uses a simple approach
+      const result = await createReservedAccount();
       if (result) {
         refreshData();
         toast.success("Virtual account created successfully");

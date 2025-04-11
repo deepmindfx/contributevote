@@ -21,6 +21,14 @@ const TransactionItem = ({ transaction, currencyType, convertToUSD }: Transactio
     }
   };
 
+  // Get the description text handling anonymous transactions
+  const getDescription = () => {
+    if (transaction.anonymous) {
+      return `${transaction.description} (Anonymous)`;
+    }
+    return transaction.description;
+  };
+
   return (
     <div className="flex items-start p-3 border rounded-lg">
       <div className={`w-10 h-10 rounded-full flex items-center justify-center
@@ -42,10 +50,9 @@ const TransactionItem = ({ transaction, currencyType, convertToUSD }: Transactio
               {transaction.type === 'deposit' ? 'Deposit' : 
                transaction.type === 'withdrawal' ? 'Withdrawal' : 
                'Vote'}
-               {transaction.anonymous ? ' (Anonymous)' : ''}
             </h4>
             <p className="text-sm text-muted-foreground">
-              {transaction.description}
+              {getDescription()}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               {formatDate(transaction.createdAt)}

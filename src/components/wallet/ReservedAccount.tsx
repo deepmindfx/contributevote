@@ -48,7 +48,7 @@ const ReservedAccount = () => {
                 </p>
               </div>
               <Button 
-                onClick={() => handleCreateAccount()} 
+                onClick={handleCreateAccount} 
                 className="flex items-center gap-2"
               >
                 <Plus size={16} />
