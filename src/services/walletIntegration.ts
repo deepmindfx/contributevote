@@ -1,4 +1,3 @@
-
 import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
 import * as monnifyApi from "./monnifyApi";
@@ -46,9 +45,15 @@ export interface CardTokenData {
 /**
  * Creates a reserved account for a user
  * @param userId The user ID
+ * @param idType The type of ID (BVN or NIN)
+ * @param idNumber The ID number provided by the user
  * @returns Reserved account details
  */
-export const createUserReservedAccount = async (userId: string): Promise<ReservedAccountData | null> => {
+export const createUserReservedAccount = async (
+  userId: string, 
+  idType?: string, 
+  idNumber?: string
+): Promise<ReservedAccountData | null> => {
   try {
     // Get current user data
     const currentUser = getCurrentUser();
@@ -66,20 +71,23 @@ export const createUserReservedAccount = async (userId: string): Promise<Reserve
       return user.reservedAccount;
     }
     
+    // Validate ID information
+    if (!idType || !idNumber) {
+      toast.error("BVN or NIN is required to create a virtual account");
+      return null;
+    }
+    
     // Create a unique account reference
     const accountReference = `COLL_${userId}_${Date.now()}`;
     
-    // Create a reserved account
-    // Note: We're passing a mock BVN here since this is a demo/development environment
-    // In a production app, you would collect this from the user
-    const mockBvn = "22222222222"; // Demo BVN (11 digits)
-    
+    // Create a reserved account using the provided ID
     const result = await monnifyApi.createReservedAccount({
       accountReference,
       accountName: user.name || `${user.firstName} ${user.lastName}`,
       customerEmail: user.email,
       customerName: user.name || `${user.firstName} ${user.lastName}`,
-      bvn: mockBvn // Adding mock BVN to fix empty account issue
+      bvn: idType === "bvn" ? idNumber : undefined,
+      nin: idType === "nin" ? idNumber : undefined
     });
     
     if (!result) {

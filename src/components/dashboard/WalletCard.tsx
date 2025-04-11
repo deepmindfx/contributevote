@@ -271,7 +271,7 @@ const WalletCard = () => {
                           </div>
                         ) : (
                           <p className="text-sm text-muted-foreground">
-                            You need to set up a virtual account first. This will be done after clicking deposit.
+                            You need to set up a virtual account first. This will require your BVN or NIN for verification.
                           </p>
                         )}
                       </div>
