@@ -1,10 +1,11 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import MobileNav from "@/components/layout/MobileNav";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ArrowDown, ArrowUp, HelpCircle, Wallet, Bank } from "lucide-react";
+import { ArrowLeft, ArrowDown, ArrowUp, HelpCircle, Wallet, BuildingBank } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useApp } from "@/contexts/AppContext";
 import { format } from "date-fns";
@@ -104,7 +105,7 @@ const WalletHistory = () => {
               App Transactions
             </TabsTrigger>
             <TabsTrigger value="bank">
-              <Bank className="h-4 w-4 mr-2" />
+              <BuildingBank className="h-4 w-4 mr-2" />
               Bank Transactions
             </TabsTrigger>
           </TabsList>

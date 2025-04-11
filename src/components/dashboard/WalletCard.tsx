@@ -1,9 +1,8 @@
-
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
-import { PlusCircle, ArrowDown, Wallet, SendHorizontal, UserPlus, Clock, Eye, EyeOff, DollarSign, CreditCard, Bank } from "lucide-react";
+import { PlusCircle, ArrowDown, Wallet, SendHorizontal, UserPlus, Clock, Eye, EyeOff, DollarSign, CreditCard, BuildingBank } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -216,7 +215,7 @@ const WalletCard = () => {
                         Card
                       </TabsTrigger>
                       <TabsTrigger value="bank">
-                        <BankIcon className="h-4 w-4 mr-2" />
+                        <BuildingBank className="h-4 w-4 mr-2" />
                         Bank
                       </TabsTrigger>
                     </TabsList>
