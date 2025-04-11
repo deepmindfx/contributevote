@@ -67,3 +67,31 @@ export interface PaymentResponse {
     date: string;
   } | null;
 }
+
+/**
+ * Interface for bank transaction
+ */
+export interface BankTransaction {
+  id: string;
+  amount: number;
+  type: string;
+  status: string;
+  reference: string;
+  senderName: string;
+  senderBank: string;
+  createdAt: string;
+  settledAt: string | null;
+  narration: string;
+}
+
+/**
+ * Interface for bank transaction response
+ */
+export interface BankTransactionResponse {
+  data: BankTransaction[];
+  meta: {
+    currentPage: number;
+    totalPages: number;
+    totalRecords: number;
+  };
+}

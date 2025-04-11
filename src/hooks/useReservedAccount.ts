@@ -1,133 +1,52 @@
 
-import { useState, useEffect } from "react";
-import { toast } from "sonner";
-import { useApp } from "@/contexts/AppContext";
+import { useState, useEffect } from 'react';
+import { useApp } from '@/contexts/AppContext';
+import { ReservedAccountData } from '@/services/wallet/types';
 import { 
-  getUserReservedAccount, 
-  createUserReservedAccount, 
-  getReservedAccountTransactions,
-  ReservedAccountData
-} from "@/services/wallet";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { idFormSchema, IdFormValues } from "@/components/wallet/IdFormDialog";
+  createReservedAccount, 
+  getReservedAccount 
+} from '@/services/wallet';
 
-export const useReservedAccount = () => {
+export function useReservedAccount() {
   const { user, refreshData } = useApp();
-  const [isLoading, setIsLoading] = useState(false);
-  const [accountDetails, setAccountDetails] = useState<ReservedAccountData | null>(null);
-  const [showFullDetails, setShowFullDetails] = useState(false);
-  const [showIdForm, setShowIdForm] = useState(false);
-  
-  // Initialize the form
-  const form = useForm<IdFormValues>({
-    resolver: zodResolver(idFormSchema),
-    defaultValues: {
-      idType: "bvn",
-      idNumber: "",
-    },
-  });
-  
+  const [reservedAccount, setReservedAccount] = useState<ReservedAccountData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Get the user's reserved account, if they have one
   useEffect(() => {
-    // Check if user already has a reserved account
     if (user?.reservedAccount) {
-      setAccountDetails(user.reservedAccount);
-      
-      // If account details exist but the accountNumber or bankName is undefined, refresh account details
-      if (!user.reservedAccount.accountNumber || !user.reservedAccount.bankName) {
-        handleRefresh();
-      }
+      setReservedAccount(user.reservedAccount);
+    } else {
+      setReservedAccount(null);
     }
-  }, [user]);
-  
-  const handleCreateAccount = async (values?: IdFormValues) => {
-    setIsLoading(true);
+  }, [user?.reservedAccount]);
+
+  // Function to create a reserved account
+  const createAccount = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      if (!user || !user.id) {
-        toast.error("User information not available. Please log in again.");
-        return;
-      }
-      
-      if (!values) {
-        setShowIdForm(true);
-        setIsLoading(false);
-        return;
-      }
-      
-      // Close the ID form dialog after submission
-      setShowIdForm(false);
-      
-      const result = await createUserReservedAccount(user.id, values.idType, values.idNumber);
-      if (result) {
-        console.log("Reserved account created:", result);
-        setAccountDetails(result);
-        refreshData();
-        
-        // Also fetch transactions after creating account
-        if (result.accountReference) {
-          await getReservedAccountTransactions(result.accountReference);
-          refreshData();
-        }
-        
-        toast.success("Virtual account created successfully");
-      }
-    } catch (error) {
-      console.error("Error creating reserved account:", error);
-      toast.error("Failed to create reserved account. Please try again.");
+      const newReservedAccount = await createReservedAccount();
+      setReservedAccount(newReservedAccount);
+      refreshData(); // Update the app context with the new user data
+      return newReservedAccount;
+    } catch (err) {
+      console.error('Error creating reserved account:', err);
+      setError('Failed to create reserved account. Please try again later.');
+      return null;
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
-  
-  const handleRefresh = async () => {
-    setIsLoading(true);
-    try {
-      if (!user || !user.id) {
-        toast.error("User information not available. Please log in again.");
-        return;
-      }
-      
-      const result = await getUserReservedAccount(user.id);
-      if (result) {
-        console.log("Retrieved account details:", result);
-        setAccountDetails(result);
-        
-        // Fetch transactions when refreshing account details
-        if (result.accountReference) {
-          await getReservedAccountTransactions(result.accountReference);
-        }
-        
-        refreshData();
-        toast.success("Account details refreshed");
-      }
-    } catch (error) {
-      console.error("Error refreshing reserved account:", error);
-      toast.error("Failed to refresh account details. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  const copyToClipboard = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success(`${label} copied to clipboard`);
-  };
-  
-  const onSubmitIdForm = (values: IdFormValues) => {
-    handleCreateAccount(values);
-  };
-  
+
   return {
-    isLoading,
-    accountDetails,
-    showFullDetails,
-    setShowFullDetails,
-    showIdForm,
-    setShowIdForm,
-    form,
-    handleCreateAccount,
-    handleRefresh,
-    copyToClipboard,
-    onSubmitIdForm
+    reservedAccount,
+    loading,
+    error,
+    createAccount,
+    hasReservedAccount: !!reservedAccount
   };
-};
+}
+
+export default useReservedAccount;

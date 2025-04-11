@@ -1,5 +1,11 @@
 
-// Export all wallet services from a single entry point
+export {
+  createReservedAccount,
+  getReservedAccount,
+  getBankTransactions,
+  simulateIncomingBankTransfer,
+  getReservedAccountTransactions
+} from './reservedAccountService';
+
+// Re-export types
 export * from './types';
-export * from './reservedAccountService';
-export * from './paymentService';

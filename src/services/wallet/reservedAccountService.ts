@@ -1,35 +1,12 @@
 
 import { v4 as uuidv4 } from "uuid";
-import { ReservedAccountData } from "./types";
+import { ReservedAccountData, BankTransaction, BankTransactionResponse } from "./types";
 import { 
   getCurrentUser, 
   getAllTransactions, 
   updateUserById,
   addTransaction
 } from "../localStorage";
-
-// Define the BankTransaction and BankTransactionResponse interfaces here
-interface BankTransaction {
-  id: string;
-  amount: number;
-  type: string;
-  status: string;
-  reference: string;
-  senderName: string;
-  senderBank: string;
-  createdAt: string;
-  settledAt: string | null;
-  narration: string;
-}
-
-interface BankTransactionResponse {
-  data: BankTransaction[];
-  meta: {
-    currentPage: number;
-    totalPages: number;
-    totalRecords: number;
-  };
-}
 
 // Mock API response times
 const MOCK_API_DELAY = 800;
@@ -195,14 +172,13 @@ export const simulateIncomingBankTransfer = async (
     });
     
     // Create transaction record
-    const transaction = {
-      id: uuidv4(),
+    const transactionData = {
       userId: currentUser.id,
-      type: "deposit", 
+      type: "deposit" as const, 
       amount: amount,
       contributionId: "", 
       description: `Deposit via bank transfer from ${senderName}`,
-      status: "completed", 
+      status: "completed" as const, 
       createdAt: new Date().toISOString(),
       metaData: {
         paymentMethod: "bank_transfer",
@@ -215,7 +191,7 @@ export const simulateIncomingBankTransfer = async (
     };
     
     // Add transaction to storage
-    addTransaction(transaction);
+    addTransaction(transactionData);
     
     return true;
   } catch (error) {
