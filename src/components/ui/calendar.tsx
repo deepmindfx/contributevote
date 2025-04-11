@@ -14,6 +14,23 @@ function Calendar({
   showOutsideDays = true,
   ...props
 }: CalendarProps) {
+  // Safely handle any date-related props to prevent errors
+  const safeProps = { ...props };
+  
+  // Safely handle selected date(s)
+  if (safeProps.selected && !Array.isArray(safeProps.selected)) {
+    try {
+      const selectedDate = new Date(safeProps.selected);
+      if (isNaN(selectedDate.getTime())) {
+        console.error("Invalid selected date in Calendar:", safeProps.selected);
+        delete safeProps.selected;
+      }
+    } catch (error) {
+      console.error("Error processing selected date in Calendar:", error);
+      delete safeProps.selected;
+    }
+  }
+
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
@@ -56,7 +73,7 @@ function Calendar({
         IconLeft: ({ ..._props }) => <ChevronLeft className="h-4 w-4" />,
         IconRight: ({ ..._props }) => <ChevronRight className="h-4 w-4" />,
       }}
-      {...props}
+      {...safeProps}
     />
   );
 }

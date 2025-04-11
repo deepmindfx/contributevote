@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useApp } from "@/contexts/AppContext";
-import { format } from "date-fns";
+import { format, isValid } from "date-fns";
 import { Users, Calendar, ArrowRight } from "lucide-react";
 
 const GroupsList = () => {
@@ -20,6 +20,21 @@ const GroupsList = () => {
   };
   
   const recentGroups = getRecentGroups();
+  
+  // Helper function to safely format dates
+  const safeFormatDate = (dateString) => {
+    try {
+      const date = new Date(dateString);
+      if (!date || !isValid(date)) {
+        console.error("Invalid date:", dateString);
+        return "Invalid date";
+      }
+      return format(date, 'MMM d, yyyy');
+    } catch (err) {
+      console.error("Error formatting date:", err);
+      return "Invalid date";
+    }
+  };
   
   return (
     <Card>
@@ -63,7 +78,7 @@ const GroupsList = () => {
                         <span className="mr-2">{group.members.length} members</span>
                         
                         <Calendar className="h-3 w-3 mr-1 inline" />
-                        <span>{format(new Date(group.startDate), 'MMM d, yyyy')}</span>
+                        <span>{safeFormatDate(group.startDate)}</span>
                       </div>
                     </div>
                     <Badge variant="outline" className="capitalize text-xs">

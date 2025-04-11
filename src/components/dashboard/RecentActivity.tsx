@@ -126,7 +126,7 @@ const RecentActivity = () => {
                 `₦ ${transaction.amount.toLocaleString()}` : 
                 `${transaction.type === 'deposit' ? '+' : '-'}₦ ${transaction.amount.toLocaleString()}`,
         date: formatDate(transaction.createdAt),
-        status: transaction.status,
+        status: transaction.status as "pending" | "completed" | "rejected",
       }
     });
 
@@ -135,7 +135,7 @@ const RecentActivity = () => {
       const date = new Date(dateString);
       if (!isValid(date)) {
         console.error("Invalid date in formatDate:", dateString);
-        return "Unknown date";
+        return "Invalid date";
       }
       
       const today = new Date();
