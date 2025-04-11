@@ -1,5 +1,7 @@
 
 import { checkTransferStatus } from "@/services/walletTransfer";
+import { getGroupAccountTransactions } from "@/services/groupAccounts";
+import { getContributions } from "@/services/localStorage";
 
 /**
  * Check and update status for any pending transfers
@@ -27,6 +29,21 @@ export const updatePendingTransfers = async () => {
       
       // Add a small delay between requests to avoid rate limiting
       await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    
+    // Also check for new transactions in group accounts
+    const contributions = getContributions();
+    const contributionsWithAccounts = contributions.filter(c => c.accountReference);
+    
+    if (contributionsWithAccounts.length > 0) {
+      console.log(`Checking ${contributionsWithAccounts.length} group accounts for new transactions`);
+      
+      for (const contribution of contributionsWithAccounts) {
+        await getGroupAccountTransactions(contribution.id);
+        
+        // Add a small delay between requests to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
     }
   } catch (error) {
     console.error("Error updating pending transfers:", error);
