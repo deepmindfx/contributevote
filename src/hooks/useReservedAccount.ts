@@ -5,9 +5,9 @@ import { useApp } from "@/contexts/AppContext";
 import { 
   getUserReservedAccount, 
   createUserReservedAccount, 
-  ReservedAccountData,
-  getReservedAccountTransactions
-} from "@/services/walletIntegration";
+  getReservedAccountTransactions,
+  ReservedAccountData
+} from "@/services/wallet";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { idFormSchema, IdFormValues } from "@/components/wallet/IdFormDialog";

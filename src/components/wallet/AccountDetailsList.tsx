@@ -1,13 +1,18 @@
 
 import React from "react";
+import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Clipboard } from "lucide-react";
 import { toast } from "sonner";
-import { ReservedAccountData } from "@/services/walletIntegration";
+
+interface Account {
+  bankCode: string;
+  bankName: string;
+  accountNumber: string;
+}
 
 interface AccountDetailsListProps {
-  accounts: any[];
+  accounts: Account[];
   onClose: () => void;
 }
 
@@ -16,40 +21,52 @@ const AccountDetailsList = ({ accounts, onClose }: AccountDetailsListProps) => {
     navigator.clipboard.writeText(text);
     toast.success(`${label} copied to clipboard`);
   };
-  
+
   return (
-    <DialogContent>
+    <DialogContent className="sm:max-w-md">
       <DialogHeader>
-        <DialogTitle>All Virtual Accounts</DialogTitle>
-        <DialogDescription>
-          Your reserved account is available across multiple banks
-        </DialogDescription>
+        <DialogTitle>All Bank Accounts</DialogTitle>
       </DialogHeader>
-      <div className="space-y-4 py-4 max-h-[400px] overflow-y-auto">
-        {accounts?.map((account, index) => (
-          <div key={index} className="border rounded-lg p-3">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-sm font-medium text-muted-foreground">Account Number</span>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => copyToClipboard(account.accountNumber, "Account number")}
-                className="h-6 px-2"
-              >
-                <Clipboard size={14} />
-              </Button>
+      
+      <div className="space-y-6 py-2">
+        {accounts.map((account, index) => (
+          <div key={index} className="space-y-2 border-b pb-4 last:border-b-0">
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-sm font-medium text-muted-foreground">Bank Name</label>
+              </div>
+              <div className="font-medium text-lg">
+                {account.bankName}
+              </div>
             </div>
-            <div className="font-mono text-lg">{account.accountNumber}</div>
             
-            <div className="mt-2">
-              <span className="text-sm font-medium text-muted-foreground">Bank</span>
-              <div>{account.bankName}</div>
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-sm font-medium text-muted-foreground">Account Number</label>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => copyToClipboard(account.accountNumber, "Account number")}
+                  className="h-6 px-2"
+                >
+                  <Clipboard size={14} />
+                </Button>
+              </div>
+              <div className="font-mono text-xl bg-muted/50 rounded-md py-2 px-3">
+                {account.accountNumber}
+              </div>
             </div>
           </div>
         ))}
       </div>
+      
       <DialogFooter>
-        <Button onClick={onClose}>Close</Button>
+        <Button
+          onClick={onClose}
+          className="w-full"
+        >
+          Close
+        </Button>
       </DialogFooter>
     </DialogContent>
   );

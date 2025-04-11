@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
 import { useEffect, useState, useRef } from "react";
-import { getReservedAccountTransactions } from "@/services/walletIntegration";
+import { getReservedAccountTransactions } from "@/services/wallet/reservedAccountService";
 import { Skeleton } from "@/components/ui/skeleton";
 import ActivityItem from "./activity/ActivityItem";
 import { useActivityData } from "@/hooks/useActivityData";

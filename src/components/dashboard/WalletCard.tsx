@@ -8,7 +8,8 @@ import { PlusCircle, SendHorizontal, UserPlus, Clock, Eye, EyeOff } from "lucide
 import { useApp } from "@/contexts/AppContext";
 import { updateUserBalance } from "@/services/localStorage";
 import { toast } from "sonner";
-import { createPaymentInvoice, getReservedAccountTransactions } from "@/services/walletIntegration";
+import { createPaymentInvoice } from "@/services/wallet/paymentService";
+import { getReservedAccountTransactions } from "@/services/wallet/reservedAccountService";
 import CurrencyToggle from "@/components/wallet/CurrencyToggle";
 import ActionButton from "@/components/wallet/ActionButton";
 import DepositDialog from "@/components/wallet/DepositDialog";

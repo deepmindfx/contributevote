@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { useApp } from "@/contexts/AppContext";
-import { getReservedAccountTransactions } from "@/services/walletIntegration";
+import { getReservedAccountTransactions } from "@/services/wallet/reservedAccountService";
 
 export const useWalletHistory = () => {
   const { user, transactions, refreshData } = useApp();

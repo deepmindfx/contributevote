@@ -1,28 +1,24 @@
 
 import React from "react";
-import { DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Form, FormField, FormItem, FormLabel, FormControl, FormDescription, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { UseFormReturn } from "react-hook-form";
 import { z } from "zod";
+import { DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 
-// Form schema for validation
-const idFormSchema = z.object({
-  idType: z.enum(["bvn", "nin"], {
-    required_error: "Please select an ID type",
-  }),
-  idNumber: z.string()
-    .min(10, "ID number must be at least 10 digits")
-    .max(11, "ID number cannot exceed 11 digits")
-    .regex(/^\d+$/, "ID number must contain only digits"),
+// Define schema for ID form
+export const idFormSchema = z.object({
+  idType: z.enum(["bvn", "nin"]),
+  idNumber: z.string().min(10, "ID number must be at least 10 characters").max(15, "ID number cannot exceed 15 characters"),
 });
 
-type IdFormValues = z.infer<typeof idFormSchema>;
+export type IdFormValues = z.infer<typeof idFormSchema>;
 
 interface IdFormDialogProps {
-  form: UseFormReturn<IdFormValues>;
+  form: ReturnType<typeof useForm<IdFormValues>>;
   onSubmit: (values: IdFormValues) => void;
   isLoading: boolean;
   onClose: () => void;
@@ -30,49 +26,43 @@ interface IdFormDialogProps {
 
 const IdFormDialog = ({ form, onSubmit, isLoading, onClose }: IdFormDialogProps) => {
   return (
-    <DialogContent>
+    <DialogContent className="sm:max-w-md">
       <DialogHeader>
-        <DialogTitle>Provide Identification</DialogTitle>
+        <DialogTitle>Verify Your Identity</DialogTitle>
         <DialogDescription>
-          We need your BVN or NIN to create your virtual account. This information is required by financial regulations.
+          Provide your BVN or NIN to create a virtual account. Your information is secure and will only be used for verification.
         </DialogDescription>
       </DialogHeader>
-      
+
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-2">
           <FormField
             control={form.control}
             name="idType"
             render={({ field }) => (
-              <FormItem className="space-y-3">
+              <FormItem className="space-y-1">
                 <FormLabel>ID Type</FormLabel>
-                <RadioGroup 
-                  onValueChange={field.onChange} 
-                  defaultValue={field.value}
-                  className="flex flex-col space-y-1"
-                >
-                  <FormItem className="flex items-center space-x-3 space-y-0">
-                    <FormControl>
-                      <RadioGroupItem value="bvn" />
-                    </FormControl>
-                    <FormLabel className="font-normal">
-                      Bank Verification Number (BVN)
-                    </FormLabel>
-                  </FormItem>
-                  <FormItem className="flex items-center space-x-3 space-y-0">
-                    <FormControl>
-                      <RadioGroupItem value="nin" />
-                    </FormControl>
-                    <FormLabel className="font-normal">
-                      National Identification Number (NIN)
-                    </FormLabel>
-                  </FormItem>
-                </RadioGroup>
+                <FormControl>
+                  <RadioGroup
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                    className="flex space-x-4"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="bvn" id="bvn" />
+                      <label htmlFor="bvn" className="text-sm font-medium">BVN</label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="nin" id="nin" />
+                      <label htmlFor="nin" className="text-sm font-medium">NIN</label>
+                    </div>
+                  </RadioGroup>
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
-          
+
           <FormField
             control={form.control}
             name="idNumber"
@@ -80,25 +70,28 @@ const IdFormDialog = ({ form, onSubmit, isLoading, onClose }: IdFormDialogProps)
               <FormItem>
                 <FormLabel>ID Number</FormLabel>
                 <FormControl>
-                  <Input 
-                    placeholder={field.value === "bvn" ? "Enter your 11-digit BVN" : "Enter your NIN"}
-                    {...field}
-                  />
+                  <Input placeholder="Enter your BVN or NIN" {...field} />
                 </FormControl>
-                <FormDescription>
-                  Your information is encrypted and secure.
-                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
           />
-          
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
+
+          <DialogFooter className="sm:justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={isLoading}
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? "Processing..." : "Create Account"}
+            <Button
+              type="submit"
+              disabled={isLoading}
+              className="bg-[#2DAE75] hover:bg-[#249e69]"
+            >
+              {isLoading ? "Verifying..." : "Verify & Create Account"}
             </Button>
           </DialogFooter>
         </form>
@@ -108,4 +101,3 @@ const IdFormDialog = ({ form, onSubmit, isLoading, onClose }: IdFormDialogProps)
 };
 
 export default IdFormDialog;
-export { idFormSchema, type IdFormValues };
