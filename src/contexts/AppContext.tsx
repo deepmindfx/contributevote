@@ -37,7 +37,6 @@ import {
 } from '@/services/localStorage';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
-import { transferToBank, transferToUser } from '@/services/walletTransfer';
 
 interface AppContextType {
   user: User;
@@ -68,8 +67,6 @@ interface AppContextType {
   getReceipt: (transactionId: string) => any;
   verifyUser: (userId: string) => void;
   isGroupCreator: (contributionId: string) => boolean;
-  sendMoneyToBank: (amount: number, bankCode: string, accountNumber: string, accountName: string, narration: string, pin: string) => Promise<boolean>;
-  sendMoneyToUser: (receiverAccountNumber: string, amount: number, narration: string, pin: string) => Promise<boolean>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -432,47 +429,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const contribution = contributions.find(c => c.id === contributionId);
     return !!(contribution && contribution.creatorId === user.id);
   };
-  
-  // New money transfer functions
-  const sendMoneyToBank = async (
-    amount: number, 
-    bankCode: string, 
-    accountNumber: string, 
-    accountName: string, 
-    narration: string, 
-    pin: string
-  ): Promise<boolean> => {
-    try {
-      const result = await transferToBank(user.id, amount, bankCode, accountNumber, narration, pin);
-      if (result) {
-        refreshData();
-      }
-      return result;
-    } catch (error) {
-      console.error("Error sending money to bank:", error);
-      toast.error("Failed to send money to bank account");
-      return false;
-    }
-  };
-  
-  const sendMoneyToUser = async (
-    receiverAccountNumber: string, 
-    amount: number, 
-    narration: string, 
-    pin: string
-  ): Promise<boolean> => {
-    try {
-      const result = await transferToUser(user.id, receiverAccountNumber, amount, narration, pin);
-      if (result) {
-        refreshData();
-      }
-      return result;
-    } catch (error) {
-      console.error("Error sending money to user:", error);
-      toast.error("Failed to send money to user");
-      return false;
-    }
-  };
 
   return (
     <AppContext.Provider value={{
@@ -504,8 +460,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       getReceipt,
       verifyUser,
       isGroupCreator,
-      sendMoneyToBank,
-      sendMoneyToUser,
     }}>
       {children}
     </AppContext.Provider>
