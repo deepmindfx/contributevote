@@ -494,6 +494,19 @@ export const markNotificationAsRead = (notificationId: string): void => {
   updateUserById(currentUser.id, { notifications: currentUser.notifications });
 };
 
+// Add the missing markAllNotificationsAsRead function
+export const markAllNotificationsAsRead = (): void => {
+  const currentUser = getCurrentUser();
+  if (!currentUser) return;
+
+  const updatedNotifications = currentUser.notifications.map(notification => ({
+    ...notification,
+    read: true
+  }));
+  
+  updateUserById(currentUser.id, { notifications: updatedNotifications });
+};
+
 // Stats functions
 export const getStatistics = (): Stats => {
   const users = getUsers();
