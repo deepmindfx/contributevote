@@ -8,8 +8,7 @@ import {
   Contribution,
   addNotification,
   getCurrentUser,
-  getContributions,
-  localStorageKeys
+  getContributions
 } from '@/services/localStorage';
 
 export const createNewContribution = (
@@ -119,12 +118,12 @@ export const shareToContacts = (
         
         // Add recipient to contribution members if not already there
         if (contribution.members && !contribution.members.includes(recipientUser.id)) {
-          const contributions = getContributions();
-          const contribIndex = contributions.findIndex(c => c.id === contributionId);
+          const allContributions = getContributions();
+          const contribIndex = allContributions.findIndex(c => c.id === contributionId);
           
-          if (contribIndex >= 0 && contributions[contribIndex].members) {
-            contributions[contribIndex].members.push(recipientUser.id);
-            localStorage.setItem(localStorageKeys.contributions, JSON.stringify(contributions));
+          if (contribIndex >= 0 && allContributions[contribIndex].members) {
+            allContributions[contribIndex].members.push(recipientUser.id);
+            localStorage.setItem("collectipay_contributions", JSON.stringify(allContributions));
           }
         }
       } else {

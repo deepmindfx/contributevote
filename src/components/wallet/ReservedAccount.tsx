@@ -10,8 +10,9 @@ import { useReservedAccount } from "@/hooks/useReservedAccount";
 
 const ReservedAccount = () => {
   const {
-    isLoading,
-    accountDetails,
+    loading: isLoading,
+    reservedAccount: accountDetails,
+    hasReservedAccount,
     showFullDetails,
     setShowFullDetails,
     showIdForm,

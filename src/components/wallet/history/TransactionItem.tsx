@@ -2,7 +2,7 @@
 import React from "react";
 import { ArrowDown, ArrowUp, HelpCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Transaction } from "@/services/localStorage";
+import { Transaction } from "@/services/localStorage/types";
 import { format } from "date-fns";
 
 interface TransactionItemProps {
