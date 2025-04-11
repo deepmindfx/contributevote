@@ -2,7 +2,12 @@
 import * as monnifyApi from "./monnifyApi";
 import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
-import { Contribution, getContributions, updateContribution } from "./localStorage";
+import { 
+  Contribution, 
+  getContributions, 
+  updateContribution,
+  contributeByAccountNumber
+} from "./localStorage";
 
 /**
  * Creates a reserved account for a contribution group
@@ -136,27 +141,23 @@ export const processGroupAccountPayment = async (data: {
       return null;
     }
     
-    // Handle the contribution using the existing method
-    // Normally this would use a separate function, but we're reusing the existing one
-    
+    // Handle the contribution
     const contributorName = contributorInfo?.name || "External Contributor";
     const contributorEmail = contributorInfo?.email || "";
     const contributorPhone = contributorInfo?.phone || "";
     
-    // Use the existing localStorage function to handle the rest of the process
-    import("./localStorage").then(({ contributeByAccountNumber }) => {
-      contributeByAccountNumber(
-        contribution.accountNumber,
-        amountPaid,
-        {
-          name: contributorName,
-          email: contributorEmail,
-          phone: contributorPhone
-        },
-        anonymous || false,
-        paymentReference
-      );
-    });
+    // Use the contributeByAccountNumber function
+    contributeByAccountNumber(
+      contribution.accountNumber,
+      amountPaid,
+      {
+        name: contributorName,
+        email: contributorEmail,
+        phone: contributorPhone
+      },
+      anonymous || false,
+      paymentReference
+    );
     
     return {
       success: true,
