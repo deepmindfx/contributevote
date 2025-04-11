@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { createPaymentInvoice } from "@/services/walletIntegration";
+import { createPaymentInvoice, getReservedAccountTransactions } from "@/services/walletIntegration";
 
 const WalletCard = () => {
   const navigate = useNavigate();
@@ -24,12 +24,6 @@ const WalletCard = () => {
   const [showHistory, setShowHistory] = useState(false);
   const [currencyType, setCurrencyType] = useState<"NGN" | "USD">("NGN");
   const [depositMethod, setDepositMethod] = useState<"manual" | "card" | "bank">("manual");
-  const [cardDetails, setCardDetails] = useState({
-    cardNumber: "",
-    cardName: "",
-    expiryDate: "",
-    cvv: ""
-  });
   
   const {
     user,
@@ -37,6 +31,27 @@ const WalletCard = () => {
     isAdmin,
     transactions
   } = useApp();
+  
+  // Load transaction history when component mounts
+  useEffect(() => {
+    if (user?.reservedAccount?.accountReference) {
+      fetchTransactions();
+    }
+  }, [user?.reservedAccount]);
+  
+  const fetchTransactions = async () => {
+    if (!user?.reservedAccount?.accountReference) return;
+    
+    setIsLoading(true);
+    try {
+      await getReservedAccountTransactions(user.reservedAccount.accountReference);
+      refreshData();
+    } catch (error) {
+      console.error("Error fetching transactions:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Toggle currency function
   const toggleCurrency = () => {
@@ -51,10 +66,9 @@ const WalletCard = () => {
   
   const refreshBalance = () => {
     setIsLoading(true);
-    setTimeout(() => {
-      refreshData();
+    fetchTransactions().finally(() => {
       setIsLoading(false);
-    }, 1000);
+    });
   };
   
   const handleDeposit = async () => {
@@ -170,6 +184,15 @@ const WalletCard = () => {
         <div className="relative z-10 mx-0 my-[5px]">
           <div className="flex justify-between items-center mb-1 my-[6px]">
             <p className="text-sm font-medium text-white/80 mb-0 py-[2px]">Available Balance</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={refreshBalance}
+              disabled={isLoading}
+              className="h-8 text-white hover:bg-white/10 rounded-full"
+            >
+              {isLoading ? "Loading..." : "Refresh"}
+            </Button>
           </div>
           
           <div className="flex items-center justify-between">

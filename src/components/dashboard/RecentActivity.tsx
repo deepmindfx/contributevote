@@ -13,6 +13,8 @@ import {
 import { Link } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
 import { format, isValid } from "date-fns";
+import { useEffect } from "react";
+import { getReservedAccountTransactions } from "@/services/walletIntegration";
 
 interface ActivityItemProps {
   type: "deposit" | "withdrawal" | "vote";
@@ -97,7 +99,23 @@ const ActivityItem = ({ type, title, description, amount, date, status }: Activi
 };
 
 const RecentActivity = () => {
-  const { transactions, contributions } = useApp();
+  const { transactions, contributions, user, refreshData } = useApp();
+  
+  // Fetch transactions when component mounts
+  useEffect(() => {
+    if (user?.reservedAccount?.accountReference) {
+      const fetchData = async () => {
+        try {
+          await getReservedAccountTransactions(user.reservedAccount.accountReference);
+          refreshData();
+        } catch (error) {
+          console.error("Error fetching transactions:", error);
+        }
+      };
+      
+      fetchData();
+    }
+  }, [user?.reservedAccount]);
   
   // Format and sort transactions
   const formattedTransactions = transactions
@@ -130,7 +148,9 @@ const RecentActivity = () => {
         type,
         title: transaction.type === 'deposit' ? 'Contribution' : 
                transaction.type === 'withdrawal' ? 'Fund Withdrawal' : 'Vote',
-        description: contribution ? contribution.name : '',
+        description: contribution ? contribution.name : 
+                     transaction.description || 
+                     (transaction.metaData?.bankName ? `Via ${transaction.metaData.bankName}` : ''),
         amount: transaction.type === 'vote' ? 
                 `₦ ${transaction.amount.toLocaleString()}` : 
                 `${transaction.type === 'deposit' ? '+' : '-'}₦ ${transaction.amount.toLocaleString()}`,

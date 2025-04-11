@@ -44,6 +44,25 @@ export interface CardTokenData {
 }
 
 /**
+ * Interface for invoice data
+ */
+export interface InvoiceData {
+  invoiceReference: string;
+  description: string;
+  amount: number;
+  currencyCode: string;
+  status: string;
+  customerEmail: string;
+  customerName: string;
+  expiryDate: string;
+  redirectUrl: string;
+  checkoutUrl: string;
+  createdOn: string;
+  createdAt: string;
+  contributionId: string;
+}
+
+/**
  * Creates a reserved account for a user
  * @param userId The user ID
  * @param idType The type of ID (BVN or NIN)
@@ -297,6 +316,7 @@ export const createPaymentInvoice = async (data: {
       description,
       customerEmail,
       customerName,
+      currencyCode: "NGN",
       expiryDate: expiryDate ? expiryDate.toISOString() : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       redirectUrl: redirectUrl || window.location.origin + "/dashboard"
     };
@@ -327,11 +347,12 @@ export const createPaymentInvoice = async (data: {
     
     // Store the invoice in the user's data
     const userInvoices = user?.invoices || [];
-    const newInvoice = {
+    const newInvoice: InvoiceData = {
       ...result,
       createdAt: new Date().toISOString(),
       status: result.status,
-      contributionId: contributionId || ""
+      contributionId: contributionId || "",
+      currencyCode: "NGN"
     };
     
     if (userId === currentUser.id) {
