@@ -123,7 +123,7 @@ const RecentActivity = () => {
     fetchData();
   }, [user?.reservedAccount, refreshData]);
   
-  // Format and sort transactions, filtering to only show the current user's transactions
+  // Format and sort transactions, ensuring we only show the current user's transactions
   const formattedTransactions = transactions
     .filter(transaction => transaction.userId === user?.id) // Only show current user's transactions
     .filter(transaction => transaction.createdAt) // Filter out transactions without createdAt

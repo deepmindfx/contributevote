@@ -47,9 +47,13 @@ const WalletHistory = () => {
             setApiTransactions(result.content);
             // After fetching transactions, refresh app data to update balances
             refreshData();
+          } else {
+            // Handle empty or failed response
+            setApiTransactions([]);
           }
         } catch (error) {
           console.error("Error fetching reserved account transactions:", error);
+          setApiTransactions([]);
         } finally {
           setIsLoading(false);
         }
@@ -68,7 +72,7 @@ const WalletHistory = () => {
   
   // Filter transactions based on the current filter and only show user's transactions
   const filteredTransactions = transactions
-    .filter(t => t.userId === user?.id)
+    .filter(t => t.userId === user?.id) // Only show current user's transactions
     .filter(t => filter === "all" || t.type === filter)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   
