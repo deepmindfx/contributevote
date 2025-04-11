@@ -1,3 +1,4 @@
+
 import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
 import * as monnifyApi from "./monnifyApi";
@@ -361,7 +362,7 @@ export const processReservedAccountTransaction = async (data: {
     const transaction = {
       id: transactionReference || uuidv4(),
       userId,
-      type: "deposit",
+      type: "deposit" as "deposit" | "withdrawal" | "transfer" | "vote",
       amount: amountPaid,
       contributionId: metaData?.contributionId || "",
       description: paymentDescription || "Bank transfer to virtual account",
@@ -399,50 +400,6 @@ export const processReservedAccountTransaction = async (data: {
     console.error("Error processing transaction:", error);
     toast.error("Failed to process transaction. Please try again.");
     return null;
-  }
-};
-
-/**
- * Simulates a bank transfer to the virtual account (for testing)
- * In a real app, this would be handled by a webhook from Monnify
- * @param accountNumber The virtual account number
- * @param amount The amount to transfer
- */
-export const simulateBankTransfer = (accountNumber: string, amount: number): boolean => {
-  try {
-    const currentUser = getCurrentUser();
-    
-    // Check if the current user has a reserved account that matches
-    if (!currentUser.reservedAccount || 
-        !currentUser.reservedAccount.accounts?.some(acc => acc.accountNumber === accountNumber)) {
-      toast.error("Invalid account number");
-      return false;
-    }
-    
-    // Simulate a bank transfer by processing a transaction
-    const now = new Date();
-    const transaction = processReservedAccountTransaction({
-      transactionReference: `SIMULATED_${Date.now()}`,
-      paymentReference: `REF_${Date.now()}`,
-      amountPaid: amount,
-      totalPayable: amount,
-      settlementAmount: amount,
-      paidOn: now.toISOString(),
-      paymentStatus: "PAID",
-      paymentDescription: "Simulated bank transfer",
-      accountDetails: {
-        accountName: currentUser.reservedAccount.accountName,
-        accountNumber: accountNumber,
-        bankCode: currentUser.reservedAccount.bankCode,
-        bankName: currentUser.reservedAccount.bankName
-      }
-    });
-    
-    return !!transaction;
-  } catch (error) {
-    console.error("Error simulating bank transfer:", error);
-    toast.error("Failed to simulate bank transfer");
-    return false;
   }
 };
 
@@ -569,7 +526,7 @@ export const chargeSavedCard = async (
         addTransaction({
           id: result.transactionReference,
           userId,
-          type: "deposit",
+          type: "deposit" as "deposit" | "withdrawal" | "transfer" | "vote",
           amount,
           contributionId: "",
           description: description || "Wallet top-up via card",
