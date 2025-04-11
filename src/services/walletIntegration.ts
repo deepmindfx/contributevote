@@ -45,7 +45,7 @@ export interface CardTokenData {
 
 /**
  * Creates a reserved account for a user
- * @param user The user to create a reserved account for
+ * @param userId The user ID
  * @returns Reserved account details
  */
 export const createUserReservedAccount = async (userId: string): Promise<ReservedAccountData | null> => {
@@ -70,12 +70,16 @@ export const createUserReservedAccount = async (userId: string): Promise<Reserve
     const accountReference = `COLL_${userId}_${Date.now()}`;
     
     // Create a reserved account
+    // Note: We're passing a mock BVN here since this is a demo/development environment
+    // In a production app, you would collect this from the user
+    const mockBvn = "22222222222"; // Demo BVN (11 digits)
+    
     const result = await monnifyApi.createReservedAccount({
       accountReference,
       accountName: user.name || `${user.firstName} ${user.lastName}`,
       customerEmail: user.email,
       customerName: user.name || `${user.firstName} ${user.lastName}`,
-      bvn: user.bvn // If BVN is stored in user data
+      bvn: mockBvn // Adding mock BVN to fix empty account issue
     });
     
     if (!result) {
@@ -87,9 +91,9 @@ export const createUserReservedAccount = async (userId: string): Promise<Reserve
     const reservedAccount: ReservedAccountData = {
       accountReference: result.accountReference,
       accountName: result.accountName,
-      accountNumber: result.accountNumber,
-      bankName: result.bankName,
-      bankCode: result.bankCode,
+      accountNumber: result.accounts && result.accounts.length > 0 ? result.accounts[0].accountNumber : "",
+      bankName: result.accounts && result.accounts.length > 0 ? result.accounts[0].bankName : "",
+      bankCode: result.accounts && result.accounts.length > 0 ? result.accounts[0].bankCode : "",
       reservationReference: result.reservationReference,
       status: result.status,
       createdOn: result.createdOn,

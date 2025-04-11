@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,8 +24,14 @@ const ReservedAccount = () => {
   const handleCreateAccount = async () => {
     setIsLoading(true);
     try {
+      if (!user || !user.id) {
+        toast.error("User information not available. Please log in again.");
+        return;
+      }
+      
       const result = await createUserReservedAccount(user.id);
       if (result) {
+        console.log("Reserved account created:", result);
         setAccountDetails(result);
         refreshData();
       }
@@ -41,8 +46,14 @@ const ReservedAccount = () => {
   const handleRefresh = async () => {
     setIsLoading(true);
     try {
+      if (!user || !user.id) {
+        toast.error("User information not available. Please log in again.");
+        return;
+      }
+      
       const result = await getUserReservedAccount(user.id);
       if (result) {
+        console.log("Retrieved account details:", result);
         setAccountDetails(result);
         refreshData();
       }
@@ -96,6 +107,7 @@ const ReservedAccount = () => {
     );
   }
   
+  // Display account details
   return (
     <Card>
       <CardHeader className="flex flex-row items-start justify-between pb-2">
@@ -138,7 +150,7 @@ const ReservedAccount = () => {
                 </Button>
               </div>
               <div className="font-mono text-xl bg-muted/50 rounded-md py-2 px-3 flex items-center justify-between">
-                {accountDetails.accountNumber}
+                {accountDetails.accountNumber || "Pending..."}
               </div>
             </div>
             
@@ -155,14 +167,14 @@ const ReservedAccount = () => {
                 </Button>
               </div>
               <div className="font-medium text-lg bg-muted/50 rounded-md py-2 px-3">
-                {accountDetails.bankName}
+                {accountDetails.bankName || "Pending..."}
               </div>
             </div>
             
             <div className="pt-1">
               <label className="text-sm font-medium text-muted-foreground block mb-1">Account Name</label>
               <div className="font-medium text-lg">
-                {accountDetails.accountName}
+                {accountDetails.accountName || "Pending..."}
               </div>
             </div>
             
