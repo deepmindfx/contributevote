@@ -16,3 +16,14 @@ export const getReceipt = (transactionId: string) => {
     return null;
   }
 };
+
+// Add a function to handle transaction errors gracefully
+export const handleTransactionError = (error: unknown, defaultMessage: string = 'Transaction failed') => {
+  console.error('Transaction error:', error);
+  if (error instanceof Error) {
+    toast.error(error.message);
+  } else {
+    toast.error(defaultMessage);
+  }
+  return null;
+};

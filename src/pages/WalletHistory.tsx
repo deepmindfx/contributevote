@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import FilterButtons from "@/components/wallet/history/FilterButtons";
 import TransactionsList from "@/components/wallet/history/TransactionsList";
 import BankTransactionsList from "@/components/wallet/history/BankTransactionsList";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const WalletHistory = () => {
   const navigate = useNavigate();
@@ -47,6 +48,12 @@ const WalletHistory = () => {
           <h1 className="text-2xl font-bold">Transaction History</h1>
           <p className="text-muted-foreground">View all your wallet transactions</p>
         </div>
+        
+        {error && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
         
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "app" | "bank")} className="mb-6">
           <TabsList className="grid w-full grid-cols-2">

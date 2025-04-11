@@ -13,7 +13,12 @@ interface TransactionItemProps {
 
 const TransactionItem = ({ transaction, currencyType, convertToUSD }: TransactionItemProps) => {
   const formatDate = (dateString: string) => {
-    return format(new Date(dateString), 'MMM d, yyyy h:mm a');
+    try {
+      return format(new Date(dateString), 'MMM d, yyyy h:mm a');
+    } catch (error) {
+      console.error("Error formatting date:", error, dateString);
+      return "Invalid date";
+    }
   };
 
   return (
@@ -37,6 +42,7 @@ const TransactionItem = ({ transaction, currencyType, convertToUSD }: Transactio
               {transaction.type === 'deposit' ? 'Deposit' : 
                transaction.type === 'withdrawal' ? 'Withdrawal' : 
                'Vote'}
+               {transaction.anonymous ? ' (Anonymous)' : ''}
             </h4>
             <p className="text-sm text-muted-foreground">
               {transaction.description}

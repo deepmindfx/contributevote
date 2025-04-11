@@ -16,7 +16,7 @@ export const useWalletHistory = () => {
   // Fetch reserved account transactions on component mount and when tab changes
   useEffect(() => {
     const fetchReservedAccountTransactions = async () => {
-      if (user?.reservedAccount?.accountReference) {
+      if (user?.reservedAccount?.accountReference && activeTab === "bank") {
         setIsLoading(true);
         setError(null);
         try {
@@ -29,15 +29,14 @@ export const useWalletHistory = () => {
         } catch (error) {
           console.error("Error fetching reserved account transactions:", error);
           setError("Failed to fetch transactions. Please try again.");
+          // Don't show the toast here as it can be too intrusive on initial load
         } finally {
           setIsLoading(false);
         }
       }
     };
     
-    if (activeTab === "bank") {
-      fetchReservedAccountTransactions();
-    }
+    fetchReservedAccountTransactions();
   }, [user?.reservedAccount?.accountReference, activeTab, refreshData]);
   
   // Toggle currency function
@@ -66,14 +65,17 @@ export const useWalletHistory = () => {
         if (result && result.content) {
           setApiTransactions(result.content);
           refreshData();
+          toast.success("Transactions refreshed successfully");
         }
       } catch (error) {
         console.error("Error refreshing bank transactions:", error);
         setError("Failed to fetch transactions. Please try again.");
-        toast.error("Failed to fetch transactions. Please try again.");
+        toast.error("Failed to fetch transactions");
       } finally {
         setIsLoading(false);
       }
+    } else {
+      toast.error("No reserved account found");
     }
   };
 
