@@ -22,44 +22,50 @@ const AdminAuth = () => {
     e.preventDefault();
     setIsLoading(true);
     
-    // Simple validation
-    if (!loginData.username || !loginData.password) {
-      toast.error("Please fill in all fields");
-      setIsLoading(false);
-      return;
-    }
-    
-    // Check admin credentials
-    // Updated admin credentials
-    if ((loginData.username === "admin" && loginData.password === "admin123") || 
-        (loginData.username === "superadmin" && loginData.password === "superadmin123")) {
-      // Admin login successful
-      const adminUser = {
-        id: "admin-user-id",
-        firstName: "Admin",
-        lastName: "User",
-        name: "Admin User",
-        email: "admin@collectipay.com",
-        phone: "admin", // Changed from phoneNumber to phone to match User interface
-        walletBalance: 0,
-        preferences: {
-          anonymousContributions: false,
-          darkMode: false,
-          notificationsEnabled: true,
-        },
-        notifications: [],
-        role: "admin" as const,
-        status: "active" as const,
-        createdAt: new Date().toISOString(),
-        verified: true, // Add verified property to match User interface
-      };
+    try {
+      // Simple validation
+      if (!loginData.username || !loginData.password) {
+        toast.error("Please fill in all fields");
+        setIsLoading(false);
+        return;
+      }
       
-      localStorage.setItem('currentUser', JSON.stringify(adminUser));
-      setIsLoading(false);
-      toast.success("Admin login successful");
-      navigate("/admin");
-    } else {
-      toast.error("Invalid admin credentials");
+      // Check admin credentials
+      if ((loginData.username === "admin" && loginData.password === "admin123") || 
+          (loginData.username === "superadmin" && loginData.password === "superadmin123")) {
+        // Admin login successful
+        const adminUser = {
+          id: "admin-user-id",
+          firstName: "Admin",
+          lastName: "User",
+          name: "Admin User",
+          email: "admin@collectipay.com",
+          phone: "admin", // Changed from phoneNumber to phone to match User interface
+          walletBalance: 0,
+          preferences: {
+            anonymousContributions: false,
+            darkMode: false,
+            notificationsEnabled: true,
+          },
+          notifications: [],
+          role: "admin" as const,
+          status: "active" as const,
+          createdAt: new Date().toISOString(),
+          verified: true, // Add verified property to match User interface
+        };
+        
+        localStorage.setItem('currentUser', JSON.stringify(adminUser));
+        toast.success("Admin login successful");
+        setTimeout(() => {
+          navigate("/admin");
+        }, 500);
+      } else {
+        toast.error("Invalid admin credentials");
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      toast.error("An error occurred during login");
+    } finally {
       setIsLoading(false);
     }
   };
@@ -109,7 +115,11 @@ const AdminAuth = () => {
                     />
                   </div>
                 </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
+                <Button 
+                  type="submit" 
+                  className="w-full" 
+                  disabled={isLoading}
+                >
                   {isLoading ? (
                     <div className="flex items-center">
                       <div className="animate-spin mr-2 h-4 w-4 border-t-2 border-b-2 border-current rounded-full"></div>
@@ -127,7 +137,7 @@ const AdminAuth = () => {
             <CardFooter className="flex justify-center">
               <p className="text-sm text-muted-foreground">
                 Regular user? 
-                <Button variant="link" onClick={() => navigate("/auth")} className="p-0 h-auto font-normal">
+                <Button variant="link" onClick={() => navigate("/auth")} className="p-0 h-auto font-normal ml-1">
                   Sign in here
                 </Button>
               </p>

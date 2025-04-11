@@ -59,7 +59,7 @@ const Dashboard = () => {
     refreshData();
   };
   
-  const unreadNotifications = user.notifications?.filter(n => !n.read) || [];
+  const unreadNotifications = user?.notifications?.filter(n => !n.read) || [];
   
   return (
     <div className="min-h-screen pb-20 md:pb-0">
@@ -86,14 +86,14 @@ const Dashboard = () => {
               <PopoverContent className="w-80 p-0">
                 <div className="flex items-center justify-between p-4 border-b">
                   <h4 className="font-semibold">Notifications</h4>
-                  {user.notifications && user.notifications.length > 0 && 
+                  {user?.notifications && user.notifications.length > 0 && 
                     <Button variant="ghost" size="sm" onClick={handleMarkAllRead}>
                       Mark all read
                     </Button>
                   }
                 </div>
                 <ScrollArea className="h-[400px]">
-                  {!user.notifications || user.notifications.length === 0 ? 
+                  {!user?.notifications || user.notifications.length === 0 ? 
                     <div className="p-4 text-center text-muted-foreground">
                       <Bell className="h-10 w-10 mx-auto mb-2 opacity-20" />
                       <p>No notifications</p>
@@ -111,7 +111,7 @@ const Dashboard = () => {
                           <div className="flex-1">
                             <p className="text-sm">{notification.message}</p>
                             <p className="text-xs text-muted-foreground mt-1">
-                              {format(new Date(notification.createdAt), 'MMM d, h:mm a')}
+                              {notification.createdAt && format(new Date(notification.createdAt), 'MMM d, h:mm a')}
                             </p>
                           </div>
                           {notification.read && 
@@ -131,7 +131,7 @@ const Dashboard = () => {
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
                   <User className="h-4 w-4 mr-2" />
-                  {user.name?.split(' ')[0]}
+                  {user?.name?.split(' ')[0] || 'User'}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
