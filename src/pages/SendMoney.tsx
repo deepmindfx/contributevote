@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Send, Building, LoaderCircle, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Send, Building, LoaderCircle, CheckCircle2, AlertCircle } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { toast } from "sonner";
 import { 
   Dialog, 
   DialogContent, 
@@ -90,6 +91,7 @@ const SendMoney = () => {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showReceiptDialog, setShowReceiptDialog] = useState(false);
   const [formData, setFormData] = useState<FormValues | null>(null);
+  const [transferError, setTransferError] = useState<string | null>(null);
   
   // Form setup
   const form = useForm<FormValues>({
@@ -107,6 +109,7 @@ const SendMoney = () => {
   const onSubmit = (data: FormValues) => {
     setFormData(data);
     setShowConfirmDialog(true);
+    setTransferError(null);
   };
   
   // Handle confirm transfer
@@ -117,6 +120,13 @@ const SendMoney = () => {
     setShowConfirmDialog(false);
     
     try {
+      console.log("Sending money with data:", {
+        amount: parseFloat(formData.amount),
+        destinationBankCode: formData.bankCode,
+        destinationAccountNumber: formData.accountNumber,
+        narration: formData.narration || "Bank Transfer"
+      });
+      
       const result = await sendMoneyToBank({
         amount: parseFloat(formData.amount),
         destinationBankCode: formData.bankCode,
@@ -125,13 +135,21 @@ const SendMoney = () => {
         recipientName: formData.recipientName
       });
       
+      console.log("Transfer result:", result);
+      
       setTransferResult(result);
       
       if (result.success) {
         setShowReceiptDialog(true);
+        toast.success("Transfer initiated successfully");
+      } else {
+        setTransferError(result.message);
+        toast.error(result.message || "Failed to process transfer");
       }
     } catch (error) {
       console.error("Error processing transfer:", error);
+      setTransferError("An unexpected error occurred. Please try again.");
+      toast.error("Failed to process transfer. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -188,6 +206,16 @@ const SendMoney = () => {
           </Card>
         ) : (
           <>
+            {transferError && (
+              <Alert variant="destructive" className="mb-6">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>
+                  {transferError}
+                </AlertDescription>
+              </Alert>
+            )}
+            
             <Card className="mb-6">
               <CardHeader>
                 <CardTitle className="text-xl">Transfer Details</CardTitle>
@@ -430,7 +458,7 @@ const SendMoney = () => {
             </DialogDescription>
           </DialogHeader>
           
-          {transferResult && (
+          {transferResult && transferResult.success && (
             <div className="space-y-4 py-4">
               <div className="flex justify-center mb-4">
                 <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center text-[#2DAE75]">

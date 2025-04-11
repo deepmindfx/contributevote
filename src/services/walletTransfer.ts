@@ -83,8 +83,12 @@ export const sendMoneyToBank = async (request: BankTransferRequest): Promise<Tra
       async: true
     };
     
+    console.log("Transfer data being sent:", transferData);
+    
     // Initiate the async transfer
     const result = await monnifyApi.initiateAsyncTransfer(transferData);
+    
+    console.log("Transfer API response:", result);
     
     if (!result.requestSuccessful) {
       return {
@@ -159,7 +163,7 @@ export const checkTransferStatus = async (reference: string): Promise<TransferRe
     if (!result.requestSuccessful) {
       return {
         success: false,
-        message: result.message || "Failed to check transfer status"
+        message: result.responseMessage || "Failed to check transfer status"
       };
     }
     

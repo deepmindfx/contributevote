@@ -305,9 +305,8 @@ export const initiateAsyncTransfer = async (data: {
     if (!token) {
       console.error("Failed to authenticate with payment provider");
       return { 
-        success: false, 
-        message: "Failed to authenticate with payment provider",
-        requestSuccessful: false
+        requestSuccessful: false, 
+        responseMessage: "Failed to authenticate with payment provider"
       };
     }
     
@@ -321,37 +320,45 @@ export const initiateAsyncTransfer = async (data: {
       body: JSON.stringify(data)
     });
     
-    const responseData = await response.json();
+    const responseText = await response.text();
+    console.log("Raw response:", responseText);
+    
+    let responseData;
+    try {
+      responseData = JSON.parse(responseText);
+    } catch (e) {
+      console.error("Failed to parse response:", e);
+      return {
+        requestSuccessful: false,
+        responseMessage: "Invalid response from payment provider"
+      };
+    }
+    
+    console.log("Parsed response data:", responseData);
     
     if (!response.ok) {
-      console.error("Async transfer failed:", responseData);
+      console.error("Async transfer failed with HTTP error:", response.status, responseData);
       return { 
-        success: false, 
-        message: responseData.responseMessage || `Failed to initiate transfer: ${response.status}`,
-        requestSuccessful: false
+        requestSuccessful: false, 
+        responseMessage: responseData.responseMessage || `Failed to initiate transfer: ${response.status}`
       };
     }
     
     if (!responseData.requestSuccessful) {
-      console.error("Async transfer failed with error:", responseData);
+      console.error("Async transfer failed with API error:", responseData);
       return { 
-        success: false, 
-        message: responseData.responseMessage || "Failed to initiate transfer",
-        requestSuccessful: false
+        requestSuccessful: false, 
+        responseMessage: responseData.responseMessage || "Failed to initiate transfer"
       };
     }
     
     console.log("Async transfer initiated successfully:", responseData);
-    return {
-      ...responseData,
-      success: true
-    };
+    return responseData;
   } catch (error) {
     console.error("Error initiating async transfer:", error);
     return { 
-      success: false, 
-      message: "Unable to connect to payment provider",
-      requestSuccessful: false
+      requestSuccessful: false, 
+      responseMessage: "Unable to connect to payment provider"
     };
   }
 };
@@ -369,7 +376,10 @@ export const checkTransferStatus = async (reference: string) => {
     const token = await getAuthToken();
     if (!token) {
       console.error("Failed to authenticate with payment provider");
-      return { success: false, message: "Failed to authenticate with payment provider" };
+      return { 
+        requestSuccessful: false, 
+        responseMessage: "Failed to authenticate with payment provider"
+      };
     }
     
     console.log("Sending transfer status request...");
@@ -382,20 +392,21 @@ export const checkTransferStatus = async (reference: string) => {
     });
     
     const responseData = await response.json();
+    console.log("Transfer status response:", responseData);
     
     if (!response.ok) {
       console.error("Failed to get transfer status:", responseData);
       return { 
-        success: false, 
-        message: responseData.responseMessage || `Failed to get transfer status: ${response.status}` 
+        requestSuccessful: false, 
+        responseMessage: responseData.responseMessage || `Failed to get transfer status: ${response.status}` 
       };
     }
     
     if (!responseData.requestSuccessful) {
       console.error("Transfer status request failed:", responseData);
       return { 
-        success: false, 
-        message: responseData.responseMessage || "Failed to get transfer status" 
+        requestSuccessful: false, 
+        responseMessage: responseData.responseMessage || "Failed to get transfer status" 
       };
     }
     
@@ -403,6 +414,9 @@ export const checkTransferStatus = async (reference: string) => {
     return responseData;
   } catch (error) {
     console.error("Error getting transfer status:", error);
-    return { success: false, message: "Unable to connect to payment provider" };
+    return { 
+      requestSuccessful: false, 
+      responseMessage: "Unable to connect to payment provider" 
+    };
   }
 };
