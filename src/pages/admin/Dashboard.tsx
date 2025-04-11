@@ -38,11 +38,20 @@ const AdminDashboard = () => {
     return <Navigate to="/dashboard" replace />;
   }
 
+  // Safe stats values with defaults
+  const safeStats = {
+    totalUsers: stats?.totalUsers || 0,
+    totalContributions: stats?.totalContributions || 0,
+    totalTransactions: stats?.totalTransactions || 0,
+    totalAmount: stats?.totalAmount || 0,
+    activeRequests: stats?.activeRequests || 0
+  };
+
   const filteredUsers = users.filter(u => 
     u.role !== 'admin' && 
     (u.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
      u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-     (u.phoneNumber && u.phoneNumber.includes(searchQuery)))
+     (u.phone && u.phone.includes(searchQuery)))
   );
 
   const handleDeposit = () => {
@@ -104,11 +113,11 @@ const AdminDashboard = () => {
           <div className="p-4 border-t">
             <div className="flex items-center">
               <Avatar className="h-8 w-8 mr-2">
-                <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                <AvatarFallback>{user?.name?.charAt(0) || 'A'}</AvatarFallback>
               </Avatar>
               <div>
-                <p className="text-sm font-medium">{user.name}</p>
-                <p className="text-xs text-muted-foreground">{user.email}</p>
+                <p className="text-sm font-medium">{user?.name || 'Admin'}</p>
+                <p className="text-xs text-muted-foreground">{user?.email || 'admin@collectipay.com'}</p>
               </div>
             </div>
             <Button variant="outline" className="w-full mt-4" size="sm" asChild>
@@ -129,7 +138,7 @@ const AdminDashboard = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-muted-foreground">Total Users</p>
-                      <h3 className="text-2xl font-bold">{stats.totalUsers}</h3>
+                      <h3 className="text-2xl font-bold">{safeStats.totalUsers}</h3>
                     </div>
                     <div className="bg-primary/10 p-2 rounded-full">
                       <Users className="h-5 w-5 text-primary" />
@@ -143,7 +152,7 @@ const AdminDashboard = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-muted-foreground">Contributions</p>
-                      <h3 className="text-2xl font-bold">{stats.totalContributions}</h3>
+                      <h3 className="text-2xl font-bold">{safeStats.totalContributions}</h3>
                     </div>
                     <div className="bg-primary/10 p-2 rounded-full">
                       <CreditCard className="h-5 w-5 text-primary" />
@@ -157,7 +166,7 @@ const AdminDashboard = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-muted-foreground">Transactions</p>
-                      <h3 className="text-2xl font-bold">{stats.totalTransactions}</h3>
+                      <h3 className="text-2xl font-bold">{safeStats.totalTransactions}</h3>
                     </div>
                     <div className="bg-primary/10 p-2 rounded-full">
                       <FileText className="h-5 w-5 text-primary" />
@@ -171,7 +180,7 @@ const AdminDashboard = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-muted-foreground">Total Amount</p>
-                      <h3 className="text-2xl font-bold">₦{stats.totalAmount.toLocaleString()}</h3>
+                      <h3 className="text-2xl font-bold">₦{safeStats.totalAmount.toLocaleString()}</h3>
                     </div>
                     <div className="bg-primary/10 p-2 rounded-full">
                       <BarChart3 className="h-5 w-5 text-primary" />
@@ -225,8 +234,8 @@ const AdminDashboard = () => {
                               <div>
                                 <h4 className="font-medium">{user.name}</h4>
                                 <p className="text-sm text-muted-foreground">{user.email}</p>
-                                {user.phoneNumber && (
-                                  <p className="text-xs text-muted-foreground">{user.phoneNumber}</p>
+                                {user.phone && (
+                                  <p className="text-xs text-muted-foreground">{user.phone}</p>
                                 )}
                               </div>
                             </div>
@@ -323,7 +332,7 @@ const AdminDashboard = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="text-center py-8 text-muted-foreground">
-                      <p>There are currently {stats.activeRequests} pending withdrawal requests.</p>
+                      <p>There are currently {safeStats.activeRequests} pending withdrawal requests.</p>
                       <p className="mt-2">Detailed view coming soon.</p>
                     </div>
                   </CardContent>
