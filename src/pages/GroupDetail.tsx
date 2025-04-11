@@ -16,9 +16,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useApp } from "@/contexts/AppContext";
 import { Contribution, WithdrawalRequest, Transaction, hasContributed } from "@/services/localStorage";
-import { format, formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow, isValid } from "date-fns";
 import { toast } from "sonner";
 import ShareContribution from "@/components/contributions/ShareContribution";
+
 const GroupDetail = () => {
   const {
     id
@@ -52,6 +53,7 @@ const GroupDetail = () => {
   const [showCopiedAccountNumber, setShowCopiedAccountNumber] = useState(false);
   const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
   const [receiptData, setReceiptData] = useState<any>(null);
+  
   useEffect(() => {
     if (!id) return;
     const foundContribution = contributions.find(c => c.id === id);
@@ -68,10 +70,13 @@ const GroupDetail = () => {
     // Check if user has contributed to this group
     setHasUserContributed(hasContributed(user.id, id));
   }, [id, contributions, withdrawalRequests, transactions, navigate, getShareLink, user.id]);
+  
   if (!contribution) {
     return <div className="flex justify-center items-center min-h-screen">Loading...</div>;
   }
+  
   const progressPercentage = Math.min(100, Math.round(contribution.currentAmount / contribution.targetAmount * 100));
+  
   const handleContribute = () => {
     if (!contributionAmount || isNaN(Number(contributionAmount)) || Number(contributionAmount) <= 0) {
       toast.error("Please enter a valid amount");
@@ -81,6 +86,7 @@ const GroupDetail = () => {
     setContributionAmount("");
     setHasUserContributed(true);
   };
+  
   const handleRequestWithdrawal = () => {
     if (!withdrawalAmount || isNaN(Number(withdrawalAmount)) || Number(withdrawalAmount) <= 0) {
       toast.error("Please enter a valid amount");
@@ -103,6 +109,7 @@ const GroupDetail = () => {
     setWithdrawalAmount("");
     setWithdrawalPurpose("");
   };
+  
   const handleVote = (requestId: string, voteValue: 'approve' | 'reject') => {
     if (!hasUserContributed) {
       toast.error("You must contribute to this group before voting");
@@ -110,6 +117,7 @@ const GroupDetail = () => {
     }
     vote(requestId, voteValue);
   };
+  
   const copyToClipboard = () => {
     navigator.clipboard.writeText(shareLink).then(() => {
       setCopySuccess(true);
@@ -119,6 +127,7 @@ const GroupDetail = () => {
       toast.error("Failed to copy link");
     });
   };
+  
   const copyAccountNumber = () => {
     navigator.clipboard.writeText(contribution.accountNumber).then(() => {
       setShowCopiedAccountNumber(true);
@@ -128,9 +137,11 @@ const GroupDetail = () => {
       toast.error("Failed to copy account number");
     });
   };
+  
   const handlePingMembers = (requestId: string) => {
     pingMembersForVote(requestId);
   };
+  
   const handleViewReceipt = (transactionId: string) => {
     const receipt = getReceipt(transactionId);
     if (receipt) {
@@ -140,26 +151,50 @@ const GroupDetail = () => {
       toast.error("Could not generate receipt for this transaction");
     }
   };
+  
   const formatDate = (dateString: string) => {
-    return format(new Date(dateString), 'MMMM d, yyyy');
-  };
-  const formatDeadline = (deadlineString: string) => {
-    const deadlineDate = new Date(deadlineString);
-    const now = new Date();
-    if (deadlineDate > now) {
-      return `Ends in ${formatDistanceToNow(deadlineDate)}`;
-    } else {
-      return 'Voting ended';
+    try {
+      const date = new Date(dateString);
+      if (!isValid(date)) {
+        return "Invalid date";
+      }
+      return format(date, 'MMMM d, yyyy');
+    } catch (error) {
+      console.error("Error formatting date:", error, dateString);
+      return "Invalid date";
     }
   };
+  
+  const formatDeadline = (deadlineString: string) => {
+    try {
+      const deadlineDate = new Date(deadlineString);
+      if (!isValid(deadlineDate)) {
+        return "Invalid deadline";
+      }
+      
+      const now = new Date();
+      if (deadlineDate > now) {
+        return `Ends in ${formatDistanceToNow(deadlineDate)}`;
+      } else {
+        return 'Voting ended';
+      }
+    } catch (error) {
+      console.error("Error formatting deadline:", error, deadlineString);
+      return "Invalid deadline";
+    }
+  };
+  
   const hasVoted = (request: WithdrawalRequest) => {
     return request.votes.some(v => v.userId === user.id);
   };
+  
   const userVote = (request: WithdrawalRequest) => {
     const vote = request.votes.find(v => v.userId === user.id);
     return vote ? vote.vote : null;
   };
+  
   const isUserCreator = isGroupCreator(contribution.id);
+  
   return <div className="min-h-screen pb-20 md:pb-0">
       <Header />
       
@@ -362,7 +397,7 @@ const GroupDetail = () => {
                                 <p className="text-xs text-muted-foreground mt-1">
                                   Requested: {formatDate(request.createdAt)}
                                 </p>
-                                {request.status === 'pending' && <div className="flex items-center mt-1 text-xs text-amber-500">
+                                {request.status === 'pending' && request.deadline && <div className="flex items-center mt-1 text-xs text-amber-500">
                                     <Clock className="h-3 w-3 mr-1" />
                                     {formatDeadline(request.deadline)}
                                   </div>}
@@ -422,15 +457,15 @@ const GroupDetail = () => {
                                 <EyeOff size={16} />
                               </div> : <Avatar className="w-10 h-10">
                                 <AvatarFallback>
-                                  {contributor.name.charAt(0).toUpperCase()}
+                                  {contributor.name ? contributor.name.charAt(0).toUpperCase() : 'U'}
                                 </AvatarFallback>
                               </Avatar>}
                             <div className="ml-3">
                               <p className="font-medium text-sm">
-                                {contributor.anonymous ? 'Anonymous Contributor' : contributor.name}
+                                {contributor.anonymous ? 'Anonymous Contributor' : contributor.name || 'Unknown User'}
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                {format(new Date(contributor.date), 'MMM d, yyyy')}
+                                {contributor.date ? formatDate(contributor.date) : 'Unknown date'}
                               </p>
                             </div>
                           </div>
@@ -458,7 +493,22 @@ const GroupDetail = () => {
                   {contributionTransactions.length === 0 ? <div className="text-center py-8 text-muted-foreground">
                       <p>No transactions yet.</p>
                     </div> : <div className="space-y-4">
-                      {contributionTransactions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(transaction => <div key={transaction.id} className="flex items-start py-3 border-b last:border-b-0">
+                      {contributionTransactions
+                        .sort((a, b) => {
+                          try {
+                            const dateA = new Date(a.createdAt);
+                            const dateB = new Date(b.createdAt);
+                            if (!isValid(dateA) || !isValid(dateB)) {
+                              console.error("Invalid date in transaction sort:", a.createdAt, b.createdAt);
+                              return 0;
+                            }
+                            return dateB.getTime() - dateA.getTime();
+                          } catch (error) {
+                            console.error("Error sorting transactions:", error);
+                            return 0;
+                          }
+                        })
+                        .map(transaction => <div key={transaction.id} className="flex items-start py-3 border-b last:border-b-0">
                             <div className={`w-10 h-10 rounded-full flex items-center justify-center
                               ${transaction.type === 'deposit' ? 'bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400' : transaction.type === 'withdrawal' ? 'bg-amber-100 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400' : 'bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'}`}>
                               {transaction.type === 'deposit' ? <ArrowDown size={18} /> : transaction.type === 'withdrawal' ? <ArrowUp size={18} /> : <HelpCircle size={18} />}
@@ -480,7 +530,7 @@ const GroupDetail = () => {
                                     ₦{transaction.amount.toLocaleString()}
                                   </div>
                                   <p className="text-xs text-muted-foreground">
-                                    {formatDate(transaction.createdAt)}
+                                    {transaction.createdAt ? formatDate(transaction.createdAt) : 'Unknown date'}
                                   </p>
                                 </div>
                               </div>
@@ -530,7 +580,7 @@ const GroupDetail = () => {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Date:</span>
-                  <span>{formatDate(receiptData.date)}</span>
+                  <span>{receiptData.date ? formatDate(receiptData.date) : 'Unknown date'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Group:</span>
@@ -566,4 +616,5 @@ const GroupDetail = () => {
       <MobileNav />
     </div>;
 };
+
 export default GroupDetail;

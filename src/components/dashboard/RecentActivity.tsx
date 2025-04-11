@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowDown, ArrowUp, HelpCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
-import { format } from "date-fns";
+import { format, isValid } from "date-fns";
 
 interface ActivityItemProps {
   type: "deposit" | "withdrawal" | "vote";
@@ -92,7 +92,23 @@ const RecentActivity = () => {
   
   // Format and sort transactions
   const formattedTransactions = transactions
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .filter(transaction => transaction.createdAt) // Filter out transactions without createdAt
+    .sort((a, b) => {
+      try {
+        const dateA = new Date(a.createdAt);
+        const dateB = new Date(b.createdAt);
+        
+        if (!isValid(dateA) || !isValid(dateB)) {
+          console.error("Invalid date in transaction sort:", a.createdAt, b.createdAt);
+          return 0;
+        }
+        
+        return dateB.getTime() - dateA.getTime();
+      } catch (error) {
+        console.error("Error sorting transactions:", error);
+        return 0;
+      }
+    })
     .slice(0, 5)
     .map(transaction => {
       const contribution = contributions.find(c => c.id === transaction.contributionId);
@@ -115,17 +131,27 @@ const RecentActivity = () => {
     });
 
   function formatDate(dateString: string) {
-    const date = new Date(dateString);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    
-    if (date.toDateString() === today.toDateString()) {
-      return `Today, ${format(date, 'h:mm a')}`;
-    } else if (date.toDateString() === yesterday.toDateString()) {
-      return `Yesterday, ${format(date, 'h:mm a')}`;
-    } else {
-      return format(date, 'MMM d, yyyy');
+    try {
+      const date = new Date(dateString);
+      if (!isValid(date)) {
+        console.error("Invalid date in formatDate:", dateString);
+        return "Unknown date";
+      }
+      
+      const today = new Date();
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      
+      if (date.toDateString() === today.toDateString()) {
+        return `Today, ${format(date, 'h:mm a')}`;
+      } else if (date.toDateString() === yesterday.toDateString()) {
+        return `Yesterday, ${format(date, 'h:mm a')}`;
+      } else {
+        return format(date, 'MMM d, yyyy');
+      }
+    } catch (error) {
+      console.error("Error formatting date:", error, dateString);
+      return "Invalid date";
     }
   }
 
