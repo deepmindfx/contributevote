@@ -12,27 +12,23 @@ import { hasContributed } from "@/services/localStorage";
 import { format, formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 
-type VoteStatus = 'pending' | 'approved' | 'rejected' | 'expired';
-
-interface VoteInfo {
-  requestId: string;
-  contributionId: string;
-  contributionName: string;
-  amount: number;
-  purpose: string;
-  createdAt: string;
-  deadline: string;
-  hasContributed: boolean;
-  hasVoted: boolean;
-  userVote: 'approve' | 'reject' | null;
-  votes: { userId: string; vote: 'approve' | 'reject' }[];
-  status: VoteStatus;
-}
-
 const Votes = () => {
   const navigate = useNavigate();
   const { withdrawalRequests, contributions, user, vote, pingMembersForVote } = useApp();
-  const [eligibleVotes, setEligibleVotes] = useState<VoteInfo[]>([]);
+  const [eligibleVotes, setEligibleVotes] = useState<Array<{
+    requestId: string;
+    contributionId: string;
+    contributionName: string;
+    amount: number;
+    purpose: string;
+    createdAt: string;
+    deadline: string;
+    hasContributed: boolean;
+    hasVoted: boolean;
+    userVote: 'approve' | 'reject' | null;
+    votes: { userId: string; vote: 'approve' | 'reject' }[];
+    status: 'pending' | 'approved' | 'rejected';
+  }>>([]);
   
   useEffect(() => {
     // Filter for pending withdrawal requests where the user is a member
@@ -41,7 +37,7 @@ const Votes = () => {
       return (
         request.status === 'pending' &&
         contribution && 
-        contribution.members?.includes(user.id)
+        contribution.members.includes(user.id)
       );
     });
     
@@ -57,14 +53,14 @@ const Votes = () => {
         contributionId: request.contributionId,
         contributionName: contribution ? contribution.name : 'Unknown Group',
         amount: request.amount,
-        purpose: request.purpose || request.reason,
+        purpose: request.purpose,
         createdAt: request.createdAt,
         deadline: request.deadline,
         hasContributed: userCanContribute,
         hasVoted: userHasVoted,
         userVote: userVoteValue,
         votes: request.votes,
-        status: request.status as VoteStatus
+        status: request.status
       };
     });
     
@@ -151,7 +147,7 @@ const Votes = () => {
                       </CardDescription>
                     </div>
                     <Badge variant="outline">
-                      {vote.votes.length} / {contributions.find(c => c.id === vote.contributionId)?.members?.filter(m => 
+                      {vote.votes.length} / {contributions.find(c => c.id === vote.contributionId)?.members.filter(m => 
                         hasContributed(m, vote.contributionId)
                       ).length || 0} Votes
                     </Badge>

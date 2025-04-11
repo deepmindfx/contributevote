@@ -1,157 +1,390 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, Copy, RefreshCw } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useReservedAccount } from "@/hooks/useReservedAccount";
-import IdFormDialog from "./IdFormDialog";
-import AccountDetailsList from "./AccountDetailsList";
-import { IdFormData } from "@/hooks/useReservedAccount";
+import { Clipboard, RefreshCw, Plus, ArrowRight, Building } from "lucide-react";
+import { toast } from "sonner";
+import { useApp } from "@/contexts/AppContext";
+import { 
+  getUserReservedAccount, 
+  createUserReservedAccount, 
+  ReservedAccountData,
+  getReservedAccountTransactions
+} from "@/services/walletIntegration";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormField, FormItem, FormLabel, FormControl, FormDescription, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+
+// Form schema for validation
+const idFormSchema = z.object({
+  idType: z.enum(["bvn", "nin"], {
+    required_error: "Please select an ID type",
+  }),
+  idNumber: z.string()
+    .min(10, "ID number must be at least 10 digits")
+    .max(11, "ID number cannot exceed 11 digits")
+    .regex(/^\d+$/, "ID number must contain only digits"),
+});
+
+type IdFormValues = z.infer<typeof idFormSchema>;
 
 const ReservedAccount = () => {
-  const {
-    loading,
-    error,
-    reservedAccount,
-    hasReservedAccount,
-    showFullDetails,
-    setShowFullDetails,
-    showIdForm,
-    setShowIdForm,
-    form,
-    handleCreateAccount,
-    handleRefresh,
-    copyToClipboard,
-    onSubmitIdForm,
-  } = useReservedAccount();
-
-  return (
-    <Card className="h-full">
-      <CardHeader>
-        <CardTitle className="text-lg font-semibold">Bank Account</CardTitle>
-        <CardDescription>Your dedicated CollectiPay account for receiving funds</CardDescription>
-      </CardHeader>
-
-      <CardContent>
-        {error && (
-          <Alert variant="destructive" className="mb-4">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        {!hasReservedAccount ? (
-          <div className="space-y-4">
-            <div className="text-center py-8">
-              <div className="bg-muted/30 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="28"
-                  height="28"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="text-muted-foreground"
-                >
-                  <path d="M18 3v4c0 2-2 4-4 4H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h14Z" />
-                  <path d="M18 15v4c0 1.1-.9 2-2 2H4a2 2 0 0 1-2-2v-4c0-1.1.9-2 2-2h12c1.1 0 2 .9 2 2Z" />
-                  <path d="M22 9v8c0 1.1-.9 2-2 2h-2V7h2c1.1 0 2 .9 2 2Z" />
-                  <path d="M6 7v12" />
-                  <path d="M2 9h20" />
-                  <path d="M2 15h8" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-medium">No Bank Account Yet</h3>
-              <p className="text-muted-foreground text-sm mt-1">
-                Create your dedicated account to receive deposits
-              </p>
+  const { user, refreshData } = useApp();
+  const [isLoading, setIsLoading] = useState(false);
+  const [accountDetails, setAccountDetails] = useState<ReservedAccountData | null>(null);
+  const [showFullDetails, setShowFullDetails] = useState(false);
+  const [showIdForm, setShowIdForm] = useState(false);
+  
+  // Initialize the form
+  const form = useForm<IdFormValues>({
+    resolver: zodResolver(idFormSchema),
+    defaultValues: {
+      idType: "bvn",
+      idNumber: "",
+    },
+  });
+  
+  useEffect(() => {
+    // Check if user already has a reserved account
+    if (user?.reservedAccount) {
+      setAccountDetails(user.reservedAccount);
+      
+      // If account details exist but the accountNumber or bankName is undefined, refresh account details
+      if (!user.reservedAccount.accountNumber || !user.reservedAccount.bankName) {
+        handleRefresh();
+      }
+    }
+  }, [user]);
+  
+  const handleCreateAccount = async (values?: IdFormValues) => {
+    setIsLoading(true);
+    try {
+      if (!user || !user.id) {
+        toast.error("User information not available. Please log in again.");
+        return;
+      }
+      
+      if (!values) {
+        setShowIdForm(true);
+        setIsLoading(false);
+        return;
+      }
+      
+      // Close the ID form dialog after submission
+      setShowIdForm(false);
+      
+      const result = await createUserReservedAccount(user.id, values.idType, values.idNumber);
+      if (result) {
+        console.log("Reserved account created:", result);
+        setAccountDetails(result);
+        refreshData();
+        
+        // Also fetch transactions after creating account
+        if (result.accountReference) {
+          await getReservedAccountTransactions(result.accountReference);
+          refreshData();
+        }
+        
+        toast.success("Virtual account created successfully");
+      }
+    } catch (error) {
+      console.error("Error creating reserved account:", error);
+      toast.error("Failed to create reserved account. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const handleRefresh = async () => {
+    setIsLoading(true);
+    try {
+      if (!user || !user.id) {
+        toast.error("User information not available. Please log in again.");
+        return;
+      }
+      
+      const result = await getUserReservedAccount(user.id);
+      if (result) {
+        console.log("Retrieved account details:", result);
+        setAccountDetails(result);
+        
+        // Fetch transactions when refreshing account details
+        if (result.accountReference) {
+          await getReservedAccountTransactions(result.accountReference);
+        }
+        
+        refreshData();
+        toast.success("Account details refreshed");
+      }
+    } catch (error) {
+      console.error("Error refreshing reserved account:", error);
+      toast.error("Failed to refresh account details. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} copied to clipboard`);
+  };
+  
+  const onSubmitIdForm = (values: IdFormValues) => {
+    handleCreateAccount(values);
+  };
+  
+  if (!accountDetails) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Virtual Account</CardTitle>
+          <CardDescription>
+            Create a dedicated virtual account for easy deposits
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col items-center justify-center py-8">
+          {isLoading ? (
+            <div className="space-y-3 w-full">
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-10 w-32 mx-auto" />
             </div>
-            
-            <Button 
-              onClick={handleCreateAccount} 
-              className="w-full bg-green-600 hover:bg-green-700"
-              disabled={loading}
-            >
-              {loading ? 
-                <div className="flex items-center">
-                  <div className="animate-spin mr-2 h-4 w-4 border-t-2 border-b-2 border-current rounded-full"></div>
-                  Creating...
-                </div> : 
-                'Create Bank Account'
-              }
-            </Button>
+          ) : (
+            <>
+              <div className="text-center mb-6">
+                <p className="text-muted-foreground mb-3">
+                  You don't have a virtual account yet. Create one to easily fund your wallet from any bank.
+                </p>
+              </div>
+              <Button 
+                onClick={() => handleCreateAccount()} 
+                className="flex items-center gap-2"
+              >
+                <Plus size={16} />
+                Create Virtual Account
+              </Button>
+              
+              {/* BVN/NIN Input Dialog */}
+              <Dialog open={showIdForm} onOpenChange={setShowIdForm}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Provide Identification</DialogTitle>
+                    <DialogDescription>
+                      We need your BVN or NIN to create your virtual account. This information is required by financial regulations.
+                    </DialogDescription>
+                  </DialogHeader>
+                  
+                  <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmitIdForm)} className="space-y-4">
+                      <FormField
+                        control={form.control}
+                        name="idType"
+                        render={({ field }) => (
+                          <FormItem className="space-y-3">
+                            <FormLabel>ID Type</FormLabel>
+                            <RadioGroup 
+                              onValueChange={field.onChange} 
+                              defaultValue={field.value}
+                              className="flex flex-col space-y-1"
+                            >
+                              <FormItem className="flex items-center space-x-3 space-y-0">
+                                <FormControl>
+                                  <RadioGroupItem value="bvn" />
+                                </FormControl>
+                                <FormLabel className="font-normal">
+                                  Bank Verification Number (BVN)
+                                </FormLabel>
+                              </FormItem>
+                              <FormItem className="flex items-center space-x-3 space-y-0">
+                                <FormControl>
+                                  <RadioGroupItem value="nin" />
+                                </FormControl>
+                                <FormLabel className="font-normal">
+                                  National Identification Number (NIN)
+                                </FormLabel>
+                              </FormItem>
+                            </RadioGroup>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="idNumber"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>ID Number</FormLabel>
+                            <FormControl>
+                              <Input 
+                                placeholder={field.value === "bvn" ? "Enter your 11-digit BVN" : "Enter your NIN"}
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              Your information is encrypted and secure.
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setShowIdForm(false)}>
+                          Cancel
+                        </Button>
+                        <Button type="submit" disabled={isLoading}>
+                          {isLoading ? "Processing..." : "Create Account"}
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  </Form>
+                </DialogContent>
+              </Dialog>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
+  
+  // Display account details
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-start justify-between pb-2">
+        <div>
+          <CardTitle>Virtual Account</CardTitle>
+          <CardDescription>
+            Fund your wallet directly from any bank
+          </CardDescription>
+        </div>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={handleRefresh} 
+          disabled={isLoading}
+          className="h-8 w-8"
+        >
+          <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
+        </Button>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="space-y-3">
+            <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-6 w-36" />
+            <Skeleton className="h-10 w-full" />
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="bg-muted/30 p-4 rounded-lg">
+            <div>
               <div className="flex items-center justify-between mb-1">
-                <div className="text-sm text-muted-foreground">Account Number</div>
+                <label className="text-sm font-medium text-muted-foreground">Account Number</label>
                 <Button 
                   variant="ghost" 
                   size="sm" 
+                  onClick={() => copyToClipboard(accountDetails.accountNumber, "Account number")}
                   className="h-6 px-2"
-                  onClick={() => copyToClipboard(reservedAccount?.accountNumber || '', 'Account number')}
                 >
-                  <Copy className="h-3 w-3 mr-1" />
-                  <span className="text-xs">Copy</span>
+                  <Clipboard size={14} />
                 </Button>
               </div>
-              <div className="text-xl font-mono font-medium tracking-wider">
-                {reservedAccount?.accountNumber || 'N/A'}
+              <div className="font-mono text-xl bg-muted/50 rounded-md py-2 px-3 flex items-center justify-between">
+                {accountDetails.accountNumber || (accountDetails.accounts && accountDetails.accounts.length > 0 
+                  ? accountDetails.accounts[0].accountNumber 
+                  : "Pending...")}
               </div>
             </div>
             
-            <div className="bg-muted/30 p-4 rounded-lg">
+            <div>
               <div className="flex items-center justify-between mb-1">
-                <div className="text-sm text-muted-foreground">Bank Name</div>
+                <label className="text-sm font-medium text-muted-foreground">Bank Name</label>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => copyToClipboard(accountDetails.bankName, "Bank name")}
+                  className="h-6 px-2"
+                >
+                  <Clipboard size={14} />
+                </Button>
               </div>
-              <div className="font-medium">
-                {reservedAccount?.bankName || 'N/A'}
+              <div className="font-medium text-lg bg-muted/50 rounded-md py-2 px-3">
+                {accountDetails.bankName || (accountDetails.accounts && accountDetails.accounts.length > 0 
+                  ? accountDetails.accounts[0].bankName 
+                  : "Pending...")}
               </div>
             </div>
             
-            {showFullDetails && reservedAccount && (
-              <AccountDetailsList 
-                account={reservedAccount} 
-                onCopy={copyToClipboard} 
-              />
-            )}
-            
-            <div className="flex flex-col space-y-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => setShowFullDetails(!showFullDetails)}
-              >
-                {showFullDetails ? 'Hide Details' : 'Show Full Details'}
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                size="sm"
-                className="flex items-center"
-                onClick={handleRefresh}
-                disabled={loading}
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                {loading ? 'Refreshing...' : 'Refresh Details'}
-              </Button>
+            <div className="pt-1">
+              <label className="text-sm font-medium text-muted-foreground block mb-1">Account Name</label>
+              <div className="font-medium text-lg">
+                {accountDetails.accountName || "Pending..."}
+              </div>
             </div>
+            
+            <div className="flex gap-2">
+              {!showFullDetails && accountDetails.accounts && accountDetails.accounts.length > 1 && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex-1 mt-2" 
+                  onClick={() => setShowFullDetails(true)}
+                >
+                  Show All Bank Accounts
+                  <ArrowRight size={14} className="ml-2" />
+                </Button>
+              )}
+            </div>
+            
+            <Dialog open={showFullDetails} onOpenChange={setShowFullDetails}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>All Virtual Accounts</DialogTitle>
+                  <DialogDescription>
+                    Your reserved account is available across multiple banks
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4 max-h-[400px] overflow-y-auto">
+                  {accountDetails.accounts?.map((account, index) => (
+                    <div key={index} className="border rounded-lg p-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium text-muted-foreground">Account Number</span>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => copyToClipboard(account.accountNumber, "Account number")}
+                          className="h-6 px-2"
+                        >
+                          <Clipboard size={14} />
+                        </Button>
+                      </div>
+                      <div className="font-mono text-lg">{account.accountNumber}</div>
+                      
+                      <div className="mt-2">
+                        <span className="text-sm font-medium text-muted-foreground">Bank</span>
+                        <div>{account.bankName}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <DialogFooter>
+                  <Button onClick={() => setShowFullDetails(false)}>Close</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            
+            <p className="text-sm text-muted-foreground mt-2">
+              Transfer to this account from any bank and your wallet will be credited automatically.
+            </p>
           </div>
         )}
       </CardContent>
-
-      <IdFormDialog 
-        open={showIdForm} 
-        onClose={() => setShowIdForm(false)}
-        form={form}
-        onSubmit={onSubmitIdForm}
-        isLoading={loading}
-      />
     </Card>
   );
 };

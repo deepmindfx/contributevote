@@ -34,10 +34,7 @@ function Calendar({
     // Handle range
     else if (safeProps.mode === 'range' && safeProps.selected !== null && typeof safeProps.selected === 'object') {
       const range = safeProps.selected as any;
-      const typedRange = {
-        from: undefined as Date | undefined,
-        to: undefined as Date | undefined
-      };
+      const typedRange: { from?: Date, to?: Date } = {};
       
       if (range.from) {
         typedRange.from = typeof range.from === 'string' || typeof range.from === 'number' 

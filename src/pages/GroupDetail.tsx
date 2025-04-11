@@ -102,10 +102,9 @@ const GroupDetail = () => {
     }
     requestWithdrawal({
       contributionId: contribution.id,
-      creatorId: user.id, // Changed from requesterId to creatorId to match expected type
+      requesterId: user.id,
       amount: Number(withdrawalAmount),
-      purpose: withdrawalPurpose,
-      reason: withdrawalPurpose, // Added reason to match the WithdrawalRequest type
+      purpose: withdrawalPurpose
     });
     setWithdrawalAmount("");
     setWithdrawalPurpose("");
@@ -196,19 +195,7 @@ const GroupDetail = () => {
   
   const isUserCreator = isGroupCreator(contribution.id);
   
-  // Helper function to get contributor name or format anonymous contributor
-  const getContributorName = (contributor: { userId: string; amount: number; date: string; anonymous: boolean; }) => {
-    if (contributor.anonymous) {
-      return 'Anonymous Contributor';
-    }
-    
-    // Look up contributor name from users if available
-    const contributorUser = user.id === contributor.userId ? user : null;
-    return contributorUser?.name || 'Unknown User';
-  };
-
-  return (
-    <div className="min-h-screen pb-20 md:pb-0">
+  return <div className="min-h-screen pb-20 md:pb-0">
       <Header />
       
       <main className="container max-w-4xl mx-auto px-4 pt-24 pb-12">
@@ -470,12 +457,12 @@ const GroupDetail = () => {
                                 <EyeOff size={16} />
                               </div> : <Avatar className="w-10 h-10">
                                 <AvatarFallback>
-                                  {getContributorName(contributor).charAt(0).toUpperCase()}
+                                  {contributor.name ? contributor.name.charAt(0).toUpperCase() : 'U'}
                                 </AvatarFallback>
                               </Avatar>}
                             <div className="ml-3">
                               <p className="font-medium text-sm">
-                                {getContributorName(contributor)}
+                                {contributor.anonymous ? 'Anonymous Contributor' : contributor.name || 'Unknown User'}
                               </p>
                               <p className="text-xs text-muted-foreground">
                                 {contributor.date ? formatDate(contributor.date) : 'Unknown date'}
@@ -627,8 +614,7 @@ const GroupDetail = () => {
         </Dialog>}
       
       <MobileNav />
-    </div>
-  );
+    </div>;
 };
 
 export default GroupDetail;

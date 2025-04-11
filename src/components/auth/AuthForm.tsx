@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,16 +27,8 @@ const AuthForm = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const {
-    refreshData,
-    isAuthenticated
+    refreshData
   } = useApp();
-
-  // Check if user is already authenticated and redirect
-  useEffect(() => {
-    if (isAuthenticated) {
-      navigate("/dashboard", { replace: true });
-    }
-  }, [isAuthenticated, navigate]);
 
   // Get return URL if user was redirected from a protected page
   const {
@@ -44,13 +37,25 @@ const AuthForm = () => {
   const returnUrl = state?.returnUrl || "/dashboard";
   
   const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setLoginData(prev => ({ ...prev, [name]: value }));
+    const {
+      name,
+      value
+    } = e.target;
+    setLoginData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
   
   const handleRegisterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setRegisterData(prev => ({ ...prev, [name]: value }));
+    const {
+      name,
+      value
+    } = e.target;
+    setRegisterData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
   
   const handleLogin = async (e: React.FormEvent) => {
@@ -64,32 +69,29 @@ const AuthForm = () => {
       return;
     }
 
-    try {
-      // For regular users - check if user exists
-      const users = JSON.parse(localStorage.getItem('users') || '[]');
-      const foundUser = users.find((u: any) => u.phone === loginData.phone || u.email === loginData.phone);
-      if (!foundUser) {
-        toast.error("User not found. Please check your credentials or register.");
-        setIsLoading(false);
-        return;
-      }
-
-      // Save user to localStorage
-      localStorage.setItem('currentUser', JSON.stringify(foundUser));
-      
-      // Important: Refresh app context data after login
-      await refreshData();
-      
-      toast.success("Login successful");
-      
-      // Navigate to dashboard
-      navigate(returnUrl, { replace: true });
-    } catch (error) {
-      console.error("Login error:", error);
-      toast.error("An error occurred during login");
-    } finally {
+    // For regular users - check if user exists
+    const users = JSON.parse(localStorage.getItem('users') || '[]');
+    const foundUser = users.find((u: any) => u.phone === loginData.phone || u.email === loginData.phone);
+    if (!foundUser) {
+      toast.error("User not found. Please check your credentials or register.");
       setIsLoading(false);
+      return;
     }
+
+    // In a real app, we would verify the password here
+    // For now, we'll just log the user in
+
+    localStorage.setItem('currentUser', JSON.stringify(foundUser));
+
+    // Important: Refresh app context data after login
+    refreshData();
+    setIsLoading(false);
+    toast.success("Login successful");
+
+    // Navigate to returnUrl or dashboard
+    setTimeout(() => {
+      navigate(returnUrl);
+    }, 500);
   };
   
   const handleRegister = async (e: React.FormEvent) => {
@@ -103,8 +105,8 @@ const AuthForm = () => {
       return;
     }
 
-    try {
-      // For demonstration purposes - simulate registration
+    // For demonstration purposes - simulate registration
+    setTimeout(() => {
       // Store new user in localStorage
       const fullName = `${registerData.firstName} ${registerData.lastName}`;
       const user = {
@@ -113,7 +115,7 @@ const AuthForm = () => {
         lastName: registerData.lastName,
         name: fullName,
         email: registerData.email,
-        phone: registerData.phone,
+        phone: registerData.phone, // Changed from phoneNumber to phone to match User interface
         walletBalance: 0,
         preferences: {
           anonymousContributions: false,
@@ -124,7 +126,7 @@ const AuthForm = () => {
         role: "user" as const,
         status: "active" as const,
         createdAt: new Date().toISOString(),
-        verified: false
+        verified: false // Add verified property
       };
 
       // Add to users array
@@ -136,30 +138,19 @@ const AuthForm = () => {
       localStorage.setItem('currentUser', JSON.stringify(user));
 
       // Important: Refresh app context data after registration
-      await refreshData();
-      
-      toast.success("Account created successfully");
-      
-      // Navigate to dashboard
-      navigate("/dashboard", { replace: true });
-    } catch (error) {
-      console.error("Registration error:", error);
-      toast.error("An error occurred during registration");
-    } finally {
+      refreshData();
       setIsLoading(false);
-    }
-  };
-  
-  const switchTab = (tab: string) => {
-    if (tab === "login") {
-      // Switch to login tab logic if needed
-    } else if (tab === "register") {
-      // Switch to register tab logic if needed
-    }
+      toast.success("Account created successfully");
+
+      // Navigate to returnUrl or dashboard
+      setTimeout(() => {
+        navigate("/dashboard");
+      }, 500);
+    }, 1500);
   };
   
   return <Card className="w-full max-w-md mx-auto animate-scale glass-card">
-      <Tabs defaultValue="login" className="w-full" onValueChange={switchTab}>
+      <Tabs defaultValue="login" className="w-full">
         <TabsList className="grid w-full grid-cols-2 mb-4">
           <TabsTrigger value="login">Login</TabsTrigger>
           <TabsTrigger value="register">Register</TabsTrigger>
