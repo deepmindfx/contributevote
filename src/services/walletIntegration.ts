@@ -2,7 +2,14 @@
 import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
 import * as monnifyApi from "./monnifyApi";
-import { User, updateUser, getCurrentUser, getTransactions, updateUserById, addTransaction } from "./localStorage";
+import { 
+  User, 
+  updateUser, 
+  getCurrentUser, 
+  getTransactions, 
+  updateUserById, 
+  addTransaction 
+} from "./localStorage";
 
 /**
  * Interface for the reserved account data stored in user settings
@@ -219,7 +226,7 @@ export const createPaymentInvoice = async (data: {
     const invoiceReference = `INV_${userId}_${Date.now()}`;
     
     // Create the invoice data
-    const invoiceData = {
+    const invoiceData: any = {
       amount,
       invoiceReference,
       description,
