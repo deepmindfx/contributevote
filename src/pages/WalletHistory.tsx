@@ -4,7 +4,7 @@ import Header from "@/components/layout/Header";
 import MobileNav from "@/components/layout/MobileNav";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ArrowDown, ArrowUp, HelpCircle, Wallet, BankIcon } from "lucide-react";
+import { ArrowLeft, ArrowDown, ArrowUp, HelpCircle, Wallet, Bank } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useApp } from "@/contexts/AppContext";
 import { format } from "date-fns";
@@ -97,14 +97,14 @@ const WalletHistory = () => {
           <p className="text-muted-foreground">View all your wallet transactions</p>
         </div>
         
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "app" | "bank")} className="mb-6">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="app">
               <Wallet className="h-4 w-4 mr-2" />
               App Transactions
             </TabsTrigger>
             <TabsTrigger value="bank">
-              <BankIcon className="h-4 w-4 mr-2" />
+              <Bank className="h-4 w-4 mr-2" />
               Bank Transactions
             </TabsTrigger>
           </TabsList>
