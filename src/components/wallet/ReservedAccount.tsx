@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Clipboard, RefreshCw, Plus, ArrowRight, BuildingBank } from "lucide-react";
+import { Clipboard, RefreshCw, Plus, ArrowRight, Building } from "lucide-react";
 import { toast } from "sonner";
 import { useApp } from "@/contexts/AppContext";
 import { getUserReservedAccount, createUserReservedAccount, ReservedAccountData } from "@/services/walletIntegration";
