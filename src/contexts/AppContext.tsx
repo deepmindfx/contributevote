@@ -38,7 +38,6 @@ import {
 import { BankTransferRequest, sendMoneyToBank, checkTransferStatus } from '@/services/walletTransfer';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
-import { updatePendingGroupContributions } from '@/utils/transferUtils';
 
 interface AppContextType {
   user: User;
@@ -48,7 +47,7 @@ interface AppContextType {
   transactions: Transaction[];
   stats: Stats;
   refreshData: () => void;
-  createNewContribution: (contribution: Omit<Contribution, 'id' | 'createdAt' | 'currentAmount' | 'members' | 'contributors' | 'accountNumber'>) => string;
+  createNewContribution: (contribution: Omit<Contribution, 'id' | 'createdAt' | 'currentAmount' | 'members' | 'contributors' | 'accountNumber'>) => void;
   contribute: (contributionId: string, amount: number, anonymous?: boolean) => void;
   contributeViaAccountNumber: (accountNumber: string, amount: number, contributorInfo: { name: string, email?: string, phone?: string }, anonymous?: boolean) => void;
   requestWithdrawal: (request: Omit<WithdrawalRequest, 'id' | 'createdAt' | 'status' | 'votes' | 'deadline'>) => void;
@@ -99,20 +98,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     refreshData();
   }, []);
 
-  // New effect to check for expired withdrawal requests and group contributions
+  // New effect to check for expired withdrawal requests
   useEffect(() => {
     if (isAuthenticated) {
-      const checkExpiredRequestsAndContributions = async () => {
+      const checkExpiredRequests = () => {
         updateWithdrawalRequestsStatus();
-        await updatePendingGroupContributions();
         refreshData();
       };
       
       // Run once at start
-      checkExpiredRequestsAndContributions();
+      checkExpiredRequests();
       
       // Then set interval to check every minute
-      const interval = setInterval(checkExpiredRequestsAndContributions, 60000);
+      const interval = setInterval(checkExpiredRequests, 60000);
       
       // Clear interval on unmount
       return () => clearInterval(interval);
@@ -153,14 +151,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const createNewContribution = (contribution: Omit<Contribution, 'id' | 'createdAt' | 'currentAmount' | 'members' | 'contributors' | 'accountNumber'>) => {
     try {
-      const newGroupId = createContribution(contribution);
+      createContribution(contribution);
       refreshData();
       toast.success('Contribution group created successfully!');
-      return newGroupId;
     } catch (error) {
       toast.error('Failed to create contribution group');
       console.error(error);
-      throw error;
     }
   };
 

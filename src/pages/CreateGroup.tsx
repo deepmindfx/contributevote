@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Header from "@/components/layout/Header";
 import MobileNav from "@/components/layout/MobileNav";
 import { Button } from "@/components/ui/button";
@@ -22,29 +21,16 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { ArrowLeft, Users, Calendar, Check, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Users, Calendar, Check } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useApp } from "@/contexts/AppContext";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { toast } from "sonner";
-import { hasRequiredDetailsForGroupAccount } from "@/localStorage";
-import { createReservedAccount } from "@/services/monnifyApi";
 
 const CreateGroup = () => {
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
-  const [hasBvn, setHasBvn] = useState(true);
   const navigate = useNavigate();
-  const { createNewContribution, user } = useApp();
-  
-  // Check if user has BVN
-  useEffect(() => {
-    if (user && user.id) {
-      const hasRequiredDetails = hasRequiredDetailsForGroupAccount(user.id);
-      setHasBvn(hasRequiredDetails);
-    }
-  }, [user]);
+  const { createNewContribution } = useApp();
   
   // Form state
   const [formData, setFormData] = useState({
@@ -78,64 +64,8 @@ const CreateGroup = () => {
     setStep(step - 1);
   };
 
-  const createGroupAccount = async (groupId: string, groupName: string) => {
-    try {
-      if (!user || !user.bvn) {
-        throw new Error("User BVN is required to create a group account");
-      }
-      
-      // Create a reserved account for the group
-      const accountData = {
-        contractCode: "465595618981", // This should be fetched from environment in a real app
-        accountName: `Group - ${groupName}`,
-        currencyCode: "NGN",
-        accountReference: `group_${groupId}`,
-        customerEmail: user.email,
-        customerName: user.name,
-        customerBvn: user.bvn,
-        getAllAvailableBanks: false,
-      };
-      
-      console.log("Creating reserved account for group:", accountData);
-      
-      // In a real app, we would call the Monnify API to create a reserved account
-      // For now, we'll simulate a successful account creation
-      const response = await createReservedAccount(accountData);
-      
-      console.log("Reserved account created:", response);
-      
-      // Update the group with the reserved account details
-      const allContributions = JSON.parse(localStorage.getItem('contributions') || '[]');
-      const groupIndex = allContributions.findIndex(c => c.id === groupId);
-      
-      if (groupIndex >= 0) {
-        allContributions[groupIndex].reservedAccount = {
-          accountNumber: response.accountNumber,
-          bankName: response.bankName,
-          bankCode: response.bankCode,
-        };
-        
-        localStorage.setItem('contributions', JSON.stringify(allContributions));
-      }
-      
-      return response;
-    } catch (error) {
-      console.error("Error creating group account:", error);
-      toast.error("Failed to create a dedicated account for the group");
-      return null;
-    }
-  };
-
-  const handleCreateGroup = async () => {
+  const handleCreateGroup = () => {
     setIsLoading(true);
-    
-    // Check if user has BVN
-    if (!hasBvn) {
-      toast.error("You need to add your BVN in profile settings before creating a group");
-      setIsLoading(false);
-      navigate("/user-settings");
-      return;
-    }
     
     // Prepare contribution data
     const contributionData = {
@@ -150,28 +80,17 @@ const CreateGroup = () => {
       votingThreshold: formData.votingThreshold,
       privacy: formData.privacy,
       memberRoles: formData.memberRoles,
-      creatorId: user.id,
+      creatorId: '1', // Will be replaced by actual user id from context
     };
     
-    try {
-      // Create contribution
-      const newGroupId = createNewContribution(contributionData);
-      
-      // Create reserved account for the group
-      await createGroupAccount(newGroupId, formData.name);
-      
-      toast.success("Group created successfully with a dedicated account");
-      
-      // Navigate to dashboard
-      setTimeout(() => {
-        setIsLoading(false);
-        navigate("/dashboard");
-      }, 1000);
-    } catch (error) {
-      console.error("Error creating group:", error);
-      toast.error("Failed to create group");
+    // Create contribution
+    createNewContribution(contributionData);
+    
+    // Navigate to dashboard
+    setTimeout(() => {
       setIsLoading(false);
-    }
+      navigate("/dashboard");
+    }, 1000);
   };
 
   return (
@@ -192,24 +111,6 @@ const CreateGroup = () => {
           <h1 className="text-2xl font-bold">Create a New Group</h1>
           <p className="text-muted-foreground">Set up your contribution group in a few steps</p>
         </div>
-        
-        {!hasBvn && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>BVN Required</AlertTitle>
-            <AlertDescription>
-              You need to add your BVN in profile settings before creating a group with a dedicated account.
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="mt-2"
-                onClick={() => navigate("/user-settings")}
-              >
-                Go to Settings
-              </Button>
-            </AlertDescription>
-          </Alert>
-        )}
         
         <div className="relative mb-8">
           <div className="flex justify-between items-center relative z-10">
@@ -329,7 +230,7 @@ const CreateGroup = () => {
                   <Label>Contribution Frequency</Label>
                   <RadioGroup 
                     defaultValue={formData.frequency}
-                    onValueChange={(value: 'daily' | 'weekly' | 'monthly' | 'one-time') => handleChange('frequency', value)}
+                    onValueChange={(value) => handleChange('frequency', value)}
                   >
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="daily" id="daily" />
@@ -420,7 +321,7 @@ const CreateGroup = () => {
                   <Label>Privacy</Label>
                   <RadioGroup 
                     defaultValue={formData.privacy}
-                    onValueChange={(value: 'public' | 'private') => handleChange('privacy', value)}
+                    onValueChange={(value) => handleChange('privacy', value)}
                   >
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="public" id="public" />
@@ -437,7 +338,7 @@ const CreateGroup = () => {
                   <Label>Member Roles</Label>
                   <RadioGroup 
                     defaultValue={formData.memberRoles}
-                    onValueChange={(value: 'equal' | 'weighted') => handleChange('memberRoles', value)}
+                    onValueChange={(value) => handleChange('memberRoles', value)}
                   >
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="equal" id="equal" />
@@ -499,7 +400,7 @@ const CreateGroup = () => {
                 <Button 
                   onClick={handleCreateGroup} 
                   className="w-full"
-                  disabled={isLoading || !hasBvn}
+                  disabled={isLoading}
                 >
                   {isLoading ? (
                     <div className="flex items-center">

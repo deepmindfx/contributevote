@@ -1,3 +1,4 @@
+
 import { isValid } from "date-fns";
 import { ReservedAccountData, CardTokenData } from "@/services/walletIntegration";
 
@@ -75,18 +76,6 @@ export interface Contribution {
   visibility: 'public' | 'private' | 'invite-only';
   status: 'active' | 'completed' | 'expired';
   accountNumber?: string;
-  reservedAccount?: {
-    accountNumber: string;
-    bankName: string;
-    bankCode: string;
-  };
-  frequency: 'daily' | 'weekly' | 'monthly' | 'one-time';
-  contributionAmount: number;
-  startDate: string;
-  endDate?: string;
-  votingThreshold: number;
-  privacy: 'public' | 'private';
-  memberRoles: 'equal' | 'weighted';
 }
 
 export interface WithdrawalRequest {
@@ -231,20 +220,6 @@ export const validateDate = (dateString: string): boolean => {
   }
 };
 
-// Add a function to check if user has a BVN
-export const hasRequiredDetailsForGroupAccount = (userId: string): boolean => {
-  try {
-    const users = getUsers();
-    const user = users.find(u => u.id === userId);
-    
-    // Check if user exists and has BVN
-    return !!(user && user.bvn && user.bvn.length > 0);
-  } catch (error) {
-    console.error("Error checking user BVN:", error);
-    return false;
-  }
-};
-
 // Add more functions based on what's imported elsewhere
 export const getWithdrawalRequests = (): WithdrawalRequest[] => {
   const requestsJson = localStorage.getItem('withdrawalRequests');
@@ -286,14 +261,12 @@ export const updateUserById = (userId: string, userData: Partial<User>): void =>
   }
 };
 
-export const createContribution = (contribution: Omit<Contribution, 'id' | 'createdAt' | 'currentAmount' | 'members' | 'contributors' | 'accountNumber'>): string => {
+export const createContribution = (contribution: Omit<Contribution, 'id' | 'createdAt' | 'currentAmount' | 'members' | 'contributors' | 'accountNumber'>): void => {
   const contributions = getContributions();
   const currentUser = getCurrentUser();
   
-  const groupId = `c_${Date.now()}`;
-  
   const newContribution: Contribution = {
-    id: groupId,
+    id: `c_${Date.now()}`,
     createdAt: new Date().toISOString(),
     currentAmount: 0,
     members: [currentUser.id],
@@ -304,8 +277,6 @@ export const createContribution = (contribution: Omit<Contribution, 'id' | 'crea
   
   contributions.push(newContribution);
   localStorage.setItem('contributions', JSON.stringify(contributions));
-  
-  return groupId;
 };
 
 export const contributeToGroup = (contributionId: string, amount: number, anonymous: boolean = false): void => {
@@ -356,17 +327,9 @@ export const contributeToGroup = (contributionId: string, amount: number, anonym
   }
 };
 
-// Update the contributeByAccountNumber function to handle external contributions via reserved accounts
 export const contributeByAccountNumber = (accountNumber: string, amount: number, contributorInfo: { name: string, email?: string, phone?: string }, anonymous: boolean = false): void => {
   const contributions = getContributions();
-  
-  // First check if it's a regular account number
-  let index = contributions.findIndex(c => c.accountNumber === accountNumber);
-  
-  // If not found, check if it's a reserved account number
-  if (index < 0) {
-    index = contributions.findIndex(c => c.reservedAccount && c.reservedAccount.accountNumber === accountNumber);
-  }
+  const index = contributions.findIndex(c => c.accountNumber === accountNumber);
   
   if (index < 0) {
     throw new Error("Invalid account number");
@@ -385,9 +348,6 @@ export const contributeByAccountNumber = (accountNumber: string, amount: number,
     anonymous
   });
   
-  // Generate a reference for this contribution
-  const contributionReference = `contrib_${Date.now()}`;
-  
   // Add transaction
   addTransaction({
     id: `t_${Date.now()}`,
@@ -401,9 +361,7 @@ export const contributeByAccountNumber = (accountNumber: string, amount: number,
     metaData: {
       contributorName: contributorInfo.name,
       contributorEmail: contributorInfo.email,
-      contributorPhone: contributorInfo.phone,
-      contributionReference,
-      isExternal: true
+      contributorPhone: contributorInfo.phone
     }
   });
   
@@ -769,16 +727,4 @@ export const markAllNotificationsAsRead = (): void => {
   }));
   
   updateUser({ notifications });
-};
-
-// Add a utility function to check for pending contributions via external accounts
-export const checkPendingContributions = (): Transaction[] => {
-  const transactions = getTransactions();
-  return transactions.filter(t => 
-    t.type === 'deposit' && 
-    t.status === 'pending' && 
-    t.metaData && 
-    t.metaData.contributionReference && 
-    t.metaData.isExternal
-  );
 };
