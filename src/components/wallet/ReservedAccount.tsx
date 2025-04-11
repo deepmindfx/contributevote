@@ -2,10 +2,15 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Clipboard, RefreshCw, Plus, ArrowRight, Building } from "lucide-react";
+import { Clipboard, RefreshCw, Plus, ArrowRight, Building, Banknote } from "lucide-react";
 import { toast } from "sonner";
 import { useApp } from "@/contexts/AppContext";
-import { getUserReservedAccount, createUserReservedAccount, ReservedAccountData } from "@/services/walletIntegration";
+import { 
+  getUserReservedAccount, 
+  createUserReservedAccount, 
+  ReservedAccountData,
+  simulateBankTransfer
+} from "@/services/walletIntegration";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormDescription, FormMessage } from "@/components/ui/form";
@@ -27,7 +32,17 @@ const idFormSchema = z.object({
     .regex(/^\d+$/, "ID number must contain only digits"),
 });
 
+// Create a simulated transaction form schema 
+const simulatedTransactionSchema = z.object({
+  amount: z.string()
+    .min(1, "Amount is required")
+    .refine(value => !isNaN(Number(value)) && Number(value) > 0, {
+      message: "Amount must be a positive number",
+    }),
+});
+
 type IdFormValues = z.infer<typeof idFormSchema>;
+type SimulatedTransactionFormValues = z.infer<typeof simulatedTransactionSchema>;
 
 const ReservedAccount = () => {
   const { user, refreshData } = useApp();
@@ -35,6 +50,7 @@ const ReservedAccount = () => {
   const [accountDetails, setAccountDetails] = useState<ReservedAccountData | null>(null);
   const [showFullDetails, setShowFullDetails] = useState(false);
   const [showIdForm, setShowIdForm] = useState(false);
+  const [showSimulateForm, setShowSimulateForm] = useState(false);
   
   // Initialize the form
   const form = useForm<IdFormValues>({
@@ -42,6 +58,14 @@ const ReservedAccount = () => {
     defaultValues: {
       idType: "bvn",
       idNumber: "",
+    },
+  });
+  
+  // Initialize the simulation form
+  const simulationForm = useForm<SimulatedTransactionFormValues>({
+    resolver: zodResolver(simulatedTransactionSchema),
+    defaultValues: {
+      amount: "",
     },
   });
   
@@ -113,6 +137,32 @@ const ReservedAccount = () => {
   
   const onSubmitIdForm = (values: IdFormValues) => {
     handleCreateAccount(values);
+  };
+  
+  const handleSimulateTransaction = (values: SimulatedTransactionFormValues) => {
+    setIsLoading(true);
+    try {
+      if (!accountDetails || !accountDetails.accountNumber) {
+        toast.error("No virtual account found");
+        return;
+      }
+      
+      const amount = Number(values.amount);
+      const success = simulateBankTransfer(accountDetails.accountNumber, amount);
+      
+      if (success) {
+        toast.success(`Simulated bank transfer of ₦${amount.toLocaleString()} successful`);
+        refreshData();
+        setShowSimulateForm(false);
+      } else {
+        toast.error("Failed to simulate bank transfer");
+      }
+    } catch (error) {
+      console.error("Error simulating transaction:", error);
+      toast.error("Failed to simulate transaction");
+    } finally {
+      setIsLoading(false);
+    }
   };
   
   if (!accountDetails) {
@@ -301,17 +351,29 @@ const ReservedAccount = () => {
               </div>
             </div>
             
-            {!showFullDetails && accountDetails.accounts && accountDetails.accounts.length > 1 && (
+            <div className="flex gap-2">
+              {!showFullDetails && accountDetails.accounts && accountDetails.accounts.length > 1 && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex-1 mt-2" 
+                  onClick={() => setShowFullDetails(true)}
+                >
+                  Show All Bank Accounts
+                  <ArrowRight size={14} className="ml-2" />
+                </Button>
+              )}
+              
               <Button 
                 variant="outline" 
                 size="sm" 
-                className="w-full mt-2" 
-                onClick={() => setShowFullDetails(true)}
+                className="flex-1 mt-2 bg-green-50 border-green-100 hover:bg-green-100 text-green-600"
+                onClick={() => setShowSimulateForm(true)}
               >
-                Show All Bank Accounts
-                <ArrowRight size={14} className="ml-2" />
+                <Banknote size={14} className="mr-2" />
+                Simulate Transfer
               </Button>
-            )}
+            </div>
             
             <Dialog open={showFullDetails} onOpenChange={setShowFullDetails}>
               <DialogContent>
@@ -347,6 +409,55 @@ const ReservedAccount = () => {
                 <DialogFooter>
                   <Button onClick={() => setShowFullDetails(false)}>Close</Button>
                 </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            
+            {/* Bank transaction simulator */}
+            <Dialog open={showSimulateForm} onOpenChange={setShowSimulateForm}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Simulate Bank Transfer</DialogTitle>
+                  <DialogDescription>
+                    This is for testing purposes only. In a real app, this would be handled by the payment provider.
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <Form {...simulationForm}>
+                  <form onSubmit={simulationForm.handleSubmit(handleSimulateTransaction)} className="space-y-4">
+                    <FormField
+                      control={simulationForm.control}
+                      name="amount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Amount (₦)</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <span className="absolute left-3 top-2.5 text-muted-foreground">₦</span>
+                              <Input 
+                                placeholder="Enter amount" 
+                                className="pl-8"
+                                {...field} 
+                              />
+                            </div>
+                          </FormControl>
+                          <FormDescription>
+                            Enter the amount you want to simulate transferring to your virtual account
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <DialogFooter>
+                      <Button type="button" variant="outline" onClick={() => setShowSimulateForm(false)}>
+                        Cancel
+                      </Button>
+                      <Button type="submit" disabled={isLoading}>
+                        {isLoading ? "Processing..." : "Simulate Transfer"}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </Form>
               </DialogContent>
             </Dialog>
             
