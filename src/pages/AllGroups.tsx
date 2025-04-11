@@ -13,12 +13,27 @@ import {
   ArrowUpRight
 } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
-import { format } from "date-fns";
+import { format, isValid } from "date-fns";
 import { Progress } from "@/components/ui/progress";
 
 const AllGroups = () => {
   const navigate = useNavigate();
   const { contributions } = useApp();
+
+  // Helper function to safely format dates
+  const safeFormatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      if (!date || !isValid(date)) {
+        console.error("Invalid date in AllGroups:", dateString);
+        return "Invalid date";
+      }
+      return format(date, 'MMM d, yyyy');
+    } catch (err) {
+      console.error("Error formatting date in AllGroups:", err);
+      return "Invalid date";
+    }
+  };
 
   return (
     <div className="min-h-screen pb-20 md:pb-0">
@@ -72,7 +87,7 @@ const AllGroups = () => {
                     <div className="text-sm text-muted-foreground">
                       <div className="flex items-center mt-1">
                         <Calendar className="h-3 w-3 mr-1" />
-                        Started {format(new Date(contribution.startDate), 'MMM d, yyyy')}
+                        Started {safeFormatDate(contribution.startDate)}
                       </div>
                       <div className="flex items-center mt-1">
                         <Users className="h-3 w-3 mr-1" />
