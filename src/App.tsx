@@ -1,170 +1,59 @@
 
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AppProvider, useApp } from "@/contexts/AppContext";
-import Index from "./pages/Index";
-import Auth from "./pages/Auth";
-import AdminAuth from "./pages/AdminAuth";
-import Dashboard from "./pages/Dashboard";
-import CreateGroup from "./pages/CreateGroup";
-import GroupDetail from "./pages/GroupDetail";
-import ContributePage from "./pages/ContributePage";
-import ContributeSharePage from "./pages/ContributeSharePage";
-import UserSettings from "./pages/UserSettings";
-import NotFound from "./pages/NotFound";
-import AdminDashboard from "./pages/admin/Dashboard";
-import UserProfile from "./pages/UserProfile";
-import { useEffect } from "react";
-import MobileNav from "./components/layout/MobileNav";
-import WalletHistory from "./pages/WalletHistory";
-import ActivityHistory from "./pages/ActivityHistory";
-import Votes from "./pages/Votes";
-import AllGroups from "./pages/AllGroups";
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AppProvider } from './contexts/AppContext';
+import { Toaster } from './components/ui/toaster';
+import { Toaster as SonnerToaster } from 'sonner';
+import { ThemeProvider } from "./components/ui/theme-provider";
+import Dashboard from './pages/Dashboard';
+import Index from './pages/Index';
+import Auth from './pages/Auth';
+import AdminAuth from './pages/AdminAuth';
+import CreateGroup from './pages/CreateGroup';
+import GroupDetail from './pages/GroupDetail';
+import ContributePage from './pages/ContributePage';
+import ContributeSharePage from './pages/ContributeSharePage';
+import UserSettings from './pages/UserSettings';
+import WalletHistory from './pages/WalletHistory';
+import Votes from './pages/Votes';
+import AllGroups from './pages/AllGroups';
+import UserProfile from './pages/UserProfile';
+import ActivityHistory from './pages/ActivityHistory';
+import AdminDashboard from './pages/admin/Dashboard';
+import SendMoney from './pages/SendMoney';
+import NotFound from './pages/NotFound';
+import './App.css';
 
-const queryClient = new QueryClient();
-
-// Admin route guard
-const AdminRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAdmin, isAuthenticated } = useApp();
-  
-  if (!isAuthenticated) {
-    return <Navigate to="/admin-login" replace />;
-  }
-  
-  if (!isAdmin) {
-    return <Navigate to="/dashboard" replace />;
-  }
-  
-  return <>{children}</>;
-};
-
-// Auth guard to keep logged out users from accessing protected routes
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated } = useApp();
-  
-  if (!isAuthenticated) {
-    return <Navigate to="/auth" replace />;
-  }
-  
-  return <>{children}</>;
-};
-
-const AppRoutes = () => {
-  const { user, isAdmin, isAuthenticated } = useApp();
-  
-  // Apply dark mode on route change if user has it enabled
-  useEffect(() => {
-    if (user?.preferences?.darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [user?.preferences?.darkMode]);
-  
+function App() {
   return (
-    <Routes>
-      <Route path="/" element={<Index />} />
-      <Route path="/auth" element={<Auth />} />
-      <Route path="/admin-login" element={<AdminAuth />} />
-      
-      {/* Protected Routes */}
-      <Route path="/dashboard" element={
-        <ProtectedRoute>
-          <Dashboard />
-        </ProtectedRoute>
-      } />
-      <Route path="/create-group" element={
-        <ProtectedRoute>
-          <CreateGroup />
-        </ProtectedRoute>
-      } />
-      <Route path="/groups/:id" element={
-        <ProtectedRoute>
-          <GroupDetail />
-        </ProtectedRoute>
-      } />
-      <Route path="/contribute/:id" element={
-        <ProtectedRoute>
-          <ContributePage />
-        </ProtectedRoute>
-      } />
-      <Route path="/contribute/share/:id" element={<ContributeSharePage />} />
-      <Route path="/settings" element={
-        <ProtectedRoute>
-          <UserSettings />
-        </ProtectedRoute>
-      } />
-      <Route path="/profile" element={
-        <ProtectedRoute>
-          <UserProfile />
-        </ProtectedRoute>
-      } />
-      <Route path="/wallet-history" element={
-        <ProtectedRoute>
-          <WalletHistory />
-        </ProtectedRoute>
-      } />
-      <Route path="/activity" element={
-        <ProtectedRoute>
-          <ActivityHistory />
-        </ProtectedRoute>
-      } />
-      <Route path="/votes" element={
-        <ProtectedRoute>
-          <Votes />
-        </ProtectedRoute>
-      } />
-      <Route path="/all-groups" element={
-        <ProtectedRoute>
-          <AllGroups />
-        </ProtectedRoute>
-      } />
-      
-      {/* Admin Routes */}
-      <Route path="/admin" element={
-        <AdminRoute>
-          <AdminDashboard />
-        </AdminRoute>
-      } />
-      <Route path="/admin/*" element={
-        <AdminRoute>
-          <AdminDashboard />
-        </AdminRoute>
-      } />
-      
-      {/* Admin Redirect for Admin Users */}
-      {isAdmin && (
-        <Route path="/admin-redirect" element={<Navigate to="/admin" replace />} />
-      )}
-      
-      {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-      <Route path="*" element={<NotFound />} />
-    </Routes>
-  );
-};
-
-const App = () => {
-  useEffect(() => {
-    // Set Roboto font as the default font
-    document.body.classList.add('font-roboto');
-  }, []);
-
-  return (
-    <QueryClientProvider client={queryClient}>
+    <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
       <AppProvider>
-        <TooltipProvider>
+        <Router>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/admin/auth" element={<AdminAuth />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/create-group" element={<CreateGroup />} />
+            <Route path="/group/:id" element={<GroupDetail />} />
+            <Route path="/contribute/:id" element={<ContributePage />} />
+            <Route path="/contribute/share/:id" element={<ContributeSharePage />} />
+            <Route path="/settings" element={<UserSettings />} />
+            <Route path="/wallet-history" element={<WalletHistory />} />
+            <Route path="/votes" element={<Votes />} />
+            <Route path="/all-groups" element={<AllGroups />} />
+            <Route path="/user/:id" element={<UserProfile />} />
+            <Route path="/activity-history" element={<ActivityHistory />} />
+            <Route path="/admin/dashboard" element={<AdminDashboard />} />
+            <Route path="/send-money" element={<SendMoney />} />
+            <Route path="/404" element={<NotFound />} />
+            <Route path="*" element={<Navigate to="/404" replace />} />
+          </Routes>
+          <SonnerToaster position="top-right" />
           <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
-        </TooltipProvider>
+        </Router>
       </AppProvider>
-    </QueryClientProvider>
+    </ThemeProvider>
   );
-};
+}
 
 export default App;
