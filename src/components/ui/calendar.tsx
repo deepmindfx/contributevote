@@ -1,12 +1,12 @@
 
-import * as React from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { DayPicker } from "react-day-picker";
+import * as React from "react"
+import { ChevronLeft, ChevronRight } from "lucide-react"
+import { DayPicker } from "react-day-picker"
 
-import { cn } from "@/lib/utils";
-import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils"
+import { buttonVariants } from "@/components/ui/button"
 
-export type CalendarProps = React.ComponentProps<typeof DayPicker>;
+export type CalendarProps = React.ComponentProps<typeof DayPicker>
 
 function Calendar({
   className,
@@ -14,27 +14,10 @@ function Calendar({
   showOutsideDays = true,
   ...props
 }: CalendarProps) {
-  // Safely handle any date-related props to prevent errors
-  const safeProps = { ...props };
-  
-  // Safely handle selected date(s)
-  if (safeProps.selected && !Array.isArray(safeProps.selected)) {
-    try {
-      const selectedDate = new Date(safeProps.selected);
-      if (isNaN(selectedDate.getTime())) {
-        console.error("Invalid selected date in Calendar:", safeProps.selected);
-        delete safeProps.selected;
-      }
-    } catch (error) {
-      console.error("Error processing selected date in Calendar:", error);
-      delete safeProps.selected;
-    }
-  }
-
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      className={cn("p-3 pointer-events-auto", className)}
+      className={cn("p-3", className)}
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
@@ -70,13 +53,16 @@ function Calendar({
         ...classNames,
       }}
       components={{
-        IconLeft: ({ ..._props }) => <ChevronLeft className="h-4 w-4" />,
-        IconRight: ({ ..._props }) => <ChevronRight className="h-4 w-4" />,
+        IconLeft: ({ ...props }) => <ChevronLeft className="h-4 w-4" />,
+        IconRight: ({ ...props }) => <ChevronRight className="h-4 w-4" />,
       }}
-      {...safeProps}
+      // Fix for the TypeScript error by ensuring date is properly parsed
+      selected={typeof props.selected === 'string' || typeof props.selected === 'number' ? 
+        new Date(props.selected) : props.selected as Date}
+      {...props}
     />
-  );
+  )
 }
-Calendar.displayName = "Calendar";
+Calendar.displayName = "Calendar"
 
-export { Calendar };
+export { Calendar }

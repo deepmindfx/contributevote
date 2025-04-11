@@ -2,7 +2,7 @@
 // Monnify API service for handling virtual account operations
 
 // Base URL for Monnify API 
-const BASE_URL = 'https://sandbox.monnify.com';
+const BASE_URL = 'https://api.monnify.com';
 
 /**
  * Get authentication token for API access
@@ -10,8 +10,8 @@ const BASE_URL = 'https://sandbox.monnify.com';
  */
 export const getAuthToken = async () => {
   try {
-    const apiKey = "YOUR_API_KEY"; 
-    const secretKey = "YOUR_SECRET_KEY";
+    const apiKey = "MK_PROD_XR897H4H43"; 
+    const secretKey = "GPFCA9GTP81DYJGF9VMAPRK220SS6CK9";
     
     // Encode API credentials
     const credentials = btoa(`${apiKey}:${secretKey}`);

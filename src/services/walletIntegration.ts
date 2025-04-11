@@ -107,7 +107,7 @@ export const createUserReservedAccount = async (
       customerEmail: user.email,
       customerName: user.name || `${user.firstName} ${user.lastName}`,
       currencyCode: "NGN",
-      contractCode: "YOUR_CONTRACT_CODE", // Replace with your Monnify contract code
+      contractCode: "465595618981", // Updated with real contract code
       getAllAvailableBanks: true
     };
     
@@ -325,7 +325,7 @@ export const createPaymentInvoice = async (data: {
       customerEmail,
       customerName,
       currencyCode: "NGN",
-      contractCode: "YOUR_CONTRACT_CODE", // Replace with your Monnify contract code
+      contractCode: "465595618981", // Updated with real contract code
       expiryDate: expiryDate ? expiryDate.toISOString() : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       redirectUrl: redirectUrl || window.location.origin + "/dashboard"
     };
@@ -598,7 +598,7 @@ export const chargeSavedCard = async (
       paymentReference,
       paymentDescription: description,
       currencyCode: "NGN",
-      contractCode: "YOUR_CONTRACT_CODE", // Replace with your Monnify contract code
+      contractCode: "465595618981", // Updated with real contract code
       metaData
     });
     
