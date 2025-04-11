@@ -314,31 +314,7 @@ export const initiateAsyncTransfer = async (data: {
     
     console.log("Sending async transfer request...");
     
-    // In a demo environment, handle the case where this API would normally require IP whitelisting
-    // This is a workaround for demo/test environment
-    if (process.env.NODE_ENV !== "production") {
-      console.log("Demo environment detected, simulating API response");
-      
-      // For demonstration purposes, simulate a pending response
-      return {
-        requestSuccessful: true,
-        responseMessage: "success",
-        responseCode: "0",
-        responseBody: {
-          amount: data.amount,
-          reference: data.reference,
-          status: "PENDING", // In demo mode, we'll always return pending
-          dateCreated: new Date().toISOString(),
-          totalFee: Math.round(data.amount * 0.015), // Simulate a 1.5% fee
-          destinationBankName: getBankNameByCode(data.destinationBankCode),
-          destinationAccountNumber: data.destinationAccountNumber,
-          destinationBankCode: data.destinationBankCode,
-          destinationAccountName: "Demo Recipient" // In a real app, this would come from the bank's name lookup
-        }
-      };
-    }
-    
-    // In production, make the actual API call
+    // Make the API call
     const response = await fetch(`${BASE_URL}/api/v2/disbursements/single`, {
       method: 'POST',
       headers: {
@@ -453,28 +429,6 @@ export const checkTransferStatus = async (reference: string) => {
       return { 
         requestSuccessful: false, 
         responseMessage: "Failed to authenticate with payment provider"
-      };
-    }
-    
-    // In a demo environment, simulate a response
-    if (process.env.NODE_ENV !== "production") {
-      console.log("Demo environment detected, simulating transfer status response");
-      
-      return {
-        requestSuccessful: true,
-        responseMessage: "success",
-        responseCode: "0",
-        responseBody: {
-          amount: 1000, // Example amount
-          reference: reference,
-          status: "SUCCESS", // In demo mode, we'll return success for status checks
-          dateCreated: new Date().toISOString(),
-          totalFee: 35,
-          destinationBankName: "Demo Bank",
-          destinationAccountName: "Demo Recipient",
-          destinationAccountNumber: "0123456789",
-          destinationBankCode: "058"
-        }
       };
     }
     

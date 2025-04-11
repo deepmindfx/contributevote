@@ -7,7 +7,8 @@ import {
   updateUser, 
   getCurrentUser, 
   addTransaction,
-  updateTransaction
+  getTransactions,
+  updateUser as updateUserData
 } from "./localStorage";
 
 /**
@@ -100,51 +101,6 @@ export const sendMoneyToBank = async (request: BankTransferRequest): Promise<Tra
         };
       }
       
-      // For demo purposes, simulate a successful transfer if we're getting API errors
-      // This allows testing the flow without actual API integration
-      if (process.env.NODE_ENV !== "production") {
-        console.log("DEMO MODE: Simulating successful transfer response");
-        
-        // Create a transaction record for the demo transfer
-        const transactionId = uuidv4();
-        addTransaction({
-          id: transactionId,
-          userId: currentUser.id,
-          type: "withdrawal",
-          amount: request.amount,
-          contributionId: "",
-          description: `Bank transfer to ${request.destinationBankCode} - ${request.narration || 'Transfer'} (Demo)`,
-          status: "completed",
-          createdAt: new Date().toISOString(),
-          metaData: {
-            transferReference: reference,
-            bankName: request.destinationBankCode,
-            accountNumber: request.destinationAccountNumber,
-            recipientName: request.recipientName || "",
-            fee: 25 // Typical fee
-          }
-        });
-        
-        // Update user's wallet balance
-        updateUser({
-          ...currentUser,
-          walletBalance: currentUser.walletBalance - request.amount
-        });
-        
-        return {
-          success: true,
-          message: "Demo transfer completed successfully",
-          reference,
-          status: "SUCCESS",
-          amount: request.amount,
-          fee: 25,
-          destinationBankName: request.destinationBankCode, 
-          destinationAccountNumber: request.destinationAccountNumber,
-          destinationAccountName: request.recipientName || "Demo Recipient",
-          dateCreated: new Date().toISOString()
-        };
-      }
-      
       return {
         success: false,
         message: result.responseMessage || "Failed to process transfer"
@@ -174,8 +130,6 @@ export const sendMoneyToBank = async (request: BankTransferRequest): Promise<Tra
     });
     
     // Update user's wallet balance
-    // Only deduct immediately if transfer is successful; for PENDING, we'll wait for webhook in production
-    // For demo purposes, we'll deduct for both success and pending
     updateUser({
       ...currentUser,
       walletBalance: currentUser.walletBalance - request.amount
@@ -212,66 +166,9 @@ export const sendMoneyToBank = async (request: BankTransferRequest): Promise<Tra
  */
 export const checkTransferStatus = async (reference: string): Promise<TransferResponse> => {
   try {
-    // For demo environment, simulate a successful status check 
-    // after a short delay to mimic the API checking process
-    if (process.env.NODE_ENV !== "production") {
-      console.log("DEMO MODE: Simulating transfer status check for:", reference);
-      
-      // Find the transaction with this reference in metaData
-      const currentUser = getCurrentUser();
-      const allTransactions = JSON.parse(localStorage.getItem('transactions') || '[]');
-      const transaction = allTransactions.find(t => 
-        t.metaData && t.metaData.transferReference === reference
-      );
-      
-      if (transaction) {
-        // If it's been more than 10 seconds since creation, update to completed
-        const createdAt = new Date(transaction.createdAt).getTime();
-        const now = Date.now();
-        const timeElapsed = now - createdAt;
-        
-        if (timeElapsed > 10000 && transaction.status === "pending") {
-          // Update the transaction to completed
-          transaction.status = "completed";
-          localStorage.setItem('transactions', JSON.stringify(allTransactions));
-          
-          toast.success("Transfer has been completed");
-          
-          return {
-            success: true,
-            message: "Demo transfer completed successfully",
-            reference,
-            status: "SUCCESS",
-            amount: transaction.amount,
-            fee: transaction.metaData?.fee || 25,
-            destinationBankName: transaction.metaData?.bankName || "Demo Bank",
-            destinationAccountName: transaction.metaData?.recipientName || "Demo Recipient",
-            destinationAccountNumber: transaction.metaData?.accountNumber || "0000000000",
-            dateCreated: transaction.createdAt
-          };
-        }
-        
-        return {
-          success: true,
-          message: "Transfer is still being processed",
-          reference,
-          status: transaction.status === "completed" ? "SUCCESS" : "PENDING",
-          amount: transaction.amount,
-          fee: transaction.metaData?.fee || 0,
-          destinationBankName: transaction.metaData?.bankName || "Demo Bank",
-          destinationAccountName: transaction.metaData?.recipientName || "Demo Recipient",
-          destinationAccountNumber: transaction.metaData?.accountNumber || "0000000000",
-          dateCreated: transaction.createdAt
-        };
-      }
-      
-      return {
-        success: false,
-        message: "Transfer reference not found"
-      };
-    }
+    console.log("Checking transfer status for:", reference);
     
-    // In production, make a real API call
+    // Make a real API call to check transfer status
     const result = await monnifyApi.checkTransferStatus(reference);
     
     if (!result.requestSuccessful) {
@@ -285,7 +182,7 @@ export const checkTransferStatus = async (reference: string): Promise<TransferRe
     const responseBody = result.responseBody;
     
     // Update transaction status if necessary
-    const allTransactions = JSON.parse(localStorage.getItem('transactions') || '[]');
+    const allTransactions = getTransactions();
     const transaction = allTransactions.find(t => 
       t.metaData && t.metaData.transferReference === reference
     );
@@ -303,6 +200,15 @@ export const checkTransferStatus = async (reference: string): Promise<TransferRe
           toast.success("Transfer has been completed");
         } else if (newStatus === "failed") {
           toast.error("Transfer has failed");
+          
+          // Refund the money if the transfer failed
+          const currentUser = getCurrentUser();
+          if (currentUser && newStatus === "failed") {
+            updateUserData({
+              ...currentUser,
+              walletBalance: (currentUser.walletBalance || 0) + transaction.amount
+            });
+          }
         }
       }
     }
@@ -371,4 +277,3 @@ export const pollTransferStatus = async (
   
   return poll();
 };
-
