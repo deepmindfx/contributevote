@@ -7,11 +7,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useReservedAccount } from "@/hooks/useReservedAccount";
 import IdFormDialog from "./IdFormDialog";
 import AccountDetailsList from "./AccountDetailsList";
-
-export interface IdFormData {
-  idType: "bvn" | "nin";
-  idNumber: string;
-}
+import { IdFormData } from "@/hooks/useReservedAccount";
 
 const ReservedAccount = () => {
   const {
@@ -118,12 +114,12 @@ const ReservedAccount = () => {
               </div>
             </div>
             
-            {showFullDetails ? (
+            {showFullDetails && reservedAccount && (
               <AccountDetailsList 
-                reservedAccount={reservedAccount} 
-                copyToClipboard={copyToClipboard} 
+                account={reservedAccount} 
+                onCopy={copyToClipboard} 
               />
-            ) : null}
+            )}
             
             <div className="flex flex-col space-y-2">
               <Button 
@@ -154,7 +150,7 @@ const ReservedAccount = () => {
         onClose={() => setShowIdForm(false)}
         form={form}
         onSubmit={onSubmitIdForm}
-        loading={loading}
+        isLoading={loading}
       />
     </Card>
   );

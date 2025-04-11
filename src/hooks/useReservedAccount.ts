@@ -4,7 +4,17 @@ import { useApp } from "@/contexts/AppContext";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { createReservedAccount, getReservedAccount } from "@/services/wallet/reservedAccountService";
-import { IdFormData } from "@/components/wallet/ReservedAccount";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+
+// Define the ID form schema
+export const idFormSchema = z.object({
+  idType: z.enum(["bvn", "nin"]),
+  idNumber: z.string().min(10, "ID number must be at least 10 characters").max(15, "ID number cannot exceed 15 characters"),
+});
+
+// Export the type for other components to use
+export type IdFormData = z.infer<typeof idFormSchema>;
 
 export const useReservedAccount = () => {
   const { user, refreshData } = useApp();
@@ -16,9 +26,10 @@ export const useReservedAccount = () => {
   const reservedAccount = user?.reservedAccount;
 
   const form = useForm<IdFormData>({
+    resolver: zodResolver(idFormSchema),
     defaultValues: {
-      idNumber: "",
-      idType: "bvn"
+      idType: "bvn",
+      idNumber: ""
     }
   });
 

@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,8 +26,16 @@ const AuthForm = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const {
-    refreshData
+    refreshData,
+    isAuthenticated
   } = useApp();
+
+  // Check if user is already authenticated and redirect
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   // Get return URL if user was redirected from a protected page
   const {
@@ -83,14 +90,15 @@ const AuthForm = () => {
       localStorage.setItem('currentUser', JSON.stringify(foundUser));
 
       // Important: Refresh app context data after login
-      refreshData();
+      await refreshData();
       
       toast.success("Login successful");
 
-      // Navigate to returnUrl or dashboard
+      // Give the context a chance to update
       setTimeout(() => {
-        navigate(returnUrl);
-      }, 300);
+        console.log("Redirecting to dashboard after login");
+        navigate(returnUrl, { replace: true });
+      }, 500);
     } catch (error) {
       console.error("Login error:", error);
       toast.error("An error occurred during login");
@@ -143,14 +151,15 @@ const AuthForm = () => {
       localStorage.setItem('currentUser', JSON.stringify(user));
 
       // Important: Refresh app context data after registration
-      refreshData();
+      await refreshData();
       
       toast.success("Account created successfully");
 
-      // Navigate to dashboard directly
+      // Give the context a chance to update
       setTimeout(() => {
-        navigate("/dashboard");
-      }, 300);
+        console.log("Redirecting to dashboard after registration");
+        navigate("/dashboard", { replace: true });
+      }, 500);
     } catch (error) {
       console.error("Registration error:", error);
       toast.error("An error occurred during registration");

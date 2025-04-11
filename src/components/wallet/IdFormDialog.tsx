@@ -1,30 +1,24 @@
 
 import React from "react";
-import { z } from "zod";
 import { DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-
-// Define schema for ID form
-export const idFormSchema = z.object({
-  idType: z.enum(["bvn", "nin"]),
-  idNumber: z.string().min(10, "ID number must be at least 10 characters").max(15, "ID number cannot exceed 15 characters"),
-});
-
-export type IdFormValues = z.infer<typeof idFormSchema>;
+import { UseFormReturn } from "react-hook-form";
+import { IdFormData } from "@/hooks/useReservedAccount";
 
 interface IdFormDialogProps {
-  form: ReturnType<typeof useForm<IdFormValues>>;
-  onSubmit: (values: IdFormValues) => void;
+  form: UseFormReturn<IdFormData>;
+  onSubmit: (values: IdFormData) => void;
   isLoading: boolean;
   onClose: () => void;
+  open: boolean;
 }
 
-const IdFormDialog = ({ form, onSubmit, isLoading, onClose }: IdFormDialogProps) => {
+const IdFormDialog = ({ form, onSubmit, isLoading, onClose, open }: IdFormDialogProps) => {
+  if (!open) return null;
+  
   return (
     <DialogContent className="sm:max-w-md">
       <DialogHeader>

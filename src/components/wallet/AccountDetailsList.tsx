@@ -1,74 +1,46 @@
 
-import React from "react";
-import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Clipboard } from "lucide-react";
-import { toast } from "sonner";
-
-interface Account {
-  bankCode: string;
-  bankName: string;
-  accountNumber: string;
-}
+import { Copy } from "lucide-react";
+import { ReservedAccountData } from "@/services/wallet/types";
 
 interface AccountDetailsListProps {
-  accounts: Account[];
-  onClose: () => void;
+  account: ReservedAccountData;
+  onCopy: (text: string, label: string) => void;
 }
 
-const AccountDetailsList = ({ accounts, onClose }: AccountDetailsListProps) => {
-  const copyToClipboard = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success(`${label} copied to clipboard`);
-  };
+const AccountDetailsList = ({ account, onCopy }: AccountDetailsListProps) => {
+  const details = [
+    { label: 'Account Name', value: account.accountName },
+    { label: 'Account Reference', value: account.accountReference },
+    { label: 'Bank Code', value: account.bankCode },
+    { label: 'Created On', value: new Date(account.createdAt || '').toLocaleDateString() },
+    { label: 'Currency', value: account.currencyCode || 'NGN' },
+    { label: 'Collection Channel', value: account.collectionChannel || 'Bank Transfer' },
+    { label: 'Status', value: account.status || 'Active' },
+  ];
 
   return (
-    <DialogContent className="sm:max-w-md">
-      <DialogHeader>
-        <DialogTitle>All Bank Accounts</DialogTitle>
-      </DialogHeader>
-      
-      <div className="space-y-6 py-2">
-        {accounts.map((account, index) => (
-          <div key={index} className="space-y-2 border-b pb-4 last:border-b-0">
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-sm font-medium text-muted-foreground">Bank Name</label>
-              </div>
-              <div className="font-medium text-lg">
-                {account.bankName}
-              </div>
-            </div>
-            
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-sm font-medium text-muted-foreground">Account Number</label>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => copyToClipboard(account.accountNumber, "Account number")}
-                  className="h-6 px-2"
-                >
-                  <Clipboard size={14} />
-                </Button>
-              </div>
-              <div className="font-mono text-xl bg-muted/50 rounded-md py-2 px-3">
-                {account.accountNumber}
-              </div>
-            </div>
+    <div className="space-y-3">
+      {details.map((detail) => detail.value && (
+        <div key={detail.label} className="bg-muted/30 p-3 rounded-lg">
+          <div className="flex items-center justify-between mb-1">
+            <div className="text-sm text-muted-foreground">{detail.label}</div>
+            {detail.value && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2"
+                onClick={() => onCopy(detail.value.toString(), detail.label)}
+              >
+                <Copy className="h-3 w-3 mr-1" />
+                <span className="text-xs">Copy</span>
+              </Button>
+            )}
           </div>
-        ))}
-      </div>
-      
-      <DialogFooter>
-        <Button
-          onClick={onClose}
-          className="w-full"
-        >
-          Close
-        </Button>
-      </DialogFooter>
-    </DialogContent>
+          <div className="font-medium truncate">{detail.value}</div>
+        </div>
+      ))}
+    </div>
   );
 };
 
