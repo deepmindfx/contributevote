@@ -16,6 +16,7 @@ export interface User {
   lastName: string;
   email: string;
   phone?: string;
+  phoneNumber?: string; // For compatibility with existing components
   username?: string;
   profileImage?: string;
   walletBalance: number;
@@ -27,13 +28,13 @@ export interface User {
   pin?: string;
   verified?: boolean;
   createdAt?: string;
-  phoneNumber?: string; // Added for compatibility with existing components
   notifications?: Array<{
     id: string;
     message: string;
     read: boolean;
     createdAt: string;
     relatedId?: string;
+    type?: string;
   }>;
   preferences?: {
     darkMode: boolean;
@@ -125,6 +126,8 @@ export interface AppStats {
   totalWithdrawals: number;
   totalAmountContributed: number;
 }
+
+export interface Stats extends AppStats {}
 
 /**
  * Local storage keys
