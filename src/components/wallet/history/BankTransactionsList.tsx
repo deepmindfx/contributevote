@@ -1,86 +1,92 @@
 
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
+import { RefreshCcw } from "lucide-react";
 import BankTransactionItem from "./BankTransactionItem";
 import EmptyState from "./EmptyState";
-
-interface MonnifyTransaction {
-  amount: number;
-  paymentReference: string;
-  transactionReference: string;
-  paymentMethod: string;
-  paidOn: string;
-  paymentStatus: string;
-  destinationAccountName: string;
-  destinationBankName: string;
-  destinationAccountNumber: string;
-}
 
 interface BankTransactionsListProps {
   hasReservedAccount: boolean;
   isLoading: boolean;
-  transactions: MonnifyTransaction[];
+  transactions: any[];
   currencyType: "NGN" | "USD";
   convertToUSD: (amount: number) => number;
   onRefresh: () => void;
+  error?: string | null;
 }
 
 const BankTransactionsList = ({ 
   hasReservedAccount, 
   isLoading, 
-  transactions, 
-  currencyType, 
+  transactions,
+  currencyType,
   convertToUSD,
-  onRefresh
+  onRefresh,
+  error
 }: BankTransactionsListProps) => {
-  const navigate = useNavigate();
-
+  if (!hasReservedAccount) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <EmptyState message="No reserved account found. Create a reserved account to receive bank transfers." />
+        </CardContent>
+      </Card>
+    );
+  }
+  
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Bank Transactions</CardTitle>
-        <CardDescription>
-          Transactions processed through your virtual bank account
-        </CardDescription>
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <div>
+          <CardTitle>Bank Transactions</CardTitle>
+          <CardDescription>
+            Transactions from your reserved account
+          </CardDescription>
+        </div>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={onRefresh}
+          disabled={isLoading}
+        >
+          <RefreshCcw size={16} className={`mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
       </CardHeader>
       <CardContent>
-        {!hasReservedAccount ? (
-          <EmptyState 
-            message="You don't have a virtual bank account yet" 
-            buttonText="Create Virtual Account"
-            onButtonClick={() => navigate("/dashboard")}
-          />
-        ) : isLoading ? (
+        {isLoading ? (
           <div className="space-y-4">
             {[1, 2, 3].map(i => (
-              <div key={i} className="flex items-start p-3 border rounded-lg">
-                <Skeleton className="w-10 h-10 rounded-full" />
-                <div className="ml-3 flex-1">
-                  <Skeleton className="h-5 w-32 mb-2" />
-                  <Skeleton className="h-4 w-48 mb-1" />
-                  <Skeleton className="h-3 w-24" />
-                </div>
-                <div className="text-right">
-                  <Skeleton className="h-5 w-20 mb-2" />
-                  <Skeleton className="h-6 w-16 ml-auto" />
+              <div key={i} className="p-4 border rounded-lg animate-pulse bg-muted/20">
+                <div className="flex justify-between">
+                  <div className="space-y-2">
+                    <div className="h-4 w-24 bg-muted rounded"></div>
+                    <div className="h-3 w-16 bg-muted rounded"></div>
+                  </div>
+                  <div className="h-4 w-16 bg-muted rounded"></div>
                 </div>
               </div>
             ))}
           </div>
+        ) : error ? (
+          <div className="text-center py-6">
+            <p className="text-red-500 mb-2">{error}</p>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={onRefresh}
+            >
+              Try Again
+            </Button>
+          </div>
         ) : transactions.length === 0 ? (
-          <EmptyState 
-            message="No bank transactions found" 
-            buttonText="Refresh Transactions"
-            onButtonClick={onRefresh}
-          />
+          <EmptyState message="No bank transactions found. When you receive money to your reserved account, it will appear here." />
         ) : (
-          <div className="space-y-4">
-            {transactions.map((transaction) => (
-              <BankTransactionItem
-                key={transaction.transactionReference}
+          <div className="space-y-3">
+            {transactions.map((transaction, index) => (
+              <BankTransactionItem 
+                key={index} 
                 transaction={transaction}
                 currencyType={currencyType}
                 convertToUSD={convertToUSD}

@@ -1,10 +1,6 @@
 
 import { v4 as uuidv4 } from "uuid";
-import { 
-  ReservedAccountData, 
-  BankTransaction, 
-  BankTransactionResponse 
-} from "./types";
+import { ReservedAccountData } from "./types";
 import { 
   getCurrentUser, 
   getAllTransactions, 
@@ -12,8 +8,31 @@ import {
   addTransaction
 } from "../localStorage";
 
+// Define the BankTransaction and BankTransactionResponse interfaces here
+interface BankTransaction {
+  id: string;
+  amount: number;
+  type: string;
+  status: string;
+  reference: string;
+  senderName: string;
+  senderBank: string;
+  createdAt: string;
+  settledAt: string | null;
+  narration: string;
+}
+
+interface BankTransactionResponse {
+  data: BankTransaction[];
+  meta: {
+    currentPage: number;
+    totalPages: number;
+    totalRecords: number;
+  };
+}
+
 // Mock API response times
-const MOCK_API_DELAY = 1500;
+const MOCK_API_DELAY = 800;
 
 /**
  * Create a reserved account for a user
@@ -44,8 +63,11 @@ export const createReservedAccount = async (): Promise<ReservedAccountData> => {
     accountName,
     bankName: "CollectiPay Bank",
     bankCode: "303",
-    createdAt: new Date().toISOString(),
-    reference: `rac_${uuidv4().substring(0, 8)}`
+    reference: `rac_${uuidv4().substring(0, 8)}`,
+    accountReference: `COLL_${uuidv4()}_${Date.now()}`,
+    reservationReference: `res_${uuidv4().substring(0, 8)}`,
+    status: "active",
+    createdOn: new Date().toISOString()
   };
   
   // Update user with the new reserved account
@@ -176,11 +198,11 @@ export const simulateIncomingBankTransfer = async (
     const transaction = {
       id: uuidv4(),
       userId: currentUser.id,
-      type: "deposit", // Must match the expected type in Transaction
+      type: "deposit", 
       amount: amount,
-      contributionId: "", // No specific contribution
+      contributionId: "", 
       description: `Deposit via bank transfer from ${senderName}`,
-      status: "completed", // Must match the expected status in Transaction
+      status: "completed", 
       createdAt: new Date().toISOString(),
       metaData: {
         paymentMethod: "bank_transfer",
@@ -202,10 +224,41 @@ export const simulateIncomingBankTransfer = async (
   }
 };
 
+/**
+ * Function to get reserved account transactions
+ * @param accountReference The account reference ID
+ * @returns Promise with transaction data
+ */
+export const getReservedAccountTransactions = async (accountReference: string) => {
+  console.info("Getting reserved account transactions for:", accountReference);
+  
+  try {
+    // In a real app, this would be an API call
+    // For now, we'll simulate one with our local data
+    // Use getBankTransactions instead of trying to call an API
+    const transactions = await getBankTransactions(1, 50);
+    
+    return {
+      content: transactions.data,
+      totalElements: transactions.meta.totalRecords,
+      totalPages: transactions.meta.totalPages
+    };
+  } catch (error) {
+    console.error("Error getting reserved account transactions:", error);
+    // Return an empty result instead of throwing
+    return {
+      content: [],
+      totalElements: 0,
+      totalPages: 0
+    };
+  }
+};
+
 // Export the default object
 export default {
   createReservedAccount,
   getReservedAccount,
   getBankTransactions,
-  simulateIncomingBankTransfer
+  simulateIncomingBankTransfer,
+  getReservedAccountTransactions
 };

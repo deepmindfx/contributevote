@@ -25,7 +25,8 @@ const WalletHistory = () => {
     activeTab,
     setActiveTab,
     convertToUSD,
-    refreshBankTransactions
+    refreshBankTransactions,
+    error
   } = useWalletHistory();
   
   return (
@@ -47,7 +48,7 @@ const WalletHistory = () => {
           <p className="text-muted-foreground">View all your wallet transactions</p>
         </div>
         
-        <Tabs defaultValue={activeTab} onValueChange={(value) => setActiveTab(value as "app" | "bank")} className="mb-6">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "app" | "bank")} className="mb-6">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="app">
               <Wallet className="h-4 w-4 mr-2" />
@@ -91,6 +92,7 @@ const WalletHistory = () => {
               currencyType={currencyType}
               convertToUSD={convertToUSD}
               onRefresh={refreshBankTransactions}
+              error={error}
             />
           </TabsContent>
         </Tabs>

@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { getReservedAccountTransactions } from "@/services/wallet/reservedAccountService";
+import { toast } from "sonner";
 
 export const useWalletHistory = () => {
   const { user, transactions, refreshData } = useApp();
@@ -10,12 +11,14 @@ export const useWalletHistory = () => {
   const [apiTransactions, setApiTransactions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"app" | "bank">("app");
+  const [error, setError] = useState<string | null>(null);
   
   // Fetch reserved account transactions on component mount and when tab changes
   useEffect(() => {
     const fetchReservedAccountTransactions = async () => {
       if (user?.reservedAccount?.accountReference) {
         setIsLoading(true);
+        setError(null);
         try {
           const result = await getReservedAccountTransactions(user.reservedAccount.accountReference);
           if (result && result.content) {
@@ -25,6 +28,7 @@ export const useWalletHistory = () => {
           }
         } catch (error) {
           console.error("Error fetching reserved account transactions:", error);
+          setError("Failed to fetch transactions. Please try again.");
         } finally {
           setIsLoading(false);
         }
@@ -56,6 +60,7 @@ export const useWalletHistory = () => {
   const refreshBankTransactions = async () => {
     if (user?.reservedAccount?.accountReference) {
       setIsLoading(true);
+      setError(null);
       try {
         const result = await getReservedAccountTransactions(user.reservedAccount.accountReference);
         if (result && result.content) {
@@ -64,6 +69,8 @@ export const useWalletHistory = () => {
         }
       } catch (error) {
         console.error("Error refreshing bank transactions:", error);
+        setError("Failed to fetch transactions. Please try again.");
+        toast.error("Failed to fetch transactions. Please try again.");
       } finally {
         setIsLoading(false);
       }
@@ -83,6 +90,7 @@ export const useWalletHistory = () => {
     activeTab,
     setActiveTab,
     convertToUSD,
-    refreshBankTransactions
+    refreshBankTransactions,
+    error
   };
 };

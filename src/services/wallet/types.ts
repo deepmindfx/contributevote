@@ -7,11 +7,12 @@
  * Interface for the reserved account data stored in user settings
  */
 export interface ReservedAccountData {
-  accountReference: string;
-  accountName: string;
   accountNumber: string;
+  accountName: string;
   bankName: string;
   bankCode: string;
+  reference: string;
+  accountReference: string;
   reservationReference: string;
   status: string;
   createdOn: string;
@@ -26,13 +27,13 @@ export interface ReservedAccountData {
  * Interface for card token data stored in user settings
  */
 export interface CardTokenData {
-  token: string;
-  lastFourDigits: string;
-  expiryMonth: string;
-  expiryYear: string;
-  issuer: string;
+  last4: string;
+  expMonth: string;
+  expYear: string;
   cardType: string;
-  createdOn: string;
+  token: string;
+  default: boolean;
+  createdAt: string;
 }
 
 /**
@@ -52,4 +53,17 @@ export interface InvoiceData {
   createdOn: string;
   createdAt: string;
   contributionId: string;
+}
+
+/**
+ * Interface for payment response
+ */
+export interface PaymentResponse {
+  status: 'success' | 'failed';
+  message: string;
+  data: {
+    reference: string;
+    amount: number;
+    date: string;
+  } | null;
 }

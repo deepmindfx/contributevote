@@ -25,7 +25,6 @@ export const tokenizeCard = async (cardDetails: {
   
   // In a real app, this would call a payment gateway API
   const tokenData: CardTokenData = {
-    id: uuidv4(),
     last4: cardDetails.cardNumber.slice(-4),
     expMonth: cardDetails.expiryMonth,
     expYear: cardDetails.expiryYear,
@@ -195,6 +194,50 @@ export const transferToBank = async (
 };
 
 /**
+ * Function to create a payment invoice
+ * @param invoiceData 
+ * @returns Promise with invoice data
+ */
+export const createPaymentInvoice = async (invoiceData: {
+  amount: number;
+  description: string;
+  customerEmail: string;
+  customerName: string;
+  userId: string;
+}): Promise<any> => {
+  // Simulate API call delay
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  // Create mock invoice
+  const invoice = {
+    invoiceReference: `inv_${Math.random().toString(36).substring(2, 10)}`,
+    description: invoiceData.description,
+    amount: invoiceData.amount,
+    currencyCode: "NGN",
+    status: "pending",
+    customerEmail: invoiceData.customerEmail,
+    customerName: invoiceData.customerName,
+    expiryDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours from now
+    redirectUrl: window.location.origin + "/dashboard",
+    checkoutUrl: `${window.location.origin}/pay-invoice?amount=${invoiceData.amount}&reference=${Math.random().toString(36).substring(2, 10)}`,
+    createdOn: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
+    contributionId: ""
+  };
+  
+  // Store invoice
+  const currentUser = getCurrentUser();
+  if (currentUser) {
+    const invoices = currentUser.invoices || [];
+    updateUserById(currentUser.id, {
+      invoices: [...invoices, invoice]
+    });
+  }
+  
+  return invoice;
+};
+
+/**
  * Function to simulate receiving payment from an external source
  * This would be called by a webhook in a real app
  * @param userId 
@@ -209,10 +252,13 @@ export const simulateIncomingPayment = (
   reference: string = `ref_${Math.random().toString(36).substring(2, 10)}`
 ) => {
   try {
-    // Update user balance
-    updateUserById(userId, {
-      walletBalance: (user: any) => user.walletBalance + amount
-    });
+    // Update user balance - Use a number value directly, not a function
+    const user = getCurrentUser();
+    if (user) {
+      updateUserById(userId, {
+        walletBalance: user.walletBalance + amount
+      });
+    }
     
     // Record the transaction
     addTransaction({
@@ -289,5 +335,6 @@ export default {
   tokenizeCard,
   chargeCard,
   transferToBank,
-  simulateIncomingPayment
+  simulateIncomingPayment,
+  createPaymentInvoice
 };
