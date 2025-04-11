@@ -37,3 +37,17 @@ export const validateDate = (dateString: string): boolean => {
     return false;
   }
 };
+
+// Add a function to check if user has a BVN
+export const hasRequiredDetailsForGroupAccount = (userId: string): boolean => {
+  try {
+    const users = getUsers();
+    const user = users.find(u => u.id === userId);
+    
+    // Check if user exists and has BVN
+    return !!(user && user.bvn && user.bvn.length > 0);
+  } catch (error) {
+    console.error("Error checking user BVN:", error);
+    return false;
+  }
+};
