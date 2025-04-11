@@ -1,7 +1,10 @@
 
 import { v4 as uuidv4 } from "uuid";
-import { WithdrawalRequest, localStorageKeys } from "./types";
+import { localStorageKeys, WithdrawalRequest } from "./types";
 import { getCurrentUser } from "./userService";
+import { getContributionById } from "./contributionService";
+import { hasContributed } from "./transactionService";
+import { addNotification } from "./userService";
 
 /**
  * Function to get all withdrawal requests
@@ -15,14 +18,20 @@ export const getWithdrawalRequests = (): WithdrawalRequest[] => {
 /**
  * Function to create a withdrawal request
  */
-export const createWithdrawalRequest = (request: any): WithdrawalRequest => {
+export const createWithdrawalRequest = (requestData: any): WithdrawalRequest => {
   const requests = getWithdrawalRequests();
-  const newRequest = {
+  
+  // Set deadline to 3 days from now
+  const deadline = new Date();
+  deadline.setDate(deadline.getDate() + 3);
+  
+  const newRequest: WithdrawalRequest = {
     id: uuidv4(),
-    ...request,
-    status: "pending",
+    ...requestData,
+    status: 'pending',
     votes: [],
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    deadline: deadline.toISOString()
   };
   
   localStorage.setItem(localStorageKeys.withdrawalRequests, JSON.stringify([...requests, newRequest]));
@@ -32,48 +41,113 @@ export const createWithdrawalRequest = (request: any): WithdrawalRequest => {
 /**
  * Function to vote on a withdrawal request
  */
-export const voteOnWithdrawalRequest = (requestId: string, vote: 'approve' | 'reject'): WithdrawalRequest | null => {
+export const voteOnWithdrawalRequest = (requestId: string, vote: 'approve' | 'reject'): void => {
   const currentUser = getCurrentUser();
-  if (!currentUser) return null;
-  
-  const requests = getWithdrawalRequests();
-  const request = requests.find(r => r.id === requestId);
-  if (!request) return null;
-  
-  // Check if user has already voted
-  const existingVoteIndex = request.votes.findIndex(v => v.userId === currentUser.id);
-  if (existingVoteIndex >= 0) {
-    // Update existing vote
-    request.votes[existingVoteIndex].vote = vote;
-    request.votes[existingVoteIndex].votedAt = new Date().toISOString();
-  } else {
-    // Add new vote
-    request.votes.push({
-      userId: currentUser.id,
-      vote,
-      votedAt: new Date().toISOString()
-    });
+  if (!currentUser) {
+    throw new Error("You must be logged in to vote");
   }
   
-  // Save the updated request
-  const updatedRequests = requests.map(r => r.id === requestId ? request : r);
-  localStorage.setItem(localStorageKeys.withdrawalRequests, JSON.stringify(updatedRequests));
+  const requests = getWithdrawalRequests();
+  const requestIndex = requests.findIndex(r => r.id === requestId);
   
-  return request;
+  if (requestIndex < 0) {
+    throw new Error("Withdrawal request not found");
+  }
+  
+  const request = requests[requestIndex];
+  
+  // Check if request is still pending
+  if (request.status !== 'pending') {
+    throw new Error(`Cannot vote on a ${request.status} request`);
+  }
+  
+  // Check if deadline has passed
+  if (new Date(request.deadline) < new Date()) {
+    throw new Error("Voting deadline has passed");
+  }
+  
+  // Check if user has already voted
+  if (request.votes.some(v => v.userId === currentUser.id)) {
+    throw new Error("You have already voted on this request");
+  }
+  
+  // Check if user has contributed to this group
+  const contribution = getContributionById(request.contributionId);
+  if (!contribution) {
+    throw new Error("Contribution group not found");
+  }
+  
+  if (!hasContributed(currentUser.id, request.contributionId) && currentUser.id !== contribution.creatorId) {
+    throw new Error("Only contributors can vote on withdrawal requests");
+  }
+  
+  // Add the vote
+  request.votes.push({
+    userId: currentUser.id,
+    vote,
+    votedAt: new Date().toISOString()
+  });
+  
+  // Check if we have enough votes to approve or reject
+  if (contribution.votingThreshold && contribution.members?.length) {
+    const thresholdCount = Math.ceil(contribution.members.length * (contribution.votingThreshold / 100));
+    const approveVotes = request.votes.filter(v => v.vote === 'approve').length;
+    const rejectVotes = request.votes.filter(v => v.vote === 'reject').length;
+    
+    if (approveVotes >= thresholdCount) {
+      request.status = 'approved';
+      
+      // Notify the creator
+      addNotification({
+        userId: request.creatorId,
+        message: `Your withdrawal request for ${contribution.name} has been approved`,
+        type: 'success',
+        relatedId: request.id
+      });
+    } else if (rejectVotes >= thresholdCount) {
+      request.status = 'rejected';
+      
+      // Notify the creator
+      addNotification({
+        userId: request.creatorId,
+        message: `Your withdrawal request for ${contribution.name} has been rejected`,
+        type: 'error',
+        relatedId: request.id
+      });
+    }
+  }
+  
+  // Update the requests in localStorage
+  localStorage.setItem(localStorageKeys.withdrawalRequests, JSON.stringify(requests));
 };
 
 /**
- * Function to update withdrawal request status
+ * Function to update withdrawal requests status
  */
 export const updateWithdrawalRequestsStatus = (): void => {
   const requests = getWithdrawalRequests();
+  const now = new Date();
   let updated = false;
   
   const updatedRequests = requests.map(request => {
-    // Check if a pending request has expired
-    if (request.status === "pending" && new Date(request.deadline) < new Date()) {
+    if (request.status === 'pending' && new Date(request.deadline) < now) {
       updated = true;
-      return { ...request, status: "expired" };
+      
+      // Notify the creator
+      const contribution = getContributionById(request.contributionId);
+      if (contribution) {
+        addNotification({
+          userId: request.creatorId,
+          message: `Your withdrawal request for ${contribution.name} has expired`,
+          type: 'warning',
+          relatedId: request.id
+        });
+      }
+      
+      return {
+        ...request,
+        status: 'expired'
+      };
     }
     return request;
   });
@@ -84,9 +158,42 @@ export const updateWithdrawalRequestsStatus = (): void => {
 };
 
 /**
- * Function to ping group members for vote
+ * Function to ping group members for a vote
  */
 export const pingGroupMembersForVote = (requestId: string): void => {
-  // Implementation would go here in a real application
-  console.log(`Pinging members for vote on request ${requestId}`);
+  const currentUser = getCurrentUser();
+  if (!currentUser) {
+    throw new Error("You must be logged in to ping group members");
+  }
+  
+  const requests = getWithdrawalRequests();
+  const request = requests.find(r => r.id === requestId);
+  
+  if (!request) {
+    throw new Error("Withdrawal request not found");
+  }
+  
+  // Check if the current user is the creator of the request
+  if (request.creatorId !== currentUser.id) {
+    throw new Error("Only the request creator can ping group members");
+  }
+  
+  const contribution = getContributionById(request.contributionId);
+  if (!contribution || !contribution.members) {
+    throw new Error("Contribution group not found");
+  }
+  
+  // Get members who haven't voted yet
+  const votedUserIds = request.votes.map(v => v.userId);
+  const notVotedMembers = contribution.members.filter(memberId => !votedUserIds.includes(memberId));
+  
+  // Send notifications to members who haven't voted
+  notVotedMembers.forEach(memberId => {
+    addNotification({
+      userId: memberId,
+      message: `Reminder: Please vote on the withdrawal request for ${contribution.name}`,
+      type: 'info',
+      relatedId: request.id
+    });
+  });
 };
