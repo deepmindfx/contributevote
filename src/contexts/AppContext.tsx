@@ -35,7 +35,6 @@ import {
   verifyUserWithOTP,
   getContributionByAccountNumber
 } from '@/services/localStorage';
-import { sendMoneyToBank, getSupportedBanks } from '@/services/walletTransfer';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
@@ -68,8 +67,6 @@ interface AppContextType {
   getReceipt: (transactionId: string) => any;
   verifyUser: (userId: string) => void;
   isGroupCreator: (contributionId: string) => boolean;
-  sendMoney: (amount: number, narration: string, bankCode: string, accountNumber: string, useAsync: boolean) => Promise<any>;
-  getSupportedBanks: () => { code: string; name: string }[];
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -432,43 +429,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const contribution = contributions.find(c => c.id === contributionId);
     return !!(contribution && contribution.creatorId === user.id);
   };
-  
-  // New function for sending money
-  const sendMoney = async (
-    amount: number,
-    narration: string,
-    bankCode: string,
-    accountNumber: string,
-    useAsync: boolean = false
-  ) => {
-    try {
-      // Check if user has set up a PIN
-      if (!user.pin) {
-        toast.error('Please set up a transaction PIN in settings before making transfers');
-        return { success: false, message: 'Transaction PIN not set' };
-      }
-      
-      const result = await sendMoneyToBank(amount, narration, bankCode, accountNumber, useAsync);
-      
-      if (result.success) {
-        refreshData();
-        toast.success(result.message);
-      } else {
-        toast.error(result.message || 'Transfer failed');
-      }
-      
-      return result;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'An error occurred during transfer';
-      toast.error(errorMessage);
-      console.error("Error in sendMoney:", error);
-      return { success: false, message: errorMessage };
-    }
-  };
-
-  const getSupportedBanksList = () => {
-    return getSupportedBanks();
-  };
 
   return (
     <AppContext.Provider value={{
@@ -500,8 +460,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       getReceipt,
       verifyUser,
       isGroupCreator,
-      sendMoney,
-      getSupportedBanks: getSupportedBanksList,
     }}>
       {children}
     </AppContext.Provider>

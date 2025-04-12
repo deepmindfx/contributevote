@@ -1,10 +1,11 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import MobileNav from "@/components/layout/MobileNav";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ArrowDown, ArrowUp, HelpCircle, Wallet, Building, ExternalLink } from "lucide-react";
+import { ArrowLeft, ArrowDown, ArrowUp, HelpCircle, Wallet, Building } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useApp } from "@/contexts/AppContext";
 import { format } from "date-fns";
@@ -12,7 +13,6 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getReservedAccountTransactions } from "@/services/walletIntegration";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 // Define interface for Monnify transaction
 interface MonnifyTransaction {
@@ -35,8 +35,6 @@ const WalletHistory = () => {
   const [apiTransactions, setApiTransactions] = useState<MonnifyTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"app" | "bank">("app");
-  const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
-  const [isTransactionDetailsOpen, setIsTransactionDetailsOpen] = useState(false);
   
   // Fetch reserved account transactions on component mount and when tab changes
   useEffect(() => {
@@ -45,17 +43,13 @@ const WalletHistory = () => {
         setIsLoading(true);
         try {
           const result = await getReservedAccountTransactions(user.reservedAccount.accountReference);
-          if (result && result.responseBody && result.responseBody.content) {
-            setApiTransactions(result.responseBody.content);
+          if (result && result.content) {
+            setApiTransactions(result.content);
             // After fetching transactions, refresh app data to update balances
             refreshData();
-          } else {
-            // Handle empty or failed response
-            setApiTransactions([]);
           }
         } catch (error) {
           console.error("Error fetching reserved account transactions:", error);
-          setApiTransactions([]);
         } finally {
           setIsLoading(false);
         }
@@ -74,7 +68,7 @@ const WalletHistory = () => {
   
   // Filter transactions based on the current filter and only show user's transactions
   const filteredTransactions = transactions
-    .filter(t => t.userId === user?.id) // Only show current user's transactions
+    .filter(t => t.userId === user?.id)
     .filter(t => filter === "all" || t.type === filter)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   
@@ -85,23 +79,6 @@ const WalletHistory = () => {
   // Convert NGN to USD (simplified conversion rate)
   const convertToUSD = (amount: number) => {
     return amount / 1550; // Using a simplified conversion rate of 1 USD = 1550 NGN
-  };
-  
-  // View transaction details
-  const viewTransactionDetails = (transaction: any) => {
-    setSelectedTransaction(transaction);
-    setIsTransactionDetailsOpen(true);
-  };
-  
-  // Find sender name if available
-  const getSenderName = (transaction: any) => {
-    // In a real app, you would fetch this from the database
-    // For demo purposes, we'll return a placeholder
-    if (transaction.type === 'deposit') {
-      return transaction.senderName || "Bank Transfer";
-    } else {
-      return "Wallet Withdrawal";
-    }
   };
   
   return (
@@ -206,11 +183,7 @@ const WalletHistory = () => {
               ) : (
                 <div className="space-y-4">
                   {filteredTransactions.map((transaction) => (
-                    <div 
-                      key={transaction.id} 
-                      className="flex items-start p-3 border rounded-lg cursor-pointer hover:bg-muted/30 transition-colors"
-                      onClick={() => viewTransactionDetails(transaction)}
-                    >
+                    <div key={transaction.id} className="flex items-start p-3 border rounded-lg">
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center
                         ${transaction.type === 'deposit' ? 'bg-green-100 text-[#2DAE75]' : 
                           transaction.type === 'withdrawal' ? 'bg-amber-100 text-amber-600' :
@@ -238,7 +211,7 @@ const WalletHistory = () => {
                               {formatDate(transaction.createdAt)}
                             </p>
                           </div>
-                          <div className="text-right flex items-center">
+                          <div className="text-right">
                             <div className={`font-medium ${
                               transaction.type === 'deposit' ? 'text-[#2DAE75]' : 
                               transaction.type === 'withdrawal' ? 'text-red-500' : ''
@@ -247,20 +220,19 @@ const WalletHistory = () => {
                                transaction.type === 'withdrawal' ? '-' : ''}
                               {transaction.amount > 0 ? (
                                 currencyType === "NGN" ? 
-                                  `₦${transaction.amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : 
+                                  `₦${transaction.amount.toLocaleString()}` : 
                                   `$${convertToUSD(transaction.amount).toFixed(2)}`
                               ) : ''}
                             </div>
-                            <ExternalLink className="ml-2 h-4 w-4 text-muted-foreground" />
+                            <div className="mt-1">
+                              <Badge variant={
+                                transaction.status === 'pending' ? 'outline' :
+                                transaction.status === 'completed' ? 'default' : 'destructive'
+                              }>
+                                {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+                              </Badge>
+                            </div>
                           </div>
-                        </div>
-                        <div className="mt-1">
-                          <Badge variant={
-                            transaction.status === 'pending' ? 'outline' :
-                            transaction.status === 'completed' ? 'default' : 'destructive'
-                          }>
-                            {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
-                          </Badge>
                         </div>
                       </div>
                     </div>
@@ -360,91 +332,6 @@ const WalletHistory = () => {
           </Card>
         </TabsContent>
       </main>
-      
-      {/* Transaction Details Dialog */}
-      <Dialog open={isTransactionDetailsOpen} onOpenChange={setIsTransactionDetailsOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Transaction Details</DialogTitle>
-            <DialogDescription>
-              Complete information about this transaction.
-            </DialogDescription>
-          </DialogHeader>
-          
-          {selectedTransaction && (
-            <div className="space-y-4 py-4">
-              <div className="flex justify-center mb-4">
-                <div className={`w-16 h-16 rounded-full flex items-center justify-center
-                  ${selectedTransaction.type === 'deposit' ? 'bg-green-100 text-[#2DAE75]' : 
-                    selectedTransaction.type === 'withdrawal' ? 'bg-amber-100 text-amber-600' :
-                    'bg-blue-100 text-blue-600'}`}>
-                  {selectedTransaction.type === 'deposit' ? (
-                    <ArrowDown size={24} />
-                  ) : selectedTransaction.type === 'withdrawal' ? (
-                    <ArrowUp size={24} />
-                  ) : (
-                    <HelpCircle size={24} />
-                  )}
-                </div>
-              </div>
-              
-              <div className="text-center mb-4">
-                <h3 className={`text-2xl font-bold ${
-                  selectedTransaction.type === 'deposit' ? 'text-[#2DAE75]' : 
-                  selectedTransaction.type === 'withdrawal' ? 'text-red-500' : ''
-                }`}>
-                  {selectedTransaction.type === 'deposit' ? '+' : 
-                   selectedTransaction.type === 'withdrawal' ? '-' : ''}
-                  ₦{selectedTransaction.amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                </h3>
-                <p className="text-muted-foreground text-sm">
-                  {formatDate(selectedTransaction.createdAt)}
-                </p>
-              </div>
-              
-              <div className="space-y-3">
-                <div className="flex justify-between py-2 border-b">
-                  <span className="text-muted-foreground">Status</span>
-                  <span className="font-medium capitalize">{selectedTransaction.status}</span>
-                </div>
-                
-                <div className="flex justify-between py-2 border-b">
-                  <span className="text-muted-foreground">Type</span>
-                  <span className="font-medium capitalize">{selectedTransaction.type}</span>
-                </div>
-                
-                <div className="flex justify-between py-2 border-b">
-                  <span className="text-muted-foreground">Transaction ID</span>
-                  <span className="font-medium">{selectedTransaction.id.slice(0, 8)}</span>
-                </div>
-                
-                <div className="flex justify-between py-2 border-b">
-                  <span className="text-muted-foreground">Source</span>
-                  <span className="font-medium">{getSenderName(selectedTransaction)}</span>
-                </div>
-                
-                {selectedTransaction.description && (
-                  <div className="flex justify-between py-2 border-b">
-                    <span className="text-muted-foreground">Description</span>
-                    <span className="font-medium">{selectedTransaction.description}</span>
-                  </div>
-                )}
-                
-                {selectedTransaction.contributionId && (
-                  <div className="flex justify-between py-2 border-b">
-                    <span className="text-muted-foreground">Related Group</span>
-                    <span className="font-medium">{selectedTransaction.contributionName || "Group Transaction"}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsTransactionDetailsOpen(false)}>Close</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
       
       <MobileNav />
     </div>

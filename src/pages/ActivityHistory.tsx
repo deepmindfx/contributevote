@@ -108,7 +108,7 @@ const ActivityItem = ({ type, title, description, amount, date, status }: Activi
 
 const ActivityHistory = () => {
   const navigate = useNavigate();
-  const { transactions, contributions, user } = useApp();
+  const { transactions, contributions } = useApp();
   const [activeTab, setActiveTab] = useState("all");
   
   function formatDate(dateString: string) {
@@ -136,9 +136,8 @@ const ActivityHistory = () => {
     }
   }
   
-  // Format and sort transactions, ensuring we only show the current user's transactions
+  // Format and sort transactions
   const formattedTransactions = transactions
-    .filter(transaction => transaction.userId === user?.id) // Only show current user's transactions
     .filter(transaction => {
       if (activeTab === "all") return true;
       if (activeTab === "deposits" && transaction.type === "deposit") return true;
@@ -174,9 +173,7 @@ const ActivityHistory = () => {
         type,
         title: transaction.type === 'deposit' ? 'Contribution' : 
                transaction.type === 'withdrawal' ? 'Fund Withdrawal' : 'Vote',
-        description: contribution ? contribution.name : 
-                    transaction.description || 
-                    (transaction.metaData?.bankName ? `Via ${transaction.metaData.bankName}` : ''),
+        description: contribution ? contribution.name : '',
         amount: transaction.type === 'vote' ? 
                 `₦ ${transaction.amount.toLocaleString()}` : 
                 `${transaction.type === 'deposit' ? '+' : '-'}₦ ${transaction.amount.toLocaleString()}`,

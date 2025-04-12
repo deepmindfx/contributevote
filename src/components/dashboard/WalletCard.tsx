@@ -1,9 +1,8 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
-import { PlusCircle, ArrowDown, Wallet, SendHorizontal, UserPlus, Clock, Eye, EyeOff, DollarSign, CreditCard, Building, ExternalLink } from "lucide-react";
+import { PlusCircle, ArrowDown, Wallet, SendHorizontal, UserPlus, Clock, Eye, EyeOff, DollarSign, CreditCard, Building } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -25,8 +24,6 @@ const WalletCard = () => {
   const [showHistory, setShowHistory] = useState(false);
   const [currencyType, setCurrencyType] = useState<"NGN" | "USD">("NGN");
   const [depositMethod, setDepositMethod] = useState<"manual" | "card" | "bank">("manual");
-  const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
-  const [isTransactionDetailsOpen, setIsTransactionDetailsOpen] = useState(false);
   
   const {
     user,
@@ -146,10 +143,6 @@ const WalletCard = () => {
     return format(new Date(dateString), 'MMM d, yyyy');
   };
   
-  const formatDateTime = (dateString: string) => {
-    return format(new Date(dateString), 'MMM d, yyyy h:mm a');
-  };
-  
   const toggleBalance = () => {
     setShowBalance(!showBalance);
   };
@@ -163,27 +156,10 @@ const WalletCard = () => {
   const getFormattedBalance = () => {
     const balance = user?.walletBalance || 0;
     if (currencyType === "NGN") {
-      return `₦${balance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+      return `₦${balance.toLocaleString()}`;
     } else {
       const usdBalance = convertToUSD(balance);
       return `$${usdBalance.toFixed(2)}`;
-    }
-  };
-  
-  // View transaction details
-  const viewTransactionDetails = (transaction: any) => {
-    setSelectedTransaction(transaction);
-    setIsTransactionDetailsOpen(true);
-  };
-  
-  // Find sender name if available
-  const getSenderName = (transaction: any) => {
-    // In a real app, you would fetch this from the database
-    // For demo purposes, we'll return a placeholder
-    if (transaction.type === 'deposit') {
-      return transaction.senderName || "Bank Transfer";
-    } else {
-      return "Wallet Withdrawal";
     }
   };
 
@@ -388,11 +364,7 @@ const WalletCard = () => {
             {walletTransactions.length > 0 ? (
               <div className="space-y-3">
                 {walletTransactions.map(transaction => (
-                  <div 
-                    key={transaction.id} 
-                    className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-muted/30 transition-colors"
-                    onClick={() => viewTransactionDetails(transaction)}
-                  >
+                  <div key={transaction.id} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center">
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center
                         ${transaction.type === 'deposit' ? 'bg-green-100 text-[#2DAE75]' : transaction.type === 'withdrawal' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
@@ -407,12 +379,9 @@ const WalletCard = () => {
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center">
-                      <div className={`font-semibold ${transaction.type === 'deposit' ? 'text-[#2DAE75]' : 'text-red-500'}`}>
-                        {transaction.type === 'deposit' ? '+' : '-'}
-                        {currencyType === "NGN" ? `₦${transaction.amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : `$${convertToUSD(transaction.amount).toFixed(2)}`}
-                      </div>
-                      <ExternalLink className="ml-2 h-4 w-4 text-muted-foreground" />
+                    <div className={`font-semibold ${transaction.type === 'deposit' ? 'text-[#2DAE75]' : 'text-red-500'}`}>
+                      {transaction.type === 'deposit' ? '+' : '-'}
+                      {currencyType === "NGN" ? `₦${transaction.amount.toLocaleString()}` : `$${convertToUSD(transaction.amount).toFixed(2)}`}
                     </div>
                   </div>
                 ))}
@@ -429,72 +398,6 @@ const WalletCard = () => {
           </div>
         )}
       </CardContent>
-      
-      {/* Transaction Details Dialog */}
-      <Dialog open={isTransactionDetailsOpen} onOpenChange={setIsTransactionDetailsOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Transaction Details</DialogTitle>
-            <DialogDescription>
-              Complete information about this transaction.
-            </DialogDescription>
-          </DialogHeader>
-          
-          {selectedTransaction && (
-            <div className="space-y-4 py-4">
-              <div className="flex justify-center mb-4">
-                <div className={`w-16 h-16 rounded-full flex items-center justify-center
-                  ${selectedTransaction.type === 'deposit' ? 'bg-green-100 text-[#2DAE75]' : 'bg-amber-100 text-amber-600'}`}>
-                  {selectedTransaction.type === 'deposit' ? <ArrowDown size={24} /> : <ArrowDown size={24} className="transform rotate-180" />}
-                </div>
-              </div>
-              
-              <div className="text-center mb-4">
-                <h3 className={`text-2xl font-bold ${selectedTransaction.type === 'deposit' ? 'text-[#2DAE75]' : 'text-red-500'}`}>
-                  {selectedTransaction.type === 'deposit' ? '+' : '-'}
-                  ₦{selectedTransaction.amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                </h3>
-                <p className="text-muted-foreground text-sm">
-                  {formatDateTime(selectedTransaction.createdAt)}
-                </p>
-              </div>
-              
-              <div className="space-y-3">
-                <div className="flex justify-between py-2 border-b">
-                  <span className="text-muted-foreground">Status</span>
-                  <span className="font-medium capitalize">{selectedTransaction.status}</span>
-                </div>
-                
-                <div className="flex justify-between py-2 border-b">
-                  <span className="text-muted-foreground">Type</span>
-                  <span className="font-medium capitalize">{selectedTransaction.type}</span>
-                </div>
-                
-                <div className="flex justify-between py-2 border-b">
-                  <span className="text-muted-foreground">Transaction ID</span>
-                  <span className="font-medium">{selectedTransaction.id.slice(0, 8)}</span>
-                </div>
-                
-                <div className="flex justify-between py-2 border-b">
-                  <span className="text-muted-foreground">Source</span>
-                  <span className="font-medium">{getSenderName(selectedTransaction)}</span>
-                </div>
-                
-                {selectedTransaction.description && (
-                  <div className="flex justify-between py-2 border-b">
-                    <span className="text-muted-foreground">Description</span>
-                    <span className="font-medium">{selectedTransaction.description}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsTransactionDetailsOpen(false)}>Close</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </Card>
   );
 };

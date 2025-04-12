@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -22,7 +23,6 @@ import WalletHistory from "./pages/WalletHistory";
 import ActivityHistory from "./pages/ActivityHistory";
 import Votes from "./pages/Votes";
 import AllGroups from "./pages/AllGroups";
-import SendMoney from "./pages/SendMoney";
 
 const queryClient = new QueryClient();
 
@@ -120,11 +120,6 @@ const AppRoutes = () => {
       <Route path="/all-groups" element={
         <ProtectedRoute>
           <AllGroups />
-        </ProtectedRoute>
-      } />
-      <Route path="/send-money" element={
-        <ProtectedRoute>
-          <SendMoney />
         </ProtectedRoute>
       } />
       

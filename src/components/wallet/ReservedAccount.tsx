@@ -31,11 +31,7 @@ const idFormSchema = z.object({
     .regex(/^\d+$/, "ID number must contain only digits"),
 });
 
-// Define the interface for the form data
-interface IdFormData {
-  idType: "bvn" | "nin";
-  idNumber: string;
-}
+type IdFormValues = z.infer<typeof idFormSchema>;
 
 const ReservedAccount = () => {
   const { user, refreshData } = useApp();
@@ -44,8 +40,8 @@ const ReservedAccount = () => {
   const [showFullDetails, setShowFullDetails] = useState(false);
   const [showIdForm, setShowIdForm] = useState(false);
   
-  // Initialize the form with explicit type
-  const form = useForm<IdFormData>({
+  // Initialize the form
+  const form = useForm<IdFormValues>({
     resolver: zodResolver(idFormSchema),
     defaultValues: {
       idType: "bvn",
@@ -65,7 +61,7 @@ const ReservedAccount = () => {
     }
   }, [user]);
   
-  const handleCreateAccount = async (values?: IdFormData) => {
+  const handleCreateAccount = async (values?: IdFormValues) => {
     setIsLoading(true);
     try {
       if (!user || !user.id) {
@@ -90,13 +86,8 @@ const ReservedAccount = () => {
         
         // Also fetch transactions after creating account
         if (result.accountReference) {
-          try {
-            await getReservedAccountTransactions(result.accountReference);
-            refreshData();
-          } catch (error) {
-            console.error("Error fetching transactions after account creation:", error);
-            // Continue even if this fails
-          }
+          await getReservedAccountTransactions(result.accountReference);
+          refreshData();
         }
         
         toast.success("Virtual account created successfully");
@@ -124,12 +115,7 @@ const ReservedAccount = () => {
         
         // Fetch transactions when refreshing account details
         if (result.accountReference) {
-          try {
-            await getReservedAccountTransactions(result.accountReference);
-          } catch (error) {
-            console.error("Error fetching transactions after refresh:", error);
-            // Continue even if this fails
-          }
+          await getReservedAccountTransactions(result.accountReference);
         }
         
         refreshData();
@@ -148,7 +134,7 @@ const ReservedAccount = () => {
     toast.success(`${label} copied to clipboard`);
   };
   
-  const onSubmitIdForm = (values: IdFormData) => {
+  const onSubmitIdForm = (values: IdFormValues) => {
     handleCreateAccount(values);
   };
   
