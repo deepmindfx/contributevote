@@ -1,59 +1,27 @@
+import { v4 as uuidv4 } from 'uuid';
 
-import { isValid } from "date-fns";
-import { ReservedAccountData, CardTokenData } from "@/services/walletIntegration";
-
-// Define interfaces
 export interface User {
   id: string;
-  email: string;
   name: string;
-  firstName?: string;
-  lastName?: string;
-  phoneNumber?: string;
-  username?: string;
-  password: string;
-  role?: 'user' | 'admin';
-  status?: 'active' | 'paused';
+  email: string;
+  phone: string;
+  role: 'user' | 'admin';
   walletBalance: number;
-  createdAt: string;
-  profileImage?: string;
-  pin?: string;
-  verified?: boolean;
-  bvn?: string;
-  reservedAccount?: ReservedAccountData;
-  cardTokens?: CardTokenData[];
-  invoices?: InvoiceData[];
-  preferences?: {
+  pin: string;
+  accountNumber: string;
+  bvn: string;
+  notifications: Notification[];
+  preferences: {
     darkMode: boolean;
-    anonymousContributions: boolean;
-    notificationsEnabled: boolean;
   };
-  notifications?: Notification[];
-}
-
-// Add interface for invoice data
-export interface InvoiceData {
-  invoiceReference: string;
-  amount: number;
-  description: string;
-  currencyCode: string;
-  customerEmail: string;
-  customerName: string;
-  status: string;
-  createdAt: string;
-  expiryDate: string;
-  checkoutUrl?: string;
-  contributionId?: string;
-}
-
-export interface Notification {
-  id: string;
-  userId: string;
-  message: string;
-  type: 'info' | 'warning' | 'success' | 'error';
-  read: boolean;
-  createdAt: string;
-  relatedId?: string;
+  reservedAccount?: {
+    accountReference: string;
+    accountName: string;
+    accountNumber: string;
+    bankName: string;
+  };
+  verified: boolean;
+  otp?: string;
 }
 
 export interface Contribution {
@@ -62,669 +30,666 @@ export interface Contribution {
   description: string;
   targetAmount: number;
   currentAmount: number;
-  deadline: string;
-  createdAt: string;
+  startDate: string;
+  endDate: string;
   creatorId: string;
+  createdAt: string;
   members: string[];
-  contributors: Array<{
+  contributors: {
     userId: string;
     amount: number;
-    date: string;
     anonymous: boolean;
-  }>;
-  category: string;
-  visibility: 'public' | 'private' | 'invite-only';
-  status: 'active' | 'completed' | 'expired';
-  accountNumber?: string;
+  }[];
+  accountNumber: string;
 }
 
 export interface WithdrawalRequest {
   id: string;
   contributionId: string;
   amount: number;
-  reason: string;
-  beneficiary: string;
-  accountNumber: string;
-  bankName: string;
-  createdAt: string;
-  deadline: string;
-  status: 'pending' | 'approved' | 'rejected' | 'expired';
-  votes: Array<{
+  recipientAccountName: string;
+  recipientAccountNumber: string;
+  recipientBankName: string;
+  status: 'pending' | 'approved' | 'rejected';
+  votes: {
     userId: string;
     vote: 'approve' | 'reject';
-    date: string;
-  }>;
+  }[];
+  createdAt: string;
+  deadline: string;
 }
 
 export interface Transaction {
   id: string;
   userId: string;
-  type: 'deposit' | 'withdrawal' | 'transfer' | 'vote';
+  type: 'deposit' | 'withdrawal' | 'vote';
   amount: number;
-  contributionId: string;
-  description: string;
   status: 'pending' | 'completed' | 'failed';
+  description: string;
   createdAt: string;
-  metaData?: Record<string, any>;
+  contributionId?: string;
+  contributionName?: string;
+  reference?: string;
+  senderName?: string;
+  receiverName?: string;
+  receiverBank?: string;
+  receiverAccount?: string;
+  fee?: number;
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  message: string;
+  type: 'info' | 'warning' | 'error';
+  read: boolean;
+  createdAt?: string;
+  relatedId?: string;
 }
 
 export interface Stats {
   totalUsers: number;
   totalContributions: number;
-  totalTransactions: number;
   totalAmountContributed: number;
+  totalWithdrawals: number;
 }
 
 // Helper functions
+const generateId = (): string => uuidv4();
+
+// User functions
+export const createUser = (user: Omit<User, 'id' | 'walletBalance' | 'role' | 'notifications' | 'preferences' | 'verified'>): User => {
+  const newUser: User = {
+    id: generateId(),
+    role: 'user',
+    walletBalance: 0,
+    notifications: [],
+    preferences: {
+      darkMode: false,
+    },
+    verified: false,
+    ...user,
+  };
+  const users = getUsers();
+  users.push(newUser);
+  localStorage.setItem('users', JSON.stringify(users));
+  return newUser;
+};
+
 export const getCurrentUser = (): User => {
-  const currentUserJson = localStorage.getItem('currentUser');
-  if (currentUserJson) {
-    return JSON.parse(currentUserJson);
-  }
-  return {} as User;
+  const userId = localStorage.getItem('currentUserId');
+  if (!userId) return null;
+  return getUserById(userId);
 };
 
-export const getUsers = (): User[] => {
-  const usersJson = localStorage.getItem('users');
-  if (usersJson) {
-    return JSON.parse(usersJson);
-  }
-  return [];
-};
-
-export const updateUser = (userData: Partial<User>): void => {
-  const currentUser = getCurrentUser();
-  const updatedUser = { ...currentUser, ...userData };
-  localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-  
-  // Also update the user in the users array
-  const users = getUsers();
-  const index = users.findIndex(u => u.id === currentUser.id);
-  if (index >= 0) {
-    users[index] = updatedUser;
-    localStorage.setItem('users', JSON.stringify(users));
-  }
-};
-
-export const updateUserBalance = (amount: number): void => {
-  const currentUser = getCurrentUser();
-  const newBalance = (currentUser.walletBalance || 0) + amount;
-  updateUser({
-    walletBalance: newBalance
-  });
-};
-
-export const getUserContributions = (userId: string): Contribution[] => {
-  const contributions = getContributions();
-  return contributions.filter(c => 
-    c.creatorId === userId || 
-    c.members.includes(userId) || 
-    c.contributors.some(contrib => contrib.userId === userId)
-  );
-};
-
-export const getContributions = (): Contribution[] => {
-  const contributionsJson = localStorage.getItem('contributions');
-  if (contributionsJson) {
-    return JSON.parse(contributionsJson);
-  }
-  return [];
-};
-
-export const getTransactions = (): Transaction[] => {
-  const transactionsJson = localStorage.getItem('transactions');
-  if (transactionsJson) {
-    return JSON.parse(transactionsJson);
-  }
-  return [];
-};
-
-export const addTransaction = (transaction: Transaction): void => {
-  const transactions = getTransactions();
-  transactions.push(transaction);
-  localStorage.setItem('transactions', JSON.stringify(transactions));
-};
-
-// Add the missing function to localStorage.ts
-export const verifyUserWithOTP = (userId: string): void => {
-  try {
-    const users = getUsers();
-    const index = users.findIndex(u => u.id === userId);
-    
-    if (index >= 0) {
-      users[index].verified = true;
-      localStorage.setItem('users', JSON.stringify(users));
-      
-      // If this is the current user, update that too
-      const currentUser = getCurrentUser();
-      if (currentUser && currentUser.id === userId) {
-        currentUser.verified = true;
-        localStorage.setItem('currentUser', JSON.stringify(currentUser));
-      }
-    }
-  } catch (error) {
-    console.error("Error in verifyUserWithOTP:", error);
-  }
-};
-
-// Helper to validate dates
-export const validateDate = (dateString: string): boolean => {
-  if (!dateString) return false;
-  
-  try {
-    const date = new Date(dateString);
-    return isValid(date);
-  } catch (error) {
-    console.error("Error validating date:", error);
-    return false;
-  }
-};
-
-// Add more functions based on what's imported elsewhere
-export const getWithdrawalRequests = (): WithdrawalRequest[] => {
-  const requestsJson = localStorage.getItem('withdrawalRequests');
-  if (requestsJson) {
-    return JSON.parse(requestsJson);
-  }
-  return [];
-};
-
-export const getStatistics = (): Stats => {
-  // In a real app, calculate this from real data
-  const users = getUsers();
-  const contributions = getContributions();
-  const transactions = getTransactions();
-  
-  return {
-    totalUsers: users.length,
-    totalContributions: contributions.length,
-    totalTransactions: transactions.length,
-    totalAmountContributed: transactions
-      .filter(t => t.type === 'deposit')
-      .reduce((sum, t) => sum + t.amount, 0)
-  };
-};
-
-export const updateUserById = (userId: string, userData: Partial<User>): void => {
-  const users = getUsers();
-  const index = users.findIndex(u => u.id === userId);
-  
-  if (index >= 0) {
-    users[index] = { ...users[index], ...userData };
-    localStorage.setItem('users', JSON.stringify(users));
-    
-    // If this is the current user, update that too
-    const currentUser = getCurrentUser();
-    if (currentUser && currentUser.id === userId) {
-      localStorage.setItem('currentUser', JSON.stringify({ ...currentUser, ...userData }));
-    }
-  }
-};
-
-export const createContribution = (contribution: Omit<Contribution, 'id' | 'createdAt' | 'currentAmount' | 'members' | 'contributors' | 'accountNumber'>): void => {
-  const contributions = getContributions();
-  const currentUser = getCurrentUser();
-  
-  const newContribution: Contribution = {
-    id: `c_${Date.now()}`,
-    createdAt: new Date().toISOString(),
-    currentAmount: 0,
-    members: [currentUser.id],
-    contributors: [],
-    accountNumber: `${10000000 + contributions.length}`,
-    ...contribution
-  };
-  
-  contributions.push(newContribution);
-  localStorage.setItem('contributions', JSON.stringify(contributions));
-};
-
-export const contributeToGroup = (contributionId: string, amount: number, anonymous: boolean = false): void => {
-  const contributions = getContributions();
-  const index = contributions.findIndex(c => c.id === contributionId);
-  
-  if (index >= 0) {
-    const currentUser = getCurrentUser();
-    
-    // Check if user has enough balance
-    if (currentUser.walletBalance < amount) {
-      throw new Error("Insufficient funds");
-    }
-    
-    // Update contribution
-    contributions[index].currentAmount += amount;
-    contributions[index].contributors.push({
-      userId: currentUser.id,
-      amount,
-      date: new Date().toISOString(),
-      anonymous
-    });
-    
-    // Ensure user is a member
-    if (!contributions[index].members.includes(currentUser.id)) {
-      contributions[index].members.push(currentUser.id);
-    }
-    
-    // Add transaction
-    addTransaction({
-      id: `t_${Date.now()}`,
-      userId: currentUser.id,
-      type: 'deposit',
-      amount,
-      contributionId,
-      description: `Contribution to ${contributions[index].name}`,
-      status: 'completed',
-      createdAt: new Date().toISOString()
-    });
-    
-    // Update user balance
-    updateUserBalance(-amount);
-    
-    // Save updated contributions
-    localStorage.setItem('contributions', JSON.stringify(contributions));
-  } else {
-    throw new Error("Contribution not found");
-  }
-};
-
-export const contributeByAccountNumber = (accountNumber: string, amount: number, contributorInfo: { name: string, email?: string, phone?: string }, anonymous: boolean = false): void => {
-  const contributions = getContributions();
-  const index = contributions.findIndex(c => c.accountNumber === accountNumber);
-  
-  if (index < 0) {
-    throw new Error("Invalid account number");
-  }
-  
-  // Update contribution
-  contributions[index].currentAmount += amount;
-  
-  // Since this could be an external contributor, create a placeholder ID
-  const externalUserId = `external_${Date.now()}`;
-  
-  contributions[index].contributors.push({
-    userId: externalUserId,
-    amount,
-    date: new Date().toISOString(),
-    anonymous
-  });
-  
-  // Add transaction
-  addTransaction({
-    id: `t_${Date.now()}`,
-    userId: externalUserId,
-    type: 'deposit',
-    amount,
-    contributionId: contributions[index].id,
-    description: `External contribution to ${contributions[index].name} by ${contributorInfo.name}`,
-    status: 'completed',
-    createdAt: new Date().toISOString(),
-    metaData: {
-      contributorName: contributorInfo.name,
-      contributorEmail: contributorInfo.email,
-      contributorPhone: contributorInfo.phone
-    }
-  });
-  
-  // Save updated contributions
-  localStorage.setItem('contributions', JSON.stringify(contributions));
-};
-
-export const getContributionByAccountNumber = (accountNumber: string): Contribution | null => {
-  const contributions = getContributions();
-  const contribution = contributions.find(c => c.accountNumber === accountNumber);
-  return contribution || null;
-};
-
-export const createWithdrawalRequest = (request: Omit<WithdrawalRequest, 'id' | 'createdAt' | 'status' | 'votes' | 'deadline'>): void => {
-  const requests = getWithdrawalRequests();
-  const newRequest: WithdrawalRequest = {
-    id: `wr_${Date.now()}`,
-    createdAt: new Date().toISOString(),
-    status: 'pending',
-    votes: [],
-    deadline: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days from now
-    ...request
-  };
-  
-  requests.push(newRequest);
-  localStorage.setItem('withdrawalRequests', JSON.stringify(requests));
-};
-
-export const voteOnWithdrawalRequest = (requestId: string, vote: 'approve' | 'reject'): void => {
-  const requests = getWithdrawalRequests();
-  const requestIndex = requests.findIndex(r => r.id === requestId);
-  
-  if (requestIndex < 0) {
-    throw new Error("Withdrawal request not found");
-  }
-  
-  const request = requests[requestIndex];
-  
-  if (request.status !== 'pending') {
-    throw new Error(`This request is already ${request.status}`);
-  }
-  
-  // Check if deadline has passed
-  if (new Date() > new Date(request.deadline)) {
-    throw new Error("Voting deadline has passed");
-  }
-  
-  const currentUser = getCurrentUser();
-  
-  // Check if user has already voted
-  const existingVoteIndex = request.votes.findIndex(v => v.userId === currentUser.id);
-  
-  if (existingVoteIndex >= 0) {
-    // Update existing vote
-    request.votes[existingVoteIndex] = {
-      userId: currentUser.id,
-      vote,
-      date: new Date().toISOString()
-    };
-  } else {
-    // Add new vote
-    request.votes.push({
-      userId: currentUser.id,
-      vote,
-      date: new Date().toISOString()
-    });
-  }
-  
-  // Check if vote threshold reached
-  const contribution = getContributions().find(c => c.id === request.contributionId);
-  
-  if (!contribution) {
-    throw new Error("Related contribution not found");
-  }
-  
-  // Calculate required votes
-  const totalMembers = contribution.members.length;
-  const requiredVotes = Math.max(Math.ceil(totalMembers / 2), 2); // At least 2 votes or majority
-  
-  const approveVotes = request.votes.filter(v => v.vote === 'approve').length;
-  const rejectVotes = request.votes.filter(v => v.vote === 'reject').length;
-  
-  // Update request status if threshold reached
-  if (approveVotes >= requiredVotes) {
-    request.status = 'approved';
-    
-    // Create transaction
-    addTransaction({
-      id: `t_${Date.now()}`,
-      userId: currentUser.id,
-      type: 'withdrawal',
-      amount: request.amount,
-      contributionId: request.contributionId,
-      description: `Withdrawal from ${contribution.name} - ${request.reason}`,
-      status: 'completed',
-      createdAt: new Date().toISOString(),
-      metaData: {
-        beneficiary: request.beneficiary,
-        accountNumber: request.accountNumber,
-        bankName: request.bankName
-      }
-    });
-    
-    // Update contribution amount
-    const contributions = getContributions();
-    const contributionIndex = contributions.findIndex(c => c.id === request.contributionId);
-    
-    if (contributionIndex >= 0) {
-      contributions[contributionIndex].currentAmount -= request.amount;
-      localStorage.setItem('contributions', JSON.stringify(contributions));
-    }
-  } else if (rejectVotes >= requiredVotes) {
-    request.status = 'rejected';
-  }
-  
-  // Save updated requests
-  localStorage.setItem('withdrawalRequests', JSON.stringify(requests));
-  
-  // Add transaction for the vote
-  addTransaction({
-    id: `t_${Date.now()}`,
-    userId: currentUser.id,
-    type: 'vote',
-    amount: 0,
-    contributionId: request.contributionId,
-    description: `Voted to ${vote} withdrawal request for ${contribution.name}`,
-    status: 'completed',
-    createdAt: new Date().toISOString()
-  });
-};
-
-export const hasContributed = (contributionId: string, userId: string): boolean => {
-  const contributions = getContributions();
-  const contribution = contributions.find(c => c.id === contributionId);
-  
-  if (!contribution) return false;
-  
-  return contribution.contributors.some(c => c.userId === userId);
-};
-
-export const generateShareLink = (contributionId: string): string => {
-  return `${window.location.origin}/contribute/share/${contributionId}`;
-};
-
-export const initializeLocalStorage = (): void => {
-  // Only initialize if not already done
-  if (!localStorage.getItem('initialized')) {
-    localStorage.setItem('users', JSON.stringify([]));
-    localStorage.setItem('contributions', JSON.stringify([]));
-    localStorage.setItem('withdrawalRequests', JSON.stringify([]));
-    localStorage.setItem('transactions', JSON.stringify([]));
-    localStorage.setItem('initialized', 'true');
-  }
-};
-
-export const pauseUser = (userId: string): void => {
-  updateUserById(userId, { status: 'paused' });
-};
-
-export const activateUser = (userId: string): void => {
-  updateUserById(userId, { status: 'active' });
-};
-
-export const depositToUser = (userId: string, amount: number): void => {
-  const users = getUsers();
-  const userIndex = users.findIndex(u => u.id === userId);
-  
-  if (userIndex >= 0) {
-    const user = users[userIndex];
-    users[userIndex] = {
-      ...user,
-      walletBalance: (user.walletBalance || 0) + amount
-    };
-    
-    localStorage.setItem('users', JSON.stringify(users));
-    
-    // Add transaction record
-    addTransaction({
-      id: `t_${Date.now()}`,
-      userId,
-      type: 'deposit',
-      amount,
-      contributionId: '',
-      description: 'Admin deposit',
-      status: 'completed',
-      createdAt: new Date().toISOString()
-    });
-    
-    // Update current user if needed
-    const currentUser = getCurrentUser();
-    if (currentUser.id === userId) {
-      updateUser({
-        walletBalance: (currentUser.walletBalance || 0) + amount
-      });
-    }
-  }
+export const setCurrentUser = (userId: string): void => {
+  localStorage.setItem('currentUserId', userId);
 };
 
 export const logoutUser = (): void => {
-  localStorage.removeItem('currentUser');
+  localStorage.removeItem('currentUserId');
 };
 
-export const addNotification = (notification: Omit<Notification, 'id' | 'createdAt'>): void => {
-  const userId = notification.userId;
+export const getUserById = (id: string): User | null => {
   const users = getUsers();
-  const userIndex = users.findIndex(u => u.id === userId);
-  
-  if (userIndex >= 0) {
-    const user = users[userIndex];
-    const notifications = user.notifications || [];
-    
-    notifications.push({
-      ...notification,
-      id: `n_${Date.now()}`,
-      createdAt: new Date().toISOString()
-    });
-    
-    users[userIndex] = {
-      ...user,
-      notifications
-    };
-    
-    localStorage.setItem('users', JSON.stringify(users));
-    
-    // Update current user if needed
-    const currentUser = getCurrentUser();
-    if (currentUser.id === userId) {
-      updateUser({
-        notifications
-      });
-    }
-  }
+  return users.find(user => user.id === id) || null;
 };
 
 export const getUserByEmail = (email: string): User | null => {
   const users = getUsers();
-  const user = users.find(u => u.email === email);
-  return user || null;
+  return users.find(user => user.email === email) || null;
 };
 
 export const getUserByPhone = (phone: string): User | null => {
   const users = getUsers();
-  const user = users.find(u => u.phoneNumber === phone);
-  return user || null;
+  return users.find(user => user.phone === phone) || null;
 };
 
-export const pingGroupMembersForVote = (requestId: string): void => {
-  const requests = getWithdrawalRequests();
-  const request = requests.find(r => r.id === requestId);
-  
-  if (!request) {
-    throw new Error("Withdrawal request not found");
+export const getUsers = (): User[] => {
+  const users = localStorage.getItem('users');
+  return users ? JSON.parse(users) : [];
+};
+
+export const updateUser = (userData: Partial<User>): void => {
+  const currentUser = getCurrentUser();
+  if (!currentUser) return;
+
+  updateUserById(currentUser.id, userData);
+};
+
+export const updateUserById = (id: string, userData: Partial<User>): void => {
+  const users = getUsers();
+  const userIndex = users.findIndex(user => user.id === id);
+  if (userIndex === -1) return;
+
+  users[userIndex] = { ...users[userIndex], ...userData };
+  localStorage.setItem('users', JSON.stringify(users));
+
+  // Update current user if it's the one being updated
+  if (getCurrentUser()?.id === id) {
+    localStorage.setItem('currentUserId', id);
   }
-  
-  if (request.status !== 'pending') {
-    throw new Error(`This request is already ${request.status}`);
-  }
-  
-  // Get contribution to find members
+};
+
+export const pauseUser = (id: string): void => {
+  updateUserById(id, { role: 'user' });
+};
+
+export const activateUser = (id: string): void => {
+  // Assuming you have a way to track active status, e.g., a boolean field
+  updateUserById(id, { role: 'user' });
+};
+
+export const depositToUser = (id: string, amount: number): void => {
+  const user = getUserById(id);
+  if (!user) return;
+
+  const newBalance = user.walletBalance + amount;
+  updateUserBalance(id, amount);
+
+  addTransaction({
+    id: generateId(),
+    userId: id,
+    type: 'deposit',
+    amount: amount,
+    status: 'completed',
+    description: 'Admin deposit',
+    createdAt: new Date().toISOString(),
+  });
+};
+
+export const updateUserBalance = (userId: string, amount: number): void => {
+  const users = getUsers();
+  const userIndex = users.findIndex(user => user.id === userId);
+  if (userIndex === -1) return;
+
+  users[userIndex].walletBalance += amount;
+  localStorage.setItem('users', JSON.stringify(users));
+};
+
+export const verifyUserWithOTP = (userId: string): void => {
+  updateUserById(userId, { verified: true, otp: undefined });
+};
+
+// Contribution functions
+export const createContribution = (contribution: Omit<Contribution, 'id' | 'createdAt' | 'currentAmount' | 'members' | 'contributors' | 'accountNumber'>): Contribution => {
+  const currentUser = getCurrentUser();
+  if (!currentUser) throw new Error('No current user');
+
+  const newContribution: Contribution = {
+    id: generateId(),
+    currentAmount: 0,
+    createdAt: new Date().toISOString(),
+    members: [currentUser.id],
+    contributors: [],
+    accountNumber: Math.floor(1000000000 + Math.random() * 9000000000).toString(),
+    ...contribution,
+    creatorId: currentUser.id,
+  };
   const contributions = getContributions();
-  const contribution = contributions.find(c => c.id === request.contributionId);
-  
-  if (!contribution) {
-    throw new Error("Related contribution not found");
+  contributions.push(newContribution);
+  localStorage.setItem('contributions', JSON.stringify(contributions));
+  return newContribution;
+};
+
+export const getContributions = (): Contribution[] => {
+  const contributions = localStorage.getItem('contributions');
+  return contributions ? JSON.parse(contributions) : [];
+};
+
+export const getContributionById = (id: string): Contribution | null => {
+  const contributions = getContributions();
+  return contributions.find(contribution => contribution.id === id) || null;
+};
+
+export const getUserContributions = (userId: string): Contribution[] => {
+  const contributions = getContributions();
+  return contributions.filter(contribution => contribution.members.includes(userId));
+};
+
+export const getContributionByAccountNumber = (accountNumber: string): Contribution | null => {
+  const contributions = getContributions();
+  return contributions.find(contribution => contribution.accountNumber === accountNumber) || null;
+};
+
+export const contributeToGroup = (contributionId: string, amount: number, anonymous: boolean = false): void => {
+  const currentUser = getCurrentUser();
+  if (!currentUser) throw new Error('No current user');
+
+  const contribution = getContributionById(contributionId);
+  if (!contribution) throw new Error('Contribution not found');
+
+  if (currentUser.walletBalance < amount) {
+    throw new Error('Insufficient funds in your wallet');
   }
+
+  // Update contribution
+  contribution.currentAmount += amount;
+  contribution.contributors.push({ userId: currentUser.id, amount, anonymous });
+
+  // Update user balance
+  updateUserBalance(currentUser.id, -amount);
+
+  // Add transaction
+  addTransaction({
+    id: generateId(),
+    userId: currentUser.id,
+    type: 'deposit',
+    amount: amount,
+    status: 'completed',
+    description: `Contribution to ${contribution.name}`,
+    createdAt: new Date().toISOString(),
+    contributionId: contributionId,
+    contributionName: contribution.name,
+  });
+
+  // Save changes
+  const contributions = getContributions();
+  const contributionIndex = contributions.findIndex(c => c.id === contributionId);
+  if (contributionIndex > -1) {
+    contributions[contributionIndex] = contribution;
+    localStorage.setItem('contributions', JSON.stringify(contributions));
+  }
+};
+
+export const contributeByAccountNumber = (accountNumber: string, amount: number, contributorInfo: { name: string, email?: string, phone?: string }, anonymous: boolean = false): void => {
+  const contribution = getContributionByAccountNumber(accountNumber);
+  if (!contribution) {
+    throw new Error('Contribution group not found with this account number.');
+  }
+
+  // Create a temporary user if the contributor is not registered
+  let tempUserId = generateId();
+  let tempUser = {
+    id: tempUserId,
+    name: contributorInfo.name,
+    email: contributorInfo.email || '',
+    phone: contributorInfo.phone || '',
+    role: 'user',
+    walletBalance: 0,
+    pin: '',
+    accountNumber: '',
+    bvn: '',
+    notifications: [],
+    preferences: { darkMode: false },
+    verified: false,
+  };
+
+  // Update contribution
+  contribution.currentAmount += amount;
+  contribution.contributors.push({ userId: tempUserId, amount, anonymous });
+
+  // Add transaction
+  addTransaction({
+    id: generateId(),
+    userId: tempUserId,
+    type: 'deposit',
+    amount: amount,
+    status: 'completed',
+    description: `Contribution to ${contribution.name} via account number`,
+    createdAt: new Date().toISOString(),
+    contributionId: contribution.id,
+    contributionName: contribution.name,
+    senderName: contributorInfo.name,
+  });
+
+  // Save changes
+  const contributions = getContributions();
+  const contributionIndex = contributions.findIndex(c => c.id === contribution.id);
+  if (contributionIndex > -1) {
+    contributions[contributionIndex] = contribution;
+    localStorage.setItem('contributions', JSON.stringify(contributions));
+  }
+};
+
+// Withdrawal Request functions
+export const createWithdrawalRequest = (request: Omit<WithdrawalRequest, 'id' | 'createdAt' | 'status' | 'votes' | 'deadline'>): WithdrawalRequest => {
+  const currentUser = getCurrentUser();
+  if (!currentUser) throw new Error('No current user');
+
+  const contribution = getContributionById(request.contributionId);
+    if (!contribution) {
+        throw new Error('Contribution not found');
+    }
+
+    if (contribution.creatorId !== currentUser.id) {
+        throw new Error('Only the group creator can request withdrawals');
+    }
+
+    if (contribution.currentAmount < request.amount) {
+        throw new Error('Requested amount exceeds available funds');
+    }
+
+  const newWithdrawalRequest: WithdrawalRequest = {
+    id: generateId(),
+    status: 'pending',
+    votes: [],
+    createdAt: new Date().toISOString(),
+    deadline: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours from now
+    ...request,
+  };
+  const withdrawalRequests = getWithdrawalRequests();
+  withdrawalRequests.push(newWithdrawalRequest);
+  localStorage.setItem('withdrawalRequests', JSON.stringify(withdrawalRequests));
+  return newWithdrawalRequest;
+};
+
+export const getWithdrawalRequests = (): WithdrawalRequest[] => {
+  const withdrawalRequests = localStorage.getItem('withdrawalRequests');
+  return withdrawalRequests ? JSON.parse(withdrawalRequests) : [];
+};
+
+export const getWithdrawalRequestById = (id: string): WithdrawalRequest | null => {
+  const withdrawalRequests = getWithdrawalRequests();
+  return withdrawalRequests.find(request => request.id === id) || null;
+};
+
+export const voteOnWithdrawalRequest = (requestId: string, vote: 'approve' | 'reject'): void => {
+  const currentUser = getCurrentUser();
+  if (!currentUser) throw new Error('No current user');
+
+  const withdrawalRequest = getWithdrawalRequestById(requestId);
+  if (!withdrawalRequest) throw new Error('Withdrawal request not found');
+
+  const contribution = getContributionById(withdrawalRequest.contributionId);
+    if (!contribution) {
+        throw new Error('Contribution not found');
+    }
+
+    if (!contribution.members.includes(currentUser.id)) {
+        throw new Error('You are not a member of this contribution group and cannot vote.');
+    }
+
+  // Check if user has already voted
+  const existingVote = withdrawalRequest.votes.find(v => v.userId === currentUser.id);
+  if (existingVote) {
+    throw new Error('You have already voted on this request');
+  }
+
+  withdrawalRequest.votes.push({ userId: currentUser.id, vote });
+
+  // Update withdrawal request
+  const withdrawalRequests = getWithdrawalRequests();
+  const requestIndex = withdrawalRequests.findIndex(request => request.id === requestId);
+  if (requestIndex > -1) {
+    withdrawalRequests[requestIndex] = withdrawalRequest;
+    localStorage.setItem('withdrawalRequests', JSON.stringify(withdrawalRequests));
+  }
+
+  // Check if request is approved or rejected
+  const approveVotes = withdrawalRequest.votes.filter(v => v.vote === 'approve').length;
+  const rejectVotes = withdrawalRequest.votes.filter(v => v.vote === 'reject').length;
+  const totalMembers = contribution.members.length;
+
+  if (approveVotes > totalMembers / 2) {
+    // Approve withdrawal
+    withdrawalRequest.status = 'approved';
+    processWithdrawal(withdrawalRequest);
+  } else if (rejectVotes > totalMembers / 2) {
+    // Reject withdrawal
+    withdrawalRequest.status = 'rejected';
+  }
+
+  // Save changes
+  localStorage.setItem('withdrawalRequests', JSON.stringify(withdrawalRequests));
+};
+
+export const updateWithdrawalRequestsStatus = (): void => {
+  const withdrawalRequests = getWithdrawalRequests();
+  const updatedRequests = withdrawalRequests.map(request => {
+    if (request.status === 'pending' && new Date(request.deadline) < new Date()) {
+      // If deadline is past, mark as rejected
+      request.status = 'rejected';
+    }
+    return request;
+  });
+  localStorage.setItem('withdrawalRequests', JSON.stringify(updatedRequests));
+};
+
+// Transaction functions
+export const addTransaction = (transaction: Omit<Transaction, 'id'>): Transaction => {
+  const newTransaction: Transaction = {
+    id: generateId(),
+    ...transaction,
+  };
+  const transactions = getTransactions();
+  transactions.push(newTransaction);
+  localStorage.setItem('transactions', JSON.stringify(transactions));
+  return newTransaction;
+};
+
+export const getTransactions = (): Transaction[] => {
+  const transactions = localStorage.getItem('transactions');
+  return transactions ? JSON.parse(transactions) : [];
+};
+
+// Notification functions
+export const addNotification = (notification: Omit<Notification, 'id' | 'createdAt'>): Notification => {
+  const newNotification: Notification = {
+    id: generateId(),
+    createdAt: new Date().toISOString(),
+    ...notification,
+  };
+  const user = getUserById(newNotification.userId);
+  if (!user) return newNotification;
+
+  user.notifications.push(newNotification);
+  updateUserById(user.id, { notifications: user.notifications });
+  return newNotification;
+};
+
+export const getNotifications = (userId: string): Notification[] => {
+  const user = getUserById(userId);
+  return user ? user.notifications : [];
+};
+
+export const markNotificationAsRead = (notificationId: string): void => {
+  const currentUser = getCurrentUser();
+  if (!currentUser) return;
+
+  const notification = currentUser.notifications.find(n => n.id === notificationId);
+  if (!notification) return;
+
+  notification.read = true;
+  updateUserById(currentUser.id, { notifications: currentUser.notifications });
+};
+
+// Add the missing markAllNotificationsAsRead function
+export const markAllNotificationsAsRead = (): void => {
+  const currentUser = getCurrentUser();
+  if (!currentUser) return;
+
+  const updatedNotifications = currentUser.notifications.map(notification => ({
+    ...notification,
+    read: true
+  }));
   
-  // Get users who haven't voted
-  const votedUserIds = request.votes.map(v => v.userId);
-  const membersToNotify = contribution.members.filter(id => !votedUserIds.includes(id));
-  
-  // Send notifications
-  membersToNotify.forEach(userId => {
+  updateUserById(currentUser.id, { notifications: updatedNotifications });
+};
+
+// Stats functions
+export const getStatistics = (): Stats => {
+  const users = getUsers();
+  const contributions = getContributions();
+  const transactions = getTransactions();
+
+  const totalAmountContributed = contributions.reduce((sum, contribution) => sum + contribution.currentAmount, 0);
+  const totalWithdrawals = transactions.filter(transaction => transaction.type === 'withdrawal').reduce((sum, transaction) => sum + transaction.amount, 0);
+
+  return {
+    totalUsers: users.length,
+    totalContributions: contributions.length,
+    totalAmountContributed,
+    totalWithdrawals,
+  };
+};
+
+// Share Link function
+export const generateShareLink = (contributionId: string): string => {
+  return `${window.location.origin}/contribute/share/${contributionId}`;
+};
+
+// Utility functions
+const processWithdrawal = (request: WithdrawalRequest): void => {
+  const contribution = getContributionById(request.contributionId);
+  const currentUser = getCurrentUser();
+
+  if (!contribution) throw new Error('Contribution not found');
+  if (!currentUser) throw new Error('No current user');
+
+  if (contribution.currentAmount < request.amount) {
+    throw new Error('Insufficient funds in the contribution');
+  }
+
+  // Deduct amount from contribution
+  contribution.currentAmount -= request.amount;
+
+  // Add transaction
+  addTransaction({
+    id: generateId(),
+    userId: currentUser.id,
+    type: 'withdrawal',
+    amount: request.amount,
+    status: 'completed',
+    description: `Withdrawal from ${contribution.name}`,
+    createdAt: new Date().toISOString(),
+    contributionId: request.contributionId,
+    contributionName: contribution.name,
+  });
+
+  // Update contribution
+  const contributions = getContributions();
+  const contributionIndex = contributions.findIndex(c => c.id === request.contributionId);
+  if (contributionIndex > -1) {
+    contributions[contributionIndex] = contribution;
+    localStorage.setItem('contributions', JSON.stringify(contributions));
+  }
+};
+
+// Ping Group Members for Vote
+export const pingGroupMembersForVote = (requestId: string): void => {
+  const withdrawalRequest = getWithdrawalRequestById(requestId);
+  if (!withdrawalRequest) throw new Error('Withdrawal request not found');
+
+  const contribution = getContributionById(withdrawalRequest.contributionId);
+  if (!contribution) throw new Error('Contribution not found');
+
+  // Get user IDs of members who haven't voted
+  const nonVoters = contribution.members.filter(memberId =>
+    !withdrawalRequest.votes.some(vote => vote.userId === memberId)
+  );
+
+  // Send notifications to non-voters
+  nonVoters.forEach(userId => {
     addNotification({
-      userId,
-      message: `Reminder: Your vote is needed for a withdrawal request in "${contribution.name}"`,
+      userId: userId,
+      message: `Please vote on the withdrawal request for ${contribution.name}`,
       type: 'info',
       read: false,
-      relatedId: requestId
+      relatedId: requestId,
     });
   });
 };
 
+// Generate Contribution Receipt
 export const generateContributionReceipt = (transactionId: string): any => {
-  const transactions = getTransactions();
-  const transaction = transactions.find(t => t.id === transactionId);
-  
+  const transaction = getTransactions().find(t => t.id === transactionId);
   if (!transaction) return null;
-  
-  const contributions = getContributions();
-  const contribution = contributions.find(c => c.id === transaction.contributionId);
-  
-  const users = getUsers();
-  const user = users.find(u => u.id === transaction.userId);
-  
+
+  const user = getUserById(transaction.userId);
+  if (!user) return null;
+
   return {
-    receipt: {
-      id: `rcpt_${transactionId}`,
-      date: transaction.createdAt,
-      amount: transaction.amount,
-      contributionName: contribution?.name || "Unknown Contribution",
-      contributorName: user?.name || (transaction.metaData?.contributorName || "Anonymous"),
-      description: transaction.description,
-      status: transaction.status,
-      reference: transaction.id
-    }
+    transactionId: transaction.id,
+    userId: user.id,
+    userName: user.name,
+    transactionType: transaction.type,
+    amount: transaction.amount,
+    status: transaction.status,
+    description: transaction.description,
+    createdAt: transaction.createdAt,
   };
 };
 
-export const updateWithdrawalRequestsStatus = (): void => {
-  const requests = getWithdrawalRequests();
-  let updated = false;
-  
-  requests.forEach((request, index) => {
-    if (request.status === 'pending' && new Date() > new Date(request.deadline)) {
-      requests[index].status = 'expired';
-      updated = true;
-      
-      // Notify the creator
-      const contributions = getContributions();
-      const contribution = contributions.find(c => c.id === request.contributionId);
-      
-      if (contribution) {
-        addNotification({
-          userId: contribution.creatorId,
-          message: `Withdrawal request for "${contribution.name}" has expired due to insufficient votes.`,
-          type: 'warning',
-          read: false,
-          relatedId: request.id
-        });
-      }
-    }
-  });
-  
-  if (updated) {
-    localStorage.setItem('withdrawalRequests', JSON.stringify(requests));
+// Get a list of Nigerian banks (simplified list for demo)
+export const getBankList = (): { code: string; name: string }[] => {
+  // Check if we already have banks in localStorage
+  const storedBanks = localStorage.getItem('bankList');
+  if (storedBanks) {
+    return JSON.parse(storedBanks);
   }
+  
+  // Default list of banks
+  const banks = [
+    { code: "044", name: "Access Bank" },
+    { code: "023", name: "Citibank Nigeria" },
+    { code: "063", name: "Diamond Bank" },
+    { code: "050", name: "Ecobank Nigeria" },
+    { code: "084", name: "Enterprise Bank" },
+    { code: "070", name: "Fidelity Bank" },
+    { code: "011", name: "First Bank of Nigeria" },
+    { code: "214", name: "First City Monument Bank" },
+    { code: "058", name: "Guaranty Trust Bank" },
+    { code: "030", name: "Heritage Bank" },
+    { code: "301", name: "Jaiz Bank" },
+    { code: "082", name: "Keystone Bank" },
+    { code: "014", name: "MainStreet Bank" },
+    { code: "076", name: "Polaris Bank" },
+    { code: "039", name: "Stanbic IBTC Bank" },
+    { code: "232", name: "Sterling Bank" },
+    { code: "032", name: "Union Bank of Nigeria" },
+    { code: "033", name: "United Bank For Africa" },
+    { code: "215", name: "Unity Bank" },
+    { code: "035", name: "Wema Bank" },
+    { code: "057", name: "Zenith Bank" },
+    { code: "100", name: "SunTrust Bank" },
+    { code: "102", name: "Providus Bank" },
+    { code: "103", name: "Globus Bank" },
+    { code: "101", name: "Titan Trust Bank" },
+    { code: "120", name: "Kuda Bank" },
+    { code: "110", name: "PayCom (OPay)" },
+    { code: "565", name: "Moniepoint Microfinance Bank" },
+    { code: "100004", name: "Paga" },
+    { code: "100002", name: "PalmPay" }
+  ];
+  
+  // Store in localStorage for future use
+  localStorage.setItem('bankList', JSON.stringify(banks));
+  
+  return banks;
 };
 
-export const markNotificationAsRead = (id: string): void => {
-  const currentUser = getCurrentUser();
-  if (!currentUser || !currentUser.notifications) return;
+// Initialize local storage with default data
+export const initializeLocalStorage = () => {
+  if (!localStorage.getItem('users')) {
+    localStorage.setItem('users', JSON.stringify([]));
+  }
+
+  if (!localStorage.getItem('contributions')) {
+    localStorage.setItem('contributions', JSON.stringify([]));
+  }
+
+  if (!localStorage.getItem('withdrawalRequests')) {
+    localStorage.setItem('withdrawalRequests', JSON.stringify([]));
+  }
+
+  if (!localStorage.getItem('transactions')) {
+    localStorage.setItem('transactions', JSON.stringify([]));
+  }
   
-  const notifications = [...currentUser.notifications];
-  const notificationIndex = notifications.findIndex(n => n.id === id);
-  
-  if (notificationIndex >= 0) {
-    notifications[notificationIndex] = {
-      ...notifications[notificationIndex],
-      read: true
-    };
+  // Initialize bank list
+  getBankList();
+};
+
+// Add the hasContributed function
+export const hasContributed = (userId: string, contributionId: string): boolean => {
+  try {
+    const contribution = getContributionById(contributionId);
+    if (!contribution) return false;
     
-    updateUser({ notifications });
+    return contribution.contributors.some(contributor => contributor.userId === userId);
+  } catch (error) {
+    console.error("Error in hasContributed:", error);
+    return false;
   }
-};
-
-export const markAllNotificationsAsRead = (): void => {
-  const currentUser = getCurrentUser();
-  if (!currentUser || !currentUser.notifications) return;
-  
-  const notifications = currentUser.notifications.map(n => ({
-    ...n,
-    read: true
-  }));
-  
-  updateUser({ notifications });
 };

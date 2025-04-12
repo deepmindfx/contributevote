@@ -1,270 +1,116 @@
 
-import { toast } from "sonner";
-import { v4 as uuidv4 } from "uuid";
-import * as monnifyApi from "./monnifyApi";
+import { v4 as uuidv4 } from 'uuid';
+import { initiateTransfer, TransferData, TransferResponse } from './monnifyApi';
 import { 
-  User, 
-  updateUser, 
-  getCurrentUser, 
-  addTransaction,
-  getTransactions
-} from "./localStorage";
+  updateUserBalance, 
+  addTransaction, 
+  getCurrentUser,
+  getBankList,
+  getContributions
+} from './localStorage';
 
 /**
- * Interface for bank transfer request
+ * Send money to a bank account
+ * @param amount Amount to send
+ * @param narration Transaction narration/description
+ * @param bankCode Destination bank code
+ * @param accountNumber Destination account number
+ * @param useAsync Whether to use asynchronous processing
+ * @returns Response with transfer details
  */
-export interface BankTransferRequest {
-  amount: number;
-  destinationBankCode: string;
-  destinationAccountNumber: string;
-  narration: string;
-  recipientName?: string;
-}
-
-/**
- * Interface for transfer response
- */
-export interface TransferResponse {
-  success: boolean;
-  message: string;
-  reference?: string;
-  status?: string;
-  amount?: number;
-  fee?: number;
-  destinationBankName?: string;
-  destinationAccountName?: string;
-  destinationAccountNumber?: string;
-  dateCreated?: string;
-}
-
-/**
- * Send money to a bank account using async transfer
- * @param request Transfer request data
- * @returns Transfer response
- */
-export const sendMoneyToBank = async (request: BankTransferRequest): Promise<TransferResponse> => {
+export const sendMoneyToBank = async (
+  amount: number,
+  narration: string,
+  bankCode: string,
+  accountNumber: string,
+  useAsync: boolean = false
+): Promise<TransferResponse> => {
   try {
     const currentUser = getCurrentUser();
     
-    if (!currentUser) {
+    // Check if user has a reserved account
+    if (!currentUser?.reservedAccount?.accountNumber) {
       return {
         success: false,
-        message: "You need to be logged in to make transfers"
+        message: "You don't have a virtual account set up. Please set up a virtual account first."
       };
     }
     
     // Check if user has sufficient balance
-    if (!currentUser.walletBalance || currentUser.walletBalance < request.amount) {
+    if (currentUser.walletBalance < amount) {
       return {
         success: false,
         message: "Insufficient funds in your wallet"
       };
     }
     
-    // Get user's reserved account for the source account number
-    if (!currentUser.reservedAccount?.accountNumber) {
-      return {
-        success: false,
-        message: "You need to set up a virtual account before making transfers"
-      };
-    }
-    
-    // Generate a unique reference for this transfer
-    const reference = `TRF_${currentUser.id}_${Date.now()}`;
+    // Create a unique reference for the transaction
+    const reference = `transfer-${uuidv4()}`;
     
     // Prepare transfer data
-    const transferData = {
-      amount: request.amount,
+    const transferData: TransferData = {
+      amount,
       reference,
-      narration: request.narration || "Wallet Transfer",
-      destinationBankCode: request.destinationBankCode,
-      destinationAccountNumber: request.destinationAccountNumber,
+      narration,
+      destinationBankCode: bankCode,
+      destinationAccountNumber: accountNumber,
       currency: "NGN",
-      sourceAccountNumber: currentUser.reservedAccount.accountNumber,
-      async: true
+      sourceAccountNumber: currentUser.reservedAccount.accountNumber
     };
     
-    console.log("Transfer data being sent:", transferData);
+    // Initiate the transfer
+    const result = await initiateTransfer(transferData, useAsync);
     
-    // Initiate the async transfer
-    const result = await monnifyApi.initiateAsyncTransfer(transferData);
-    
-    console.log("Transfer API response:", result);
-    
-    if (!result.requestSuccessful) {
-      return {
-        success: false,
-        message: result.responseMessage || "Failed to process transfer"
-      };
-    }
-    
-    const responseBody = result.responseBody;
-    
-    // Record the transaction
-    const transactionId = uuidv4();
-    addTransaction({
-      id: transactionId,
-      userId: currentUser.id,
-      type: "withdrawal",
-      amount: request.amount,
-      contributionId: "",
-      description: `Bank transfer to ${responseBody.destinationBankName || 'bank'} - ${request.narration || 'Transfer'}`,
-      status: responseBody.status === "SUCCESS" ? "completed" : "pending",
-      createdAt: new Date().toISOString(),
-      metaData: {
-        transferReference: reference,
-        bankName: responseBody.destinationBankName || request.destinationBankCode,
-        accountNumber: request.destinationAccountNumber,
-        recipientName: responseBody.destinationAccountName || request.recipientName || "",
-        fee: responseBody.totalFee || 0
-      }
-    });
-    
-    // Update user's wallet balance
-    updateUser({
-      ...currentUser,
-      walletBalance: currentUser.walletBalance - request.amount
-    });
-    
-    // Return response
-    return {
-      success: true,
-      message: responseBody.status === "SUCCESS" 
-        ? "Transfer completed successfully" 
-        : "Transfer initiated successfully and is being processed",
-      reference,
-      status: responseBody.status,
-      amount: responseBody.amount,
-      fee: responseBody.totalFee,
-      destinationBankName: responseBody.destinationBankName,
-      destinationAccountName: responseBody.destinationAccountName,
-      destinationAccountNumber: responseBody.destinationAccountNumber,
-      dateCreated: responseBody.dateCreated
-    };
-  } catch (error) {
-    console.error("Error sending money to bank:", error);
-    return {
-      success: false,
-      message: "An error occurred while processing your transfer. Please try again later."
-    };
-  }
-};
-
-/**
- * Check the status of a transfer and update the transaction record
- * @param reference Transfer reference
- * @returns Transfer status
- */
-export const checkTransferStatus = async (reference: string): Promise<TransferResponse> => {
-  try {
-    console.log("Checking transfer status for:", reference);
-    
-    // Make a real API call to check transfer status
-    const result = await monnifyApi.checkTransferStatus(reference);
-    
-    if (!result.requestSuccessful) {
-      console.log("Error checking transfer status:", result);
-      return {
-        success: false,
-        message: result.responseMessage || "Failed to check transfer status"
-      };
-    }
-    
-    const responseBody = result.responseBody;
-    
-    // Update transaction status if necessary
-    const allTransactions = getTransactions();
-    const transaction = allTransactions.find(t => 
-      t.metaData && t.metaData.transferReference === reference
-    );
-    
-    if (transaction) {
-      // Update the status based on the API response
-      const newStatus = responseBody.status === "SUCCESS" ? "completed" : 
-                        responseBody.status === "FAILED" ? "failed" : "pending";
+    if (result.requestSuccessful) {
+      // Deduct the amount from user's wallet balance
+      updateUserBalance(currentUser.id, -amount);
       
-      if (transaction.status !== newStatus) {
-        transaction.status = newStatus;
-        localStorage.setItem('transactions', JSON.stringify(allTransactions));
-        
-        if (newStatus === "completed") {
-          toast.success("Transfer has been completed");
-        } else if (newStatus === "failed") {
-          toast.error("Transfer has failed");
-          
-          // Refund the money if the transfer failed
-          const currentUser = getCurrentUser();
-          if (currentUser && newStatus === "failed") {
-            updateUser({
-              ...currentUser,
-              walletBalance: (currentUser.walletBalance || 0) + transaction.amount
-            });
-          }
-        }
-      }
+      // Add transaction record
+      const bankList = getBankList();
+      const bank = bankList.find(bank => bank.code === bankCode);
+      
+      addTransaction({
+        userId: currentUser.id,
+        type: 'withdrawal',
+        amount,
+        status: useAsync ? 'pending' : 'completed',
+        description: `Transfer to ${accountNumber} - ${narration}`,
+        createdAt: new Date().toISOString(),
+        reference,
+        senderName: currentUser.name,
+        receiverName: result.responseBody?.destinationAccountName || 'Bank Account',
+        receiverBank: result.responseBody?.destinationBankName || bank?.name || 'Bank',
+        receiverAccount: accountNumber,
+        fee: result.responseBody?.totalFee || 0
+      });
+      
+      return {
+        success: true,
+        message: useAsync ? 
+          "Transfer initiated successfully and is being processed" : 
+          "Transfer completed successfully",
+        ...result
+      };
     }
     
     return {
-      success: true,
-      message: "Transfer status retrieved successfully",
-      status: responseBody.status,
-      amount: responseBody.amount,
-      fee: responseBody.totalFee,
-      destinationBankName: responseBody.destinationBankName,
-      destinationAccountName: responseBody.destinationAccountName,
-      destinationAccountNumber: responseBody.destinationAccountNumber,
-      dateCreated: responseBody.dateCreated
+      success: false,
+      message: result.responseMessage || "Transfer failed",
+      ...result
     };
   } catch (error) {
-    console.error("Error checking transfer status:", error);
+    console.error("Error sending money:", error);
     return {
       success: false,
-      message: "An error occurred while checking your transfer status"
+      message: "An error occurred while processing your transfer"
     };
   }
 };
 
 /**
- * Poll the transfer status until it's no longer pending or until timeout
- * @param reference Transfer reference
- * @param maxAttempts Maximum number of polling attempts
- * @param interval Interval between attempts in milliseconds
- * @returns Final transfer status
+ * Get a list of supported banks
+ * @returns Array of bank objects with code and name
  */
-export const pollTransferStatus = async (
-  reference: string, 
-  maxAttempts = 10, 
-  interval = 2000
-): Promise<TransferResponse> => {
-  let attempts = 0;
-  
-  const poll = async (): Promise<TransferResponse> => {
-    attempts++;
-    
-    const statusResponse = await checkTransferStatus(reference);
-    
-    // If not successful response, return immediately
-    if (!statusResponse.success) {
-      return statusResponse;
-    }
-    
-    // If status is SUCCESS or FAILED, return immediately
-    if (statusResponse.status === "SUCCESS" || statusResponse.status === "FAILED") {
-      return statusResponse;
-    }
-    
-    // If reached max attempts, return current status
-    if (attempts >= maxAttempts) {
-      return {
-        ...statusResponse,
-        message: "Transfer is still processing. Please check again later."
-      };
-    }
-    
-    // Wait for the interval and try again
-    await new Promise(resolve => setTimeout(resolve, interval));
-    return poll();
-  };
-  
-  return poll();
+export const getSupportedBanks = (): { code: string; name: string }[] => {
+  return getBankList();
 };

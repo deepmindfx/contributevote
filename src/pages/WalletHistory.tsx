@@ -4,114 +4,104 @@ import Header from "@/components/layout/Header";
 import MobileNav from "@/components/layout/MobileNav";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ArrowDown, ArrowUp, ExternalLink, Filter, Calendar, RefreshCw } from "lucide-react";
+import { ArrowLeft, ArrowDown, ArrowUp, HelpCircle, Wallet, Building, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useApp } from "@/contexts/AppContext";
 import { format } from "date-fns";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getReservedAccountTransactions } from "@/services/walletIntegration";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DateRangePicker } from "@/components/ui/date-range-picker";
-import { updatePendingTransfers } from "@/utils/transferUtils";
+
+// Define interface for Monnify transaction
+interface MonnifyTransaction {
+  amount: number;
+  paymentReference: string;
+  transactionReference: string;
+  paymentMethod: string;
+  paidOn: string;
+  paymentStatus: string;
+  destinationAccountName: string;
+  destinationBankName: string;
+  destinationAccountNumber: string;
+}
 
 const WalletHistory = () => {
   const navigate = useNavigate();
   const { user, transactions, refreshData } = useApp();
-  const [selectedTransaction, setSelectedTransaction] = useState(null);
-  const [isTransactionDetailsOpen, setIsTransactionDetailsOpen] = useState(false);
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [filteredTransactions, setFilteredTransactions] = useState([]);
-  const [typeFilter, setTypeFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [dateRange, setDateRange] = useState({ from: undefined, to: undefined });
+  const [filter, setFilter] = useState<"all" | "deposit" | "withdrawal" | "vote">("all");
+  const [currencyType, setCurrencyType] = useState<"NGN" | "USD">("NGN");
+  const [apiTransactions, setApiTransactions] = useState<MonnifyTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<"app" | "bank">("app");
+  const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
+  const [isTransactionDetailsOpen, setIsTransactionDetailsOpen] = useState(false);
   
-  // Load transaction history and update pending transfers
+  // Fetch reserved account transactions on component mount and when tab changes
   useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-        // Update status of any pending transfers
-        await updatePendingTransfers();
-        // Refresh data to get updated statuses
-        refreshData();
-      } catch (error) {
-        console.error("Error fetching transaction data:", error);
-      } finally {
-        setIsLoading(false);
+    const fetchReservedAccountTransactions = async () => {
+      if (user?.reservedAccount?.accountReference) {
+        setIsLoading(true);
+        try {
+          const result = await getReservedAccountTransactions(user.reservedAccount.accountReference);
+          if (result && result.responseBody && result.responseBody.content) {
+            setApiTransactions(result.responseBody.content);
+            // After fetching transactions, refresh app data to update balances
+            refreshData();
+          } else {
+            // Handle empty or failed response
+            setApiTransactions([]);
+          }
+        } catch (error) {
+          console.error("Error fetching reserved account transactions:", error);
+          setApiTransactions([]);
+        } finally {
+          setIsLoading(false);
+        }
       }
     };
     
-    fetchData();
-  }, [refreshData]);
+    if (activeTab === "bank") {
+      fetchReservedAccountTransactions();
+    }
+  }, [user?.reservedAccount?.accountReference, activeTab, refreshData]);
   
-  // Filter wallet-related transactions for the current user
-  useEffect(() => {
-    const walletTransactions = transactions.filter(t => 
-      t.userId === user?.id && 
-      (t.contributionId === "" || t.type === "deposit" || t.type === "withdrawal")
-    );
-    
-    // Apply filters
-    let filtered = [...walletTransactions];
-    
-    if (typeFilter !== "all") {
-      filtered = filtered.filter(t => t.type === typeFilter);
-    }
-    
-    if (statusFilter !== "all") {
-      filtered = filtered.filter(t => t.status === statusFilter);
-    }
-    
-    if (dateRange.from) {
-      const fromDate = new Date(dateRange.from);
-      filtered = filtered.filter(t => new Date(t.createdAt) >= fromDate);
-    }
-    
-    if (dateRange.to) {
-      const toDate = new Date(dateRange.to);
-      toDate.setHours(23, 59, 59, 999); // End of day
-      filtered = filtered.filter(t => new Date(t.createdAt) <= toDate);
-    }
-    
-    // Sort by date (newest first)
-    filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    
-    setFilteredTransactions(filtered);
-  }, [transactions, user, typeFilter, statusFilter, dateRange]);
-  
-  const formatDate = (dateString) => {
-    try {
-      return format(new Date(dateString), 'MMM d, yyyy');
-    } catch {
-      return 'Invalid date';
-    }
+  // Fixed toggle currency function
+  const toggleCurrency = () => {
+    setCurrencyType(prevType => prevType === "NGN" ? "USD" : "NGN");
   };
   
-  const formatDateTime = (dateString) => {
-    try {
-      return format(new Date(dateString), 'MMM d, yyyy h:mm a');
-    } catch {
-      return 'Invalid date';
-    }
+  // Filter transactions based on the current filter and only show user's transactions
+  const filteredTransactions = transactions
+    .filter(t => t.userId === user?.id) // Only show current user's transactions
+    .filter(t => filter === "all" || t.type === filter)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  
+  const formatDate = (dateString: string) => {
+    return format(new Date(dateString), 'MMM d, yyyy h:mm a');
   };
   
-  const handleRefresh = async () => {
-    setIsLoading(true);
-    try {
-      // Update status of any pending transfers
-      await updatePendingTransfers();
-      // Refresh data to get updated statuses
-      refreshData();
-    } catch (error) {
-      console.error("Error refreshing transactions:", error);
-    } finally {
-      setIsLoading(false);
-    }
+  // Convert NGN to USD (simplified conversion rate)
+  const convertToUSD = (amount: number) => {
+    return amount / 1550; // Using a simplified conversion rate of 1 USD = 1550 NGN
   };
   
-  const viewTransactionDetails = (transaction) => {
+  // View transaction details
+  const viewTransactionDetails = (transaction: any) => {
     setSelectedTransaction(transaction);
     setIsTransactionDetailsOpen(true);
+  };
+  
+  // Find sender name if available
+  const getSenderName = (transaction: any) => {
+    // In a real app, you would fetch this from the database
+    // For demo purposes, we'll return a placeholder
+    if (transaction.type === 'deposit') {
+      return transaction.senderName || "Bank Transfer";
+    } else {
+      return "Wallet Withdrawal";
+    }
   };
   
   return (
@@ -120,258 +110,341 @@ const WalletHistory = () => {
       
       <main className="container max-w-4xl mx-auto px-4 pt-24 pb-12">
         <div className="mb-6">
-          <Button variant="ghost" size="sm" className="mb-2" onClick={() => navigate("/dashboard")}>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="mb-2"
+            onClick={() => navigate("/dashboard")}
+          >
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Dashboard
+            Back to Dashboard
           </Button>
-          <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold">Wallet History</h1>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => setIsFilterOpen(true)}>
-                <Filter className="h-4 w-4 mr-2" />
-                Filter
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isLoading}>
-                <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
-            </div>
-          </div>
+          <h1 className="text-2xl font-bold">Transaction History</h1>
+          <p className="text-muted-foreground">View all your wallet transactions</p>
         </div>
         
-        <Card>
-          <CardHeader>
-            <CardTitle>Transaction History</CardTitle>
-            <CardDescription>
-              Your wallet transaction history
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {filteredTransactions.length > 0 ? (
-              <div className="space-y-4">
-                {filteredTransactions.map((transaction) => (
-                  <div 
-                    key={transaction.id} 
-                    className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-muted/30 transition-colors"
-                    onClick={() => viewTransactionDetails(transaction)}
-                  >
-                    <div className="flex items-center">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "app" | "bank")} className="mb-6">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="app">
+              <Wallet className="h-4 w-4 mr-2" />
+              App Transactions
+            </TabsTrigger>
+            <TabsTrigger value="bank">
+              <Building className="h-4 w-4 mr-2" />
+              Bank Transactions
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+        
+        <TabsContent value="app" className="m-0 mt-6">
+          <div className="flex justify-between items-center mb-4">
+            <div className="flex flex-wrap gap-2">
+              <Button 
+                variant={filter === "all" ? "default" : "outline"} 
+                onClick={() => setFilter("all")}
+                size="sm"
+                className={filter === "all" ? "bg-[#2DAE75] hover:bg-[#249e69]" : ""}
+              >
+                All
+              </Button>
+              <Button 
+                variant={filter === "deposit" ? "default" : "outline"} 
+                onClick={() => setFilter("deposit")}
+                size="sm"
+                className={filter === "deposit" ? "bg-[#2DAE75] hover:bg-[#249e69]" : ""}
+              >
+                Deposits
+              </Button>
+              <Button 
+                variant={filter === "withdrawal" ? "default" : "outline"} 
+                onClick={() => setFilter("withdrawal")}
+                size="sm"
+                className={filter === "withdrawal" ? "bg-[#2DAE75] hover:bg-[#249e69]" : ""}
+              >
+                Withdrawals
+              </Button>
+              <Button 
+                variant={filter === "vote" ? "default" : "outline"} 
+                onClick={() => setFilter("vote")}
+                size="sm"
+                className={filter === "vote" ? "bg-[#2DAE75] hover:bg-[#249e69]" : ""}
+              >
+                Votes
+              </Button>
+            </div>
+            
+            {/* Currency Toggle - Fixed to work correctly */}
+            <div className="flex items-center bg-green-600/30 dark:bg-green-600/50 rounded-full px-3 py-1.5">
+              <span className={`text-xs ${currencyType === 'NGN' ? 'text-foreground' : 'text-muted-foreground'}`}>NGN</span>
+              <Switch 
+                checked={currencyType === "USD"}
+                onCheckedChange={toggleCurrency}
+                className="mx-1.5 data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-green-500"
+              />
+              <span className={`text-xs ${currencyType === 'USD' ? 'text-foreground' : 'text-muted-foreground'}`}>USD</span>
+            </div>
+          </div>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle>Transactions</CardTitle>
+              <CardDescription>
+                {filter === "all" 
+                  ? "All transactions" 
+                  : filter === "deposit" 
+                    ? "Deposit transactions" 
+                    : filter === "withdrawal" 
+                      ? "Withdrawal transactions" 
+                      : "Vote transactions"}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {filteredTransactions.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>No transactions found</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {filteredTransactions.map((transaction) => (
+                    <div 
+                      key={transaction.id} 
+                      className="flex items-start p-3 border rounded-lg cursor-pointer hover:bg-muted/30 transition-colors"
+                      onClick={() => viewTransactionDetails(transaction)}
+                    >
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center
-                        ${transaction.type === 'deposit' ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600'}`}>
-                        {transaction.type === 'deposit' ? <ArrowDown size={18} /> : <ArrowUp size={18} />}
+                        ${transaction.type === 'deposit' ? 'bg-green-100 text-[#2DAE75]' : 
+                          transaction.type === 'withdrawal' ? 'bg-amber-100 text-amber-600' :
+                          'bg-blue-100 text-blue-600'}`}>
+                        {transaction.type === 'deposit' ? (
+                          <ArrowDown size={18} />
+                        ) : transaction.type === 'withdrawal' ? (
+                          <ArrowUp size={18} />
+                        ) : (
+                          <HelpCircle size={18} />
+                        )}
                       </div>
-                      <div className="ml-3">
-                        <p className="font-medium text-sm">
-                          {transaction.type === 'deposit' ? 'Money In' : 'Money Out'}
-                          {transaction.status === 'pending' && (
-                            <Badge variant="outline" className="ml-2 text-xs">Pending</Badge>
-                          )}
-                          {transaction.status === 'failed' && (
-                            <Badge variant="destructive" className="ml-2 text-xs">Failed</Badge>
-                          )}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatDate(transaction.createdAt)}
-                        </p>
+                      <div className="ml-3 flex-1">
+                        <div className="flex justify-between">
+                          <div>
+                            <h4 className="font-medium">
+                              {transaction.type === 'deposit' ? 'Deposit' : 
+                               transaction.type === 'withdrawal' ? 'Withdrawal' : 
+                               'Vote'}
+                            </h4>
+                            <p className="text-sm text-muted-foreground">
+                              {transaction.description}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {formatDate(transaction.createdAt)}
+                            </p>
+                          </div>
+                          <div className="text-right flex items-center">
+                            <div className={`font-medium ${
+                              transaction.type === 'deposit' ? 'text-[#2DAE75]' : 
+                              transaction.type === 'withdrawal' ? 'text-red-500' : ''
+                            }`}>
+                              {transaction.type === 'deposit' ? '+' : 
+                               transaction.type === 'withdrawal' ? '-' : ''}
+                              {transaction.amount > 0 ? (
+                                currencyType === "NGN" ? 
+                                  `₦${transaction.amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : 
+                                  `$${convertToUSD(transaction.amount).toFixed(2)}`
+                              ) : ''}
+                            </div>
+                            <ExternalLink className="ml-2 h-4 w-4 text-muted-foreground" />
+                          </div>
+                        </div>
+                        <div className="mt-1">
+                          <Badge variant={
+                            transaction.status === 'pending' ? 'outline' :
+                            transaction.status === 'completed' ? 'default' : 'destructive'
+                          }>
+                            {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+                          </Badge>
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center">
-                      <div className={`font-semibold ${transaction.type === 'deposit' ? 'text-green-500' : 'text-red-500'}`}>
-                        {transaction.type === 'deposit' ? '+' : '-'}
-                        ₦{transaction.amount.toLocaleString()}
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="bank" className="m-0 mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Bank Transactions</CardTitle>
+              <CardDescription>
+                Transactions processed through your virtual bank account
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {!user?.reservedAccount ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>You don't have a virtual bank account yet</p>
+                  <Button 
+                    className="mt-4"
+                    onClick={() => navigate("/dashboard")}
+                  >
+                    Create Virtual Account
+                  </Button>
+                </div>
+              ) : isLoading ? (
+                <div className="space-y-4">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="flex items-start p-3 border rounded-lg">
+                      <Skeleton className="w-10 h-10 rounded-full" />
+                      <div className="ml-3 flex-1">
+                        <Skeleton className="h-5 w-32 mb-2" />
+                        <Skeleton className="h-4 w-48 mb-1" />
+                        <Skeleton className="h-3 w-24" />
                       </div>
-                      <ExternalLink className="ml-2 h-4 w-4 text-muted-foreground" />
+                      <div className="text-right">
+                        <Skeleton className="h-5 w-20 mb-2" />
+                        <Skeleton className="h-6 w-16 ml-auto" />
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-10 text-muted-foreground">
-                <p>No transactions found</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  ))}
+                </div>
+              ) : apiTransactions.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>No bank transactions found</p>
+                  <Button
+                    className="mt-4"
+                    onClick={() => getReservedAccountTransactions(user.reservedAccount.accountReference).then(() => refreshData())}
+                  >
+                    Refresh Transactions
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {apiTransactions.map((transaction) => (
+                    <div key={transaction.transactionReference} className="flex items-start p-3 border rounded-lg">
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center bg-green-100 text-[#2DAE75]">
+                        <ArrowDown size={18} />
+                      </div>
+                      <div className="ml-3 flex-1">
+                        <div className="flex justify-between">
+                          <div>
+                            <h4 className="font-medium">Bank Transfer</h4>
+                            <p className="text-sm text-muted-foreground">
+                              Via {transaction.paymentMethod}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {formatDate(transaction.paidOn)}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-medium text-[#2DAE75]">
+                              +{currencyType === "NGN" ? 
+                                `₦${transaction.amount.toLocaleString()}` : 
+                                `$${convertToUSD(transaction.amount).toFixed(2)}`}
+                            </div>
+                            <div className="mt-1">
+                              <Badge variant={
+                                transaction.paymentStatus === 'PAID' ? 'default' :
+                                transaction.paymentStatus === 'PENDING' ? 'outline' : 'destructive'
+                              }>
+                                {transaction.paymentStatus}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </main>
       
-      {/* Filter Dialog */}
-      <Dialog open={isFilterOpen} onOpenChange={setIsFilterOpen}>
-        <DialogContent>
+      {/* Transaction Details Dialog */}
+      <Dialog open={isTransactionDetailsOpen} onOpenChange={setIsTransactionDetailsOpen}>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Filter Transactions</DialogTitle>
+            <DialogTitle>Transaction Details</DialogTitle>
             <DialogDescription>
-              Refine your transaction history view
+              Complete information about this transaction.
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Transaction Type</label>
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="deposit">Deposits</SelectItem>
-                  <SelectItem value="withdrawal">Withdrawals</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Status</label>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="failed">Failed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Date Range</label>
-              <DateRangePicker date={dateRange} setDate={setDateRange} />
-            </div>
-          </div>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => {
-              setTypeFilter("all");
-              setStatusFilter("all");
-              setDateRange({ from: undefined, to: undefined });
-            }}>
-              Reset
-            </Button>
-            <Button onClick={() => setIsFilterOpen(false)}>
-              Apply Filters
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      
-      {/* Transaction Details Dialog */}
-      {selectedTransaction && (
-        <Dialog open={isTransactionDetailsOpen} onOpenChange={setIsTransactionDetailsOpen}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Transaction Details</DialogTitle>
-              <DialogDescription>
-                Complete information about this transaction.
-              </DialogDescription>
-            </DialogHeader>
-            
+          {selectedTransaction && (
             <div className="space-y-4 py-4">
               <div className="flex justify-center mb-4">
                 <div className={`w-16 h-16 rounded-full flex items-center justify-center
-                  ${selectedTransaction.type === 'deposit' ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600'}`}>
-                  {selectedTransaction.type === 'deposit' ? <ArrowDown size={24} /> : <ArrowUp size={24} />}
+                  ${selectedTransaction.type === 'deposit' ? 'bg-green-100 text-[#2DAE75]' : 
+                    selectedTransaction.type === 'withdrawal' ? 'bg-amber-100 text-amber-600' :
+                    'bg-blue-100 text-blue-600'}`}>
+                  {selectedTransaction.type === 'deposit' ? (
+                    <ArrowDown size={24} />
+                  ) : selectedTransaction.type === 'withdrawal' ? (
+                    <ArrowUp size={24} />
+                  ) : (
+                    <HelpCircle size={24} />
+                  )}
                 </div>
               </div>
               
               <div className="text-center mb-4">
-                <h3 className={`text-2xl font-bold ${selectedTransaction.type === 'deposit' ? 'text-green-500' : 'text-red-500'}`}>
-                  {selectedTransaction.type === 'deposit' ? '+' : '-'}
-                  ₦{selectedTransaction.amount.toLocaleString()}
+                <h3 className={`text-2xl font-bold ${
+                  selectedTransaction.type === 'deposit' ? 'text-[#2DAE75]' : 
+                  selectedTransaction.type === 'withdrawal' ? 'text-red-500' : ''
+                }`}>
+                  {selectedTransaction.type === 'deposit' ? '+' : 
+                   selectedTransaction.type === 'withdrawal' ? '-' : ''}
+                  ₦{selectedTransaction.amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                 </h3>
                 <p className="text-muted-foreground text-sm">
-                  {formatDateTime(selectedTransaction.createdAt)}
+                  {formatDate(selectedTransaction.createdAt)}
                 </p>
-                <Badge className={`mt-2 ${
-                  selectedTransaction.status === 'completed' ? 'bg-green-100 text-green-800' : 
-                  selectedTransaction.status === 'failed' ? 'bg-red-100 text-red-800' : 
-                  'bg-yellow-100 text-yellow-800'
-                }`}>
-                  {selectedTransaction.status.charAt(0).toUpperCase() + selectedTransaction.status.slice(1)}
-                </Badge>
               </div>
               
               <div className="space-y-3">
                 <div className="flex justify-between py-2 border-b">
-                  <span className="text-muted-foreground">Transaction ID</span>
-                  <span className="font-mono text-sm">{selectedTransaction.id.slice(0, 8)}</span>
+                  <span className="text-muted-foreground">Status</span>
+                  <span className="font-medium capitalize">{selectedTransaction.status}</span>
                 </div>
                 
                 <div className="flex justify-between py-2 border-b">
                   <span className="text-muted-foreground">Type</span>
-                  <span className="capitalize">{selectedTransaction.type}</span>
+                  <span className="font-medium capitalize">{selectedTransaction.type}</span>
+                </div>
+                
+                <div className="flex justify-between py-2 border-b">
+                  <span className="text-muted-foreground">Transaction ID</span>
+                  <span className="font-medium">{selectedTransaction.id.slice(0, 8)}</span>
+                </div>
+                
+                <div className="flex justify-between py-2 border-b">
+                  <span className="text-muted-foreground">Source</span>
+                  <span className="font-medium">{getSenderName(selectedTransaction)}</span>
                 </div>
                 
                 {selectedTransaction.description && (
                   <div className="flex justify-between py-2 border-b">
                     <span className="text-muted-foreground">Description</span>
-                    <span className="text-right text-sm">{selectedTransaction.description}</span>
+                    <span className="font-medium">{selectedTransaction.description}</span>
                   </div>
                 )}
                 
-                {selectedTransaction.metaData?.bankName && (
+                {selectedTransaction.contributionId && (
                   <div className="flex justify-between py-2 border-b">
-                    <span className="text-muted-foreground">Bank</span>
-                    <span>{selectedTransaction.metaData.bankName}</span>
-                  </div>
-                )}
-                
-                {selectedTransaction.metaData?.accountNumber && (
-                  <div className="flex justify-between py-2 border-b">
-                    <span className="text-muted-foreground">Account Number</span>
-                    <span className="font-mono">{selectedTransaction.metaData.accountNumber}</span>
-                  </div>
-                )}
-                
-                {selectedTransaction.metaData?.recipientName && (
-                  <div className="flex justify-between py-2 border-b">
-                    <span className="text-muted-foreground">Recipient</span>
-                    <span>{selectedTransaction.metaData.recipientName}</span>
-                  </div>
-                )}
-                
-                {selectedTransaction.metaData?.fee !== undefined && (
-                  <div className="flex justify-between py-2 border-b">
-                    <span className="text-muted-foreground">Fee</span>
-                    <span>₦{selectedTransaction.metaData.fee.toLocaleString()}</span>
-                  </div>
-                )}
-                
-                {selectedTransaction.metaData?.transferReference && (
-                  <div className="flex justify-between py-2 border-b">
-                    <span className="text-muted-foreground">Reference</span>
-                    <span className="font-mono text-xs">{selectedTransaction.metaData.transferReference}</span>
+                    <span className="text-muted-foreground">Related Group</span>
+                    <span className="font-medium">{selectedTransaction.contributionName || "Group Transaction"}</span>
                   </div>
                 )}
               </div>
             </div>
-            
-            <DialogFooter className="flex gap-2">
-              {selectedTransaction.status === 'pending' && (
-                <Button 
-                  variant="outline" 
-                  onClick={async () => {
-                    setIsLoading(true);
-                    if (selectedTransaction.metaData?.transferReference) {
-                      await updatePendingTransfers();
-                      refreshData();
-                      setIsTransactionDetailsOpen(false);
-                    }
-                    setIsLoading(false);
-                  }}
-                  disabled={isLoading}
-                >
-                  <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                  Check Status
-                </Button>
-              )}
-              <Button onClick={() => setIsTransactionDetailsOpen(false)}>
-                Close
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsTransactionDetailsOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       
       <MobileNav />
     </div>

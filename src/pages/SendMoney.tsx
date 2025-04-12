@@ -1,251 +1,199 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Header from "@/components/layout/Header";
-import MobileNav from "@/components/layout/MobileNav";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { ArrowLeft, Send, Building, LoaderCircle, CheckCircle2, AlertCircle } from "lucide-react";
-import { useApp } from "@/contexts/AppContext";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import * as z from "zod";
 import { toast } from "sonner";
 import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogFooter, 
-  DialogHeader, 
-  DialogTitle 
-} from "@/components/ui/dialog";
+  ArrowLeft, 
+  Send, 
+  Clock, 
+  Wallet, 
+  MoreHorizontal, 
+  Check,
+  Loader2
+} from "lucide-react";
 
-// Nigerian banks list (expanded)
-const NIGERIAN_BANKS = [
-  { code: "044", name: "Access Bank" },
-  { code: "063", name: "Access Bank (Diamond)" },
-  { code: "035A", name: "ALAT by WEMA" },
-  { code: "401", name: "ASO Savings and Loans" },
-  { code: "50931", name: "Bowen Microfinance Bank" },
-  { code: "50823", name: "CEMCS Microfinance Bank" },
-  { code: "023", name: "Citibank Nigeria" },
-  { code: "050", name: "Ecobank Nigeria" },
-  { code: "562", name: "Ekondo Microfinance Bank" },
-  { code: "070", name: "Fidelity Bank" },
-  { code: "011", name: "First Bank of Nigeria" },
-  { code: "214", name: "First City Monument Bank" },
-  { code: "058", name: "Guaranty Trust Bank" },
-  { code: "030", name: "Heritage Bank" },
-  { code: "301", name: "Jaiz Bank" },
-  { code: "082", name: "Keystone Bank" },
-  { code: "50211", name: "Kuda Bank" },
-  { code: "90052", name: "Moniepoint Microfinance Bank" },
-  { code: "100002", name: "Opay" },
-  { code: "100003", name: "Palmpay" },
-  { code: "526", name: "Parallex Bank" },
-  { code: "076", name: "Polaris Bank" },
-  { code: "101", name: "Providus Bank" },
-  { code: "221", name: "Stanbic IBTC Bank" },
-  { code: "068", name: "Standard Chartered Bank" },
-  { code: "232", name: "Sterling Bank" },
-  { code: "100", name: "Suntrust Bank" },
-  { code: "102", name: "Titan Bank" },
-  { code: "032", name: "Union Bank of Nigeria" },
-  { code: "033", name: "United Bank For Africa" },
-  { code: "215", name: "Unity Bank" },
-  { code: "035", name: "Wema Bank" },
-  { code: "057", name: "Zenith Bank" }
-];
+import { useApp } from "@/contexts/AppContext";
+import Header from "@/components/layout/Header";
+import MobileNav from "@/components/layout/MobileNav";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-// Form schema
-const formSchema = z.object({
-  amount: z.string().min(1, "Amount is required").refine(
-    (val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0,
-    { message: "Amount must be a positive number" }
-  ),
-  bankCode: z.string().min(1, "Bank is required"),
-  accountNumber: z.string().length(10, "Account number must be 10 digits"),
-  narration: z.string().optional(),
-  recipientName: z.string().optional()
+// Form validation schema
+const transferFormSchema = z.object({
+  amount: z.string()
+    .refine((val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
+      message: "Amount must be greater than 0",
+    })
+    .refine((val) => parseFloat(val) <= 1000000, {
+      message: "Amount must be less than or equal to ₦1,000,000",
+    }),
+  narration: z.string()
+    .min(3, { message: "Narration must be at least 3 characters" })
+    .max(100, { message: "Narration cannot exceed 100 characters" }),
+  bankCode: z.string().min(1, { message: "Please select a bank" }),
+  accountNumber: z.string()
+    .length(10, { message: "Account number must be 10 digits" })
+    .regex(/^\d+$/, { message: "Account number must contain only digits" }),
+  useAsync: z.boolean().default(false),
 });
 
-type FormValues = z.infer<typeof formSchema>;
+type TransferFormValues = z.infer<typeof transferFormSchema>;
 
 const SendMoney = () => {
   const navigate = useNavigate();
-  const { user, sendMoneyToBank, checkTransferStatus } = useApp();
-  const [isLoading, setIsLoading] = useState(false);
-  const [transferResult, setTransferResult] = useState<any>(null);
+  const { user, sendMoney, getSupportedBanks, refreshData } = useApp();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [showReceiptDialog, setShowReceiptDialog] = useState(false);
-  const [formData, setFormData] = useState<FormValues | null>(null);
-  const [transferError, setTransferError] = useState<string | null>(null);
+  const [formValues, setFormValues] = useState<TransferFormValues | null>(null);
+  const [banks] = useState(getSupportedBanks());
+  const [transferResult, setTransferResult] = useState<any>(null);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   
-  // Form setup
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+  // Initialize form
+  const form = useForm<TransferFormValues>({
+    resolver: zodResolver(transferFormSchema),
     defaultValues: {
       amount: "",
+      narration: "",
       bankCode: "",
       accountNumber: "",
-      narration: "",
-      recipientName: ""
-    }
+      useAsync: false,
+    },
   });
   
   // Handle form submission
-  const onSubmit = (data: FormValues) => {
-    setFormData(data);
+  const onSubmit = (values: TransferFormValues) => {
+    // Check if user has sufficient balance
+    if (parseFloat(values.amount) > user.walletBalance) {
+      toast.error("Insufficient balance in your wallet");
+      return;
+    }
+    
+    // Store values and show confirmation dialog
+    setFormValues(values);
     setShowConfirmDialog(true);
-    setTransferError(null);
   };
   
-  // Handle confirm transfer
+  // Handle transfer confirmation
   const handleConfirmTransfer = async () => {
-    if (!formData) return;
+    if (!formValues) return;
     
-    setIsLoading(true);
-    setShowConfirmDialog(false);
-    setTransferError(null);
+    setIsSubmitting(true);
     
     try {
-      console.log("Sending money with data:", {
-        amount: parseFloat(formData.amount),
-        destinationBankCode: formData.bankCode,
-        destinationAccountNumber: formData.accountNumber,
-        narration: formData.narration || "Bank Transfer"
-      });
-      
-      const result = await sendMoneyToBank({
-        amount: parseFloat(formData.amount),
-        destinationBankCode: formData.bankCode,
-        destinationAccountNumber: formData.accountNumber,
-        narration: formData.narration || "Bank Transfer",
-        recipientName: formData.recipientName
-      });
-      
-      console.log("Transfer result:", result);
+      const result = await sendMoney(
+        parseFloat(formValues.amount),
+        formValues.narration,
+        formValues.bankCode,
+        formValues.accountNumber,
+        formValues.useAsync
+      );
       
       setTransferResult(result);
       
       if (result.success) {
-        setShowReceiptDialog(true);
-        toast.success("Transfer initiated successfully");
+        setShowConfirmDialog(false);
+        setShowSuccessDialog(true);
+        refreshData();
       } else {
-        setTransferError(result.message);
-        toast.error(result.message || "Failed to process transfer");
+        setShowConfirmDialog(false);
+        toast.error(result.message || "Transfer failed");
       }
     } catch (error) {
-      console.error("Error processing transfer:", error);
-      setTransferError("An unexpected error occurred. Please try again later.");
-      toast.error("Failed to process transfer. Please try again.");
+      console.error("Transfer error:", error);
+      toast.error("An error occurred while processing the transfer");
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
   
-  // Check if user has a virtual account
-  const hasVirtualAccount = !!user?.reservedAccount?.accountNumber;
-  
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN'
-    }).format(amount);
+  // Get bank name by code
+  const getBankName = (code: string) => {
+    const bank = banks.find(b => b.code === code);
+    return bank ? bank.name : "Selected Bank";
   };
   
   return (
     <div className="min-h-screen pb-20 md:pb-0">
       <Header />
       
-      <main className="container max-w-2xl mx-auto px-4 pt-24 pb-12">
+      <main className="container max-w-xl mx-auto px-4 pt-24 pb-20">
         <div className="mb-6">
           <Button 
             variant="ghost" 
             size="sm" 
             className="mb-2"
-            onClick={() => navigate("/dashboard")}
+            onClick={() => navigate("/wallet-history")}
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
+            Back to Wallet
           </Button>
           <h1 className="text-2xl font-bold">Send Money</h1>
-          <p className="text-muted-foreground">Transfer funds to any bank account</p>
+          <p className="text-muted-foreground">Transfer funds to a bank account</p>
         </div>
         
-        {!hasVirtualAccount ? (
-          <Card className="mb-6">
-            <CardContent className="p-6">
-              <Alert>
-                <Building className="h-4 w-4" />
-                <AlertTitle>Virtual Account Required</AlertTitle>
-                <AlertDescription>
-                  You need to set up a virtual account before you can make transfers.
-                  Please go to settings to create your virtual account.
-                </AlertDescription>
-              </Alert>
-              <Button 
-                className="w-full mt-4"
-                onClick={() => navigate("/settings")}
-              >
-                Go to Settings
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <>
-            {transferError && (
-              <Alert variant="destructive" className="mb-6">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Transfer Failed</AlertTitle>
-                <AlertDescription>
-                  {transferError}
-                </AlertDescription>
-              </Alert>
-            )}
-            
-            <Card className="mb-6">
+        <Tabs defaultValue="transfer" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsTrigger value="transfer">
+              <Send className="h-4 w-4 mr-2" />
+              Bank Transfer
+            </TabsTrigger>
+            <TabsTrigger value="history">
+              <Clock className="h-4 w-4 mr-2" />
+              Recent Transfers
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="transfer" className="space-y-4">
+            <Card>
               <CardHeader>
-                <CardTitle className="text-xl">Transfer Details</CardTitle>
+                <CardTitle>Send Money to Bank Account</CardTitle>
                 <CardDescription>
-                  Enter recipient account details below
+                  Transfer funds directly to any bank account in Nigeria
                 </CardDescription>
               </CardHeader>
               <CardContent>
+                <div className="bg-muted/50 rounded-lg p-4 mb-6 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Available Balance</p>
+                    <p className="text-2xl font-semibold">₦{user.walletBalance.toLocaleString(undefined, {
+                      minimumFractionDigits: 2, 
+                      maximumFractionDigits: 2
+                    })}</p>
+                  </div>
+                  <Wallet className="h-10 w-10 text-primary opacity-80" />
+                </div>
+                
                 <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                     <FormField
                       control={form.control}
                       name="amount"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Amount</FormLabel>
+                          <FormLabel>Amount (₦)</FormLabel>
                           <FormControl>
-                            <div className="relative">
-                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">₦</span>
-                              <Input 
-                                placeholder="0.00"
-                                className="pl-8"
-                                {...field}
-                                type="number"
-                                min="1"
-                                step="0.01"
-                              />
-                            </div>
+                            <Input
+                              placeholder="Enter amount"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              {...field}
+                            />
                           </FormControl>
+                          <FormDescription>
+                            Maximum transfer amount is ₦1,000,000
+                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -257,17 +205,17 @@ const SendMoney = () => {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Bank</FormLabel>
-                          <Select 
-                            onValueChange={field.onChange} 
+                          <Select
+                            onValueChange={field.onChange}
                             defaultValue={field.value}
                           >
                             <FormControl>
                               <SelectTrigger>
-                                <SelectValue placeholder="Select bank" />
+                                <SelectValue placeholder="Select a bank" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {NIGERIAN_BANKS.map((bank) => (
+                              {banks.map((bank) => (
                                 <SelectItem key={bank.code} value={bank.code}>
                                   {bank.name}
                                 </SelectItem>
@@ -286,28 +234,10 @@ const SendMoney = () => {
                         <FormItem>
                           <FormLabel>Account Number</FormLabel>
                           <FormControl>
-                            <Input 
-                              placeholder="Enter 10 digit account number"
+                            <Input
+                              placeholder="Enter 10-digit account number"
                               {...field}
                               maxLength={10}
-                              minLength={10}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="recipientName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Recipient Name (Optional)</FormLabel>
-                          <FormControl>
-                            <Input 
-                              placeholder="Enter recipient name"
-                              {...field}
                             />
                           </FormControl>
                           <FormMessage />
@@ -320,11 +250,10 @@ const SendMoney = () => {
                       name="narration"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Transfer Description (Optional)</FormLabel>
+                          <FormLabel>Narration</FormLabel>
                           <FormControl>
-                            <Textarea 
+                            <Input
                               placeholder="What's this transfer for?"
-                              className="resize-none"
                               {...field}
                             />
                           </FormControl>
@@ -333,52 +262,65 @@ const SendMoney = () => {
                       )}
                     />
                     
-                    <div className="pt-4">
-                      <Button 
-                        type="submit" 
-                        className="w-full bg-[#2DAE75] hover:bg-[#249e69]"
-                        disabled={isLoading}
-                      >
-                        {isLoading ? (
-                          <>
-                            <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
-                            Processing
-                          </>
-                        ) : (
-                          <>
-                            <Send className="mr-2 h-4 w-4" />
-                            Send Money
-                          </>
-                        )}
-                      </Button>
-                    </div>
+                    <FormField
+                      control={form.control}
+                      name="useAsync"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel>Use asynchronous processing</FormLabel>
+                            <FormDescription>
+                              This may be useful for large transfers that take longer to process
+                            </FormDescription>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <Button type="submit" className="w-full">
+                      <Send className="h-4 w-4 mr-2" />
+                      Send Money
+                    </Button>
                   </form>
                 </Form>
               </CardContent>
             </Card>
-
-            {/* Wallet balance card */}
+          </TabsContent>
+          
+          <TabsContent value="history">
             <Card>
               <CardHeader>
-                <CardTitle className="text-xl">Wallet Balance</CardTitle>
+                <CardTitle>Recent Transfers</CardTitle>
+                <CardDescription>
+                  Your latest money transfers to bank accounts
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex justify-between items-center">
-                  <div>
-                    <p className="text-muted-foreground text-sm">Available Balance</p>
-                    <p className="text-2xl font-bold">{formatCurrency(user?.walletBalance || 0)}</p>
+                {user.isAuthenticated ? (
+                  <div className="space-y-4">
+                    {/* List recent transfers here - using existing transaction data */}
                   </div>
-                  <Button 
-                    onClick={() => navigate("/wallet-history")}
-                    variant="outline"
-                  >
-                    Transaction History
-                  </Button>
-                </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>Please log in to view your transaction history</p>
+                    <Button 
+                      className="mt-4"
+                      onClick={() => navigate("/auth")}
+                    >
+                      Log In
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
-          </>
-        )}
+          </TabsContent>
+        </Tabs>
       </main>
       
       {/* Confirmation Dialog */}
@@ -387,153 +329,159 @@ const SendMoney = () => {
           <DialogHeader>
             <DialogTitle>Confirm Transfer</DialogTitle>
             <DialogDescription>
-              Please review the transfer details before proceeding
+              Please review the transfer details before confirming.
             </DialogDescription>
           </DialogHeader>
           
-          {formData && (
+          {formValues && (
             <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Transfer Amount</p>
-                <p className="text-2xl font-bold text-[#2DAE75]">
-                  {formatCurrency(parseFloat(formData.amount))}
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Amount</p>
+                <p className="text-xl font-bold">₦{parseFloat(formValues.amount).toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2
+                })}</p>
+              </div>
+              
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Recipient Bank</p>
+                <p>{getBankName(formValues.bankCode)}</p>
+              </div>
+              
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Account Number</p>
+                <p>{formValues.accountNumber}</p>
+              </div>
+              
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Narration</p>
+                <p>{formValues.narration}</p>
+              </div>
+              
+              {formValues.useAsync && (
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-md">
+                  <p className="text-sm text-yellow-800 dark:text-yellow-400">
+                    You've selected asynchronous processing. The transfer may take longer to complete.
+                  </p>
+                </div>
+              )}
+              
+              <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-md">
+                <p className="text-sm text-red-800 dark:text-red-400">
+                  Please note that this transfer cannot be reversed once initiated.
                 </p>
               </div>
-              
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Recipient Bank</p>
-                <p>{NIGERIAN_BANKS.find(b => b.code === formData.bankCode)?.name || formData.bankCode}</p>
-              </div>
-              
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Account Number</p>
-                <p>{formData.accountNumber}</p>
-              </div>
-              
-              {formData.recipientName && (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">Recipient Name</p>
-                  <p>{formData.recipientName}</p>
-                </div>
-              )}
-              
-              {formData.narration && (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">Description</p>
-                  <p>{formData.narration}</p>
-                </div>
-              )}
-              
-              <Alert>
-                <AlertDescription>
-                  This transfer will be processed asynchronously and may take a few minutes to complete.
-                </AlertDescription>
-              </Alert>
             </div>
           )}
           
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowConfirmDialog(false)}
-            >
+          <DialogFooter className="flex-col sm:flex-row sm:justify-between">
+            <Button variant="outline" onClick={() => setShowConfirmDialog(false)} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button
-              onClick={handleConfirmTransfer}
-              className="bg-[#2DAE75] hover:bg-[#249e69]"
-            >
-              Confirm Transfer
+            <Button onClick={handleConfirmTransfer} disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <Send className="mr-2 h-4 w-4" />
+                  Confirm Transfer
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
       
-      {/* Receipt Dialog */}
-      <Dialog open={showReceiptDialog} onOpenChange={setShowReceiptDialog}>
+      {/* Success Dialog */}
+      <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Transfer Receipt</DialogTitle>
+            <DialogTitle className="flex items-center text-green-600">
+              <Check className="h-6 w-6 mr-2" />
+              Transfer {transferResult?.responseBody?.status === "SUCCESS" ? "Completed" : "Initiated"}
+            </DialogTitle>
             <DialogDescription>
-              Your transfer has been initiated
+              {transferResult?.responseBody?.status === "SUCCESS" 
+                ? "Your transfer has been successfully completed." 
+                : "Your transfer has been initiated and is being processed."}
             </DialogDescription>
           </DialogHeader>
           
-          {transferResult && transferResult.success && (
+          {transferResult && (
             <div className="space-y-4 py-4">
-              <div className="flex justify-center mb-4">
-                <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center text-[#2DAE75]">
-                  <CheckCircle2 size={32} />
+              <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-md flex items-center justify-center">
+                <div className="text-center">
+                  <p className="text-xl font-bold text-green-600">₦{transferResult.responseBody?.amount.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                  })}</p>
+                  <p className="text-sm text-green-600 mt-1">Transfer {transferResult.responseBody?.status}</p>
                 </div>
-              </div>
-              
-              <div className="text-center mb-6">
-                <h3 className="text-2xl font-bold text-[#2DAE75]">
-                  {formatCurrency(transferResult.amount || 0)}
-                </h3>
-                <p className="text-muted-foreground">
-                  {transferResult.status === "SUCCESS" ? "Transfer Completed" : "Transfer Initiated"}
-                </p>
               </div>
               
               <div className="space-y-3">
                 <div className="flex justify-between py-2 border-b">
-                  <span className="text-muted-foreground">Status</span>
-                  <span className="font-medium">
-                    {transferResult.status === "SUCCESS" ? "Completed" : 
-                     transferResult.status === "PENDING" ? "Processing" : 
-                     transferResult.status}
-                  </span>
-                </div>
-                
-                <div className="flex justify-between py-2 border-b">
-                  <span className="text-muted-foreground">Reference</span>
-                  <span className="font-medium">{transferResult.reference?.slice(0, 12)}...</span>
+                  <span className="text-muted-foreground">Recipient</span>
+                  <span className="font-medium">{transferResult.responseBody?.destinationAccountName || "Bank Account"}</span>
                 </div>
                 
                 <div className="flex justify-between py-2 border-b">
                   <span className="text-muted-foreground">Bank</span>
-                  <span className="font-medium">{transferResult.destinationBankName}</span>
+                  <span className="font-medium">{transferResult.responseBody?.destinationBankName || getBankName(formValues?.bankCode || "")}</span>
                 </div>
                 
                 <div className="flex justify-between py-2 border-b">
                   <span className="text-muted-foreground">Account Number</span>
-                  <span className="font-medium">{transferResult.destinationAccountNumber}</span>
+                  <span className="font-medium">{transferResult.responseBody?.destinationAccountNumber || formValues?.accountNumber}</span>
                 </div>
                 
                 <div className="flex justify-between py-2 border-b">
-                  <span className="text-muted-foreground">Recipient</span>
-                  <span className="font-medium">{transferResult.destinationAccountName || "Not Available"}</span>
+                  <span className="text-muted-foreground">Reference</span>
+                  <span className="font-medium">{transferResult.responseBody?.reference}</span>
                 </div>
                 
                 <div className="flex justify-between py-2 border-b">
                   <span className="text-muted-foreground">Date</span>
                   <span className="font-medium">
-                    {transferResult.dateCreated ? new Date(transferResult.dateCreated).toLocaleString() : "Now"}
+                    {transferResult.responseBody?.dateCreated 
+                      ? new Date(transferResult.responseBody.dateCreated).toLocaleString() 
+                      : new Date().toLocaleString()}
                   </span>
                 </div>
                 
-                <div className="flex justify-between py-2 border-b">
-                  <span className="text-muted-foreground">Fee</span>
-                  <span className="font-medium">{formatCurrency(transferResult.fee || 0)}</span>
-                </div>
+                {transferResult.responseBody?.totalFee > 0 && (
+                  <div className="flex justify-between py-2 border-b">
+                    <span className="text-muted-foreground">Fee</span>
+                    <span className="font-medium">₦{transferResult.responseBody.totalFee.toLocaleString()}</span>
+                  </div>
+                )}
               </div>
             </div>
           )}
           
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => navigate("/wallet-history")}
-              className="w-full sm:w-auto"
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button 
+              variant="outline" 
+              className="sm:flex-1"
+              onClick={() => {
+                setShowSuccessDialog(false);
+                form.reset();
+              }}
             >
-              View All Transactions
+              Close
             </Button>
-            <Button
-              onClick={() => setShowReceiptDialog(false)}
-              className="w-full sm:w-auto bg-[#2DAE75] hover:bg-[#249e69]"
+            <Button 
+              className="sm:flex-1"
+              onClick={() => {
+                setShowSuccessDialog(false);
+                form.reset();
+                // Reset form for new transfer
+              }}
             >
-              Done
+              New Transfer
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -35,7 +35,7 @@ import {
   verifyUserWithOTP,
   getContributionByAccountNumber
 } from '@/services/localStorage';
-import { BankTransferRequest, sendMoneyToBank, checkTransferStatus } from '@/services/walletTransfer';
+import { sendMoneyToBank, getSupportedBanks } from '@/services/walletTransfer';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
@@ -68,8 +68,8 @@ interface AppContextType {
   getReceipt: (transactionId: string) => any;
   verifyUser: (userId: string) => void;
   isGroupCreator: (contributionId: string) => boolean;
-  sendMoneyToBank: (request: BankTransferRequest) => Promise<any>;
-  checkTransferStatus: (reference: string) => Promise<any>;
+  sendMoney: (amount: number, narration: string, bankCode: string, accountNumber: string, useAsync: boolean) => Promise<any>;
+  getSupportedBanks: () => { code: string; name: string }[];
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -432,45 +432,42 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const contribution = contributions.find(c => c.id === contributionId);
     return !!(contribution && contribution.creatorId === user.id);
   };
-
-  // Add the new sendMoneyToBank function
-  const handleSendMoneyToBank = async (request: BankTransferRequest) => {
+  
+  // New function for sending money
+  const sendMoney = async (
+    amount: number,
+    narration: string,
+    bankCode: string,
+    accountNumber: string,
+    useAsync: boolean = false
+  ) => {
     try {
-      const result = await sendMoneyToBank(request);
-      if (result.success) {
-        toast.success(result.message);
-        refreshData();
-        return result;
-      } else {
-        toast.error(result.message);
-        return result;
+      // Check if user has set up a PIN
+      if (!user.pin) {
+        toast.error('Please set up a transaction PIN in settings before making transfers');
+        return { success: false, message: 'Transaction PIN not set' };
       }
+      
+      const result = await sendMoneyToBank(amount, narration, bankCode, accountNumber, useAsync);
+      
+      if (result.success) {
+        refreshData();
+        toast.success(result.message);
+      } else {
+        toast.error(result.message || 'Transfer failed');
+      }
+      
+      return result;
     } catch (error) {
-      console.error("Error sending money to bank:", error);
-      toast.error("Failed to process your transfer");
-      return {
-        success: false,
-        message: "An error occurred while processing your transfer"
-      };
+      const errorMessage = error instanceof Error ? error.message : 'An error occurred during transfer';
+      toast.error(errorMessage);
+      console.error("Error in sendMoney:", error);
+      return { success: false, message: errorMessage };
     }
   };
 
-  // Add the new checkTransferStatus function
-  const handleCheckTransferStatus = async (reference: string) => {
-    try {
-      const result = await checkTransferStatus(reference);
-      if (!result.success) {
-        toast.error(result.message);
-      }
-      return result;
-    } catch (error) {
-      console.error("Error checking transfer status:", error);
-      toast.error("Failed to check transfer status");
-      return {
-        success: false,
-        message: "An error occurred while checking your transfer status"
-      };
-    }
+  const getSupportedBanksList = () => {
+    return getSupportedBanks();
   };
 
   return (
@@ -503,8 +500,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       getReceipt,
       verifyUser,
       isGroupCreator,
-      sendMoneyToBank: handleSendMoneyToBank,
-      checkTransferStatus: handleCheckTransferStatus,
+      sendMoney,
+      getSupportedBanks: getSupportedBanksList,
     }}>
       {children}
     </AppContext.Provider>
