@@ -7,9 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CreditCard, Wallet, Building } from "lucide-react";
-import { toast } from "sonner";
-import { updateUserBalance } from "@/services/localStorage";
-import { createPaymentInvoice } from "@/services/walletIntegration";
 import { User } from "@/services/localStorage/types";
 
 interface WalletActionsProps {

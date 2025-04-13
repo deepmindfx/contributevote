@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -348,7 +347,60 @@ const WalletCard = () => {
                     </Button>
                     <Button 
                       className="flex-1" 
-                      onClick={handleDeposit} 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        
+                        if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
+                          toast.error("Please enter a valid amount");
+                          return;
+                        }
+                        
+                        setIsProcessingDeposit(true);
+                        
+                        try {
+                          if (depositMethod === "manual") {
+                            // Original manual deposit logic
+                            updateUserBalance(user.id, user.walletBalance + Number(amount));
+                            refreshData();
+                            toast.success(`Successfully deposited ${currencyType === "NGN" ? "₦" : "$"}${Number(amount).toLocaleString()}`);
+                          } 
+                          else if (depositMethod === "card") {
+                            // Create an invoice for card payment
+                            createPaymentInvoice({
+                              amount: Number(amount),
+                              description: "Wallet top-up via card",
+                              customerEmail: user.email,
+                              customerName: user.name || `${user.firstName} ${user.lastName}`,
+                              userId: user.id
+                            }).then(result => {
+                              if (result && result.checkoutUrl) {
+                                // Open the checkout URL in a new tab
+                                window.open(result.checkoutUrl, "_blank");
+                                toast.success("Payment page opened. Complete your payment to fund your wallet.");
+                              } else {
+                                toast.error("Failed to create payment invoice");
+                              }
+                            });
+                          } 
+                          else if (depositMethod === "bank") {
+                            // For bank transfer, direct to dashboard to see account details
+                            if (user.reservedAccount) {
+                              toast.success("Use your virtual account details to make a bank transfer");
+                            } else {
+                              toast.info("You need to set up a virtual account first");
+                              navigate("/dashboard");
+                            }
+                          }
+                        } catch (error) {
+                          console.error("Error processing deposit:", error);
+                          toast.error("Failed to process deposit. Please try again.");
+                        } finally {
+                          setIsProcessingDeposit(false);
+                          setAmount("");
+                          setIsDepositOpen(false);
+                        }
+                      }}
                       disabled={isProcessingDeposit}
                       type="button"
                     >
@@ -398,7 +450,24 @@ const WalletCard = () => {
                       Cancel
                     </Button>
                     <Button 
-                      onClick={handleWithdraw}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        
+                        if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
+                          toast.error("Please enter a valid amount");
+                          return;
+                        }
+                        if (Number(amount) > user.walletBalance) {
+                          toast.error("Insufficient funds in your wallet");
+                          return;
+                        }
+                        updateUserBalance(user.id, user.walletBalance - Number(amount));
+                        refreshData();
+                        setAmount("");
+                        setIsWithdrawOpen(false);
+                        toast.success(`Successfully withdrew ${currencyType === "NGN" ? "₦" : "$"}${Number(amount).toLocaleString()}`);
+                      }}
                       type="button"
                     >
                       Withdraw

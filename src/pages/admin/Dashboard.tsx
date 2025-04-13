@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertCircle, ArrowUpDown, Check, CreditCard, DollarSign, Search, Users, X } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
 import Header from "@/components/layout/Header";
@@ -355,7 +355,105 @@ const AdminDashboard = () => {
               </CardHeader>
               <CardContent>
                 {displayedUsers.length > 0 ? (
-                  renderUserTable()
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="bg-secondary/40">
+                          <th className="text-left p-3">Name</th>
+                          <th className="text-left p-3">Email</th>
+                          <th className="text-left p-3">Phone</th>
+                          <th className="text-left p-3">Balance</th>
+                          <th className="text-left p-3">Status</th>
+                          <th className="text-right p-3">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {displayedUsers.map((user) => (
+                          <tr key={user.id} className="border-b border-border/50 hover:bg-secondary/20">
+                            <td className="p-3">
+                              <div className="flex items-center gap-2">
+                                <Avatar className="h-8 w-8">
+                                  <AvatarFallback>
+                                    {user.name?.charAt(0) || "U"}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span>{user.name}</span>
+                              </div>
+                            </td>
+                            <td className="p-3">{user.email}</td>
+                            <td className="p-3">{user.phoneNumber || "Not Set"}</td>
+                            <td className="p-3">₦{user.walletBalance?.toLocaleString() || "0"}</td>
+                            <td className="p-3">
+                              <Badge variant={user.status === "active" ? "outline" : "destructive"}>
+                                {user.status || "Active"}
+                              </Badge>
+                            </td>
+                            <td className="p-3 text-right">
+                              <div className="flex justify-end gap-2">
+                                <Dialog>
+                                  <DialogTrigger asChild>
+                                    <Button variant="outline" size="sm" onClick={() => setSelectedUser(user)}>
+                                      <DollarSign className="h-4 w-4 mr-1" />
+                                      Deposit
+                                    </Button>
+                                  </DialogTrigger>
+                                  <DialogContent>
+                                    <DialogHeader>
+                                      <DialogTitle>Deposit to User Account</DialogTitle>
+                                      <DialogDescription>
+                                        Add funds to {selectedUser?.name}'s wallet.
+                                      </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="space-y-4 py-4">
+                                      <div className="space-y-2">
+                                        <Label htmlFor="deposit-amount">Amount (₦)</Label>
+                                        <Input
+                                          id="deposit-amount"
+                                          type="number"
+                                          placeholder="Enter amount"
+                                          value={depositAmount}
+                                          onChange={(e) => setDepositAmount(e.target.value)}
+                                        />
+                                      </div>
+                                    </div>
+                                    <DialogFooter>
+                                      <Button variant="outline" onClick={() => {
+                                        setSelectedUser(null);
+                                        setDepositAmount("");
+                                      }}>
+                                        Cancel
+                                      </Button>
+                                      <Button onClick={handleDeposit}>
+                                        Deposit Funds
+                                      </Button>
+                                    </DialogFooter>
+                                  </DialogContent>
+                                </Dialog>
+                                
+                                <Button
+                                  variant={user.status === "paused" ? "default" : "destructive"}
+                                  size="sm"
+                                  onClick={() => handleToggleUserStatus(user)}
+                                >
+                                  {user.status === "paused" ? (
+                                    <>
+                                      <Check className="h-4 w-4 mr-1" />
+                                      Activate
+                                    </>
+                                  ) : (
+                                    <>
+                                      <X className="h-4 w-4 mr-1" />
+                                      Pause
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 ) : (
                   <div className="text-center py-8">
                     <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -376,7 +474,53 @@ const AdminDashboard = () => {
               </CardHeader>
               <CardContent>
                 {contributions.length > 0 ? (
-                  renderContributionStats()
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {contributions.map((contribution) => (
+                      <Card key={contribution.id} className="overflow-hidden">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-lg">{contribution.name}</CardTitle>
+                          <CardDescription>{contribution.description.substring(0, 100)}...</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2">
+                            <div className="flex justify-between">
+                              <span className="text-sm text-muted-foreground">Progress</span>
+                              <span className="text-sm font-medium">
+                                {Math.round((contribution.currentAmount / contribution.targetAmount) * 100)}%
+                              </span>
+                            </div>
+                            <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-primary"
+                                style={{
+                                  width: `${Math.min(
+                                    (contribution.currentAmount / contribution.targetAmount) * 100,
+                                    100
+                                  )}%`,
+                                }}
+                              ></div>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span>₦{contribution.currentAmount.toLocaleString()}</span>
+                              <span>₦{contribution.targetAmount.toLocaleString()}</span>
+                            </div>
+                            <div className="pt-2 flex justify-between items-center">
+                              <span className="text-sm text-muted-foreground">
+                                {contribution.members.length} members
+                              </span>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => navigate(`/groups/${contribution.id}`)}
+                              >
+                                View Details
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
                 ) : (
                   <div className="text-center py-8">
                     <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -397,7 +541,52 @@ const AdminDashboard = () => {
               </CardHeader>
               <CardContent>
                 {transactions.length > 0 ? (
-                  renderTransactionHistory()
+                  <div className="space-y-4">
+                    {transactions.slice(0, 10).map((transaction) => (
+                      <div
+                        key={transaction.id}
+                        className="flex items-center justify-between p-3 border rounded-lg"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
+                            transaction.type === 'deposit'
+                              ? 'bg-green-100 text-green-600'
+                              : transaction.type === 'withdrawal'
+                              ? 'bg-amber-100 text-amber-600'
+                              : 'bg-blue-100 text-blue-600'
+                          }`}>
+                            {transaction.type === 'deposit' ? (
+                              <ArrowUpDown className="h-5 w-5" />
+                            ) : transaction.type === 'withdrawal' ? (
+                              <CreditCard className="h-5 w-5" />
+                            ) : (
+                              <DollarSign className="h-5 w-5" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-medium">
+                              {transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {transaction.description.substring(0, 30)}
+                              {transaction.description.length > 30 ? '...' : ''}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className={`font-semibold ${
+                            transaction.type === 'deposit' ? 'text-green-600' : ''
+                          }`}>
+                            {transaction.type === 'deposit' ? '+' : '-'}₦
+                            {transaction.amount.toLocaleString()}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {format(new Date(transaction.createdAt), 'MMM d, yyyy')}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 ) : (
                   <div className="text-center py-8">
                     <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
