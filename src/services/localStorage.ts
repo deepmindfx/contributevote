@@ -1,9 +1,6 @@
 import { User, Contribution, Transaction, WithdrawalRequest, Notification, Stats } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 
-// At the top with other exports, add this line:
-export const getStats = getStatistics;
-
 // User related functions
 export const getCurrentUser = (): User => {
   const userString = localStorage.getItem('currentUser');
@@ -776,6 +773,9 @@ export const getStatistics = (): Stats => {
   }
   return JSON.parse(statsString);
 };
+
+// Export alias for getStatistics
+export const getStats = getStatistics;
 
 export const updateStats = (stats: Stats): void => {
   localStorage.setItem('stats', JSON.stringify(stats));
