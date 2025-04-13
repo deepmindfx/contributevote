@@ -2,23 +2,6 @@
 // Import only what we need from date-fns
 import { isValid } from "date-fns";
 
-// DO NOT import functions from the original file - that's causing circular reference
-// Instead, define the addTransaction function directly
-export const addTransaction = (transaction: any): void => {
-  try {
-    const transactionsString = localStorage.getItem('transactions');
-    const transactions = transactionsString ? JSON.parse(transactionsString) : [];
-    
-    // Add the transaction
-    transactions.push(transaction);
-    
-    // Save back to localStorage
-    localStorage.setItem('transactions', JSON.stringify(transactions));
-  } catch (error) {
-    console.error("Error in addTransaction:", error);
-  }
-};
-
 // Add the missing function to localStorage.ts
 export const verifyUserWithOTP = (userId: string): void => {
   try {
@@ -45,6 +28,23 @@ export const verifyUserWithOTP = (userId: string): void => {
     }
   } catch (error) {
     console.error("Error in verifyUserWithOTP:", error);
+  }
+};
+
+// DO NOT import functions from the original file - that's causing circular reference
+// Instead, define the addTransaction function directly
+export const addTransaction = (transaction: any): void => {
+  try {
+    const transactionsString = localStorage.getItem('transactions');
+    const transactions = transactionsString ? JSON.parse(transactionsString) : [];
+    
+    // Add the transaction
+    transactions.push(transaction);
+    
+    // Save back to localStorage
+    localStorage.setItem('transactions', JSON.stringify(transactions));
+  } catch (error) {
+    console.error("Error in addTransaction:", error);
   }
 };
 
@@ -243,4 +243,3 @@ export interface Transaction {
   description?: string;
   anonymous?: boolean;
 }
-

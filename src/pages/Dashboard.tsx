@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import Header from "@/components/layout/Header";
 import MobileNav from "@/components/layout/MobileNav";
@@ -14,7 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { markAllNotificationsAsRead, markNotificationAsRead } from "@/services/localStorage";
+import { markNotificationAsRead, markAllNotificationsAsRead } from "@/services/localStorage";
 import { useApp } from "@/contexts/AppContext";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -58,8 +57,11 @@ const Dashboard = () => {
   };
   
   const handleMarkAllRead = () => {
-    markAllNotificationsAsRead();
-    refreshData();
+    if (user?.id) {
+      // Now passing the userId as an argument
+      markAllNotificationsAsRead(user.id);
+      refreshData();
+    }
   };
   
   const unreadNotifications = user?.notifications?.filter(n => !n.read) || [];
