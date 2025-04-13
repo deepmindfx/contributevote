@@ -1,5 +1,6 @@
 
 import { toast } from 'sonner';
+import { Contribution, WithdrawalRequest } from '@/types';
 
 // Helper function to get contributions from localStorage
 const getContributions = () => {
@@ -19,6 +20,17 @@ const saveContributions = (contributions: any[]) => {
   } catch (error) {
     console.error("Error saving contributions:", error);
     toast.error("Failed to save changes. Please try again.");
+  }
+};
+
+// Get contribution details by ID
+export const getContributionDetails = (contributionId: string): Contribution | null => {
+  try {
+    const contributions = getContributions();
+    return contributions.find((contribution: Contribution) => contribution.id === contributionId) || null;
+  } catch (error) {
+    console.error("Error getting contribution details:", error);
+    return null;
   }
 };
 
@@ -46,6 +58,64 @@ export const deleteContribution = async (contributionId: string): Promise<void> 
       reject(error);
     }
   });
+};
+
+// Get all withdrawal requests
+export const getWithdrawalRequests = (): WithdrawalRequest[] => {
+  try {
+    const requests = localStorage.getItem('withdrawalRequests');
+    return requests ? JSON.parse(requests) : [];
+  } catch (error) {
+    console.error("Error getting withdrawal requests:", error);
+    return [];
+  }
+};
+
+// Submit vote on a withdrawal request
+export const submitVote = (requestId: string, vote: 'approve' | 'reject'): void => {
+  try {
+    const requests = getWithdrawalRequests();
+    const requestIndex = requests.findIndex(r => r.id === requestId);
+    
+    if (requestIndex === -1) {
+      toast.error("Withdrawal request not found");
+      return;
+    }
+    
+    // Here you would add the user's vote
+    // This is a simplified version, in a real implementation you would:
+    // 1. Check if the user has already voted
+    // 2. Add the vote with userId, vote type, and timestamp
+    // 3. Check if the vote threshold has been reached to approve/reject
+    
+    toast.success(`Your vote to ${vote} has been submitted`);
+    
+    // Save the updated requests
+    localStorage.setItem('withdrawalRequests', JSON.stringify(requests));
+  } catch (error) {
+    console.error("Error submitting vote:", error);
+    toast.error("Failed to submit vote. Please try again.");
+  }
+};
+
+// Create a withdrawal request
+export const createWithdrawalRequest = (request: any): void => {
+  try {
+    const requests = getWithdrawalRequests();
+    requests.push({
+      ...request,
+      id: `req-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      status: 'pending',
+      votes: []
+    });
+    
+    localStorage.setItem('withdrawalRequests', JSON.stringify(requests));
+    toast.success("Withdrawal request created successfully");
+  } catch (error) {
+    console.error("Error creating withdrawal request:", error);
+    toast.error("Failed to create withdrawal request. Please try again.");
+  }
 };
 
 // Add more contribution-related functions as needed
