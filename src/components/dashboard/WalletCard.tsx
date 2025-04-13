@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -194,15 +193,22 @@ const WalletCard = () => {
         <div className="absolute -top-24 -right-24 w-60 h-60 rounded-full border border-white/10 opacity-20"></div>
         <div className="absolute -bottom-24 -left-24 w-60 h-60 rounded-full border border-white/10 opacity-20"></div>
         
-        {/* Currency toggle - Updated to match reference image */}
-        <div className="absolute top-5 right-5 flex items-center bg-green-600/50 rounded-full px-3 py-1.5">
-          <span className={`text-xs ${currencyType === 'NGN' ? 'text-white' : 'text-white/60'}`}>NGN</span>
-          <Switch 
-            checked={currencyType === "USD"} 
-            onCheckedChange={toggleCurrency} 
-            className="mx-1.5 data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-green-500" 
-          />
-          <span className={`text-xs ${currencyType === 'USD' ? 'text-white' : 'text-white/60'}`}>USD</span>
+        {/* Currency toggle - Updated to improve clickable area */}
+        <div className="absolute top-5 right-5">
+          <div 
+            className="flex items-center bg-green-600/50 rounded-full px-3 py-1.5 cursor-pointer"
+            onClick={() => setCurrencyType(prev => prev === "NGN" ? "USD" : "NGN")}
+          >
+            <span className={`text-xs ${currencyType === 'NGN' ? 'text-white' : 'text-white/60'}`}>NGN</span>
+            <div className="mx-1.5 relative w-10 h-5">
+              <Switch 
+                checked={currencyType === "USD"} 
+                onCheckedChange={toggleCurrency} 
+                className="absolute inset-0 data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-green-500" 
+              />
+            </div>
+            <span className={`text-xs ${currencyType === 'USD' ? 'text-white' : 'text-white/60'}`}>USD</span>
+          </div>
         </div>
         
         <div className="relative z-10 mx-0 my-[5px]">
@@ -234,7 +240,7 @@ const WalletCard = () => {
                     <span className="text-xs">Top Up</span>
                   </div>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="sm:max-w-md">
                   <DialogHeader>
                     <DialogTitle>Deposit Funds</DialogTitle>
                     <DialogDescription>
@@ -316,9 +322,19 @@ const WalletCard = () => {
                     </TabsContent>
                   </Tabs>
                   
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsDepositOpen(false)}>Cancel</Button>
-                    <Button onClick={handleDeposit} disabled={isLoading}>
+                  <DialogFooter className="flex justify-between space-x-2">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1" 
+                      onClick={() => setIsDepositOpen(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      className="flex-1" 
+                      onClick={handleDeposit} 
+                      disabled={isLoading}
+                    >
                       {isLoading ? "Processing..." : "Deposit"}
                     </Button>
                   </DialogFooter>
