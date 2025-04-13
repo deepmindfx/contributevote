@@ -4,13 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ChartContainer, ChartStyle } from "@/components/ui/chart";
+import { AreaChart } from "@/components/ui/chart";
 import { useApp } from "@/contexts/AppContext";
 import { Plus, PiggyBank, CreditCard, Wallet, Coins, ArrowUp, ArrowDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { addTransaction } from "@/services/localStorage";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 const chartData = [
   { name: "Jan", Contribution: 4000 },
@@ -42,20 +41,11 @@ const WalletCard = () => {
       return;
     }
 
+    // Simulate deposit logic here
     const amount = Number(depositAmount);
-    
-    if (user?.id) {
-      addTransaction({
-        id: `tx_${Date.now()}`,
-        userId: user.id,
-        amount,
-        type: 'deposit',
-        status: 'completed',
-        createdAt: new Date().toISOString(),
-        description: 'Wallet deposit',
-      });
-    }
-    
+    // In a real application, you would call an API to deposit funds
+    // and update the user's wallet balance in the backend.
+    // For this example, we'll just show a success message.
     toast.success(`Successfully deposited ₦${amount.toLocaleString()} to your wallet.`);
     setDepositAmount("");
     setIsDepositOpen(false);
@@ -72,30 +62,14 @@ const WalletCard = () => {
       return;
     }
 
+    // Simulate withdrawal logic here
     const amount = Number(withdrawalAmount);
-    
-    if (user?.id) {
-      addTransaction({
-        id: `tx_${Date.now()}`,
-        userId: user.id,
-        amount,
-        type: 'withdrawal',
-        status: 'pending',
-        createdAt: new Date().toISOString(),
-        description: 'Wallet withdrawal',
-      });
-    }
-    
+    // In a real application, you would call an API to withdraw funds
+    // and update the user's wallet balance in the backend.
+    // For this example, we'll just show a success message.
     toast.success(`Successfully requested a withdrawal of ₦${amount.toLocaleString()} from your wallet.`);
     setWithdrawalAmount("");
     setIsWithdrawalOpen(false);
-  };
-
-  const chartConfig = {
-    Contribution: {
-      label: "Contribution",
-      color: "#2DAE75"
-    }
   };
 
   return (
@@ -106,25 +80,7 @@ const WalletCard = () => {
       </CardHeader>
       <CardContent>
         <div className="text-4xl font-bold">₦{user?.walletBalance?.toLocaleString() || "0"}</div>
-        <div className="h-[200px] mt-4">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart
-              data={chartData}
-              margin={{
-                top: 10,
-                right: 30,
-                left: 0,
-                bottom: 0,
-              }}
-            >
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-              <XAxis dataKey="name" className="text-xs" />
-              <YAxis className="text-xs" />
-              <Tooltip />
-              <Area type="monotone" dataKey="Contribution" stroke="#2DAE75" fill="#2DAE75" fillOpacity={0.2} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
+        <AreaChart data={chartData} valueKey="Contribution" nameKey="name" aspect={300 / 150} />
       </CardContent>
       <CardFooter className="flex justify-between items-center">
         <Button className="bg-[#2DAE75] hover:bg-[#249e69]" onClick={() => setIsDepositOpen(true)}>
