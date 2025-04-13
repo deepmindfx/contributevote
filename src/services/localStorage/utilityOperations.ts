@@ -1,9 +1,8 @@
 
-import { getUsers } from './userOperations';
-import { getContributionById } from './contributionOperations';
+import { getBaseUsers, getBaseContributionById } from './storageUtils';
 
 export const updateUserBalance = (userId: string, newBalance: number) => {
-  const users = getUsers();
+  const users = getBaseUsers();
   const userIndex = users.findIndex(user => user.id === userId);
   if (userIndex >= 0) {
     users[userIndex].walletBalance = newBalance;
@@ -22,7 +21,7 @@ export const updateUserBalance = (userId: string, newBalance: number) => {
 };
 
 export const hasContributed = (userId: string, contributionId: string): boolean => {
-  const contribution = getContributionById(contributionId);
+  const contribution = getBaseContributionById(contributionId);
   if (!contribution) return false;
   return contribution.contributors.some(contributor => contributor.userId === userId);
 };

@@ -1,13 +1,24 @@
 
-// Re-export from modules for backward compatibility
+// Import from types first to avoid circular dependencies
+import { User, Transaction, Contribution, WithdrawalRequest, Notification, Stats } from './localStorage/types';
+
+// Import from the base localStorage.ts without creating circular references
+import {
+  ensureAccountNumberDisplay, verifyUserWithOTP, validateDate, 
+  getContributionByAccountNumber, reExportEnsureAccountNumberDisplay,
+  addTransaction, getCurrentUser as getBaseCurrentUser, getUsers as getBaseUsers,
+  getContributions as getBaseContributions
+} from '@/localStorage';
+
+// Import from modules
 import { initializeLocalStorage, generateDummyData } from './localStorage/initialization';
 import { 
-  getCurrentUser, getUsers, createUser, setCurrentUser, logoutUser, 
+  createUser, setCurrentUser, logoutUser, 
   updateUser, updateUserById, pauseUser, activateUser, depositToUser,
   getUserByEmail, getUserByPhone
 } from './localStorage/userOperations';
 import {
-  getContributions, getUserContributions, getContributionById, 
+  getUserContributions, getContributionById, 
   createContribution, updateContribution, contributeToGroup,
   contributeByAccountNumber, generateShareLink
 } from './localStorage/contributionOperations';
@@ -19,7 +30,7 @@ import {
   getTransactions, createTransaction
 } from './localStorage/transactionOperations';
 import {
-  getNotifications, addNotification, markNotificationAsRead, markAllNotificationsAsRead
+  getNotifications, addNotification, markNotificationAsRead, markAllNotificationsAsRead as markAllNotifications
 } from './localStorage/notificationOperations';
 import { getStatistics } from './localStorage/statisticsOperations';
 import { generateContributionReceipt } from './localStorage/receiptOperations';
@@ -27,19 +38,17 @@ import {
   updateUserBalance, hasContributed 
 } from './localStorage/utilityOperations';
 
-// Re-export from original localStorage.ts
-import {
-  ensureAccountNumberDisplay, verifyUserWithOTP, validateDate, 
-  getContributionByAccountNumber, reExportEnsureAccountNumberDisplay,
-  addTransaction, User, Transaction, Contribution
-} from '@/localStorage';
+// Re-export the direct localStorage functions
+export const getCurrentUser = getBaseCurrentUser;
+export const getUsers = getBaseUsers;
+export const getContributions = getBaseContributions;
 
 // Re-export everything for backward compatibility
 export {
   initializeLocalStorage, generateDummyData,
-  getCurrentUser, getUsers, createUser, setCurrentUser, logoutUser,
+  createUser, setCurrentUser, logoutUser,
   updateUser, updateUserById, pauseUser, activateUser, depositToUser,
-  getContributions, getUserContributions, getContributionById,
+  getUserContributions, getContributionById,
   createContribution, updateContribution, contributeToGroup,
   contributeByAccountNumber, getWithdrawalRequests, createWithdrawalRequest,
   updateWithdrawalRequest, voteOnWithdrawalRequest, updateUserBalance,
@@ -47,7 +56,7 @@ export {
   getNotifications, addNotification, markNotificationAsRead,
   getStatistics, generateShareLink, getUserByEmail, getUserByPhone,
   pingGroupMembersForVote, generateContributionReceipt,
-  updateWithdrawalRequestsStatus, markAllNotificationsAsRead,
+  updateWithdrawalRequestsStatus, markAllNotifications,
   // Re-exported from original localStorage.ts
   ensureAccountNumberDisplay, verifyUserWithOTP, validateDate,
   getContributionByAccountNumber, reExportEnsureAccountNumberDisplay,
@@ -55,5 +64,4 @@ export {
 };
 
 // Re-export the interfaces
-export type { User, Transaction, Contribution };
-export type { WithdrawalRequest, Notification, Stats } from './localStorage/types';
+export type { User, Transaction, Contribution, WithdrawalRequest, Notification, Stats };

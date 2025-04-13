@@ -85,7 +85,7 @@ const WalletCard = () => {
     try {
       if (depositMethod === "manual") {
         // Original manual deposit logic
-        updateUserBalance(Number(amount));
+        updateUserBalance(user.id, user.walletBalance + Number(amount));
         refreshData();
         toast.success(`Successfully deposited ${currencyType === "NGN" ? "₦" : "$"}${Number(amount).toLocaleString()}`);
       } 
@@ -139,7 +139,7 @@ const WalletCard = () => {
       toast.error("Insufficient funds in your wallet");
       return;
     }
-    updateUserBalance(-Number(amount));
+    updateUserBalance(user.id, user.walletBalance - Number(amount));
     refreshData();
     setAmount("");
     setIsWithdrawOpen(false);

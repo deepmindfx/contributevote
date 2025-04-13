@@ -1,5 +1,80 @@
 
-import { User, Transaction, Contribution } from '@/localStorage';
+// Define all types here to avoid circular dependencies
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  password?: string;
+  walletBalance: number;
+  preferences?: {
+    darkMode: boolean;
+    anonymousContributions: boolean;
+    notificationsEnabled?: boolean;
+  };
+  role: 'user' | 'admin' | 'paused';
+  accountNumber?: string;
+  accountName?: string;
+  verified: boolean;
+  reservedAccount?: any;
+  invoices?: any[];
+  cardTokens?: any[];
+  notifications?: any[];
+  phone?: string;
+  phoneNumber?: string;
+  firstName?: string;
+  lastName?: string;
+  username?: string;
+  profileImage?: string;
+  status?: string;
+  createdAt?: string;
+  pin?: string;
+}
+
+export interface Contribution {
+  id: string;
+  name: string;
+  description: string;
+  targetAmount: number;
+  currentAmount: number;
+  category: "personal" | "family" | "community" | "business" | "event" | "education" | "other";
+  frequency: "daily" | "weekly" | "monthly" | "one-time";
+  contributionAmount: number;
+  startDate: string;
+  endDate?: string;
+  deadline?: string;
+  creatorId: string;
+  members: string[];
+  contributors: any[];
+  createdAt: string;
+  status?: "active" | "completed" | "expired";
+  visibility?: "public" | "private" | "invite-only";
+  privacy?: string;
+  memberRoles?: string;
+  votingThreshold?: number;
+  accountNumber?: string;
+  accountName?: string;
+  bankName?: string;
+  accountReference?: string;
+  accountDetails?: any;
+}
+
+export interface Transaction {
+  id: string;
+  type: "deposit" | "withdrawal" | "transfer" | "payment" | "vote";
+  amount: number;
+  narration?: string;
+  status?: "pending" | "successful" | "failed" | "completed";
+  reference?: string;
+  userId: string;
+  toUserId?: string;
+  contributionId?: string;
+  createdAt: string;
+  paymentMethod?: string;
+  metadata?: any;
+  metaData?: any;
+  description?: string;
+  anonymous?: boolean;
+}
 
 export interface WithdrawalRequest {
   id: string;
@@ -35,6 +110,3 @@ export interface Stats {
   totalWithdrawals: number;
   totalAmountContributed: number;
 }
-
-// Re-export the types from localStorage.ts for convenience
-export type { User, Transaction, Contribution };

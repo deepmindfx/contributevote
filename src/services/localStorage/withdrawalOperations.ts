@@ -2,7 +2,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { format } from 'date-fns';
 import { WithdrawalRequest } from './types';
-import { getCurrentUser } from './userOperations';
+import { getBaseCurrentUser } from './storageUtils';
 import { getContributionById } from './contributionOperations';
 import { hasContributed } from './utilityOperations';
 import { createTransaction } from './transactionOperations';
@@ -14,7 +14,7 @@ export const getWithdrawalRequests = (): WithdrawalRequest[] => {
 };
 
 export const createWithdrawalRequest = (request: Omit<WithdrawalRequest, 'id' | 'createdAt' | 'status' | 'votes' | 'deadline'>) => {
-  const user = getCurrentUser();
+  const user = getBaseCurrentUser();
   if (!user) throw new Error('User not logged in');
 
   const contribution = getContributionById(request.contributionId);

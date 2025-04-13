@@ -1,32 +1,29 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import { Contribution } from './types';
-import { getCurrentUser } from './userOperations';
+import { getBaseCurrentUser, getBaseContributions, getBaseContributionById } from './storageUtils';
 import { updateUserBalance } from './utilityOperations';
 import { createTransaction } from './transactionOperations';
 import { getContributionByAccountNumber } from '@/localStorage';
 
-export const getContributions = (): Contribution[] => {
-  const contributionsString = localStorage.getItem('contributions');
-  return contributionsString ? JSON.parse(contributionsString) : [];
-};
-
 export const getUserContributions = (userId: string): Contribution[] => {
-  const contributions = getContributions();
+  const contributions = getBaseContributions();
   return contributions.filter(contribution => contribution.members.includes(userId));
 };
 
 export const getContributionById = (id: string): Contribution | undefined => {
-  const contributions = getContributions();
-  return contributions.find(contribution => contribution.id === id);
+  return getBaseContributionById(id);
 };
 
 export const createContribution = (contribution: Omit<Contribution, 'id' | 'createdAt' | 'currentAmount' | 'members' | 'contributors' | 'accountNumber'>) => {
-  const contributions = getContributions();
+  const contributions = getBaseContributions();
+  const currentUser = getBaseCurrentUser();
+  if (!currentUser) throw new Error('User not logged in');
+  
   const newContribution: Contribution = {
     id: uuidv4(),
     currentAmount: 0,
-    members: [getCurrentUser().id],
+    members: [currentUser.id],
     contributors: [],
     createdAt: new Date().toISOString(),
     accountNumber: `60${Math.floor(10000000 + Math.random() * 90000000)}`,
@@ -38,7 +35,7 @@ export const createContribution = (contribution: Omit<Contribution, 'id' | 'crea
 };
 
 export const updateContribution = (id: string, contributionData: Partial<Contribution>) => {
-  const contributions = getContributions();
+  const contributions = getBaseContributions();
   const contributionIndex = contributions.findIndex(contribution => contribution.id === id);
   if (contributionIndex >= 0) {
     contributions[contributionIndex] = { ...contributions[contributionIndex], ...contributionData };
@@ -47,10 +44,10 @@ export const updateContribution = (id: string, contributionData: Partial<Contrib
 };
 
 export const contributeToGroup = (contributionId: string, amount: number, anonymous: boolean = false) => {
-  const user = getCurrentUser();
+  const user = getBaseCurrentUser();
   if (!user) throw new Error('User not logged in');
 
-  const contribution = getContributionById(contributionId);
+  const contribution = getBaseContributionById(contributionId);
   if (!contribution) throw new Error('Contribution group not found');
 
   if (user.walletBalance < amount) throw new Error('Insufficient funds in your wallet');
@@ -88,7 +85,7 @@ export const contributeToGroup = (contributionId: string, amount: number, anonym
 };
 
 export const contributeByAccountNumber = (accountNumber: string, amount: number, contributorInfo: { name: string, email?: string, phone?: string }, anonymous: boolean = false) => {
-  const user = getCurrentUser();
+  const user = getBaseCurrentUser();
   const contribution = getContributionByAccountNumber(accountNumber);
   
   if (!contribution) {

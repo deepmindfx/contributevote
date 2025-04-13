@@ -1,19 +1,10 @@
 
 import { User } from './types';
 import { v4 as uuidv4 } from 'uuid';
-
-export const getCurrentUser = (): User => {
-  const userString = localStorage.getItem('currentUser');
-  return userString ? JSON.parse(userString) : null;
-};
-
-export const getUsers = (): User[] => {
-  const usersString = localStorage.getItem('users');
-  return usersString ? JSON.parse(usersString) : [];
-};
+import { getBaseCurrentUser, getBaseUsers } from './storageUtils';
 
 export const createUser = (user: Omit<User, 'id' | 'role' | 'walletBalance' | 'preferences'>) => {
-  const users = getUsers();
+  const users = getBaseUsers();
   const newUser: User = {
     id: uuidv4(),
     role: 'user',
@@ -39,13 +30,13 @@ export const logoutUser = () => {
 };
 
 export const updateUser = (userData: Partial<User>) => {
-  const currentUser = getCurrentUser();
+  const currentUser = getBaseCurrentUser();
   if (!currentUser) return;
 
   const updatedUser = { ...currentUser, ...userData };
   localStorage.setItem('currentUser', JSON.stringify(updatedUser));
 
-  const users = getUsers();
+  const users = getBaseUsers();
   const userIndex = users.findIndex(user => user.id === currentUser.id);
   if (userIndex >= 0) {
     users[userIndex] = updatedUser;
@@ -54,14 +45,14 @@ export const updateUser = (userData: Partial<User>) => {
 };
 
 export const updateUserById = (userId: string, userData: Partial<User>) => {
-  const users = getUsers();
+  const users = getBaseUsers();
   const userIndex = users.findIndex(user => user.id === userId);
   if (userIndex >= 0) {
     users[userIndex] = { ...users[userIndex], ...userData };
     localStorage.setItem('users', JSON.stringify(users));
 
     // Also update currentUser if it's the same user
-    const currentUser = getCurrentUser();
+    const currentUser = getBaseCurrentUser();
     if (currentUser && currentUser.id === userId) {
       localStorage.setItem('currentUser', JSON.stringify(users[userIndex]));
     }
@@ -77,14 +68,14 @@ export const activateUser = (userId: string) => {
 };
 
 export const depositToUser = (userId: string, amount: number) => {
-  const users = getUsers();
+  const users = getBaseUsers();
   const userIndex = users.findIndex(user => user.id === userId);
   if (userIndex >= 0) {
     users[userIndex].walletBalance += amount;
     localStorage.setItem('users', JSON.stringify(users));
 
     // Also update currentUser if it's the same user
-    const currentUser = getCurrentUser();
+    const currentUser = getBaseCurrentUser();
     if (currentUser && currentUser.id === userId) {
       updateUser({ walletBalance: users[userIndex].walletBalance });
     }
@@ -92,11 +83,11 @@ export const depositToUser = (userId: string, amount: number) => {
 };
 
 export const getUserByEmail = (email: string): User | null => {
-  const users = getUsers();
+  const users = getBaseUsers();
   return users.find(user => user.email === email) || null;
 };
 
 export const getUserByPhone = (phone: string): User | null => {
-  const users = getUsers();
+  const users = getBaseUsers();
   return users.find(user => user.phone === phone) || null;
 };
