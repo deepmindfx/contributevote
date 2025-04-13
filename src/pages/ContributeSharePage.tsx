@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { useApp } from "@/contexts/AppContext";
 import Header from "@/components/layout/Header";
 import { ensureAccountNumberDisplay } from "@/localStorage";
+import AccountNumberDisplay from "@/components/contributions/AccountNumberDisplay";
 
 const ContributeSharePage = () => {
   const { id } = useParams<{ id: string }>();
@@ -20,8 +21,7 @@ const ContributeSharePage = () => {
   const [amount, setAmount] = useState<number>(0);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [showCopiedAccountNumber, setShowCopiedAccountNumber] = useState(false);
-  const navigate = useNavigate();
+  const [navigate] = useState(() => useNavigate());
   
   useEffect(() => {
     if (id) {
@@ -86,21 +86,6 @@ const ContributeSharePage = () => {
       toast.success(`Successfully contributed ₦${amount.toLocaleString()} to ${contribution.name}`);
       navigate(`/groups/${contribution.id}`);
     }, 1000);
-  };
-  
-  const copyAccountNumber = () => {
-    if (!contribution || !contribution.accountNumber) {
-      toast.error("Account number not available");
-      return;
-    }
-    
-    navigator.clipboard.writeText(contribution.accountNumber).then(() => {
-      setShowCopiedAccountNumber(true);
-      toast.success("Account number copied to clipboard");
-      setTimeout(() => setShowCopiedAccountNumber(false), 2000);
-    }).catch(() => {
-      toast.error("Failed to copy account number");
-    });
   };
   
   if (!contribution) {
@@ -180,20 +165,12 @@ const ContributeSharePage = () => {
             
             {contribution.accountNumber && (
               <div className="p-3 bg-secondary/30 rounded-lg">
-                <div className="flex justify-between items-center mb-1">
-                  <p className="text-sm font-medium">Account Details</p>
-                  <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={copyAccountNumber}>
-                    {showCopiedAccountNumber ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                  </Button>
-                </div>
-                <div className="grid grid-cols-2 gap-1 text-sm">
-                  <span className="text-muted-foreground">Account No.</span>
-                  <span className="font-mono text-right">{contribution.accountNumber}</span>
-                </div>
-                <div className="grid grid-cols-2 gap-1 text-sm">
-                  <span className="text-muted-foreground">Bank</span>
-                  <span className="text-right">CollectiPay Bank</span>
-                </div>
+                {/* Replace the manual account display with AccountNumberDisplay component */}
+                <AccountNumberDisplay 
+                  accountNumber={contribution.accountNumber} 
+                  accountName={contribution.name}
+                  monnifyDetails={contribution.accountDetails}
+                />
                 <p className="text-xs text-muted-foreground mt-2">
                   You can also transfer directly to this account
                 </p>

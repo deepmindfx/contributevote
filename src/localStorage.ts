@@ -1,4 +1,3 @@
-
 // First import any required functions from the original file to fix the errors
 import { getCurrentUser, getUsers, getContributions } from "@/services/localStorage";
 import { isValid } from "date-fns";
@@ -90,3 +89,33 @@ export const reExportEnsureAccountNumberDisplay = () => {
   // This isn't actually used, but it forces the compiler to include the export
   return ensureAccountNumberDisplay;
 };
+
+// Fix the User interface to include all required fields
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  password: string;
+  walletBalance: number;
+  preferences?: {
+    darkMode: boolean;
+    anonymousContributions: boolean;
+    notificationsEnabled?: boolean;  // Add missing field
+  };
+  role: 'user' | 'admin';
+  accountNumber?: string;
+  accountName?: string;
+  verified: boolean;
+  reservedAccount?: any;
+  invoices?: any[];
+  cardTokens?: any[];
+  notifications?: any[];
+  // Add missing fields
+  phoneNumber?: string;
+  firstName?: string;
+  lastName?: string;
+  username?: string;
+  profileImage?: string;
+  status?: string;
+  createdAt?: string;
+}

@@ -7,18 +7,43 @@ import { toast } from "sonner";
 interface AccountNumberDisplayProps {
   accountNumber: string;
   accountName: string;
+  bankName?: string; // Make bankName optional
+  monnifyDetails?: any; // Add support for Monnify details
 }
 
-const AccountNumberDisplay = ({ accountNumber, accountName }: AccountNumberDisplayProps) => {
+const AccountNumberDisplay = ({ 
+  accountNumber, 
+  accountName, 
+  bankName = "CollectiPay Bank", // Default bank name
+  monnifyDetails 
+}: AccountNumberDisplayProps) => {
   const [showCopiedAccountNumber, setShowCopiedAccountNumber] = useState(false);
   
+  // Determine if we should use Monnify account details
+  const useMonnifyDetails = monnifyDetails && 
+    monnifyDetails.accounts && 
+    monnifyDetails.accounts.length > 0;
+  
+  // Get account details from Monnify or use provided values
+  const displayAccountNumber = useMonnifyDetails 
+    ? monnifyDetails.accounts[0].accountNumber 
+    : accountNumber;
+    
+  const displayAccountName = useMonnifyDetails
+    ? monnifyDetails.accounts[0].accountName || monnifyDetails.accountName
+    : accountName;
+    
+  const displayBankName = useMonnifyDetails
+    ? monnifyDetails.accounts[0].bankName
+    : bankName;
+  
   const copyAccountNumber = () => {
-    if (!accountNumber) {
+    if (!displayAccountNumber) {
       toast.error("No account number available to copy");
       return;
     }
     
-    navigator.clipboard.writeText(accountNumber).then(() => {
+    navigator.clipboard.writeText(displayAccountNumber).then(() => {
       setShowCopiedAccountNumber(true);
       toast.success("Account number copied to clipboard");
       setTimeout(() => setShowCopiedAccountNumber(false), 2000);
@@ -38,15 +63,15 @@ const AccountNumberDisplay = ({ accountNumber, accountName }: AccountNumberDispl
       </div>
       <div className="flex justify-between text-sm">
         <span className="text-muted-foreground">Account No.</span>
-        <span className="font-mono">{accountNumber || "Generating..."}</span>
+        <span className="font-mono">{displayAccountNumber || "Generating..."}</span>
       </div>
       <div className="flex justify-between text-sm">
         <span className="text-muted-foreground">Account Name</span>
-        <span>{accountName}</span>
+        <span>{displayAccountName}</span>
       </div>
       <div className="flex justify-between text-sm">
         <span className="text-muted-foreground">Bank</span>
-        <span>CollectiPay Bank</span>
+        <span>{displayBankName}</span>
       </div>
     </div>
   );
