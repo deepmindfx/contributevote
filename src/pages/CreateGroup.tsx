@@ -173,7 +173,7 @@ const CreateGroup = () => {
         creatorId: user.id,
         // Setting required properties to meet the type requirements
         visibility: formData.privacy === 'public' ? 'public' as VisibilityType : 'private' as VisibilityType,
-        status: 'active',
+        status: 'active' as 'active' | 'completed' | 'expired',
         deadline: formData.endDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
         // Add account details
         accountNumber: accountDetails.accountNumber,

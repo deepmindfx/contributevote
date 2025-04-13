@@ -132,6 +132,7 @@ export const createContributionGroupAccount = async (data: {
       // Use the provided contractCode 
       contractCode: "465595618981", // Updated contract code
       preferredBanks: ["035"], // Use the same bank as personal accounts for consistency
+      getAllAvailableBanks: true, // Adding the missing field that was causing the error
     });
     
     return response;
