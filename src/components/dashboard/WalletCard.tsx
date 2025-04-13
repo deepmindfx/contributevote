@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -73,7 +74,11 @@ const WalletCard = () => {
     });
   };
   
-  const handleDeposit = async () => {
+  const handleDeposit = async (e: React.MouseEvent) => {
+    // Prevent event bubbling
+    e.preventDefault();
+    e.stopPropagation();
+    
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       toast.error("Please enter a valid amount");
       return;
@@ -193,22 +198,20 @@ const WalletCard = () => {
         <div className="absolute -top-24 -right-24 w-60 h-60 rounded-full border border-white/10 opacity-20"></div>
         <div className="absolute -bottom-24 -left-24 w-60 h-60 rounded-full border border-white/10 opacity-20"></div>
         
-        {/* Currency toggle - Updated to improve clickable area */}
-        <div className="absolute top-5 right-5">
-          <div 
-            className="flex items-center bg-green-600/50 rounded-full px-3 py-1.5 cursor-pointer"
-            onClick={() => setCurrencyType(prev => prev === "NGN" ? "USD" : "NGN")}
-          >
-            <span className={`text-xs ${currencyType === 'NGN' ? 'text-white' : 'text-white/60'}`}>NGN</span>
-            <div className="mx-1.5 relative w-10 h-5">
-              <Switch 
-                checked={currencyType === "USD"} 
-                onCheckedChange={toggleCurrency} 
-                className="absolute inset-0 data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-green-500" 
-              />
-            </div>
-            <span className={`text-xs ${currencyType === 'USD' ? 'text-white' : 'text-white/60'}`}>USD</span>
+        {/* Currency toggle - Make the entire container clickable */}
+        <div 
+          className="absolute top-5 right-5 flex items-center bg-green-600/50 rounded-full px-3 py-1.5 cursor-pointer"
+          onClick={toggleCurrency}
+        >
+          <span className={`text-xs ${currencyType === 'NGN' ? 'text-white' : 'text-white/60'}`}>NGN</span>
+          <div className="mx-1.5 w-10">
+            <Switch 
+              checked={currencyType === "USD"} 
+              onCheckedChange={toggleCurrency} 
+              className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-green-500" 
+            />
           </div>
+          <span className={`text-xs ${currencyType === 'USD' ? 'text-white' : 'text-white/60'}`}>USD</span>
         </div>
         
         <div className="relative z-10 mx-0 my-[5px]">
@@ -326,7 +329,12 @@ const WalletCard = () => {
                     <Button 
                       variant="outline" 
                       className="flex-1" 
-                      onClick={() => setIsDepositOpen(false)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsDepositOpen(false);
+                      }}
+                      type="button"
                     >
                       Cancel
                     </Button>
@@ -334,6 +342,7 @@ const WalletCard = () => {
                       className="flex-1" 
                       onClick={handleDeposit} 
                       disabled={isLoading}
+                      type="button"
                     >
                       {isLoading ? "Processing..." : "Deposit"}
                     </Button>
@@ -369,8 +378,27 @@ const WalletCard = () => {
                     </div>
                   </div>
                   <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsWithdrawOpen(false)}>Cancel</Button>
-                    <Button onClick={handleWithdraw}>Withdraw</Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsWithdrawOpen(false);
+                      }}
+                      type="button"
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleWithdraw();
+                      }}
+                      type="button"
+                    >
+                      Withdraw
+                    </Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
@@ -507,7 +535,17 @@ const WalletCard = () => {
           )}
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsTransactionDetailsOpen(false)}>Close</Button>
+            <Button 
+              variant="outline" 
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsTransactionDetailsOpen(false);
+              }}
+              type="button"
+            >
+              Close
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
