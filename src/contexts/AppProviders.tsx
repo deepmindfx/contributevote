@@ -3,6 +3,7 @@ import { ReactNode } from 'react';
 import { UserProvider } from './UserContext';
 import { ContributionProvider } from './ContributionContext';
 import { AdminProvider } from './AdminContext';
+import { AppProvider } from './AppContext';
 import { ensureAccountNumberDisplay } from '@/localStorage';
 import { useEffect } from 'react';
 
@@ -24,7 +25,9 @@ export function AppProviders({ children }: AppProvidersProps) {
     <UserProvider>
       <ContributionProvider>
         <AdminProvider>
-          {children}
+          <AppProvider>
+            {children}
+          </AppProvider>
         </AdminProvider>
       </ContributionProvider>
     </UserProvider>
