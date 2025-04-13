@@ -38,13 +38,21 @@ const UserProfile = () => {
     }, 500);
   };
 
-  // Calculate statistics
-  const totalContributions = contributions.length;
+  // Calculate statistics - count only user's contributions
+  const totalContributions = contributions.filter(c => c.contributors.some(contrib => contrib.userId === user.id)).length;
+  
+  // Calculate total amount contributed by this user across all groups
   const totalAmountContributed = transactions
-    .filter(t => t.type === 'deposit' && t.status === 'completed')
+    .filter(t => 
+      t.userId === user.id && 
+      t.type === 'contribution' && 
+      t.status === 'completed'
+    )
     .reduce((sum, t) => sum + t.amount, 0);
+    
   const activeContributions = contributions.filter(c => 
-    c.currentAmount < c.targetAmount
+    c.currentAmount < c.targetAmount && 
+    c.contributors.some(contrib => contrib.userId === user.id)
   ).length;
 
   return (

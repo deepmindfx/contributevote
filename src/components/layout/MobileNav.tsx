@@ -18,7 +18,7 @@ const MobileNav = () => {
 
   // Determine if back button should be shown based on current route
   useEffect(() => {
-    setShowBackButton(location.pathname === '/settings');
+    setShowBackButton(location.pathname === '/settings' || location.pathname === '/profile');
   }, [location.pathname]);
 
   // Handle back button click

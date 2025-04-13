@@ -1,3 +1,4 @@
+
 // Update the votes page to handle the "expired" status
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +9,8 @@ import { useApp } from "@/contexts/AppContext";
 import { Badge } from "@/components/ui/badge";
 import { Check, X } from "lucide-react";
 import { format, isValid } from "date-fns";
+import Header from "@/components/layout/Header";
+import MobileNav from "@/components/layout/MobileNav";
 
 const VotesPage = () => {
   const navigate = useNavigate();
@@ -67,7 +70,9 @@ const VotesPage = () => {
   };
   
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen pb-20 md:pb-0">
+      <Header />
+      
       <div className="container max-w-4xl mx-auto px-4 pt-24 pb-12">
         <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate("/dashboard")}>
           <ArrowLeft className="h-4 w-4 mr-2" />
@@ -138,6 +143,8 @@ const VotesPage = () => {
           </CardContent>
         </Card>
       </div>
+      
+      <MobileNav />
     </div>
   );
 };

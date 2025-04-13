@@ -1,10 +1,11 @@
 
 import Header from "@/components/layout/Header";
 import UserSettingsForm from "@/components/settings/UserSettingsForm";
+import MobileNav from "@/components/layout/MobileNav";
 
 const UserSettings = () => {
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-background pb-20 md:pb-0">
       <Header />
       <div className="flex-1 container max-w-4xl mx-auto px-4 pt-24 pb-12">
         <div className="space-y-6">
@@ -18,6 +19,8 @@ const UserSettings = () => {
           <UserSettingsForm />
         </div>
       </div>
+      
+      <MobileNav />
     </div>
   );
 };
