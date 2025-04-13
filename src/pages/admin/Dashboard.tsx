@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import {
@@ -20,7 +21,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { User } from "@/types";
-import { getAllUsers } from "@/services/localStorage";
+import { getUsers } from "@/services/localStorage";
 
 const AdminDashboard = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -28,7 +29,7 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     // Fetch all users from local storage
-    const allUsers = getAllUsers();
+    const allUsers = getUsers();
     setUsers(allUsers);
   }, []);
 

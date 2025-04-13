@@ -1,3 +1,4 @@
+
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
@@ -19,7 +20,7 @@ import { PieChart } from 'lucide-react';
 import WalletCard from "@/components/dashboard/WalletCard";
 import RecentActivity from "@/components/dashboard/RecentActivity";
 import { useQuery } from "@tanstack/react-query";
-import { getStats } from "@/services/localStorage";
+import { getStatistics } from "@/services/localStorage";
 import { Stats } from "@/types";
 
 const Dashboard = () => {
@@ -28,7 +29,7 @@ const Dashboard = () => {
   
   const { data: stats, isLoading, isError } = useQuery<Stats>({
     queryKey: ['stats'],
-    queryFn: getStats,
+    queryFn: getStatistics,
   });
   
   useEffect(() => {

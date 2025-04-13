@@ -1,5 +1,19 @@
+
 import { createContext, useContext, useState, useEffect } from 'react';
-import { User } from '@/types';
+import { User, Contribution, Transaction, WithdrawalRequest } from '@/types';
+import { 
+  getUsers, 
+  getUserByEmail, 
+  getUserByPhone, 
+  getContributions, 
+  getUserContributions, 
+  getTransactions, 
+  contributeToGroup, 
+  voteOnWithdrawalRequest, 
+  getWithdrawalRequests,
+  pingGroupMembersForVote,
+  updateUser as updateUserStorage
+} from '@/services/localStorage';
 
 // Define the AppContext interface
 interface AppContextProps {
@@ -12,6 +26,20 @@ interface AppContextProps {
   createNewContribution: (contributionData: any) => void;
   updateUser: (userData: Partial<User>) => void;
   refreshUser: () => void;
+  // Adding missing functions from TypeScript errors
+  refreshData: () => void;
+  updateProfile: (userData: Partial<User>) => void;
+  users: User[];
+  contributions: Contribution[];
+  transactions: Transaction[];
+  withdrawalRequests: WithdrawalRequest[];
+  contribute: (contributionId: string, amount: number, anonymous?: boolean) => void;
+  vote: (requestId: string, vote: 'approve' | 'reject') => void;
+  pingMembersForVote: (requestId: string) => void;
+  isGroupCreator: (contributionId: string) => boolean;
+  getUserByEmail: (email: string) => User | null;
+  getUserByPhone: (phone: string) => User | null;
+  shareToContacts: (emails: string[], contributionId: string) => void;
 }
 
 // Create the AppContext
@@ -34,8 +62,20 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     return storedUser ? JSON.parse(storedUser) : null;
   });
   
+  const [users, setUsers] = useState<User[]>([]);
+  const [contributions, setContributions] = useState<Contribution[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [withdrawalRequests, setWithdrawalRequests] = useState<WithdrawalRequest[]>([]);
+  
   const isAdmin = user?.role === 'admin';
   const isAuthenticated = !!user;
+  
+  // Fetch initial data
+  useEffect(() => {
+    if (isAuthenticated) {
+      refreshData();
+    }
+  }, [isAuthenticated]);
   
   useEffect(() => {
     // Update localStorage when user changes
@@ -45,6 +85,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       localStorage.removeItem('user');
     }
   }, [user]);
+  
+  // Function to refresh all data
+  const refreshData = () => {
+    setUsers(getUsers());
+    setContributions(getContributions());
+    setTransactions(getTransactions());
+    setWithdrawalRequests(getWithdrawalRequests());
+  };
   
   // Function to update user in localStorage
   const updateUserInStorage = (updatedUser: User) => {
@@ -92,6 +140,38 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     setUser(storedUser ? JSON.parse(storedUser) : null);
   };
   
+  // Alias for updateUser function
+  const updateProfile = updateUser;
+  
+  // Function to contribute to a group
+  const contribute = (contributionId: string, amount: number, anonymous: boolean = false) => {
+    contributeToGroup(contributionId, amount, anonymous);
+    refreshData();
+  };
+  
+  // Function to vote on a withdrawal request
+  const vote = (requestId: string, voteDecision: 'approve' | 'reject') => {
+    voteOnWithdrawalRequest(requestId, voteDecision);
+    refreshData();
+  };
+  
+  // Function to ping members for vote
+  const pingMembersForVote = (requestId: string) => {
+    pingGroupMembersForVote(requestId);
+  };
+  
+  // Function to check if the current user is the creator of a group
+  const isGroupCreator = (contributionId: string) => {
+    const contribution = contributions.find(c => c.id === contributionId);
+    return contribution ? contribution.creatorId === user?.id : false;
+  };
+  
+  // Function to share to contacts
+  const shareToContacts = (emails: string[], contributionId: string) => {
+    console.log('Sharing contribution to contacts:', emails, contributionId);
+    // Implementation would go here
+  };
+  
   return (
     <AppContext.Provider value={{
       user,
@@ -103,6 +183,19 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       createNewContribution,
       updateUser,
       refreshUser,
+      refreshData,
+      updateProfile,
+      users,
+      contributions,
+      transactions,
+      withdrawalRequests,
+      contribute,
+      vote,
+      pingMembersForVote,
+      isGroupCreator,
+      getUserByEmail,
+      getUserByPhone,
+      shareToContacts,
     }}>
       {children}
     </AppContext.Provider>
