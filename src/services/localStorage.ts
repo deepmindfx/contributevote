@@ -3,7 +3,8 @@ import {
   ensureAccountNumberDisplay, 
   verifyUserWithOTP, 
   validateDate, 
-  getContributionByAccountNumber 
+  getContributionByAccountNumber,
+  reExportEnsureAccountNumberDisplay 
 } from '@/localStorage';
 
 // Re-export them
@@ -11,8 +12,10 @@ export {
   ensureAccountNumberDisplay, 
   verifyUserWithOTP, 
   validateDate, 
-  getContributionByAccountNumber 
+  getContributionByAccountNumber,
+  reExportEnsureAccountNumberDisplay
 };
+
 import { v4 as uuidv4 } from 'uuid';
 import { format } from 'date-fns';
 
@@ -31,6 +34,10 @@ export interface User {
   accountNumber?: string;
   accountName?: string;
   verified: boolean;
+  reservedAccount?: any;
+  invoices?: any[];
+  cardTokens?: any[];
+  notifications?: any[];
 }
 
 export interface Contribution {
@@ -41,7 +48,7 @@ export interface Contribution {
   currentAmount: number;
   startDate: string;
   endDate: string;
-  frequency: 'daily' | 'weekly' | 'monthly';
+  frequency: 'daily' | 'weekly' | 'monthly' | 'one-time';
   category: 'personal' | 'family' | 'community';
   creatorId: string;
   members: string[];
@@ -56,6 +63,7 @@ export interface Contribution {
   }[];
   createdAt: string;
   accountNumber: string;
+  contributionAmount?: number;
 }
 
 export interface WithdrawalRequest {
@@ -80,12 +88,13 @@ export interface Transaction {
   id: string;
   contributionId: string;
   userId: string;
-  type: 'deposit' | 'withdrawal' | 'vote';
+  type: 'deposit' | 'withdrawal' | 'transfer' | 'vote';
   amount: number;
   description: string;
   createdAt: string;
   status?: 'pending' | 'completed' | 'failed';
   anonymous?: boolean;
+  metaData?: any;
 }
 
 export interface Notification {
@@ -607,6 +616,7 @@ export const hasContributed = (userId: string, contributionId: string): boolean 
   return contribution.contributors.some(contributor => contributor.userId === userId);
 };
 
+// Transaction functions
 export const getTransactions = (): Transaction[] => {
   const transactionsString = localStorage.getItem('transactions');
   return transactionsString ? JSON.parse(transactionsString) : [];
@@ -622,6 +632,8 @@ export const createTransaction = (transaction: Omit<Transaction, 'id' | 'created
   transactions.push(newTransaction);
   localStorage.setItem('transactions', JSON.stringify(transactions));
 };
+
+export const addTransaction = createTransaction;
 
 export const getNotifications = (userId: string): Notification[] => {
   const notificationsString = localStorage.getItem('notifications');
@@ -780,5 +792,25 @@ export const updateWithdrawalRequestsStatus = () => {
   
   if (updated) {
     localStorage.setItem('withdrawalRequests', JSON.stringify(withdrawalRequests));
+  }
+};
+
+// Export the function to mark all notifications as read for a user
+export const markAllNotificationsAsRead = (userId: string) => {
+  const notificationsString = localStorage.getItem('notifications');
+  if (!notificationsString) return;
+
+  const notifications: Notification[] = JSON.parse(notificationsString);
+  let updated = false;
+  
+  notifications.forEach(notification => {
+    if (notification.userId === userId && !notification.read) {
+      notification.read = true;
+      updated = true;
+    }
+  });
+  
+  if (updated) {
+    localStorage.setItem('notifications', JSON.stringify(notifications));
   }
 };

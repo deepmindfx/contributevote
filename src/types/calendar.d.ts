@@ -4,4 +4,6 @@ declare module 'react-day-picker' {
     from: Date;
     to?: Date;
   }
+  
+  export const DayPicker: any;
 }
