@@ -31,6 +31,7 @@ const GroupDetail = () => {
     contribute,
     requestWithdrawal,
     isGroupCreator,
+    refreshData,
   } = useApp();
   const [contribution, setContribution] = useState<Contribution | null>(null);
   const [contributionRequests, setContributionRequests] = useState<WithdrawalRequest[]>([]);
@@ -38,35 +39,72 @@ const GroupDetail = () => {
   const [contributionAmount, setContributionAmount] = useState("");
   const [withdrawalAmount, setWithdrawalAmount] = useState("");
   const [withdrawalPurpose, setWithdrawalPurpose] = useState("");
-  const [anonymous, setAnonymous] = useState(user.preferences?.anonymousContributions || false);
+  const [anonymous, setAnonymous] = useState(user?.preferences?.anonymousContributions || false);
   const [hasUserContributed, setHasUserContributed] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   
   useEffect(() => {
-    if (!id) return;
-    const foundContribution = contributions.find(c => c.id === id);
-    if (!foundContribution) {
-      toast.error("Contribution group not found");
-      navigate("/dashboard");
+    // Refresh data when component mounts to ensure fresh data after login
+    refreshData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  
+  useEffect(() => {
+    if (!id) {
+      setIsLoading(false);
       return;
     }
     
-    // Call the function to ensure account numbers exist
-    ensureAccountNumberDisplay();
-    
-    // Debug: Log the contribution to check account name and details
-    console.log("Current contribution:", foundContribution);
-    
-    // Set contribution and other related data
-    setContribution(foundContribution);
-    setContributionRequests(withdrawalRequests.filter(w => w.contributionId === id));
-    setContributionTransactions(transactions.filter(t => t.contributionId === id));
+    try {
+      // Add defensive check for contributions array
+      if (!contributions || contributions.length === 0) {
+        // If no contributions yet (possibly still loading), don't show error toast
+        return;
+      }
+      
+      const foundContribution = contributions.find(c => c.id === id);
+      if (!foundContribution) {
+        toast.error("Contribution group not found");
+        navigate("/dashboard");
+        return;
+      }
+      
+      // Call the function to ensure account numbers exist
+      ensureAccountNumberDisplay();
+      
+      // Set contribution and other related data
+      setContribution(foundContribution);
+      setContributionRequests(withdrawalRequests.filter(w => w.contributionId === id));
+      setContributionTransactions(transactions.filter(t => t.contributionId === id));
 
-    // Check if user has contributed to this group
-    setHasUserContributed(hasContributed(user.id, id));
-  }, [id, contributions, withdrawalRequests, transactions, navigate, user.id]);
+      // Check if user has contributed to this group
+      if (user && user.id) {
+        setHasUserContributed(hasContributed(user.id, id));
+      }
+      
+      setIsLoading(false);
+    } catch (error) {
+      console.error("Error loading contribution details:", error);
+      setIsLoading(false);
+    }
+  }, [id, contributions, withdrawalRequests, transactions, navigate, user]);
+  
+  if (isLoading) {
+    return <div className="flex justify-center items-center min-h-screen">Loading...</div>;
+  }
   
   if (!contribution) {
-    return <div className="flex justify-center items-center min-h-screen">Loading...</div>;
+    return <div className="flex justify-center items-center min-h-screen">
+      <div className="text-center">
+        <p className="text-xl mb-4">Contribution group not found or still loading</p>
+        <button 
+          onClick={() => navigate("/dashboard")} 
+          className="px-4 py-2 bg-primary text-white rounded-md"
+        >
+          Return to Dashboard
+        </button>
+      </div>
+    </div>;
   }
   
   const handleContribute = () => {

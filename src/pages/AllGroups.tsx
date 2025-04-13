@@ -1,5 +1,4 @@
 
-import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import MobileNav from "@/components/layout/MobileNav";
@@ -13,7 +12,7 @@ import {
   ArrowUpRight
 } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
-import { format, isValid } from "date-fns";
+import { format, isValid, parseISO } from "date-fns";
 import { Progress } from "@/components/ui/progress";
 
 const AllGroups = () => {
@@ -28,16 +27,31 @@ const AllGroups = () => {
   });
 
   // Helper function to safely format dates
-  const safeFormatDate = (dateString: string) => {
+  const safeFormatDate = (dateString) => {
     try {
-      const date = new Date(dateString);
-      if (!date || !isValid(date)) {
-        console.error("Invalid date in AllGroups:", dateString);
+      // Check if dateString is undefined or null
+      if (!dateString) {
+        return "No date";
+      }
+      
+      // Try to parse the date using parseISO first for ISO strings
+      let date;
+      try {
+        date = parseISO(dateString);
+      } catch (err) {
+        // If parseISO fails, try direct Date constructor
+        date = new Date(dateString);
+      }
+      
+      // Verify the date is valid
+      if (!isValid(date)) {
+        console.log("Invalid date in AllGroups:", dateString);
         return "Invalid date";
       }
+      
       return format(date, 'MMM d, yyyy');
     } catch (err) {
-      console.error("Error formatting date in AllGroups:", err);
+      console.error("Error formatting date in AllGroups:", err, "for date:", dateString);
       return "Invalid date";
     }
   };
@@ -78,19 +92,22 @@ const AllGroups = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {sortedContributions.map(contribution => {
+              // Add null checks and default values
+              const currentAmount = contribution.currentAmount || 0;
+              const targetAmount = contribution.targetAmount || 1; // Prevent division by zero
               const progressPercentage = Math.min(
                 100,
-                Math.round((contribution.currentAmount / contribution.targetAmount) * 100)
+                Math.round((currentAmount / targetAmount) * 100) || 0
               );
               
               return (
                 <Card key={contribution.id} className="hover:shadow-md transition-shadow">
                   <CardHeader>
                     <div className="flex justify-between">
-                      <Badge className="mb-2 capitalize">{contribution.category}</Badge>
-                      <Badge variant="outline" className="capitalize">{contribution.frequency}</Badge>
+                      <Badge className="mb-2 capitalize">{contribution.category || "General"}</Badge>
+                      <Badge variant="outline" className="capitalize">{contribution.frequency || "N/A"}</Badge>
                     </div>
-                    <CardTitle>{contribution.name}</CardTitle>
+                    <CardTitle>{contribution.name || "Unnamed Group"}</CardTitle>
                     <div className="text-sm text-muted-foreground">
                       <div className="flex items-center mt-1">
                         <Calendar className="h-3 w-3 mr-1" />
@@ -98,7 +115,7 @@ const AllGroups = () => {
                       </div>
                       <div className="flex items-center mt-1">
                         <Users className="h-3 w-3 mr-1" />
-                        {contribution.members.length} members
+                        {(contribution.members?.length || 0)} members
                       </div>
                     </div>
                   </CardHeader>
@@ -112,10 +129,10 @@ const AllGroups = () => {
                     </div>
                     <div className="mt-4 text-center">
                       <div className="text-2xl font-bold text-green-600">
-                        ₦{contribution.currentAmount.toLocaleString()}
+                        ₦{currentAmount.toLocaleString()}
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        of ₦{contribution.targetAmount.toLocaleString()} goal
+                        of ₦{targetAmount.toLocaleString()} goal
                       </p>
                     </div>
                   </CardContent>

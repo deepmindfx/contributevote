@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useApp } from "@/contexts/AppContext";
-import { format, isValid } from "date-fns";
+import { format, isValid, parseISO } from "date-fns";
 import { Users, Calendar, ArrowRight } from "lucide-react";
 
 const GroupsList = () => {
@@ -31,14 +31,29 @@ const GroupsList = () => {
   // Helper function to safely format dates
   const safeFormatDate = (dateString) => {
     try {
-      const date = new Date(dateString);
-      if (!date || !isValid(date)) {
-        console.error("Invalid date:", dateString);
+      // Check if dateString is undefined or null
+      if (!dateString) {
+        return "No date";
+      }
+      
+      // Try to parse the date using parseISO first for ISO strings
+      let date;
+      try {
+        date = parseISO(dateString);
+      } catch (err) {
+        // If parseISO fails, try direct Date constructor
+        date = new Date(dateString);
+      }
+      
+      // Verify the date is valid
+      if (!isValid(date)) {
+        console.log("Invalid date:", dateString);
         return "Invalid date";
       }
+      
       return format(date, 'MMM d, yyyy');
     } catch (err) {
-      console.error("Error formatting date:", err);
+      console.error("Error formatting date:", err, "for date:", dateString);
       return "Invalid date";
     }
   };
@@ -70,7 +85,11 @@ const GroupsList = () => {
         ) : (
           <div className="space-y-4">
             {recentGroups.map(group => {
-              const progressPercentage = Math.min(100, Math.round(group.currentAmount / group.targetAmount * 100) || 0);
+              // Add null checks and default values
+              const currentAmount = group.currentAmount || 0;
+              const targetAmount = group.targetAmount || 1; // Prevent division by zero
+              const progressPercentage = Math.min(100, Math.round((currentAmount / targetAmount) * 100) || 0);
+              
               return (
                 <div 
                   key={group.id} 
@@ -79,17 +98,17 @@ const GroupsList = () => {
                 >
                   <div className="flex justify-between items-start mb-2">
                     <div>
-                      <h3 className="font-medium text-base">{group.name}</h3>
+                      <h3 className="font-medium text-base">{group.name || "Unnamed Group"}</h3>
                       <div className="flex items-center text-xs text-muted-foreground mt-1">
                         <Users className="h-3 w-3 mr-1 inline" />
-                        <span className="mr-2">{group.members.length} members</span>
+                        <span className="mr-2">{(group.members?.length || 0)} members</span>
                         
                         <Calendar className="h-3 w-3 mr-1 inline" />
                         <span>{safeFormatDate(group.startDate)}</span>
                       </div>
                     </div>
                     <Badge variant="outline" className="capitalize text-xs">
-                      {group.frequency}
+                      {group.frequency || "N/A"}
                     </Badge>
                   </div>
                   
@@ -97,7 +116,7 @@ const GroupsList = () => {
                     <div className="flex justify-between items-center mb-1 text-xs">
                       <div className="text-muted-foreground">Progress ({progressPercentage}%)</div>
                       <div className="text-sm font-medium">
-                        ₦{group.currentAmount.toLocaleString()} of ₦{group.targetAmount.toLocaleString()}
+                        ₦{currentAmount.toLocaleString()} of ₦{targetAmount.toLocaleString()}
                       </div>
                     </div>
                     <Progress value={progressPercentage} className="h-1.5" />

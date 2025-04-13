@@ -83,15 +83,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
     
     // Add this call to ensure account numbers are displayed
     ensureAccountNumberDisplay();
-    
-    // Debug - log contributions to see account numbers
-    console.log("All contributions with account numbers:", contributions);
   }, []);
 
   // Combine all refresh functions
   const refreshData = () => {
-    refreshUserData();
-    refreshContributionData();
+    // Make sure localStorage is initialized before refreshing data
+    try {
+      initializeLocalStorage();
+      refreshUserData();
+      
+      // Only refresh contribution data if user is authenticated
+      if (isAuthenticated && user?.id) {
+        refreshContributionData();
+      }
+      
+      // Ensure account numbers are displayed for contributions
+      ensureAccountNumberDisplay();
+      
+    } catch (error) {
+      console.error("Error in refreshData:", error);
+    }
   };
 
   return (
