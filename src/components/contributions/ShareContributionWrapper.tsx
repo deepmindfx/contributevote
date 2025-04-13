@@ -1,6 +1,6 @@
 
 import React from 'react';
-import ShareContribution from './ShareContribution';
+import { ShareContribution } from './ShareContribution';
 
 // This wrapper component correctly handles the type conversion
 // for the ShareContribution component
