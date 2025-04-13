@@ -33,8 +33,7 @@ import {
   generateContributionReceipt,
   updateWithdrawalRequestsStatus,
   verifyUserWithOTP,
-  getContributionByAccountNumber,
-  markAllNotificationsAsRead,
+  getContributionByAccountNumber
 } from '@/services/localStorage';
 // Import ensureAccountNumberDisplay from the correct path
 import { ensureAccountNumberDisplay } from '@/localStorage';
