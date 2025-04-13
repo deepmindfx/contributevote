@@ -7,6 +7,9 @@ export interface User {
   firstName?: string;
   lastName?: string;
   phone?: string;
+  phoneNumber?: string; // Added for compatibility
+  username?: string; // Added for compatibility
+  profileImage?: string; // Added for compatibility
   role: 'user' | 'admin';
   walletBalance: number;
   verified: boolean;
@@ -16,6 +19,8 @@ export interface User {
   preferences?: {
     darkMode?: boolean;
     notifications?: boolean;
+    notificationsEnabled?: boolean; // Added for compatibility
+    anonymousContributions?: boolean; // Added for compatibility
   };
   notifications?: Notification[];
   reservedAccount?: any;
@@ -30,7 +35,9 @@ export interface Contribution {
   description: string;
   creatorId: string;
   goalAmount: number;
+  targetAmount: number; // Added for compatibility
   currentAmount: number;
+  contributionAmount?: number; // Added for compatibility with ContributePage
   status: 'active' | 'paused' | 'completed';
   startDate: string;
   endDate?: string;
@@ -50,7 +57,8 @@ export interface Contribution {
   bankName?: string;
   accountReference?: string;
   accountDetails?: any;
-  votingThreshold?: number; // Added voting threshold property
+  votingThreshold?: number;
+  category?: string; // Added for compatibility
 }
 
 // Transaction related types
@@ -106,4 +114,25 @@ export interface Stats {
   activeContributions: number;
   totalContributed: number;
   totalMembers: number;
+}
+
+// Export types for ReservedAccount components
+export interface ReservedAccountData {
+  accountReference: string;
+  accountName: string;
+  accountNumber: string;
+  bankName: string;
+  currencyCode: string;
+  status: string;
+  createdOn: string;
+  customerEmail: string;
+  customerName: string;
+  incomeSplitConfig: any;
+  reservedAccountType: string;
+  contractCode?: string;
+  accounts?: Array<{
+    accountNumber: string;
+    bankName: string;
+    bankCode: string;
+  }>;
 }
