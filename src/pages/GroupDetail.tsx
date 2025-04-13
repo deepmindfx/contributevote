@@ -19,6 +19,8 @@ import { Contribution, WithdrawalRequest, Transaction, hasContributed } from "@/
 import { format, formatDistanceToNow, isValid } from "date-fns";
 import { toast } from "sonner";
 import ShareContribution from "@/components/contributions/ShareContribution";
+import AccountNumberDisplay from "@/components/contributions/AccountNumberDisplay";
+import { ensureAccountNumberDisplay } from "@/localStorage";
 
 const GroupDetail = () => {
   const {
@@ -62,6 +64,11 @@ const GroupDetail = () => {
       navigate("/dashboard");
       return;
     }
+    
+    // Ensure account numbers are displayed
+    ensureAccountNumberDisplay();
+    
+    // Set contribution and other related data
     setContribution(foundContribution);
     setContributionRequests(withdrawalRequests.filter(w => w.contributionId === id));
     setContributionTransactions(transactions.filter(t => t.contributionId === id));
@@ -228,7 +235,7 @@ const GroupDetail = () => {
                   <div className="flex items-center gap-2">
                     <p className="text-sm text-muted-foreground">CollectiPay</p>
                     <Badge variant="outline" className="text-xs">
-                      {contribution.category}
+                      {contribution?.category}
                     </Badge>
                   </div>
                 </div>
@@ -236,10 +243,10 @@ const GroupDetail = () => {
               
               <div className="text-center md:text-right">
                 <div className="text-3xl font-bold text-green-600 dark:text-green-400">
-                  ₦{contribution.currentAmount.toLocaleString()}
+                  ₦{contribution?.currentAmount.toLocaleString()}
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  of ₦{contribution.targetAmount.toLocaleString()} goal ({progressPercentage}%)
+                  of ₦{contribution?.targetAmount.toLocaleString()} goal ({progressPercentage}%)
                 </p>
               </div>
             </div>
@@ -249,41 +256,25 @@ const GroupDetail = () => {
             </div>
             
             <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-muted/30 rounded-lg">
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium">Account Details</span>
-                  <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={copyAccountNumber}>
-                    {showCopiedAccountNumber ? "Copied!" : "Copy"}
-                    {showCopiedAccountNumber ? <Check className="h-3 w-3 ml-1 text-green-600" /> : <Copy className="h-3 w-3 ml-1" />}
-                  </Button>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Account No.</span>
-                  <span className="font-mono">{contribution.accountNumber}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Account Name</span>
-                  <span>{contribution.name}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Bank</span>
-                  <span>CollectiPay Bank</span>
-                </div>
-              </div>
+              {/* Use the new AccountNumberDisplay component */}
+              <AccountNumberDisplay 
+                accountNumber={contribution?.accountNumber || ''} 
+                accountName={contribution?.name || ''}
+              />
               
               <div className="space-y-2">
                 <span className="text-sm font-medium">Group Details</span>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Frequency</span>
-                  <span className="capitalize">{contribution.frequency}</span>
+                  <span className="capitalize">{contribution?.frequency}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Members</span>
-                  <span>{contribution.members.length}</span>
+                  <span>{contribution?.members.length}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Started</span>
-                  <span>{formatDate(contribution.startDate)}</span>
+                  <span>{formatDate(contribution?.startDate)}</span>
                 </div>
               </div>
             </div>

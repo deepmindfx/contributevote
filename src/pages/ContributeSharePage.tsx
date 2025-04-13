@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -8,10 +7,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Wallet, ArrowLeft, AlertCircle } from "lucide-react";
+import { Wallet, ArrowLeft, AlertCircle, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 import { useApp } from "@/contexts/AppContext";
 import Header from "@/components/layout/Header";
+import { ensureAccountNumberDisplay } from "@/localStorage";
 
 const ContributeSharePage = () => {
   const { id } = useParams<{ id: string }>();
@@ -20,10 +20,14 @@ const ContributeSharePage = () => {
   const [amount, setAmount] = useState<number>(0);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showCopiedAccountNumber, setShowCopiedAccountNumber] = useState(false);
   const navigate = useNavigate();
   
   useEffect(() => {
     if (id) {
+      // Ensure account numbers are displayed
+      ensureAccountNumberDisplay();
+      
       const allContributions = getContributions();
       const foundContribution = allContributions.find(c => c.id === id);
       if (foundContribution) {
@@ -82,6 +86,21 @@ const ContributeSharePage = () => {
       toast.success(`Successfully contributed ₦${amount.toLocaleString()} to ${contribution.name}`);
       navigate(`/groups/${contribution.id}`);
     }, 1000);
+  };
+  
+  const copyAccountNumber = () => {
+    if (!contribution || !contribution.accountNumber) {
+      toast.error("Account number not available");
+      return;
+    }
+    
+    navigator.clipboard.writeText(contribution.accountNumber).then(() => {
+      setShowCopiedAccountNumber(true);
+      toast.success("Account number copied to clipboard");
+      setTimeout(() => setShowCopiedAccountNumber(false), 2000);
+    }).catch(() => {
+      toast.error("Failed to copy account number");
+    });
   };
   
   if (!contribution) {
@@ -156,6 +175,30 @@ const ContributeSharePage = () => {
                 <span>₦{contribution.targetAmount.toLocaleString()}</span>
               </div>
             </div>
+            
+            <Separator />
+            
+            {contribution.accountNumber && (
+              <div className="p-3 bg-secondary/30 rounded-lg">
+                <div className="flex justify-between items-center mb-1">
+                  <p className="text-sm font-medium">Account Details</p>
+                  <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={copyAccountNumber}>
+                    {showCopiedAccountNumber ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                  </Button>
+                </div>
+                <div className="grid grid-cols-2 gap-1 text-sm">
+                  <span className="text-muted-foreground">Account No.</span>
+                  <span className="font-mono text-right">{contribution.accountNumber}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-1 text-sm">
+                  <span className="text-muted-foreground">Bank</span>
+                  <span className="text-right">CollectiPay Bank</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  You can also transfer directly to this account
+                </p>
+              </div>
+            )}
             
             <Separator />
             

@@ -37,3 +37,43 @@ export const validateDate = (dateString: string): boolean => {
     return false;
   }
 };
+
+// Helper function to get contribution by account number
+export const getContributionByAccountNumber = (accountNumber: string) => {
+  try {
+    const contributionsString = localStorage.getItem('contributions');
+    if (!contributionsString) return null;
+    
+    const contributions = JSON.parse(contributionsString);
+    return contributions.find(c => c.accountNumber === accountNumber) || null;
+  } catch (error) {
+    console.error("Error in getContributionByAccountNumber:", error);
+    return null;
+  }
+};
+
+// Helper to ensure account number is displayed correctly
+export const ensureAccountNumberDisplay = () => {
+  try {
+    const contributionsString = localStorage.getItem('contributions');
+    if (!contributionsString) return;
+    
+    const contributions = JSON.parse(contributionsString);
+    let updated = false;
+    
+    contributions.forEach(contribution => {
+      // If no account number exists, create a placeholder one
+      if (!contribution.accountNumber) {
+        contribution.accountNumber = `60${Math.floor(10000000 + Math.random() * 90000000)}`;
+        updated = true;
+      }
+    });
+    
+    if (updated) {
+      localStorage.setItem('contributions', JSON.stringify(contributions));
+      console.log('Updated contribution account numbers');
+    }
+  } catch (error) {
+    console.error("Error ensuring account numbers:", error);
+  }
+};

@@ -33,7 +33,8 @@ import {
   generateContributionReceipt,
   updateWithdrawalRequestsStatus,
   verifyUserWithOTP,
-  getContributionByAccountNumber
+  getContributionByAccountNumber,
+  ensureAccountNumberDisplay
 } from '@/services/localStorage';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
@@ -93,6 +94,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     initializeLocalStorage();
     refreshData();
+    
+    // Add this call to ensure account numbers are displayed
+    ensureAccountNumberDisplay();
   }, []);
 
   // New effect to check for expired withdrawal requests
@@ -164,7 +168,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return;
       }
       
-      contributeToGroup(contributionId, amount, anonymous);
+      contributeToGroup(contributionId, amount, amount, anonymous);
       refreshData();
       toast.success('Contribution successful!');
     } catch (error) {
