@@ -1,70 +1,31 @@
-// Add imports and re-export from the local localStorage.ts file
+// Add imports from the local localStorage.ts file for helper functions
 import { 
   ensureAccountNumberDisplay, 
   verifyUserWithOTP, 
   validateDate, 
   getContributionByAccountNumber,
-  reExportEnsureAccountNumberDisplay 
+  reExportEnsureAccountNumberDisplay,
+  addTransaction,
+  User,
+  Transaction,
+  Contribution
 } from '@/localStorage';
 
-// Re-export them
+// Re-export them to maintain compatibility
 export { 
   ensureAccountNumberDisplay, 
   verifyUserWithOTP, 
   validateDate, 
   getContributionByAccountNumber,
-  reExportEnsureAccountNumberDisplay
+  reExportEnsureAccountNumberDisplay,
+  addTransaction
 };
+
+// Also export the interfaces to maintain type compatibility
+export type { User, Transaction, Contribution };
 
 import { v4 as uuidv4 } from 'uuid';
 import { format } from 'date-fns';
-
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  role: 'user' | 'admin';
-  walletBalance: number;
-  preferences: {
-    darkMode: boolean;
-    anonymousContributions: boolean;
-  };
-  pin?: string;
-  accountNumber?: string;
-  accountName?: string;
-  verified: boolean;
-  reservedAccount?: any;
-  invoices?: any[];
-  cardTokens?: any[];
-  notifications?: any[];
-}
-
-export interface Contribution {
-  id: string;
-  name: string;
-  description: string;
-  targetAmount: number;
-  currentAmount: number;
-  startDate: string;
-  endDate: string;
-  frequency: 'daily' | 'weekly' | 'monthly' | 'one-time';
-  category: 'personal' | 'family' | 'community';
-  creatorId: string;
-  members: string[];
-  contributors: {
-    userId?: string;
-    name?: string;
-    email?: string;
-    phone?: string;
-    amount: number;
-    date: string;
-    anonymous: boolean;
-  }[];
-  createdAt: string;
-  accountNumber: string;
-  contributionAmount?: number;
-}
 
 export interface WithdrawalRequest {
   id: string;
@@ -82,19 +43,6 @@ export interface WithdrawalRequest {
   accountNumber: string;
   bankName: string;
   purpose: string;
-}
-
-export interface Transaction {
-  id: string;
-  contributionId: string;
-  userId: string;
-  type: 'deposit' | 'withdrawal' | 'transfer' | 'vote';
-  amount: number;
-  description: string;
-  createdAt: string;
-  status?: 'pending' | 'completed' | 'failed';
-  anonymous?: boolean;
-  metaData?: any;
 }
 
 export interface Notification {
@@ -622,7 +570,7 @@ export const getTransactions = (): Transaction[] => {
   return transactionsString ? JSON.parse(transactionsString) : [];
 };
 
-export const createTransaction = (transaction: Omit<Transaction, 'id' | 'createdAt'>) => {
+export const createTransaction = (transaction: Omit<Transaction, 'id' | 'createdAt'>): void => {
   const transactions = getTransactions();
   const newTransaction: Transaction = {
     id: uuidv4(),
@@ -631,9 +579,11 @@ export const createTransaction = (transaction: Omit<Transaction, 'id' | 'created
   };
   transactions.push(newTransaction);
   localStorage.setItem('transactions', JSON.stringify(transactions));
+  
+  // Now we also call our local addTransaction to keep things in sync
+  // This is for backward compatibility
+  addTransaction(newTransaction);
 };
-
-export const addTransaction = createTransaction;
 
 export const getNotifications = (userId: string): Notification[] => {
   const notificationsString = localStorage.getItem('notifications');

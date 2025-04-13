@@ -1,26 +1,46 @@
 
-// First import any required functions from the original file to fix the errors
-import { getCurrentUser, getUsers, getContributions, createTransaction } from "@/services/localStorage";
+// Import only what we need from date-fns
 import { isValid } from "date-fns";
 
-// Add missing export that's causing the error
-export const addTransaction = createTransaction;
+// DO NOT import functions from the original file - that's causing circular reference
+// Instead, define the addTransaction function directly
+export const addTransaction = (transaction: any): void => {
+  try {
+    const transactionsString = localStorage.getItem('transactions');
+    const transactions = transactionsString ? JSON.parse(transactionsString) : [];
+    
+    // Add the transaction
+    transactions.push(transaction);
+    
+    // Save back to localStorage
+    localStorage.setItem('transactions', JSON.stringify(transactions));
+  } catch (error) {
+    console.error("Error in addTransaction:", error);
+  }
+};
 
 // Add the missing function to localStorage.ts
 export const verifyUserWithOTP = (userId: string): void => {
   try {
-    const users = getUsers();
-    const index = users.findIndex(u => u.id === userId);
+    // Get users from localStorage
+    const usersString = localStorage.getItem('users');
+    if (!usersString) return;
+    
+    const users = JSON.parse(usersString);
+    const index = users.findIndex((u: any) => u.id === userId);
     
     if (index >= 0) {
       users[index].verified = true;
       localStorage.setItem('users', JSON.stringify(users));
       
       // If this is the current user, update that too
-      const currentUser = getCurrentUser();
-      if (currentUser && currentUser.id === userId) {
-        currentUser.verified = true;
-        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+      const currentUserString = localStorage.getItem('currentUser');
+      if (currentUserString) {
+        const currentUser = JSON.parse(currentUserString);
+        if (currentUser && currentUser.id === userId) {
+          currentUser.verified = true;
+          localStorage.setItem('currentUser', JSON.stringify(currentUser));
+        }
       }
     }
   } catch (error) {
@@ -48,10 +68,43 @@ export const getContributionByAccountNumber = (accountNumber: string) => {
     if (!contributionsString) return null;
     
     const contributions = JSON.parse(contributionsString);
-    return contributions.find(c => c.accountNumber === accountNumber) || null;
+    return contributions.find((c: any) => c.accountNumber === accountNumber) || null;
   } catch (error) {
     console.error("Error in getContributionByAccountNumber:", error);
     return null;
+  }
+};
+
+// Get the current user from localStorage
+export const getCurrentUser = (): User | null => {
+  try {
+    const userString = localStorage.getItem('currentUser');
+    return userString ? JSON.parse(userString) : null;
+  } catch (error) {
+    console.error("Error getting current user:", error);
+    return null;
+  }
+};
+
+// Get all users from localStorage
+export const getUsers = (): User[] => {
+  try {
+    const usersString = localStorage.getItem('users');
+    return usersString ? JSON.parse(usersString) : [];
+  } catch (error) {
+    console.error("Error getting users:", error);
+    return [];
+  }
+};
+
+// Get all contributions from localStorage
+export const getContributions = (): Contribution[] => {
+  try {
+    const contributionsString = localStorage.getItem('contributions');
+    return contributionsString ? JSON.parse(contributionsString) : [];
+  } catch (error) {
+    console.error("Error getting contributions:", error);
+    return [];
   }
 };
 
@@ -64,7 +117,7 @@ export const ensureAccountNumberDisplay = () => {
     const contributions = JSON.parse(contributionsString);
     let updated = false;
     
-    contributions.forEach(contribution => {
+    contributions.forEach((contribution: any) => {
       // If no account number exists, create a unique one
       if (!contribution.accountNumber) {
         // Generate a unique 10-digit account number starting with 60
@@ -116,14 +169,14 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  password: string;
+  password?: string;
   walletBalance: number;
   preferences?: {
     darkMode: boolean;
     anonymousContributions: boolean;
     notificationsEnabled?: boolean;
   };
-  role: 'user' | 'admin';
+  role: 'user' | 'admin' | 'paused';
   accountNumber?: string;
   accountName?: string;
   verified: boolean;
@@ -131,7 +184,8 @@ export interface User {
   invoices?: any[];
   cardTokens?: any[];
   notifications?: any[];
-  // Add missing fields
+  // Add missing fields that are used in the codebase
+  phone?: string;
   phoneNumber?: string;
   firstName?: string;
   lastName?: string;
@@ -139,6 +193,7 @@ export interface User {
   profileImage?: string;
   status?: string;
   createdAt?: string;
+  pin?: string;
 }
 
 // Add missing interface for Contribution
@@ -153,16 +208,16 @@ export interface Contribution {
   contributionAmount: number;
   startDate: string;
   endDate?: string;
-  deadline: string;
+  deadline?: string;
   creatorId: string;
   members: string[];
   contributors: any[];
   createdAt: string;
-  status: "active" | "completed" | "expired";
-  visibility: "public" | "private" | "invite-only";
-  privacy: string;
-  memberRoles: string;
-  votingThreshold: number;
+  status?: "active" | "completed" | "expired";
+  visibility?: "public" | "private" | "invite-only";
+  privacy?: string;
+  memberRoles?: string;
+  votingThreshold?: number;
   accountNumber?: string;
   accountName?: string;
   bankName?: string;
@@ -173,17 +228,19 @@ export interface Contribution {
 // Add missing Transaction interface
 export interface Transaction {
   id: string;
-  type: "deposit" | "withdrawal" | "transfer" | "payment";
+  type: "deposit" | "withdrawal" | "transfer" | "payment" | "vote";
   amount: number;
-  narration: string;
-  status: "pending" | "successful" | "failed";
-  reference: string;
+  narration?: string;
+  status?: "pending" | "successful" | "failed" | "completed";
+  reference?: string;
   userId: string;
   toUserId?: string;
   contributionId?: string;
   createdAt: string;
   paymentMethod?: string;
   metadata?: any;
+  metaData?: any; // Some places use metaData others use metadata
   description?: string;
   anonymous?: boolean;
 }
+
