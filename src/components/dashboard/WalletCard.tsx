@@ -1,11 +1,10 @@
-
 import React, { useState } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ChartContainer } from "@/components/ui/chart";
+import { ChartContainer, ChartStyle } from "@/components/ui/chart";
 import { useApp } from "@/contexts/AppContext";
 import { Plus, PiggyBank, CreditCard, Wallet, Coins, ArrowUp, ArrowDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -43,13 +42,8 @@ const WalletCard = () => {
       return;
     }
 
-    // Simulate deposit logic here
     const amount = Number(depositAmount);
-    // In a real application, you would call an API to deposit funds
-    // and update the user's wallet balance in the backend.
-    // For this example, we'll just show a success message.
     
-    // Add transaction to localStorage
     if (user?.id) {
       addTransaction({
         id: `tx_${Date.now()}`,
@@ -78,13 +72,8 @@ const WalletCard = () => {
       return;
     }
 
-    // Simulate withdrawal logic here
     const amount = Number(withdrawalAmount);
-    // In a real application, you would call an API to withdraw funds
-    // and update the user's wallet balance in the backend.
-    // For this example, we'll just show a success message.
     
-    // Add transaction to localStorage
     if (user?.id) {
       addTransaction({
         id: `tx_${Date.now()}`,
@@ -100,6 +89,13 @@ const WalletCard = () => {
     toast.success(`Successfully requested a withdrawal of ₦${amount.toLocaleString()} from your wallet.`);
     setWithdrawalAmount("");
     setIsWithdrawalOpen(false);
+  };
+
+  const chartConfig = {
+    Contribution: {
+      label: "Contribution",
+      color: "#2DAE75"
+    }
   };
 
   return (
