@@ -1,22 +1,15 @@
-
-import { User, Contribution, Transaction, WithdrawalRequest, Notification, Stats } from '@/types';
+import { User, Contribution, WithdrawalRequest, Transaction, Stats, Notification } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
-import { isValid } from 'date-fns';
-import { toast } from 'sonner';
 
-// Initialize localStorage with default data if empty
-export const initializeLocalStorage = (): void => {
-  if (!localStorage.getItem('users')) {
-    localStorage.setItem('users', JSON.stringify([]));
-  }
-  if (!localStorage.getItem('contributions')) {
-    localStorage.setItem('contributions', JSON.stringify([]));
-  }
-  if (!localStorage.getItem('transactions')) {
-    localStorage.setItem('transactions', JSON.stringify([]));
-  }
-  if (!localStorage.getItem('withdrawalRequests')) {
-    localStorage.setItem('withdrawalRequests', JSON.stringify([]));
+// Initialize local storage with demo data
+export const initializeLocalStorage = () => {
+  // Initial setup code
+  if (!localStorage.getItem('initialized')) {
+    // Create demo data
+    console.log('Initializing local storage with demo data');
+    localStorage.setItem('initialized', 'true');
+    
+    // Add your initialization code here
   }
 };
 
@@ -26,101 +19,156 @@ export const getUsers = (): User[] => {
     const users = localStorage.getItem('users');
     return users ? JSON.parse(users) : [];
   } catch (error) {
-    console.error("Error getting users:", error);
+    console.error('Error getting users:', error);
     return [];
   }
 };
 
-export const getCurrentUser = (): User | null => {
+export const getCurrentUser = (): User => {
   try {
-    const user = localStorage.getItem('currentUser');
-    return user ? JSON.parse(user) : null;
+    const currentUser = localStorage.getItem('currentUser');
+    return currentUser ? JSON.parse(currentUser) : null;
   } catch (error) {
-    console.error("Error getting current user:", error);
-    return null;
+    console.error('Error getting current user:', error);
+    return {} as User;
   }
 };
 
 export const updateUser = (userData: Partial<User>): void => {
   try {
     const currentUser = getCurrentUser();
-    if (currentUser && userData) {
-      const updatedUser = { ...currentUser, ...userData };
-      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-      
-      // Also update the user in the users array
-      const users = getUsers();
-      const updatedUsers = users.map(user => 
-        user.id === currentUser.id ? { ...user, ...userData } : user
-      );
-      localStorage.setItem('users', JSON.stringify(updatedUsers));
+    if (!currentUser || !currentUser.id) return;
+    
+    // Update current user
+    const updatedUser = {
+      ...currentUser,
+      ...userData,
+    };
+    
+    localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+    
+    // Also update in users array
+    const users = getUsers();
+    const userIndex = users.findIndex(u => u.id === currentUser.id);
+    
+    if (userIndex !== -1) {
+      users[userIndex] = updatedUser;
+      localStorage.setItem('users', JSON.stringify(users));
     }
   } catch (error) {
-    console.error("Error updating user:", error);
+    console.error('Error updating user:', error);
   }
 };
 
 export const updateUserById = (userId: string, userData: Partial<User>): void => {
   try {
     const users = getUsers();
-    const userIndex = users.findIndex(user => user.id === userId);
+    const userIndex = users.findIndex(u => u.id === userId);
     
-    if (userIndex >= 0) {
-      users[userIndex] = { ...users[userIndex], ...userData };
+    if (userIndex !== -1) {
+      users[userIndex] = {
+        ...users[userIndex],
+        ...userData,
+      };
+      
       localStorage.setItem('users', JSON.stringify(users));
       
-      // If this is the current user, update that too
+      // Update current user if it's the same user
       const currentUser = getCurrentUser();
       if (currentUser && currentUser.id === userId) {
-        localStorage.setItem('currentUser', JSON.stringify({
-          ...currentUser,
-          ...userData
-        }));
+        localStorage.setItem('currentUser', JSON.stringify(users[userIndex]));
       }
     }
   } catch (error) {
-    console.error("Error updating user by ID:", error);
+    console.error('Error updating user by ID:', error);
+  }
+};
+
+export const createUser = (userData: Partial<User>): User => {
+  try {
+    const users = getUsers();
+    const newUser: User = {
+      id: uuidv4(),
+      email: userData.email || '',
+      name: userData.name || '',
+      role: userData.role || 'user',
+      walletBalance: userData.walletBalance || 0,
+      verified: userData.verified || false,
+      status: userData.status || 'active',
+      createdAt: new Date().toISOString(),
+      ...userData
+    };
+    
+    users.push(newUser);
+    localStorage.setItem('users', JSON.stringify(users));
+    return newUser;
+  } catch (error) {
+    console.error('Error creating user:', error);
+    throw error;
+  }
+};
+
+export const deleteUser = (userId: string): void => {
+  try {
+    const users = getUsers();
+    const updatedUsers = users.filter(user => user.id !== userId);
+    localStorage.setItem('users', JSON.stringify(updatedUsers));
+  } catch (error) {
+    console.error('Error deleting user:', error);
+  }
+};
+
+export const updateUserRole = (userId: string, role: 'user' | 'admin'): void => {
+  try {
+    updateUserById(userId, { role });
+  } catch (error) {
+    console.error('Error updating user role:', error);
   }
 };
 
 export const pauseUser = (userId: string): void => {
-  updateUserById(userId, { status: 'paused' });
+  try {
+    updateUserById(userId, { status: 'paused' });
+  } catch (error) {
+    console.error('Error pausing user:', error);
+  }
 };
 
 export const activateUser = (userId: string): void => {
-  updateUserById(userId, { status: 'active' });
+  try {
+    updateUserById(userId, { status: 'active' });
+  } catch (error) {
+    console.error('Error activating user:', error);
+  }
 };
 
 export const depositToUser = (userId: string, amount: number): void => {
   try {
     const users = getUsers();
-    const userIndex = users.findIndex(user => user.id === userId);
+    const userIndex = users.findIndex(u => u.id === userId);
     
-    if (userIndex >= 0) {
-      const currentBalance = users[userIndex].walletBalance || 0;
-      users[userIndex].walletBalance = currentBalance + amount;
+    if (userIndex !== -1) {
+      users[userIndex].walletBalance = (users[userIndex].walletBalance || 0) + amount;
       localStorage.setItem('users', JSON.stringify(users));
       
-      // If this is the current user, update that too
+      // Update current user if it's the same user
       const currentUser = getCurrentUser();
       if (currentUser && currentUser.id === userId) {
-        currentUser.walletBalance = (currentUser.walletBalance || 0) + amount;
+        currentUser.walletBalance = users[userIndex].walletBalance;
         localStorage.setItem('currentUser', JSON.stringify(currentUser));
       }
       
       // Add transaction record
       addTransaction({
-        id: uuidv4(),
         userId,
         type: 'deposit',
         amount,
         description: 'Admin deposit',
         status: 'completed',
-        createdAt: new Date().toISOString()
       });
     }
   } catch (error) {
-    console.error("Error depositing to user:", error);
+    console.error('Error depositing to user:', error);
   }
 };
 
@@ -131,9 +179,9 @@ export const logoutUser = (): void => {
 export const getUserByEmail = (email: string): User | null => {
   try {
     const users = getUsers();
-    return users.find(user => user.email === email) || null;
+    return users.find(u => u.email === email) || null;
   } catch (error) {
-    console.error("Error getting user by email:", error);
+    console.error('Error getting user by email:', error);
     return null;
   }
 };
@@ -141,91 +189,18 @@ export const getUserByEmail = (email: string): User | null => {
 export const getUserByPhone = (phone: string): User | null => {
   try {
     const users = getUsers();
-    return users.find(user => user.phone === phone) || null;
+    return users.find(u => u.phone === phone) || null;
   } catch (error) {
-    console.error("Error getting user by phone:", error);
+    console.error('Error getting user by phone:', error);
     return null;
   }
 };
 
-export const addNotification = (notification: Omit<Notification, 'id' | 'createdAt'>): void => {
+export const verifyUserWithOTP = (userId: string): void => {
   try {
-    const users = getUsers();
-    const userIndex = users.findIndex(user => user.id === notification.userId);
-    
-    if (userIndex >= 0) {
-      const notifications = users[userIndex].notifications || [];
-      const newNotification = {
-        ...notification,
-        id: uuidv4(),
-        createdAt: new Date().toISOString()
-      };
-      
-      users[userIndex].notifications = [newNotification, ...notifications];
-      localStorage.setItem('users', JSON.stringify(users));
-      
-      // If this is the current user, update that too
-      const currentUser = getCurrentUser();
-      if (currentUser && currentUser.id === notification.userId) {
-        currentUser.notifications = [newNotification, ...(currentUser.notifications || [])];
-        localStorage.setItem('currentUser', JSON.stringify(currentUser));
-      }
-    }
+    updateUserById(userId, { verified: true });
   } catch (error) {
-    console.error("Error adding notification:", error);
-  }
-};
-
-export const markNotificationAsRead = (notificationId: string): void => {
-  try {
-    const currentUser = getCurrentUser();
-    if (!currentUser || !currentUser.notifications) return;
-    
-    const updatedNotifications = currentUser.notifications.map(notification => 
-      notification.id === notificationId 
-        ? { ...notification, read: true } 
-        : notification
-    );
-    
-    // Update current user
-    currentUser.notifications = updatedNotifications;
-    localStorage.setItem('currentUser', JSON.stringify(currentUser));
-    
-    // Update in users array
-    const users = getUsers();
-    const userIndex = users.findIndex(user => user.id === currentUser.id);
-    if (userIndex >= 0) {
-      users[userIndex].notifications = updatedNotifications;
-      localStorage.setItem('users', JSON.stringify(users));
-    }
-  } catch (error) {
-    console.error("Error marking notification as read:", error);
-  }
-};
-
-export const markAllNotificationsAsRead = (): void => {
-  try {
-    const currentUser = getCurrentUser();
-    if (!currentUser || !currentUser.notifications) return;
-    
-    const updatedNotifications = currentUser.notifications.map(notification => ({
-      ...notification,
-      read: true
-    }));
-    
-    // Update current user
-    currentUser.notifications = updatedNotifications;
-    localStorage.setItem('currentUser', JSON.stringify(currentUser));
-    
-    // Update in users array
-    const users = getUsers();
-    const userIndex = users.findIndex(user => user.id === currentUser.id);
-    if (userIndex >= 0) {
-      users[userIndex].notifications = updatedNotifications;
-      localStorage.setItem('users', JSON.stringify(users));
-    }
-  } catch (error) {
-    console.error("Error marking all notifications as read:", error);
+    console.error('Error verifying user with OTP:', error);
   }
 };
 
@@ -235,7 +210,7 @@ export const getContributions = (): Contribution[] => {
     const contributions = localStorage.getItem('contributions');
     return contributions ? JSON.parse(contributions) : [];
   } catch (error) {
-    console.error("Error getting contributions:", error);
+    console.error('Error getting contributions:', error);
     return [];
   }
 };
@@ -243,44 +218,65 @@ export const getContributions = (): Contribution[] => {
 export const getUserContributions = (userId: string): Contribution[] => {
   try {
     const allContributions = getContributions();
-    return allContributions.filter(contribution => 
-      contribution.creatorId === userId || contribution.members.includes(userId)
+    return allContributions.filter(c => 
+      c.creatorId === userId || c.members.includes(userId)
     );
   } catch (error) {
-    console.error("Error getting user contributions:", error);
+    console.error('Error getting user contributions:', error);
     return [];
   }
 };
 
-export const getContributionByAccountNumber = (accountNumber: string): Contribution | null => {
+export const createContribution = (contributionData: any): Contribution => {
   try {
-    const allContributions = getContributions();
-    return allContributions.find(contribution => contribution.accountNumber === accountNumber) || null;
-  } catch (error) {
-    console.error("Error getting contribution by account number:", error);
-    return null;
-  }
-};
-
-export const createContribution = (contribution: Omit<Contribution, 'id' | 'createdAt' | 'currentAmount' | 'members' | 'contributors'>): Contribution => {
-  try {
+    const contributions = getContributions();
     const newContribution: Contribution = {
-      ...contribution,
       id: uuidv4(),
-      createdAt: new Date().toISOString(),
+      name: contributionData.name,
+      description: contributionData.description || '',
+      creatorId: contributionData.creatorId,
+      goalAmount: contributionData.targetAmount || 0,
       currentAmount: 0,
-      status: 'active',
-      members: [contribution.creatorId], // Creator is automatically a member
+      status: contributionData.status || 'active',
+      startDate: contributionData.startDate || new Date().toISOString(),
+      endDate: contributionData.endDate,
+      frequency: contributionData.frequency,
+      createdAt: new Date().toISOString(),
+      members: [contributionData.creatorId], // Creator is always a member
       contributors: [],
+      public: contributionData.privacy === 'public',
+      // Account details
+      accountNumber: contributionData.accountNumber,
+      accountName: contributionData.accountName,
+      bankName: contributionData.bankName,
+      accountReference: contributionData.accountReference,
+      accountDetails: contributionData.accountDetails,
     };
     
-    const contributions = getContributions();
     contributions.push(newContribution);
     localStorage.setItem('contributions', JSON.stringify(contributions));
     
+    // Add transaction for creation record
+    addTransaction({
+      userId: contributionData.creatorId,
+      type: 'transfer',
+      amount: 0,
+      contributionId: newContribution.id,
+      description: `Created "${newContribution.name}" group`,
+      status: 'completed',
+    });
+    
+    // Add notification to creator
+    addNotification({
+      userId: contributionData.creatorId,
+      message: `You created "${newContribution.name}" group`,
+      type: 'success',
+      read: false,
+    });
+    
     return newContribution;
   } catch (error) {
-    console.error("Error creating contribution:", error);
+    console.error('Error creating contribution:', error);
     throw error;
   }
 };
@@ -288,157 +284,188 @@ export const createContribution = (contribution: Omit<Contribution, 'id' | 'crea
 export const contributeToGroup = (contributionId: string, amount: number, anonymous: boolean = false): void => {
   try {
     const currentUser = getCurrentUser();
-    if (!currentUser) {
-      throw new Error("User not authenticated");
-    }
+    if (!currentUser || !currentUser.id) throw new Error('User not found');
     
-    // Verify user has sufficient balance
+    // Check user wallet balance
     if (currentUser.walletBalance < amount) {
-      throw new Error("Insufficient wallet balance");
+      throw new Error('Insufficient funds in wallet');
     }
     
+    // Update user wallet balance
+    updateUser({
+      walletBalance: currentUser.walletBalance - amount,
+    });
+    
+    // Update contribution
     const contributions = getContributions();
     const contributionIndex = contributions.findIndex(c => c.id === contributionId);
     
-    if (contributionIndex === -1) {
-      throw new Error("Contribution not found");
-    }
+    if (contributionIndex === -1) throw new Error('Contribution not found');
     
-    // Update contribution amount
-    contributions[contributionIndex].currentAmount += amount;
-    
-    // Add user to members if not already there
+    // Add user to members if not already a member
     if (!contributions[contributionIndex].members.includes(currentUser.id)) {
       contributions[contributionIndex].members.push(currentUser.id);
     }
     
-    // Add to contributors
+    // Add contribution record
     contributions[contributionIndex].contributors.push({
       userId: currentUser.id,
-      name: anonymous ? "Anonymous" : currentUser.name || `${currentUser.firstName} ${currentUser.lastName}`,
+      name: anonymous ? 'Anonymous' : currentUser.name || 'Unknown',
       amount,
       date: new Date().toISOString(),
-      anonymous
+      anonymous,
     });
     
-    // Save updated contribution
+    // Update total amount
+    contributions[contributionIndex].currentAmount += amount;
+    
+    // Save to localStorage
     localStorage.setItem('contributions', JSON.stringify(contributions));
     
-    // Deduct from user's wallet
-    updateUserBalance(currentUser.id, -amount);
-    
     // Add transaction record
-    const transactionId = uuidv4();
     addTransaction({
-      id: transactionId,
       userId: currentUser.id,
       type: 'transfer',
       amount,
       contributionId,
-      description: `Contribution to ${contributions[contributionIndex].name}`,
+      description: `Contributed to "${contributions[contributionIndex].name}"`,
       status: 'completed',
-      createdAt: new Date().toISOString()
     });
+    
+    // Notify group creator if not the same person
+    if (contributions[contributionIndex].creatorId !== currentUser.id) {
+      addNotification({
+        userId: contributions[contributionIndex].creatorId,
+        message: `${anonymous ? 'Anonymous' : currentUser.name} contributed ₦${amount.toLocaleString()} to "${contributions[contributionIndex].name}"`,
+        type: 'info',
+        read: false,
+        relatedId: contributionId,
+      });
+    }
   } catch (error) {
-    console.error("Error contributing to group:", error);
+    console.error('Error contributing to group:', error);
     throw error;
   }
 };
 
-export const contributeByAccountNumber = (accountNumber: string, amount: number, contributorInfo: { name: string; email?: string; phone?: string }, anonymous: boolean = false): void => {
+export const contributeByAccountNumber = (accountNumber: string, amount: number, contributorInfo: { name: string, email?: string, phone?: string }, anonymous: boolean = false): void => {
   try {
+    // Find the contribution by account number
     const contributions = getContributions();
     const contribution = contributions.find(c => c.accountNumber === accountNumber);
     
-    if (!contribution) {
-      throw new Error("Invalid account number");
-    }
+    if (!contribution) throw new Error('Invalid account number');
     
-    // Update contribution amount
-    const contributionIndex = contributions.findIndex(c => c.id === contribution.id);
-    contributions[contributionIndex].currentAmount += amount;
-    
-    // Add contributor info
+    // Add contribution record
+    const contributionIndex = contributions.indexOf(contribution);
     contributions[contributionIndex].contributors.push({
-      userId: 'external',  // External contributor doesn't have a user ID
-      name: anonymous ? "Anonymous" : contributorInfo.name,
+      userId: 'external', // External contributor
+      name: anonymous ? 'Anonymous' : contributorInfo.name,
       amount,
       date: new Date().toISOString(),
-      anonymous
+      anonymous,
     });
     
-    // Save updated contribution
+    // Update total amount
+    contributions[contributionIndex].currentAmount += amount;
+    
+    // Save to localStorage
     localStorage.setItem('contributions', JSON.stringify(contributions));
     
-    // Add transaction record
+    // Add transaction record (attributed to the group creator for bookkeeping)
     addTransaction({
-      id: uuidv4(),
-      userId: 'external',
-      type: 'transfer',
+      userId: contribution.creatorId,
+      type: 'deposit',
       amount,
       contributionId: contribution.id,
-      description: `External contribution to ${contribution.name}`,
+      description: `External contribution to "${contribution.name}" by ${anonymous ? 'Anonymous' : contributorInfo.name}`,
       status: 'completed',
-      createdAt: new Date().toISOString(),
       metaData: {
         contributorName: contributorInfo.name,
         contributorEmail: contributorInfo.email,
-        contributorPhone: contributorInfo.phone
-      }
+        contributorPhone: contributorInfo.phone,
+        external: true,
+      },
+    });
+    
+    // Notify group creator
+    addNotification({
+      userId: contribution.creatorId,
+      message: `${anonymous ? 'Anonymous' : contributorInfo.name} contributed ₦${amount.toLocaleString()} to "${contribution.name}" via account transfer`,
+      type: 'info',
+      read: false,
+      relatedId: contribution.id,
     });
   } catch (error) {
-    console.error("Error contributing by account number:", error);
+    console.error('Error contributing by account number:', error);
     throw error;
   }
 };
 
-export const generateShareLink = (contributionId: string): string => {
-  // In a real app, this might be a more complex logic or involve a URL shortener
-  return `${window.location.origin}/contribute/share/${contributionId}`;
+export const getContributionByAccountNumber = (accountNumber: string): Contribution | null => {
+  try {
+    const contributions = getContributions();
+    return contributions.find(c => c.accountNumber === accountNumber) || null;
+  } catch (error) {
+    console.error('Error getting contribution by account number:', error);
+    return null;
+  }
 };
 
-// Withdrawal request functions
+// Withdrawal request related functions
 export const getWithdrawalRequests = (): WithdrawalRequest[] => {
   try {
     const requests = localStorage.getItem('withdrawalRequests');
     return requests ? JSON.parse(requests) : [];
   } catch (error) {
-    console.error("Error getting withdrawal requests:", error);
+    console.error('Error getting withdrawal requests:', error);
     return [];
   }
 };
 
-export const createWithdrawalRequest = (request: Omit<WithdrawalRequest, 'id' | 'createdAt' | 'status' | 'votes' | 'deadline'>): WithdrawalRequest => {
+export const createWithdrawalRequest = (requestData: any): WithdrawalRequest => {
   try {
-    const currentUser = getCurrentUser();
-    if (!currentUser) {
-      throw new Error("User not authenticated");
-    }
+    const requests = getWithdrawalRequests();
     
-    // Set deadline to 48 hours from now
+    // Set deadline date (3 days from now)
     const deadline = new Date();
-    deadline.setHours(deadline.getHours() + 48);
+    deadline.setDate(deadline.getDate() + 3);
     
     const newRequest: WithdrawalRequest = {
-      ...request,
       id: uuidv4(),
-      requesterId: currentUser.id,
+      contributionId: requestData.contributionId,
+      requesterId: requestData.requesterId,
+      amount: requestData.amount,
+      purpose: requestData.purpose,
       status: 'pending',
       createdAt: new Date().toISOString(),
       deadline: deadline.toISOString(),
-      votes: []
+      votes: [],
     };
     
-    const requests = getWithdrawalRequests();
     requests.push(newRequest);
     localStorage.setItem('withdrawalRequests', JSON.stringify(requests));
     
-    // Notify group members
-    pingGroupMembersForVote(newRequest.id);
+    // Get contribution details for notifications
+    const contribution = getContributions().find(c => c.id === requestData.contributionId);
+    if (contribution) {
+      // Notify all group members
+      contribution.members.forEach(memberId => {
+        if (memberId !== requestData.requesterId) {
+          addNotification({
+            userId: memberId,
+            message: `New withdrawal request for "${contribution.name}": ₦${requestData.amount.toLocaleString()}`,
+            type: 'info',
+            read: false,
+            relatedId: newRequest.id,
+          });
+        }
+      });
+    }
     
     return newRequest;
   } catch (error) {
-    console.error("Error creating withdrawal request:", error);
+    console.error('Error creating withdrawal request:', error);
     throw error;
   }
 };
@@ -446,16 +473,12 @@ export const createWithdrawalRequest = (request: Omit<WithdrawalRequest, 'id' | 
 export const voteOnWithdrawalRequest = (requestId: string, vote: 'approve' | 'reject'): void => {
   try {
     const currentUser = getCurrentUser();
-    if (!currentUser) {
-      throw new Error("User not authenticated");
-    }
+    if (!currentUser || !currentUser.id) throw new Error('User not found');
     
     const requests = getWithdrawalRequests();
     const requestIndex = requests.findIndex(r => r.id === requestId);
     
-    if (requestIndex === -1) {
-      throw new Error("Withdrawal request not found");
-    }
+    if (requestIndex === -1) throw new Error('Withdrawal request not found');
     
     const request = requests[requestIndex];
     
@@ -464,194 +487,227 @@ export const voteOnWithdrawalRequest = (requestId: string, vote: 'approve' | 're
       throw new Error(`This request has already been ${request.status}`);
     }
     
-    // Check if deadline has passed
-    if (new Date(request.deadline) < new Date()) {
-      throw new Error("Voting deadline has passed");
-    }
-    
-    // Check if user is a member of the contribution group
-    const contribution = getContributions().find(c => c.id === request.contributionId);
-    if (!contribution || !contribution.members.includes(currentUser.id)) {
-      throw new Error("You are not a member of this contribution group");
-    }
-    
     // Check if user has already voted
-    if (request.votes.some(v => v.userId === currentUser.id)) {
-      throw new Error("You have already voted on this request");
+    const existingVote = request.votes.findIndex(v => v.userId === currentUser.id);
+    if (existingVote !== -1) {
+      // Update existing vote
+      request.votes[existingVote] = {
+        userId: currentUser.id,
+        vote,
+        date: new Date().toISOString(),
+      };
+    } else {
+      // Add new vote
+      request.votes.push({
+        userId: currentUser.id,
+        vote,
+        date: new Date().toISOString(),
+      });
     }
     
-    // Add user's vote
-    request.votes.push({
-      userId: currentUser.id,
-      vote,
-      date: new Date().toISOString()
-    });
+    // Get contribution to check voting threshold
+    const contribution = getContributions().find(c => c.id === request.contributionId);
     
-    // Check if majority has been reached
+    if (!contribution) throw new Error('Contribution not found');
+    
+    // Check if threshold is reached
+    const approvalVotes = request.votes.filter(v => v.vote === 'approve').length;
     const totalMembers = contribution.members.length;
-    const requiredVotes = Math.ceil(totalMembers / 2);  // Simple majority
+    const votingThreshold = contribution.votingThreshold || 70; // Default 70%
     
-    const approveVotes = request.votes.filter(v => v.vote === 'approve').length;
-    const rejectVotes = request.votes.filter(v => v.vote === 'reject').length;
+    const percentageApproved = (approvalVotes / totalMembers) * 100;
     
-    // Update status if majority reached
-    if (approveVotes >= requiredVotes) {
+    // If threshold reached, approve the request
+    if (percentageApproved >= votingThreshold) {
       request.status = 'approved';
       
-      // Transfer funds to the requester
-      const requester = getUsers().find(u => u.id === request.requesterId);
-      if (requester) {
-        updateUserBalance(requester.id, request.amount);
-        
-        // Deduct from contribution amount
-        const contributions = getContributions();
-        const contribIndex = contributions.findIndex(c => c.id === request.contributionId);
-        if (contribIndex >= 0) {
-          contributions[contribIndex].currentAmount -= request.amount;
-          localStorage.setItem('contributions', JSON.stringify(contributions));
-        }
-        
-        // Add transaction record
-        addTransaction({
-          id: uuidv4(),
-          userId: requester.id,
-          type: 'withdrawal',
-          amount: request.amount,
-          contributionId: request.contributionId,
-          description: `Withdrawal from ${contribution.name}: ${request.purpose}`,
-          status: 'completed',
-          createdAt: new Date().toISOString()
-        });
-      }
-    } else if (rejectVotes >= requiredVotes) {
-      request.status = 'rejected';
+      // Process the withdrawal
+      processApprovedWithdrawal(request, contribution);
     }
     
-    // Update the request
-    requests[requestIndex] = request;
+    // Save to localStorage
     localStorage.setItem('withdrawalRequests', JSON.stringify(requests));
     
-    // Add transaction record for the vote
+    // Record vote transaction
     addTransaction({
-      id: uuidv4(),
       userId: currentUser.id,
       type: 'vote',
       amount: 0,
       contributionId: request.contributionId,
-      description: `Voted to ${vote} withdrawal request: ${request.purpose}`,
+      description: `Voted to ${vote} withdrawal request`,
       status: 'completed',
-      createdAt: new Date().toISOString()
+      metaData: {
+        requestId,
+        vote,
+      },
+    });
+    
+    // Notify requester of the vote
+    if (currentUser.id !== request.requesterId) {
+      addNotification({
+        userId: request.requesterId,
+        message: `${currentUser.name} voted to ${vote} your withdrawal request of ₦${request.amount.toLocaleString()}`,
+        type: 'info',
+        read: false,
+        relatedId: requestId,
+      });
+    }
+  } catch (error) {
+    console.error('Error voting on withdrawal request:', error);
+    throw error;
+  }
+};
+
+// Helper function to process approved withdrawals
+const processApprovedWithdrawal = (request: WithdrawalRequest, contribution: Contribution): void => {
+  try {
+    // Update contribution amount
+    const contributions = getContributions();
+    const contributionIndex = contributions.findIndex(c => c.id === contribution.id);
+    
+    if (contributionIndex !== -1) {
+      contributions[contributionIndex].currentAmount -= request.amount;
+      localStorage.setItem('contributions', JSON.stringify(contributions));
+    }
+    
+    // Add transaction record
+    addTransaction({
+      userId: request.requesterId,
+      type: 'withdrawal',
+      amount: request.amount,
+      contributionId: request.contributionId,
+      description: `Withdrawal from "${contribution.name}" for ${request.purpose}`,
+      status: 'completed',
+      metaData: {
+        requestId: request.id,
+        approved: true,
+      },
+    });
+    
+    // Notify requester
+    addNotification({
+      userId: request.requesterId,
+      message: `Your withdrawal request of ₦${request.amount.toLocaleString()} has been approved`,
+      type: 'success',
+      read: false,
+      relatedId: request.id,
+    });
+    
+    // Notify all group members
+    contribution.members.forEach(memberId => {
+      if (memberId !== request.requesterId) {
+        addNotification({
+          userId: memberId,
+          message: `Withdrawal request for "${contribution.name}" (₦${request.amount.toLocaleString()}) has been approved`,
+          type: 'info',
+          read: false,
+          relatedId: request.id,
+        });
+      }
     });
   } catch (error) {
-    console.error("Error voting on withdrawal request:", error);
-    throw error;
+    console.error('Error processing approved withdrawal:', error);
   }
 };
 
 export const updateWithdrawalRequestsStatus = (): void => {
   try {
     const requests = getWithdrawalRequests();
+    const now = new Date();
     let updated = false;
     
-    const updatedRequests = requests.map(request => {
-      if (request.status === 'pending' && new Date(request.deadline) < new Date()) {
+    requests.forEach(request => {
+      if (request.status === 'pending' && new Date(request.deadline) < now) {
+        request.status = 'expired';
         updated = true;
-        return { ...request, status: 'expired' };
+        
+        // Notify requester
+        addNotification({
+          userId: request.requesterId,
+          message: `Your withdrawal request has expired due to insufficient votes`,
+          type: 'warning',
+          read: false,
+          relatedId: request.id,
+        });
       }
-      return request;
     });
     
     if (updated) {
-      localStorage.setItem('withdrawalRequests', JSON.stringify(updatedRequests));
+      localStorage.setItem('withdrawalRequests', JSON.stringify(requests));
     }
   } catch (error) {
-    console.error("Error updating withdrawal requests status:", error);
+    console.error('Error updating withdrawal request status:', error);
   }
 };
 
 export const pingGroupMembersForVote = (requestId: string): void => {
   try {
-    const currentUser = getCurrentUser();
-    if (!currentUser) return;
-    
     const requests = getWithdrawalRequests();
     const request = requests.find(r => r.id === requestId);
     
-    if (!request) return;
+    if (!request) throw new Error('Withdrawal request not found');
+    if (request.status !== 'pending') throw new Error(`This request is already ${request.status}`);
     
     const contribution = getContributions().find(c => c.id === request.contributionId);
-    if (!contribution) return;
+    if (!contribution) throw new Error('Contribution not found');
     
-    // Send notification to all members who haven't voted yet
-    const users = getUsers();
+    // Find members who haven't voted yet
+    const voterIds = request.votes.map(v => v.userId);
+    const nonVoters = contribution.members.filter(memberId => !voterIds.includes(memberId));
     
-    contribution.members.forEach(memberId => {
-      // Skip if member is the requester or has already voted
-      if (
-        memberId === request.requesterId ||
-        request.votes.some(v => v.userId === memberId)
-      ) {
-        return;
-      }
-      
-      // Add notification for the member
+    // Send reminder notifications
+    nonVoters.forEach(memberId => {
       addNotification({
         userId: memberId,
-        message: `Reminder: Your vote is needed for the withdrawal request in "${contribution.name}"`,
-        type: 'info',
+        message: `Reminder: Your vote is needed on a withdrawal request for "${contribution.name}"`,
+        type: 'warning',
         read: false,
-        relatedId: request.contributionId
+        relatedId: requestId,
       });
     });
   } catch (error) {
-    console.error("Error pinging group members for vote:", error);
+    console.error('Error pinging group members for vote:', error);
+    throw error;
   }
 };
 
-// Transaction functions
+// Transaction related functions
 export const getTransactions = (): Transaction[] => {
   try {
     const transactions = localStorage.getItem('transactions');
     return transactions ? JSON.parse(transactions) : [];
   } catch (error) {
-    console.error("Error getting transactions:", error);
+    console.error('Error getting transactions:', error);
     return [];
   }
 };
 
-export const addTransaction = (transaction: Transaction): void => {
+export const addTransaction = (transactionData: any): Transaction => {
   try {
     const transactions = getTransactions();
-    transactions.push(transaction);
-    localStorage.setItem('transactions', JSON.stringify(transactions));
-  } catch (error) {
-    console.error("Error adding transaction:", error);
-  }
-};
-
-export const updateUserBalance = (userId: string, amount: number): void => {
-  try {
-    const users = getUsers();
-    const userIndex = users.findIndex(user => user.id === userId);
     
-    if (userIndex >= 0) {
-      const currentBalance = users[userIndex].walletBalance || 0;
-      users[userIndex].walletBalance = currentBalance + amount;
-      localStorage.setItem('users', JSON.stringify(users));
-      
-      // If this is the current user, update that too
-      const currentUser = getCurrentUser();
-      if (currentUser && currentUser.id === userId) {
-        currentUser.walletBalance = (currentUser.walletBalance || 0) + amount;
-        localStorage.setItem('currentUser', JSON.stringify(currentUser));
-      }
-    }
+    const newTransaction: Transaction = {
+      id: uuidv4(),
+      userId: transactionData.userId,
+      type: transactionData.type,
+      amount: transactionData.amount,
+      contributionId: transactionData.contributionId,
+      description: transactionData.description,
+      status: transactionData.status || 'completed',
+      createdAt: new Date().toISOString(),
+      metaData: transactionData.metaData,
+    };
+    
+    transactions.unshift(newTransaction); // Add to beginning for chronological order
+    localStorage.setItem('transactions', JSON.stringify(transactions));
+    
+    return newTransaction;
   } catch (error) {
-    console.error("Error updating user balance:", error);
+    console.error('Error adding transaction:', error);
+    throw error;
   }
 };
 
-// Receipt generation
 export const generateContributionReceipt = (transactionId: string): any => {
   try {
     const transactions = getTransactions();
@@ -659,160 +715,109 @@ export const generateContributionReceipt = (transactionId: string): any => {
     
     if (!transaction) return null;
     
-    // Get additional data based on transaction type
-    const user = getUsers().find(u => u.id === transaction.userId);
-    let contribution = null;
-    
+    // Get contribution details if available
+    let contributionName = 'Unknown';
     if (transaction.contributionId) {
-      contribution = getContributions().find(c => c.id === transaction.contributionId);
+      const contribution = getContributions().find(c => c.id === transaction.contributionId);
+      if (contribution) {
+        contributionName = contribution.name;
+      }
     }
     
-    // Create receipt object
-    const receipt = {
-      receiptNumber: `RCP-${transaction.id.substring(0, 8)}`,
+    // Generate receipt
+    return {
+      receiptNumber: `REC-${transaction.id.substring(0, 8)}`,
       transactionId: transaction.id,
       date: transaction.createdAt,
       amount: transaction.amount,
       description: transaction.description,
-      payerName: user ? user.name || `${user.firstName} ${user.lastName}` : "External Contributor",
-      payerEmail: user ? user.email : (transaction.metaData?.contributorEmail || "N/A"),
-      payeeInfo: contribution ? {
-        name: contribution.name,
-        description: contribution.description,
-        accountNumber: contribution.accountNumber,
-        bankName: contribution.bankName
-      } : null,
+      contributionName,
       status: transaction.status,
-      type: transaction.type
+      type: transaction.type,
     };
-    
-    return receipt;
   } catch (error) {
-    console.error("Error generating receipt:", error);
+    console.error('Error generating receipt:', error);
     return null;
   }
 };
 
-// Statistics functions
+// Notification related functions
+export const getNotifications = (userId: string): Notification[] => {
+  try {
+    const notifications = localStorage.getItem('notifications');
+    const allNotifications = notifications ? JSON.parse(notifications) : [];
+    return allNotifications.filter((n: Notification) => n.userId === userId);
+  } catch (error) {
+    console.error('Error getting notifications:', error);
+    return [];
+  }
+};
+
+export const addNotification = (notificationData: any): Notification => {
+  try {
+    const notifications = localStorage.getItem('notifications');
+    const allNotifications = notifications ? JSON.parse(notifications) : [];
+    
+    const newNotification: Notification = {
+      id: uuidv4(),
+      userId: notificationData.userId,
+      message: notificationData.message,
+      type: notificationData.type || 'info',
+      read: notificationData.read || false,
+      createdAt: new Date().toISOString(),
+      relatedId: notificationData.relatedId,
+    };
+    
+    allNotifications.unshift(newNotification); // Add to beginning
+    localStorage.setItem('notifications', JSON.stringify(allNotifications));
+    
+    return newNotification;
+  } catch (error) {
+    console.error('Error adding notification:', error);
+    throw error;
+  }
+};
+
+// Statistics related functions
 export const getStatistics = (): Stats => {
   try {
-    const currentUser = getCurrentUser();
-    if (!currentUser) {
-      return {
-        totalContributions: 0,
-        activeContributions: 0,
-        totalContributed: 0,
-        totalMembers: 0
-      };
-    }
+    const contributions = getContributions();
+    const users = getUsers();
     
-    const contributions = getUserContributions(currentUser.id);
-    const transactions = getTransactions().filter(
-      t => t.userId === currentUser.id && t.type === 'transfer'
-    );
-    
-    // Calculate statistics
-    const totalContributions = contributions.length;
+    // Count active contributions
     const activeContributions = contributions.filter(c => c.status === 'active').length;
-    const totalContributed = transactions.reduce((sum, t) => sum + t.amount, 0);
     
-    // Calculate unique members across all contributions
+    // Calculate total contributed across all groups
+    const totalContributed = contributions.reduce((sum, contribution) => {
+      return sum + contribution.currentAmount;
+    }, 0);
+    
+    // Count unique members across all groups
     const uniqueMembers = new Set();
-    contributions.forEach(c => {
-      c.members.forEach(m => uniqueMembers.add(m));
+    contributions.forEach(contribution => {
+      contribution.members.forEach(memberId => {
+        uniqueMembers.add(memberId);
+      });
     });
-    const totalMembers = uniqueMembers.size;
     
     return {
-      totalContributions,
+      totalContributions: contributions.length,
       activeContributions,
       totalContributed,
-      totalMembers
+      totalMembers: uniqueMembers.size,
     };
   } catch (error) {
-    console.error("Error calculating statistics:", error);
+    console.error('Error getting statistics:', error);
     return {
       totalContributions: 0,
       activeContributions: 0,
       totalContributed: 0,
-      totalMembers: 0
+      totalMembers: 0,
     };
   }
 };
 
-// User management functions for admin
-export const createUser = (userData: any): void => {
-  try {
-    const users = getUsers();
-    users.push(userData);
-    localStorage.setItem('users', JSON.stringify(users));
-  } catch (error) {
-    console.error("Error creating user:", error);
-  }
-};
-
-export const deleteUser = (userId: string): void => {
-  try {
-    const users = getUsers();
-    const updatedUsers = users.filter((user: any) => user.id !== userId);
-    localStorage.setItem('users', JSON.stringify(updatedUsers));
-  } catch (error) {
-    console.error("Error deleting user:", error);
-  }
-};
-
-export const updateUserRole = (userId: string, role: string): void => {
-  try {
-    const users = getUsers();
-    const userIndex = users.findIndex((user: any) => user.id === userId);
-    
-    if (userIndex >= 0) {
-      users[userIndex].role = role;
-      localStorage.setItem('users', JSON.stringify(users));
-      
-      // If this is the current user, update that too
-      const currentUser = getCurrentUser();
-      if (currentUser && currentUser.id === userId) {
-        currentUser.role = role;
-        localStorage.setItem('currentUser', JSON.stringify(currentUser));
-      }
-    }
-  } catch (error) {
-    console.error("Error updating user role:", error);
-  }
-};
-
-// OTP verification
-export const verifyUserWithOTP = (userId: string): void => {
-  try {
-    const users = getUsers();
-    const index = users.findIndex(u => u.id === userId);
-    
-    if (index >= 0) {
-      users[index].verified = true;
-      localStorage.setItem('users', JSON.stringify(users));
-      
-      // If this is the current user, update that too
-      const currentUser = getCurrentUser();
-      if (currentUser && currentUser.id === userId) {
-        currentUser.verified = true;
-        localStorage.setItem('currentUser', JSON.stringify(currentUser));
-      }
-    }
-  } catch (error) {
-    console.error("Error in verifyUserWithOTP:", error);
-  }
-};
-
-// Helper to validate dates
-export const validateDate = (dateString: string): boolean => {
-  if (!dateString) return false;
-  
-  try {
-    const date = new Date(dateString);
-    return isValid(date);
-  } catch (error) {
-    console.error("Error validating date:", error);
-    return false;
-  }
+// Helper function to generate share links
+export const generateShareLink = (contributionId: string): string => {
+  return `${window.location.origin}/contribute/share/${contributionId}`;
 };

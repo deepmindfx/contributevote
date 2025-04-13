@@ -117,5 +117,3 @@ export const createWithdrawalRequest = (request: any): void => {
     toast.error("Failed to create withdrawal request. Please try again.");
   }
 };
-
-// Add more contribution-related functions as needed

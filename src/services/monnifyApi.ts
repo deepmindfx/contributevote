@@ -129,14 +129,15 @@ export const createContributionGroupAccount = async (data: {
       // Use the formatted account name
       accountName: formattedAccountName,
       // Use the provided contractCode 
-      contractCode: "465595618981", // Updated contract code
+      contractCode: data.contractCode || "465595618981", // Use the contract code from params or default
       preferredBanks: ["035"], // Use the same bank as personal accounts for consistency
-      getAllAvailableBanks: true, // Adding the missing field that was causing the error
+      getAllAvailableBanks: true, // Adding this field that was missing before
     });
     
     // If successful, extract the important account details from the response
     if (response.requestSuccessful && response.responseBody) {
       const accountDetails = {
+        success: true,
         accountReference: response.responseBody.accountReference,
         accountName: response.responseBody.accountName,
         currencyCode: response.responseBody.currencyCode,
@@ -148,17 +149,24 @@ export const createContributionGroupAccount = async (data: {
           ? response.responseBody.accounts[0].bankName : 'Unknown Bank',
         reservedAccountType: response.responseBody.reservedAccountType,
         status: response.responseBody.status,
-        createdOn: response.responseBody.createdOn
+        createdOn: response.responseBody.createdOn,
+        message: "Account created successfully"
       };
       
       console.log("Parsed account details for group:", accountDetails);
       return accountDetails;
     }
     
-    return response;
+    return {
+      success: false,
+      message: response.responseMessage || "Failed to create account for the group"
+    };
   } catch (error) {
     console.error("Error creating contribution group account:", error);
-    return { success: false, message: "Unable to create account for the contribution group" };
+    return { 
+      success: false, 
+      message: error instanceof Error ? error.message : "Unable to create account for the contribution group" 
+    };
   }
 };
 

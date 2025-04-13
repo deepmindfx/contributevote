@@ -48,6 +48,8 @@ export interface Contribution {
   accountNumber?: string;
   accountName?: string;
   bankName?: string;
+  accountReference?: string;
+  accountDetails?: any;
 }
 
 // Transaction related types
@@ -78,6 +80,12 @@ export interface WithdrawalRequest {
     vote: 'approve' | 'reject';
     date: string;
   }[];
+  // Additional properties used in the Votes component
+  requestId?: string;
+  contributionName?: string;
+  hasContributed?: boolean;
+  hasVoted?: boolean;
+  userVote?: 'approve' | 'reject' | null;
 }
 
 // Notification type
@@ -98,4 +106,3 @@ export interface Stats {
   totalContributed: number;
   totalMembers: number;
 }
-

@@ -135,6 +135,16 @@ const CreateGroup = () => {
     setIsLoading(true);
     
     try {
+      // Validate BVN before proceeding
+      if (!formData.bvn.trim() || formData.bvn.length !== 11 || !/^\d+$/.test(formData.bvn)) {
+        toast.error("Valid BVN is required (11 digits)");
+        setValidationErrors({
+          bvn: "BVN must be 11 digits"
+        });
+        setIsLoading(false);
+        return;
+      }
+      
       // Create a virtual account for the group first
       const accountData = {
         accountReference: formData.accountReference,
@@ -146,16 +156,24 @@ const CreateGroup = () => {
         customerBvn: formData.bvn
       };
       
+      console.log("Attempting to create account with data:", {
+        ...accountData,
+        customerBvn: "****" + accountData.customerBvn.slice(-4) // Log masked BVN for security
+      });
+      
       const accountResponse = await createContributionGroupAccount(accountData);
       
-      if (!accountResponse.requestSuccessful) {
+      if (!accountResponse.success) {
         toast.error(accountResponse.message || "Failed to create account for the group");
+        console.error("Account creation failed:", accountResponse);
         setIsLoading(false);
         return;
       }
       
+      console.log("Account created successfully:", accountResponse);
+      
       // Extract account details from response
-      const accountDetails = accountResponse.responseBody;
+      const accountDetails = accountResponse;
       
       // Prepare contribution data with account details
       const contributionData = {
@@ -181,6 +199,8 @@ const CreateGroup = () => {
         accountReference: accountDetails.accountReference,
         accountDetails: accountDetails,
       };
+      
+      console.log("Creating contribution with data:", contributionData);
       
       // Create contribution
       createNewContribution(contributionData);
