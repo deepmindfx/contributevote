@@ -1,241 +1,145 @@
-
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import Header from "@/components/layout/Header";
-import MobileNav from "@/components/layout/MobileNav";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+// Update the votes page to handle the "expired" status
+import React, { useState, useEffect } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Check, X, Bell, Clock } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+import { useNavigate, Link } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
-import { hasContributed } from "@/services/localStorage";
-import { format, formatDistanceToNow } from "date-fns";
-import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import { Check, X } from "lucide-react";
+import { format, isValid } from "date-fns";
 
-const Votes = () => {
+const VotesPage = () => {
   const navigate = useNavigate();
-  const { withdrawalRequests, contributions, user, vote, pingMembersForVote } = useApp();
-  const [eligibleVotes, setEligibleVotes] = useState<Array<{
-    requestId: string;
-    contributionId: string;
-    contributionName: string;
-    amount: number;
-    purpose: string;
-    createdAt: string;
-    deadline: string;
-    hasContributed: boolean;
-    hasVoted: boolean;
-    userVote: 'approve' | 'reject' | null;
-    votes: { userId: string; vote: 'approve' | 'reject' }[];
-    status: 'pending' | 'approved' | 'rejected';
-  }>>([]);
+  const { user, contributions, withdrawalRequests, vote } = useApp();
+  const [voteRequests, setVoteRequests] = useState<any[]>([]);
   
   useEffect(() => {
-    // Filter for pending withdrawal requests where the user is a member
-    const pendingRequests = withdrawalRequests.filter(request => {
-      const contribution = contributions.find(c => c.id === request.contributionId);
-      return (
-        request.status === 'pending' &&
-        contribution && 
-        contribution.members.includes(user.id)
-      );
-    });
-    
-    // Prepare the data with additional information
-    const eligibleRequestsData = pendingRequests.map(request => {
-      const contribution = contributions.find(c => c.id === request.contributionId);
-      const userCanContribute = contribution ? hasContributed(user.id, contribution.id) : false;
-      const userHasVoted = request.votes.some(v => v.userId === user.id);
-      const userVoteValue = request.votes.find(v => v.userId === user.id)?.vote || null;
-      
-      return {
-        requestId: request.id,
-        contributionId: request.contributionId,
-        contributionName: contribution ? contribution.name : 'Unknown Group',
-        amount: request.amount,
-        purpose: request.purpose,
-        createdAt: request.createdAt,
-        deadline: request.deadline,
-        hasContributed: userCanContribute,
-        hasVoted: userHasVoted,
-        userVote: userVoteValue,
-        votes: request.votes,
-        status: request.status
-      };
-    });
-    
-    setEligibleVotes(eligibleRequestsData);
-  }, [withdrawalRequests, contributions, user.id]);
-  
-  const handleVote = (requestId: string, voteValue: 'approve' | 'reject') => {
-    const voteInfo = eligibleVotes.find(v => v.requestId === requestId);
-    
-    if (!voteInfo?.hasContributed) {
-      toast.error("You must contribute to this group before voting");
-      return;
+    if (user && contributions && withdrawalRequests) {
+      setUserVotes();
     }
-    
-    vote(requestId, voteValue);
-    toast.success(`Your vote has been submitted: ${voteValue}`);
-    
-    // Update local state
-    setEligibleVotes(prev => 
-      prev.map(v => 
-        v.requestId === requestId 
-          ? {...v, hasVoted: true, userVote: voteValue} 
-          : v
-      )
-    );
-  };
-  
-  const handleRemind = (requestId: string) => {
-    pingMembersForVote(requestId);
-  };
+  }, [user, contributions, withdrawalRequests]);
   
   const formatDate = (dateString: string) => {
-    return format(new Date(dateString), 'MMM d, yyyy');
+    try {
+      const date = new Date(dateString);
+      if (!isValid(date)) {
+        return "Invalid date";
+      }
+      return format(date, 'MMMM d, yyyy');
+    } catch (error) {
+      console.error("Error formatting date:", error, dateString);
+      return "Invalid date";
+    }
+  };
+
+  // Update the setUserVotes function to handle the "expired" status
+  const setUserVotes = () => {
+    const formattedRequests = withdrawalRequests
+      .filter(request => request.status === "pending" || request.status === "approved" || request.status === "rejected" || request.status === "expired")
+      .map(request => {
+        const contribution = contributions.find(c => c.id === request.contributionId);
+        const hasContributed = contribution ? contribution.contributors.some(c => c.userId === user.id) : false;
+        const hasVoted = request.votes.some(v => v.userId === user.id);
+        const userVote = request.votes.find(v => v.userId === user.id)?.vote as "approve" | "reject";
+        
+        return {
+          requestId: request.id,
+          contributionId: request.contributionId,
+          contributionName: contribution ? contribution.name : "Unknown Contribution",
+          amount: request.amount,
+          purpose: request.purpose || request.reason || "Not specified",
+          createdAt: request.createdAt,
+          deadline: request.deadline,
+          hasContributed,
+          hasVoted,
+          userVote,
+          votes: request.votes,
+          status: request.status
+        };
+      });
+    
+    setVoteRequests(formattedRequests);
   };
   
-  const formatDeadline = (deadlineString: string) => {
-    const deadlineDate = new Date(deadlineString);
-    const now = new Date();
-    
-    if (deadlineDate > now) {
-      return formatDistanceToNow(deadlineDate);
-    } else {
-      return 'Expired';
-    }
+  const handleVote = (requestId: string, voteValue: 'approve' | 'reject') => {
+    vote(requestId, voteValue);
   };
   
   return (
-    <div className="min-h-screen pb-20 md:pb-0">
-      <Header />
-      
-      <main className="container max-w-4xl mx-auto px-4 pt-24 pb-12">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold">Pending Votes</h1>
-          <p className="text-muted-foreground">Cast your vote on pending withdrawal requests</p>
-        </div>
-        
-        {eligibleVotes.length === 0 ? (
-          <Card>
-            <CardContent className="py-8">
-              <div className="text-center">
-                <h3 className="text-lg font-medium">No pending votes</h3>
-                <p className="text-muted-foreground mt-2">
-                  There are no withdrawal requests that need your vote at this time.
-                </p>
-                <Button 
-                  className="mt-4 bg-[#42ab35] hover:bg-[#378d2b]" 
-                  onClick={() => navigate("/dashboard")}
-                >
-                  Return to Dashboard
-                </Button>
+    <div className="min-h-screen">
+      <div className="container max-w-4xl mx-auto px-4 pt-24 pb-12">
+        <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate("/dashboard")}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Dashboard
+        </Button>
+        <Card className="glass-card animate-slide-up">
+          <CardHeader>
+            <CardTitle>Withdrawal Requests</CardTitle>
+            <CardDescription>Vote on pending withdrawal requests</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {voteRequests.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>No withdrawal requests available.</p>
               </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-6">
-            {eligibleVotes.map(vote => (
-              <Card key={vote.requestId}>
-                <CardHeader>
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <CardTitle>{vote.contributionName}</CardTitle>
-                      <CardDescription>
-                        Withdrawal Request • {formatDate(vote.createdAt)}
-                      </CardDescription>
-                    </div>
-                    <Badge variant="outline">
-                      {vote.votes.length} / {contributions.find(c => c.id === vote.contributionId)?.members.filter(m => 
-                        hasContributed(m, vote.contributionId)
-                      ).length || 0} Votes
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <p className="font-semibold text-xl">₦{vote.amount.toLocaleString()}</p>
-                    <p className="text-muted-foreground">{vote.purpose}</p>
-                    <div className="flex items-center mt-2 text-sm text-amber-500">
-                      <Clock className="h-4 w-4 mr-2" />
-                      Time remaining: {formatDeadline(vote.deadline)}
-                    </div>
-                  </div>
-                  
-                  <div className="bg-muted p-3 rounded-lg">
-                    <p className="text-sm font-medium">Voting Progress</p>
-                    <div className="flex justify-between items-center mt-2">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                        <span className="text-sm">
-                          Approve: {vote.votes.filter(v => v.vote === 'approve').length}
-                        </span>
+            ) : (
+              <div className="space-y-4">
+                {voteRequests.map(request => (
+                  <Card key={request.requestId} className={`overflow-hidden ${request.status === 'pending' ? 'border-amber-200 dark:border-amber-800' : request.status === 'approved' ? 'border-green-200 dark:border-green-800' : request.status === 'rejected' ? 'border-red-200 dark:border-red-800' : 'border-gray-200 dark:border-gray-800'}`}>
+                    <CardContent className="p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <div className="font-semibold mb-1">
+                            ₦{request.amount.toLocaleString()}
+                            <Badge className="ml-2" variant={request.status === 'pending' ? 'outline' : request.status === 'approved' ? 'default' : request.status === 'rejected' ? 'destructive' : 'secondary'}>
+                              {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground">{request.purpose}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Requested: {formatDate(request.createdAt)}
+                          </p>
+                        </div>
+                        <div className="text-right text-sm">
+                          <p className="font-medium">
+                            {request.votes.length} votes
+                          </p>
+                        </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                        <span className="text-sm">
-                          Reject: {vote.votes.filter(v => v.vote === 'reject').length}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-                <CardFooter className="flex-col space-y-3">
-                  <div className="flex justify-end w-full space-x-2">
-                    {!vote.hasVoted ? (
-                      <>
-                        <Button 
-                          variant="outline"
-                          onClick={() => handleVote(vote.requestId, 'reject')}
-                          disabled={!vote.hasContributed}
-                        >
-                          <X className="h-4 w-4 mr-2" />
-                          Reject
-                        </Button>
-                        <Button 
-                          onClick={() => handleVote(vote.requestId, 'approve')}
-                          disabled={!vote.hasContributed}
-                          className="bg-[#42ab35] hover:bg-[#378d2b]"
-                        >
-                          <Check className="h-4 w-4 mr-2" />
-                          Approve
-                        </Button>
-                      </>
-                    ) : (
-                      <Badge variant={vote.userVote === 'approve' ? 'default' : 'destructive'}>
-                        You voted: {vote.userVote === 'approve' ? 'Approved' : 'Rejected'}
-                      </Badge>
-                    )}
-                  </div>
-                  
-                  {!vote.hasContributed && (
-                    <p className="text-xs text-amber-500 text-right">
-                      You must contribute to this group before voting
-                    </p>
-                  )}
-                  
-                  {vote.hasContributed && (
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="self-center" 
-                      onClick={() => handleRemind(vote.requestId)}
-                    >
-                      <Bell className="h-4 w-4 mr-2 text-[#42AB35]" />
-                      Remind others to vote
-                    </Button>
-                  )}
-                </CardFooter>
-              </Card>
-            ))}
-          </div>
-        )}
-      </main>
-      
-      <MobileNav />
+                      
+                      {request.hasContributed ? (
+                        request.hasVoted ? (
+                          <div className="mt-4 text-sm text-center p-2 bg-muted rounded-md">
+                            You voted to {request.userVote === 'approve' ? 'approve' : 'reject'} this request.
+                          </div>
+                        ) : (
+                          <div className="flex space-x-2 mt-4">
+                            <Button onClick={() => handleVote(request.requestId, 'approve')} className="flex-1 bg-green-600 hover:bg-green-700" size="sm">
+                              <Check className="h-4 w-4 mr-2" />
+                              Approve
+                            </Button>
+                            <Button onClick={() => handleVote(request.requestId, 'reject')} variant="outline" className="flex-1" size="sm">
+                              <X className="h-4 w-4 mr-2" />
+                              Reject
+                            </Button>
+                          </div>
+                        )
+                      ) : (
+                        <div className="mt-2 text-xs text-amber-500 text-center">
+                          You must contribute to the group to vote
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };
 
-export default Votes;
+export default VotesPage;

@@ -1,5 +1,7 @@
 import { isValid } from "date-fns";
 import { ReservedAccountData, CardTokenData } from "@/services/walletIntegration";
+// Export all functions from the root localStorage.ts file
+export * from "@/localStorage";
 
 // Define interfaces
 export interface User {
@@ -200,41 +202,6 @@ export const addTransaction = (transaction: Transaction): void => {
   localStorage.setItem('transactions', JSON.stringify(transactions));
 };
 
-// Add the missing function to localStorage.ts
-export const verifyUserWithOTP = (userId: string): void => {
-  try {
-    const users = getUsers();
-    const index = users.findIndex(u => u.id === userId);
-    
-    if (index >= 0) {
-      users[index].verified = true;
-      localStorage.setItem('users', JSON.stringify(users));
-      
-      // If this is the current user, update that too
-      const currentUser = getCurrentUser();
-      if (currentUser && currentUser.id === userId) {
-        currentUser.verified = true;
-        localStorage.setItem('currentUser', JSON.stringify(currentUser));
-      }
-    }
-  } catch (error) {
-    console.error("Error in verifyUserWithOTP:", error);
-  }
-};
-
-// Helper to validate dates
-export const validateDate = (dateString: string): boolean => {
-  if (!dateString) return false;
-  
-  try {
-    const date = new Date(dateString);
-    return isValid(date);
-  } catch (error) {
-    console.error("Error validating date:", error);
-    return false;
-  }
-};
-
 // Add more functions based on what's imported elsewhere
 export const getWithdrawalRequests = (): WithdrawalRequest[] => {
   const requestsJson = localStorage.getItem('withdrawalRequests');
@@ -387,12 +354,6 @@ export const contributeByAccountNumber = (accountNumber: string, amount: number,
   
   // Save updated contributions
   localStorage.setItem('contributions', JSON.stringify(contributions));
-};
-
-export const getContributionByAccountNumber = (accountNumber: string): Contribution | null => {
-  const contributions = getContributions();
-  const contribution = contributions.find(c => c.accountNumber === accountNumber);
-  return contribution || null;
 };
 
 export const createWithdrawalRequest = (request: Omit<WithdrawalRequest, 'id' | 'createdAt' | 'status' | 'votes' | 'deadline'>): void => {

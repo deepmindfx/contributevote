@@ -33,9 +33,10 @@ import {
   generateContributionReceipt,
   updateWithdrawalRequestsStatus,
   verifyUserWithOTP,
-  getContributionByAccountNumber,
-  ensureAccountNumberDisplay
+  getContributionByAccountNumber
 } from '@/services/localStorage';
+// Import ensureAccountNumberDisplay from the correct path
+import { ensureAccountNumberDisplay } from '@/localStorage';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
@@ -168,7 +169,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return;
       }
       
-      contributeToGroup(contributionId, amount, amount, anonymous);
+      contributeToGroup(contributionId, amount, anonymous);
       refreshData();
       toast.success('Contribution successful!');
     } catch (error) {

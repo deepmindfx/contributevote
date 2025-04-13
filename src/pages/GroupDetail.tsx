@@ -109,8 +109,11 @@ const GroupDetail = () => {
     }
     requestWithdrawal({
       contributionId: contribution.id,
-      requesterId: user.id,
       amount: Number(withdrawalAmount),
+      reason: withdrawalPurpose,
+      beneficiary: user.name || "Group Creator",
+      accountNumber: "0000000000", // Default value, would be replaced with user's account in real app
+      bankName: "User's Bank", // Default value, would be replaced with user's bank in real app
       purpose: withdrawalPurpose
     });
     setWithdrawalAmount("");
@@ -201,6 +204,11 @@ const GroupDetail = () => {
   };
   
   const isUserCreator = isGroupCreator(contribution.id);
+
+  // Function to get contributor name
+  const getContributorName = (contributor: any) => {
+    return contributor.name || "Unknown User";
+  };
   
   return <div className="min-h-screen pb-20 md:pb-0">
       <Header />
@@ -441,19 +449,25 @@ const GroupDetail = () => {
                   <CardDescription>People who have contributed to this group</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {contribution.contributors && contribution.contributors.length > 0 ? <div className="space-y-4">
-                      {contribution.contributors.map((contributor, index) => <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                  {contribution.contributors && contribution.contributors.length > 0 ? (
+                    <div className="space-y-4">
+                      {contribution.contributors.map((contributor, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
                           <div className="flex items-center">
-                            {contributor.anonymous ? <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                            {contributor.anonymous ? (
+                              <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
                                 <EyeOff size={16} />
-                              </div> : <Avatar className="w-10 h-10">
+                              </div>
+                            ) : (
+                              <Avatar className="w-10 h-10">
                                 <AvatarFallback>
-                                  {contributor.name ? contributor.name.charAt(0).toUpperCase() : 'U'}
+                                  {getContributorName(contributor).charAt(0).toUpperCase()}
                                 </AvatarFallback>
-                              </Avatar>}
+                              </Avatar>
+                            )}
                             <div className="ml-3">
                               <p className="font-medium text-sm">
-                                {contributor.anonymous ? 'Anonymous Contributor' : contributor.name || 'Unknown User'}
+                                {contributor.anonymous ? 'Anonymous Contributor' : getContributorName(contributor)}
                               </p>
                               <p className="text-xs text-muted-foreground">
                                 {contributor.date ? formatDate(contributor.date) : 'Unknown date'}
@@ -465,10 +479,14 @@ const GroupDetail = () => {
                               ₦{contributor.amount.toLocaleString()}
                             </p>
                           </div>
-                        </div>)}
-                    </div> : <div className="text-center py-8 text-muted-foreground">
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
                       <p>No contributors yet.</p>
-                    </div>}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
