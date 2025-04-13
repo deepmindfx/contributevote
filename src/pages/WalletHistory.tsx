@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/layout/Header";
@@ -13,7 +14,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getReservedAccountTransactions } from "@/services/walletIntegration";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Transaction } from "@/types";
 
 // Define interface for Monnify transaction
 interface MonnifyTransaction {
@@ -51,9 +51,8 @@ const WalletHistory = () => {
         setIsLoading(true);
         try {
           const result = await getReservedAccountTransactions(user.reservedAccount.accountReference);
-          if (result && Array.isArray(result)) {
-            // Direct use of the result array
-            setApiTransactions(result.map(t => t.metaData || {}) as any[]);
+          if (result && result.responseBody && result.responseBody.content) {
+            setApiTransactions(result.responseBody.content);
             // After fetching transactions, refresh app data to update balances
             refreshData();
           } else {
@@ -328,20 +327,15 @@ const WalletHistory = () => {
                   <p>No bank transactions found</p>
                   <Button
                     className="mt-4"
-                    onClick={() => {
-                      if (user?.reservedAccount?.accountReference) {
-                        getReservedAccountTransactions(user.reservedAccount.accountReference)
-                          .then(() => refreshData());
-                      }
-                    }}
+                    onClick={() => getReservedAccountTransactions(user.reservedAccount.accountReference).then(() => refreshData())}
                   >
                     Refresh Transactions
                   </Button>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {apiTransactions.map((transaction, index) => (
-                    <div key={transaction.transactionReference || index} className="flex items-start p-3 border rounded-lg">
+                  {apiTransactions.map((transaction) => (
+                    <div key={transaction.transactionReference} className="flex items-start p-3 border rounded-lg">
                       <div className="w-10 h-10 rounded-full flex items-center justify-center bg-green-100 text-[#2DAE75]">
                         <ArrowDown size={18} />
                       </div>
@@ -350,7 +344,7 @@ const WalletHistory = () => {
                           <div>
                             <h4 className="font-medium">Bank Transfer</h4>
                             <p className="text-sm text-muted-foreground">
-                              Via {transaction.paymentMethod || "Bank Transfer"}
+                              Via {transaction.paymentMethod}
                             </p>
                             {transaction.payerName && (
                               <p className="text-xs text-muted-foreground">
@@ -359,21 +353,21 @@ const WalletHistory = () => {
                               </p>
                             )}
                             <p className="text-xs text-muted-foreground mt-1">
-                              {transaction.paidOn ? formatDate(transaction.paidOn) : "Recent"}
+                              {formatDate(transaction.paidOn)}
                             </p>
                           </div>
                           <div className="text-right">
                             <div className="font-medium text-[#2DAE75]">
                               +{currencyType === "NGN" ? 
-                                `₦${(transaction.amount || 0).toLocaleString()}` : 
-                                `$${convertToUSD(transaction.amount || 0).toFixed(2)}`}
+                                `₦${transaction.amount.toLocaleString()}` : 
+                                `$${convertToUSD(transaction.amount).toFixed(2)}`}
                             </div>
                             <div className="mt-1">
                               <Badge variant={
                                 transaction.paymentStatus === 'PAID' ? 'default' :
                                 transaction.paymentStatus === 'PENDING' ? 'outline' : 'destructive'
                               }>
-                                {transaction.paymentStatus || "PENDING"}
+                                {transaction.paymentStatus}
                               </Badge>
                             </div>
                           </div>

@@ -1,96 +1,464 @@
 
-import { useState, useEffect } from "react";
-import { toast } from "sonner";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
+import { Link, Navigate } from "react-router-dom";
+import { useApp } from "@/contexts/AppContext";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { 
+  Users, 
+  CreditCard, 
+  BarChart3, 
+  Settings, 
+  FileText, 
+  Search, 
+  Plus, 
+  Play,
+  Pause,
+  ChevronRight,
+  MessageSquareWarning,
+  CalendarClock
+} from "lucide-react";
+import { User } from "@/services/localStorage";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { User } from "@/types";
-import { getUsers } from "@/services/localStorage";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 
 const AdminDashboard = () => {
-  const [users, setUsers] = useState<User[]>([]);
+  const { user, users, stats, isAdmin, depositToUserAsAdmin, pauseUserAsAdmin, activateUserAsAdmin } = useApp();
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [depositAmount, setDepositAmount] = useState("");
+  const [isDepositOpen, setIsDepositOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("users");
 
-  useEffect(() => {
-    // Fetch all users from local storage
-    const allUsers = getUsers();
-    setUsers(allUsers);
-  }, []);
+  // Redirect if not admin
+  if (!isAdmin) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
-  // Filter users based on search query
-  const filteredUsers = users.filter((user) => {
-    const searchStr = searchQuery.toLowerCase();
-    return (
-      user.name?.toLowerCase().includes(searchStr) ||
-      user.email.toLowerCase().includes(searchStr)
-    );
-  });
+  // Safe stats values with defaults
+  const safeStats = {
+    totalUsers: stats?.totalUsers || 0,
+    totalContributions: stats?.totalContributions || 0,
+    totalTransactions: stats?.totalTransactions || 0,
+    totalAmount: stats?.totalAmount || 0,
+    activeRequests: stats?.activeRequests || 0,
+    totalWithdrawals: stats?.totalWithdrawals || 0,
+    totalAmountContributed: stats?.totalAmountContributed || 0
+  };
 
-  // Fix for missing createUser function
-  const handleCreateUser = () => {
-    // Implement user creation logic here
-    toast.info("User creation currently not implemented in admin dashboard");
+  const filteredUsers = users.filter(u => 
+    u.role !== 'admin' && 
+    (u.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+     u.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+     (u.phone && u.phone.includes(searchQuery)))
+  );
+
+  const activeUsers = users.filter(u => u.role !== 'admin' && u.status === 'active').length;
+  const pausedUsers = users.filter(u => u.role !== 'admin' && u.status === 'paused').length;
+
+  const handleDeposit = () => {
+    if (!selectedUser) return;
+    
+    if (!depositAmount || isNaN(Number(depositAmount)) || Number(depositAmount) <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+    
+    depositToUserAsAdmin(selectedUser.id, Number(depositAmount));
+    setDepositAmount("");
+    setIsDepositOpen(false);
+  };
+
+  const toggleUserStatus = (user: User) => {
+    if (user.status === 'active') {
+      pauseUserAsAdmin(user.id);
+    } else {
+      activateUserAsAdmin(user.id);
+    }
   };
 
   return (
-    <div className="container mx-auto p-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Admin Dashboard</CardTitle>
-          <CardDescription>Manage users and contributions</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="mb-4">
-            <Label htmlFor="search">Search Users</Label>
-            <Input
-              type="text"
-              id="search"
-              placeholder="Search by name or email"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+    <div className="min-h-screen bg-background">
+      <div className="flex">
+        {/* Sidebar */}
+        <div className="hidden md:flex w-64 flex-col fixed inset-y-0 z-50 border-r bg-card">
+          <div className="p-6">
+            <h2 className="text-2xl font-bold">CollectiPay</h2>
+            <p className="text-sm text-muted-foreground">Admin Dashboard</p>
           </div>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredUsers.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell>{user.name}</TableCell>
-                  <TableCell>{user.email}</TableCell>
-                  <TableCell>{user.role}</TableCell>
-                  <TableCell>{user.status}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          <div className="mt-4">
-            <Button onClick={handleCreateUser}>Create User</Button>
+          <nav className="flex-1 p-4 space-y-2">
+            <Link to="/admin" className="flex items-center p-2 rounded-md bg-primary/10 text-primary hover:bg-primary/15">
+              <BarChart3 className="h-5 w-5 mr-3" />
+              <span>Dashboard</span>
+            </Link>
+            <Link to="/admin/users" className="flex items-center p-2 rounded-md hover:bg-muted">
+              <Users className="h-5 w-5 mr-3" />
+              <span>Users</span>
+            </Link>
+            <Link to="/admin/contributions" className="flex items-center p-2 rounded-md hover:bg-muted">
+              <CreditCard className="h-5 w-5 mr-3" />
+              <span>Contributions</span>
+            </Link>
+            <Link to="/admin/transactions" className="flex items-center p-2 rounded-md hover:bg-muted">
+              <FileText className="h-5 w-5 mr-3" />
+              <span>Transactions</span>
+            </Link>
+            <Link to="/admin/disputes" className="flex items-center p-2 rounded-md hover:bg-muted">
+              <MessageSquareWarning className="h-5 w-5 mr-3" />
+              <span>Disputes</span>
+            </Link>
+            <Link to="/admin/settings" className="flex items-center p-2 rounded-md hover:bg-muted">
+              <Settings className="h-5 w-5 mr-3" />
+              <span>Settings</span>
+            </Link>
+          </nav>
+          <div className="p-4 border-t">
+            <div className="flex items-center">
+              <Avatar className="h-8 w-8 mr-2">
+                <AvatarFallback>{user?.name?.charAt(0) || 'A'}</AvatarFallback>
+              </Avatar>
+              <div>
+                <p className="text-sm font-medium">{user?.name || 'Admin'}</p>
+                <p className="text-xs text-muted-foreground">{user?.email || 'admin@collectipay.com'}</p>
+              </div>
+            </div>
+            <Button variant="outline" className="w-full mt-4" size="sm" asChild>
+              <Link to="/dashboard">Switch to User View</Link>
+            </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+
+        {/* Main content */}
+        <main className="md:pl-64 flex-1">
+          <div className="container max-w-6xl p-6">
+            <h1 className="text-3xl font-bold mb-8">Admin Dashboard</h1>
+
+            {/* Stats cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Total Users</p>
+                      <h3 className="text-2xl font-bold">{safeStats.totalUsers}</h3>
+                      <div className="flex items-center mt-2 text-xs">
+                        <span className="text-green-500 mr-2">Active: {activeUsers}</span>
+                        <span className="text-red-500">Paused: {pausedUsers}</span>
+                      </div>
+                    </div>
+                    <div className="bg-primary/10 p-2 rounded-full">
+                      <Users className="h-5 w-5 text-primary" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Contributions</p>
+                      <h3 className="text-2xl font-bold">{safeStats.totalContributions}</h3>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Total: ₦{safeStats.totalAmountContributed?.toLocaleString() || '0'}
+                      </p>
+                    </div>
+                    <div className="bg-primary/10 p-2 rounded-full">
+                      <CreditCard className="h-5 w-5 text-primary" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Transactions</p>
+                      <h3 className="text-2xl font-bold">{safeStats.totalTransactions}</h3>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Withdrawals: {safeStats.totalWithdrawals}
+                      </p>
+                    </div>
+                    <div className="bg-primary/10 p-2 rounded-full">
+                      <FileText className="h-5 w-5 text-primary" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Pending Requests</p>
+                      <h3 className="text-2xl font-bold">{safeStats.activeRequests}</h3>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Require admin attention
+                      </p>
+                    </div>
+                    <div className="bg-primary/10 p-2 rounded-full">
+                      <CalendarClock className="h-5 w-5 text-primary" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Main content tabs */}
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="mb-6">
+                <TabsTrigger value="users">Users</TabsTrigger>
+                <TabsTrigger value="contributions">Contributions</TabsTrigger>
+                <TabsTrigger value="transactions">Transactions</TabsTrigger>
+                <TabsTrigger value="disputes">Disputes</TabsTrigger>
+                <TabsTrigger value="settings">Settings</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="users">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle>User Management</CardTitle>
+                    <div className="flex w-full max-w-sm items-center space-x-2">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search by name, email or phone..."
+                          className="pl-8"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {filteredUsers.length === 0 ? (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <p>No users found.</p>
+                        </div>
+                      ) : (
+                        filteredUsers.map((user) => (
+                          <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
+                            <div className="flex items-center">
+                              <Avatar className="h-10 w-10 mr-4">
+                                {user.profileImage ? (
+                                  <AvatarImage src={user.profileImage} alt={user.name} />
+                                ) : (
+                                  <AvatarFallback>{user.name?.charAt(0) || 'U'}</AvatarFallback>
+                                )}
+                              </Avatar>
+                              <div>
+                                <h4 className="font-medium">{user.name}</h4>
+                                <p className="text-sm text-muted-foreground">{user.email}</p>
+                                {user.phone && (
+                                  <p className="text-xs text-muted-foreground">{user.phone}</p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center">
+                              <Badge variant={user.status === 'active' ? 'default' : 'destructive'} className="mr-4">
+                                {user.status === 'active' ? 'Active' : 'Paused'}
+                              </Badge>
+                              <div className="flex space-x-2">
+                                <Dialog open={isDepositOpen && selectedUser?.id === user.id} onOpenChange={(open) => {
+                                  setIsDepositOpen(open);
+                                  if (open) setSelectedUser(user);
+                                }}>
+                                  <DialogTrigger asChild>
+                                    <Button variant="outline" size="sm">
+                                      <Plus className="h-4 w-4 mr-1" />
+                                      Deposit
+                                    </Button>
+                                  </DialogTrigger>
+                                  <DialogContent>
+                                    <DialogHeader>
+                                      <DialogTitle>Deposit to {user.name}</DialogTitle>
+                                      <DialogDescription>
+                                        Enter the amount you want to deposit to this user's wallet.
+                                      </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="space-y-4 py-4">
+                                      <div className="space-y-2">
+                                        <Label htmlFor="deposit-amount">Amount</Label>
+                                        <div className="relative">
+                                          <span className="absolute left-3 top-2.5 text-muted-foreground">₦</span>
+                                          <Input
+                                            id="deposit-amount"
+                                            type="number"
+                                            className="pl-8"
+                                            placeholder="0.00"
+                                            value={depositAmount}
+                                            onChange={(e) => setDepositAmount(e.target.value)}
+                                          />
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <DialogFooter>
+                                      <Button variant="outline" onClick={() => setIsDepositOpen(false)}>Cancel</Button>
+                                      <Button onClick={handleDeposit}>Deposit</Button>
+                                    </DialogFooter>
+                                  </DialogContent>
+                                </Dialog>
+                                
+                                <Button
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => toggleUserStatus(user)}
+                                >
+                                  {user.status === 'active' ? (
+                                    <Pause className="h-4 w-4 mr-1" />
+                                  ) : (
+                                    <Play className="h-4 w-4 mr-1" />
+                                  )}
+                                  {user.status === 'active' ? 'Pause' : 'Activate'}
+                                </Button>
+                                
+                                <Button variant="ghost" size="sm" asChild>
+                                  <Link to={`/admin/users/${user.id}`}>
+                                    <ChevronRight className="h-4 w-4" />
+                                  </Link>
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="contributions">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Contributions Management</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {/* Display real contributions data here */}
+                      {stats?.totalContributions ? (
+                        <div className="space-y-4">
+                          {/* We'll use real contribution data from the app context */}
+                          <p className="text-muted-foreground">Total contributions: {safeStats.totalContributions}</p>
+                          <p className="text-muted-foreground">Total amount contributed: ₦{safeStats.totalAmountContributed?.toLocaleString() || '0'}</p>
+                          
+                          {/* Additional contribution management functions would go here */}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <p>No contributions data available.</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="transactions">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Transactions Management</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {/* Display real transactions data here */}
+                      {stats?.totalTransactions ? (
+                        <div className="space-y-4">
+                          <p className="text-muted-foreground">Total transactions: {safeStats.totalTransactions}</p>
+                          <p className="text-muted-foreground">Total withdrawals: {safeStats.totalWithdrawals}</p>
+                          
+                          {/* Additional transaction management functions would go here */}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <p>No transactions data available.</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="disputes">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Dispute Management</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {/* Display real disputes data here if available */}
+                      <div className="text-center py-8 text-muted-foreground">
+                        <p>No active disputes at the moment.</p>
+                        <p className="mt-2">This section will show user disputes that require admin attention.</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="settings">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Admin Settings</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-6">
+                      <div>
+                        <h3 className="text-lg font-medium mb-2">System Settings</h3>
+                        <Separator className="mb-4" />
+                        
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="system-name">System Name</Label>
+                              <Input id="system-name" defaultValue="CollectiPay" />
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <Label htmlFor="admin-email">Admin Email</Label>
+                              <Input id="admin-email" defaultValue={user?.email || 'admin@collectipay.com'} />
+                            </div>
+                          </div>
+                          
+                          <Button>Save System Settings</Button>
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <h3 className="text-lg font-medium mb-2">Security Settings</h3>
+                        <Separator className="mb-4" />
+                        
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="current-password">Current Password</Label>
+                              <Input id="current-password" type="password" />
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <Label htmlFor="new-password">New Password</Label>
+                              <Input id="new-password" type="password" />
+                            </div>
+                          </div>
+                          
+                          <Button>Update Password</Button>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </div>
+        </main>
+      </div>
     </div>
   );
 };

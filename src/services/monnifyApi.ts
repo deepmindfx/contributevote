@@ -1,3 +1,4 @@
+
 // Monnify API service for handling virtual account operations
 
 // Base URL for Monnify API 
@@ -109,61 +110,35 @@ export const createReservedAccount = async (data: any) => {
  * @param data Account creation data for the group
  * @returns Response with account details
  */
-export const createContributionGroupAccount = async (firstName: string, lastName: string, contributionName: string) => {
+export const createContributionGroupAccount = async (data: {
+  accountReference: string;
+  accountName: string;
+  currencyCode: string;
+  contractCode: string;
+  customerEmail: string;
+  customerName: string;
+  customerBvn: string;
+}) => {
   try {
     // Format the account name to include CollectiPay prefix
-    const formattedAccountName = `CollectiPay - ${contributionName}`;
+    const formattedAccountName = `CollectiPay - ${data.accountName}`;
     console.log("Creating contribution group account with name:", formattedAccountName);
     
-    // Prepare data for account creation
-    const data = {
-      accountReference: `CONTGROUP_${Date.now()}`,
-      accountName: formattedAccountName,
-      currencyCode: "NGN",
-      contractCode: "465595618981",
-      customerEmail: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@collectipay.com`,
-      customerName: `${firstName} ${lastName}`,
-      customerBvn: "12345678901", // Default BVN for group accounts
-      getAllAvailableBanks: true,
-      preferredBanks: ["035"] // Default preferred bank
-    };
-    
     // Use the same createReservedAccount function but with group-specific data
-    const response = await createReservedAccount(data);
+    const response = await createReservedAccount({
+      ...data,
+      // Use the formatted account name
+      accountName: formattedAccountName,
+      // Use the provided contractCode 
+      contractCode: "465595618981", // Updated contract code
+      preferredBanks: ["035"], // Use the same bank as personal accounts for consistency
+      getAllAvailableBanks: true, // Adding the missing field that was causing the error
+    });
     
-    // If successful, extract the important account details from the response
-    if (response.requestSuccessful && response.responseBody) {
-      const accountDetails = {
-        success: true,
-        accountReference: response.responseBody.accountReference,
-        accountName: response.responseBody.accountName,
-        currencyCode: response.responseBody.currencyCode,
-        accounts: response.responseBody.accounts,
-        // For compatibility with existing code, add these fields too
-        accountNumber: response.responseBody.accounts && response.responseBody.accounts.length > 0 
-          ? response.responseBody.accounts[0].accountNumber : '',
-        bankName: response.responseBody.accounts && response.responseBody.accounts.length > 0
-          ? response.responseBody.accounts[0].bankName : 'Unknown Bank',
-        reservedAccountType: response.responseBody.reservedAccountType,
-        status: response.responseBody.status,
-        createdOn: response.responseBody.createdOn,
-        message: "Account created successfully"
-      };
-      
-      console.log("Parsed account details for group:", accountDetails);
-      return accountDetails;
-    }
-    
-    return {
-      success: false,
-      message: response.responseMessage || "Failed to create account for the group"
-    };
+    return response;
   } catch (error) {
     console.error("Error creating contribution group account:", error);
-    return { 
-      success: false, 
-      message: error instanceof Error ? error.message : "Unable to create account for the contribution group" 
-    };
+    return { success: false, message: "Unable to create account for the contribution group" };
   }
 };
 
@@ -282,87 +257,34 @@ export const getReservedAccountTransactions = async (accountReference: string) =
 };
 
 /**
- * Create a payment invoice
- * @param amount Invoice amount
- * @param description Invoice description
- * @param customerEmail Customer email
- * @param customerName Customer name
- * @param userId Customer ID
+ * Create a Monnify invoice
+ * @param data Invoice creation data
  * @returns Response with invoice details
  */
-export const createPaymentInvoice = async (
-  amount: number, 
-  description: string, 
-  customerEmail: string, 
-  customerName: string, 
-  userId: string
-) => {
+export const createInvoice = async (data: any) => {
   try {
-    console.log("Creating payment invoice:", { amount, description, customerEmail, customerName, userId });
+    console.log("Creating invoice with data:", data);
     
     // Get authentication token
     const token = await getAuthToken();
-    if (!token) {
-      console.error("Failed to authenticate with payment provider");
-      return { success: false, message: "Failed to authenticate with payment provider" };
-    }
     
-    // Prepare invoice data
-    const invoiceData = {
-      amount: amount,
-      customerName: customerName,
-      customerEmail: customerEmail,
-      description: description,
-      currencyCode: "NGN",
-      contractCode: "465595618981",
-      redirectUrl: `${window.location.origin}/dashboard`,
-      paymentMethods: ["CARD", "ACCOUNT_TRANSFER"],
-      metaData: {
-        userId: userId
-      }
-    };
-    
-    console.log("Sending invoice creation request...");
     const response = await fetch(`${BASE_URL}/api/v1/invoice/create`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(invoiceData)
+      body: JSON.stringify(data)
     });
     
-    const responseData = await response.json();
-    
     if (!response.ok) {
-      console.error("Invoice creation failed:", responseData);
-      return { 
-        success: false, 
-        message: responseData.responseMessage || `Failed to create invoice: ${response.status}`
-      };
+      throw new Error(`Failed to create invoice: ${response.status}`);
     }
     
-    if (!responseData.requestSuccessful) {
-      console.error("Invoice creation failed with error:", responseData);
-      return { 
-        success: false, 
-        message: responseData.responseMessage || "Failed to create invoice" 
-      };
-    }
-    
-    console.log("Invoice creation successful:", responseData);
-    return {
-      success: true,
-      checkoutUrl: responseData.responseBody.checkoutUrl,
-      invoiceReference: responseData.responseBody.invoiceReference,
-      message: "Invoice created successfully"
-    };
+    return await response.json();
   } catch (error) {
-    console.error("Error creating payment invoice:", error);
-    return { 
-      success: false, 
-      message: error instanceof Error ? error.message : "Unable to create payment invoice" 
-    };
+    console.error("Error creating invoice:", error);
+    throw error;
   }
 };
 

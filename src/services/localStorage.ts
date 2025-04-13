@@ -1,106 +1,540 @@
-import { User, Contribution, Transaction, WithdrawalRequest, Notification, Stats } from '@/types';
-import { v4 as uuidv4 } from 'uuid';
+import { isValid } from "date-fns";
+import { ReservedAccountData, CardTokenData } from "@/services/walletIntegration";
 
-// User related functions
+// Define interfaces
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  firstName?: string;
+  lastName?: string;
+  phoneNumber?: string;
+  username?: string;
+  password: string;
+  role?: 'user' | 'admin';
+  status?: 'active' | 'paused';
+  walletBalance: number;
+  createdAt: string;
+  profileImage?: string;
+  pin?: string;
+  verified?: boolean;
+  bvn?: string;
+  reservedAccount?: ReservedAccountData;
+  cardTokens?: CardTokenData[];
+  invoices?: InvoiceData[];
+  preferences?: {
+    darkMode: boolean;
+    anonymousContributions: boolean;
+    notificationsEnabled: boolean;
+  };
+  notifications?: Notification[];
+}
+
+// Add interface for invoice data
+export interface InvoiceData {
+  invoiceReference: string;
+  amount: number;
+  description: string;
+  currencyCode: string;
+  customerEmail: string;
+  customerName: string;
+  status: string;
+  createdAt: string;
+  expiryDate: string;
+  checkoutUrl?: string;
+  contributionId?: string;
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  message: string;
+  type: 'info' | 'warning' | 'success' | 'error';
+  read: boolean;
+  createdAt: string;
+  relatedId?: string;
+}
+
+export interface Contribution {
+  id: string;
+  name: string;
+  description: string;
+  targetAmount: number;
+  currentAmount: number;
+  deadline: string;
+  createdAt: string;
+  creatorId: string;
+  members: string[];
+  contributors: Array<{
+    userId: string;
+    amount: number;
+    date: string;
+    anonymous: boolean;
+  }>;
+  category: string;
+  visibility: 'public' | 'private' | 'invite-only';
+  status: 'active' | 'completed' | 'expired';
+  accountNumber?: string;
+  bankName?: string;
+  accountReference?: string;
+  accountDetails?: any;
+  // Additional properties for the enhanced group features
+  frequency?: 'daily' | 'weekly' | 'monthly' | 'one-time';
+  contributionAmount?: number;
+  startDate?: string;
+  endDate?: string;
+  votingThreshold?: number;
+  privacy?: 'public' | 'private';
+  memberRoles?: 'equal' | 'weighted';
+}
+
+export interface WithdrawalRequest {
+  id: string;
+  contributionId: string;
+  amount: number;
+  reason: string;
+  beneficiary: string;
+  accountNumber: string;
+  bankName: string;
+  createdAt: string;
+  deadline: string;
+  status: 'pending' | 'approved' | 'rejected' | 'expired';
+  votes: Array<{
+    userId: string;
+    vote: 'approve' | 'reject';
+    date: string;
+  }>;
+  purpose?: string; // For compatibility with existing code
+}
+
+export interface Transaction {
+  id: string;
+  userId: string;
+  type: 'deposit' | 'withdrawal' | 'transfer' | 'vote';
+  amount: number;
+  contributionId: string;
+  description: string;
+  status: 'pending' | 'completed' | 'failed';
+  createdAt: string;
+  metaData?: Record<string, any>;
+  anonymous?: boolean;
+}
+
+export interface Stats {
+  totalUsers: number;
+  totalContributions: number;
+  totalTransactions: number;
+  totalAmountContributed: number;
+  totalAmount?: number;
+  activeRequests?: number;
+  totalWithdrawals?: number;
+}
+
+// Helper functions
 export const getCurrentUser = (): User => {
-  const userString = localStorage.getItem('currentUser');
-  if (!userString) {
-    return {
-      id: '',
-      email: '',
-      name: '',
-      role: 'user',
-      walletBalance: 0,
-      verified: false,
-      status: 'active',
-      createdAt: new Date().toISOString(),
-      preferences: {
-        darkMode: false,
-        notifications: true
-      }
-    };
+  const currentUserJson = localStorage.getItem('currentUser');
+  if (currentUserJson) {
+    return JSON.parse(currentUserJson);
   }
-  return JSON.parse(userString);
+  return {} as User;
 };
 
-export const setCurrentUser = (user: User): void => {
-  localStorage.setItem('currentUser', JSON.stringify(user));
+export const getUsers = (): User[] => {
+  const usersJson = localStorage.getItem('users');
+  if (usersJson) {
+    return JSON.parse(usersJson);
+  }
+  return [];
 };
 
-export const updateUser = (user: User): void => {
+export const updateUser = (userData: Partial<User>): void => {
   const currentUser = getCurrentUser();
-  if (currentUser.id === user.id) {
-    setCurrentUser(user);
-  }
+  const updatedUser = { ...currentUser, ...userData };
+  localStorage.setItem('currentUser', JSON.stringify(updatedUser));
   
-  // Also update in the users array
-  const usersString = localStorage.getItem('users');
-  if (usersString) {
-    const users: User[] = JSON.parse(usersString);
-    const updatedUsers = users.map(u => u.id === user.id ? user : u);
-    localStorage.setItem('users', JSON.stringify(updatedUsers));
+  // Also update the user in the users array
+  const users = getUsers();
+  const index = users.findIndex(u => u.id === currentUser.id);
+  if (index >= 0) {
+    users[index] = updatedUser;
+    localStorage.setItem('users', JSON.stringify(users));
   }
+};
+
+export const updateUserBalance = (amount: number): void => {
+  const currentUser = getCurrentUser();
+  const newBalance = (currentUser.walletBalance || 0) + amount;
+  updateUser({
+    walletBalance: newBalance
+  });
+};
+
+export const getUserContributions = (userId: string): Contribution[] => {
+  const contributions = getContributions();
+  return contributions.filter(c => 
+    c.creatorId === userId || 
+    c.members.includes(userId) || 
+    c.contributors.some(contrib => contrib.userId === userId)
+  );
+};
+
+export const getContributions = (): Contribution[] => {
+  const contributionsJson = localStorage.getItem('contributions');
+  if (contributionsJson) {
+    return JSON.parse(contributionsJson);
+  }
+  return [];
+};
+
+export const getTransactions = (): Transaction[] => {
+  const transactionsJson = localStorage.getItem('transactions');
+  if (transactionsJson) {
+    return JSON.parse(transactionsJson);
+  }
+  return [];
+};
+
+export const addTransaction = (transaction: Transaction): void => {
+  const transactions = getTransactions();
+  transactions.push(transaction);
+  localStorage.setItem('transactions', JSON.stringify(transactions));
+};
+
+// Add the missing function to localStorage.ts
+export const verifyUserWithOTP = (userId: string): void => {
+  try {
+    const users = getUsers();
+    const index = users.findIndex(u => u.id === userId);
+    
+    if (index >= 0) {
+      users[index].verified = true;
+      localStorage.setItem('users', JSON.stringify(users));
+      
+      // If this is the current user, update that too
+      const currentUser = getCurrentUser();
+      if (currentUser && currentUser.id === userId) {
+        currentUser.verified = true;
+        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+      }
+    }
+  } catch (error) {
+    console.error("Error in verifyUserWithOTP:", error);
+  }
+};
+
+// Helper to validate dates
+export const validateDate = (dateString: string): boolean => {
+  if (!dateString) return false;
+  
+  try {
+    const date = new Date(dateString);
+    return isValid(date);
+  } catch (error) {
+    console.error("Error validating date:", error);
+    return false;
+  }
+};
+
+// Add more functions based on what's imported elsewhere
+export const getWithdrawalRequests = (): WithdrawalRequest[] => {
+  const requestsJson = localStorage.getItem('withdrawalRequests');
+  if (requestsJson) {
+    return JSON.parse(requestsJson);
+  }
+  return [];
+};
+
+export const getStatistics = (): Stats => {
+  // In a real app, calculate this from real data
+  const users = getUsers();
+  const contributions = getContributions();
+  const transactions = getTransactions();
+  
+  return {
+    totalUsers: users.length,
+    totalContributions: contributions.length,
+    totalTransactions: transactions.length,
+    totalAmountContributed: transactions
+      .filter(t => t.type === 'deposit')
+      .reduce((sum, t) => sum + t.amount, 0)
+  };
 };
 
 export const updateUserById = (userId: string, userData: Partial<User>): void => {
-  // Update user in the users array
-  const usersString = localStorage.getItem('users');
-  if (usersString) {
-    const users: User[] = JSON.parse(usersString);
-    const userIndex = users.findIndex(u => u.id === userId);
+  const users = getUsers();
+  const index = users.findIndex(u => u.id === userId);
+  
+  if (index >= 0) {
+    users[index] = { ...users[index], ...userData };
+    localStorage.setItem('users', JSON.stringify(users));
     
-    if (userIndex >= 0) {
-      users[userIndex] = { ...users[userIndex], ...userData };
-      localStorage.setItem('users', JSON.stringify(users));
-      
-      // If it's the current user, also update current user
-      const currentUser = getCurrentUser();
-      if (currentUser.id === userId) {
-        setCurrentUser({ ...currentUser, ...userData });
-      }
+    // If this is the current user, update that too
+    const currentUser = getCurrentUser();
+    if (currentUser && currentUser.id === userId) {
+      localStorage.setItem('currentUser', JSON.stringify({ ...currentUser, ...userData }));
     }
   }
 };
 
-export const updateUserBalance = (userId: string, amount: number, operation: 'add' | 'subtract'): User => {
+export const createContribution = (contribution: Omit<Contribution, 'id' | 'createdAt' | 'currentAmount' | 'members' | 'contributors'>): void => {
+  const contributions = getContributions();
   const currentUser = getCurrentUser();
-  if (currentUser.id === userId) {
-    const updatedUser = { 
-      ...currentUser, 
-      walletBalance: operation === 'add' 
-        ? currentUser.walletBalance + amount 
-        : Math.max(0, currentUser.walletBalance - amount)
-    };
-    setCurrentUser(updatedUser);
-    
-    // Also update in the users array
-    updateUser(updatedUser);
-    
-    return updatedUser;
-  }
   
-  // If it's not the current user, update in the users array
-  const usersString = localStorage.getItem('users');
-  if (usersString) {
-    const users: User[] = JSON.parse(usersString);
-    const updatedUsers = users.map(user => {
-      if (user.id === userId) {
-        return { 
-          ...user, 
-          walletBalance: operation === 'add' 
-            ? user.walletBalance + amount 
-            : Math.max(0, user.walletBalance - amount)
-        };
-      }
-      return user;
+  const newContribution: Contribution = {
+    id: `c_${Date.now()}`,
+    createdAt: new Date().toISOString(),
+    currentAmount: 0,
+    members: [currentUser.id],
+    contributors: [],
+    ...contribution,
+    // If accountNumber is not provided, generate a dummy one like before
+    accountNumber: contribution.accountNumber || `${10000000 + contributions.length}`,
+  };
+  
+  contributions.push(newContribution);
+  localStorage.setItem('contributions', JSON.stringify(contributions));
+};
+
+export const contributeToGroup = (contributionId: string, amount: number, anonymous: boolean = false): void => {
+  const contributions = getContributions();
+  const index = contributions.findIndex(c => c.id === contributionId);
+  
+  if (index >= 0) {
+    const currentUser = getCurrentUser();
+    
+    // Check if user has enough balance
+    if (currentUser.walletBalance < amount) {
+      throw new Error("Insufficient funds");
+    }
+    
+    // Update contribution
+    contributions[index].currentAmount += amount;
+    contributions[index].contributors.push({
+      userId: currentUser.id,
+      amount,
+      date: new Date().toISOString(),
+      anonymous
     });
-    localStorage.setItem('users', JSON.stringify(updatedUsers));
     
-    // Return the updated user
-    return updatedUsers.find(user => user.id === userId) || currentUser;
+    // Ensure user is a member
+    if (!contributions[index].members.includes(currentUser.id)) {
+      contributions[index].members.push(currentUser.id);
+    }
+    
+    // Add transaction
+    addTransaction({
+      id: `t_${Date.now()}`,
+      userId: currentUser.id,
+      type: 'deposit',
+      amount,
+      contributionId,
+      description: `Contribution to ${contributions[index].name}`,
+      status: 'completed',
+      createdAt: new Date().toISOString()
+    });
+    
+    // Update user balance
+    updateUserBalance(-amount);
+    
+    // Save updated contributions
+    localStorage.setItem('contributions', JSON.stringify(contributions));
+  } else {
+    throw new Error("Contribution not found");
+  }
+};
+
+export const contributeByAccountNumber = (accountNumber: string, amount: number, contributorInfo: { name: string, email?: string, phone?: string }, anonymous: boolean = false): void => {
+  const contributions = getContributions();
+  const index = contributions.findIndex(c => c.accountNumber === accountNumber);
+  
+  if (index < 0) {
+    throw new Error("Invalid account number");
   }
   
-  return currentUser;
+  // Update contribution
+  contributions[index].currentAmount += amount;
+  
+  // Since this could be an external contributor, create a placeholder ID
+  const externalUserId = `external_${Date.now()}`;
+  
+  contributions[index].contributors.push({
+    userId: externalUserId,
+    amount,
+    date: new Date().toISOString(),
+    anonymous
+  });
+  
+  // Add transaction with detailed metadata
+  addTransaction({
+    id: `t_${Date.now()}`,
+    userId: externalUserId,
+    type: 'deposit',
+    amount,
+    contributionId: contributions[index].id,
+    description: `External contribution to ${contributions[index].name} by ${contributorInfo.name}`,
+    status: 'completed',
+    createdAt: new Date().toISOString(),
+    metaData: {
+      contributorName: contributorInfo.name,
+      contributorEmail: contributorInfo.email,
+      contributorPhone: contributorInfo.phone,
+      senderName: contributorInfo.name,
+      bankName: contributorInfo.email ? `via ${contributorInfo.email}` : undefined,
+      senderBank: contributorInfo.email ? `via ${contributorInfo.email}` : undefined
+    },
+    anonymous
+  });
+  
+  // Save updated contributions
+  localStorage.setItem('contributions', JSON.stringify(contributions));
+};
+
+export const getContributionByAccountNumber = (accountNumber: string): Contribution | null => {
+  const contributions = getContributions();
+  const contribution = contributions.find(c => c.accountNumber === accountNumber);
+  return contribution || null;
+};
+
+export const createWithdrawalRequest = (request: Omit<WithdrawalRequest, 'id' | 'createdAt' | 'status' | 'votes' | 'deadline'>): void => {
+  const requests = getWithdrawalRequests();
+  const newRequest: WithdrawalRequest = {
+    id: `wr_${Date.now()}`,
+    createdAt: new Date().toISOString(),
+    status: 'pending',
+    votes: [],
+    deadline: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days from now
+    ...request
+  };
+  
+  requests.push(newRequest);
+  localStorage.setItem('withdrawalRequests', JSON.stringify(requests));
+};
+
+export const voteOnWithdrawalRequest = (requestId: string, vote: 'approve' | 'reject'): void => {
+  const requests = getWithdrawalRequests();
+  const requestIndex = requests.findIndex(r => r.id === requestId);
+  
+  if (requestIndex < 0) {
+    throw new Error("Withdrawal request not found");
+  }
+  
+  const request = requests[requestIndex];
+  
+  if (request.status !== 'pending') {
+    throw new Error(`This request is already ${request.status}`);
+  }
+  
+  // Check if deadline has passed
+  if (new Date() > new Date(request.deadline)) {
+    throw new Error("Voting deadline has passed");
+  }
+  
+  const currentUser = getCurrentUser();
+  
+  // Check if user has already voted
+  const existingVoteIndex = request.votes.findIndex(v => v.userId === currentUser.id);
+  
+  if (existingVoteIndex >= 0) {
+    // Update existing vote
+    request.votes[existingVoteIndex] = {
+      userId: currentUser.id,
+      vote,
+      date: new Date().toISOString()
+    };
+  } else {
+    // Add new vote
+    request.votes.push({
+      userId: currentUser.id,
+      vote,
+      date: new Date().toISOString()
+    });
+  }
+  
+  // Check if vote threshold reached
+  const contribution = getContributions().find(c => c.id === request.contributionId);
+  
+  if (!contribution) {
+    throw new Error("Related contribution not found");
+  }
+  
+  // Calculate required votes
+  const totalMembers = contribution.members.length;
+  const requiredVotes = Math.max(Math.ceil(totalMembers / 2), 2); // At least 2 votes or majority
+  
+  const approveVotes = request.votes.filter(v => v.vote === 'approve').length;
+  const rejectVotes = request.votes.filter(v => v.vote === 'reject').length;
+  
+  // Update request status if threshold reached
+  if (approveVotes >= requiredVotes) {
+    request.status = 'approved';
+    
+    // Create transaction
+    addTransaction({
+      id: `t_${Date.now()}`,
+      userId: currentUser.id,
+      type: 'withdrawal',
+      amount: request.amount,
+      contributionId: request.contributionId,
+      description: `Withdrawal from ${contribution.name} - ${request.reason}`,
+      status: 'completed',
+      createdAt: new Date().toISOString(),
+      metaData: {
+        beneficiary: request.beneficiary,
+        accountNumber: request.accountNumber,
+        bankName: request.bankName
+      }
+    });
+    
+    // Update contribution amount
+    const contributions = getContributions();
+    const contributionIndex = contributions.findIndex(c => c.id === request.contributionId);
+    
+    if (contributionIndex >= 0) {
+      contributions[contributionIndex].currentAmount -= request.amount;
+      localStorage.setItem('contributions', JSON.stringify(contributions));
+    }
+  } else if (rejectVotes >= requiredVotes) {
+    request.status = 'rejected';
+  }
+  
+  // Save updated requests
+  localStorage.setItem('withdrawalRequests', JSON.stringify(requests));
+  
+  // Add transaction for the vote
+  addTransaction({
+    id: `t_${Date.now()}`,
+    userId: currentUser.id,
+    type: 'vote',
+    amount: 0,
+    contributionId: request.contributionId,
+    description: `Voted to ${vote} withdrawal request for ${contribution.name}`,
+    status: 'completed',
+    createdAt: new Date().toISOString()
+  });
+};
+
+export const hasContributed = (contributionId: string, userId: string): boolean => {
+  const contributions = getContributions();
+  const contribution = contributions.find(c => c.id === contributionId);
+  
+  if (!contribution) return false;
+  
+  return contribution.contributors.some(c => c.userId === userId);
+};
+
+export const generateShareLink = (contributionId: string): string => {
+  return `${window.location.origin}/contribute/share/${contributionId}`;
+};
+
+export const initializeLocalStorage = (): void => {
+  // Only initialize if not already done
+  if (!localStorage.getItem('initialized')) {
+    localStorage.setItem('users', JSON.stringify([]));
+    localStorage.setItem('contributions', JSON.stringify([]));
+    localStorage.setItem('withdrawalRequests', JSON.stringify([]));
+    localStorage.setItem('transactions', JSON.stringify([]));
+    localStorage.setItem('initialized', 'true');
+  }
 };
 
 export const pauseUser = (userId: string): void => {
@@ -112,750 +546,205 @@ export const activateUser = (userId: string): void => {
 };
 
 export const depositToUser = (userId: string, amount: number): void => {
-  if (amount <= 0) return;
+  const users = getUsers();
+  const userIndex = users.findIndex(u => u.id === userId);
   
-  // Add to user balance
-  updateUserBalance(userId, amount, 'add');
-  
-  // Create transaction record
-  const transaction: Transaction = {
-    id: uuidv4(),
-    userId: userId,
-    type: 'deposit',
-    amount: amount,
-    description: 'Admin deposit',
-    status: 'completed',
-    createdAt: new Date().toISOString(),
-  };
-  
-  addTransaction(transaction);
+  if (userIndex >= 0) {
+    const user = users[userIndex];
+    users[userIndex] = {
+      ...user,
+      walletBalance: (user.walletBalance || 0) + amount
+    };
+    
+    localStorage.setItem('users', JSON.stringify(users));
+    
+    // Add transaction record
+    addTransaction({
+      id: `t_${Date.now()}`,
+      userId,
+      type: 'deposit',
+      amount,
+      contributionId: '',
+      description: 'Admin deposit',
+      status: 'completed',
+      createdAt: new Date().toISOString()
+    });
+    
+    // Update current user if needed
+    const currentUser = getCurrentUser();
+    if (currentUser.id === userId) {
+      updateUser({
+        walletBalance: (currentUser.walletBalance || 0) + amount
+      });
+    }
+  }
 };
 
 export const logoutUser = (): void => {
   localStorage.removeItem('currentUser');
 };
 
-export const getUsers = (): User[] => {
-  const usersString = localStorage.getItem('users');
-  if (!usersString) {
-    return [];
+export const addNotification = (notification: Omit<Notification, 'id' | 'createdAt'>): void => {
+  const userId = notification.userId;
+  const users = getUsers();
+  const userIndex = users.findIndex(u => u.id === userId);
+  
+  if (userIndex >= 0) {
+    const user = users[userIndex];
+    const notifications = user.notifications || [];
+    
+    notifications.push({
+      ...notification,
+      id: `n_${Date.now()}`,
+      createdAt: new Date().toISOString()
+    });
+    
+    users[userIndex] = {
+      ...user,
+      notifications
+    };
+    
+    localStorage.setItem('users', JSON.stringify(users));
+    
+    // Update current user if needed
+    const currentUser = getCurrentUser();
+    if (currentUser.id === userId) {
+      updateUser({
+        notifications
+      });
+    }
   }
-  return JSON.parse(usersString);
 };
 
 export const getUserByEmail = (email: string): User | null => {
   const users = getUsers();
-  return users.find(user => user.email.toLowerCase() === email.toLowerCase()) || null;
+  const user = users.find(u => u.email === email);
+  return user || null;
 };
 
 export const getUserByPhone = (phone: string): User | null => {
   const users = getUsers();
-  return users.find(user => 
-    (user.phone && user.phone.toLowerCase() === phone.toLowerCase()) || 
-    (user.phoneNumber && user.phoneNumber.toLowerCase() === phone.toLowerCase())
-  ) || null;
-};
-
-export const createUser = (userData: Partial<User>): User => {
-  const newUser: User = {
-    id: uuidv4(),
-    email: userData.email || '',
-    name: userData.name || '',
-    firstName: userData.firstName || '',
-    lastName: userData.lastName || '',
-    role: userData.role || 'user',
-    walletBalance: userData.walletBalance || 0,
-    verified: userData.verified || false,
-    status: userData.status || 'active',
-    createdAt: userData.createdAt || new Date().toISOString(),
-    preferences: userData.preferences || {
-      darkMode: false,
-      notifications: true
-    }
-  };
-  
-  const users = getUsers();
-  users.push(newUser);
-  localStorage.setItem('users', JSON.stringify(users));
-  
-  return newUser;
-};
-
-export const verifyUserWithOTP = (userId: string): void => {
-  updateUserById(userId, { verified: true });
-};
-
-// Contribution related functions
-export const getContributions = (): Contribution[] => {
-  const contributionsString = localStorage.getItem('contributions');
-  if (!contributionsString) {
-    return [];
-  }
-  return JSON.parse(contributionsString);
-};
-
-export const getUserContributions = (userId: string): Contribution[] => {
-  const contributions = getContributions();
-  return contributions.filter(contribution => 
-    contribution.creatorId === userId || contribution.members.includes(userId)
-  );
-};
-
-export const getContributionByAccountNumber = (accountNumber: string): Contribution | null => {
-  const contributions = getContributions();
-  return contributions.find(contribution => contribution.accountNumber === accountNumber) || null;
-};
-
-export const addContribution = (contribution: Contribution): void => {
-  const contributions = getContributions();
-  contributions.push(contribution);
-  localStorage.setItem('contributions', JSON.stringify(contributions));
-};
-
-export const updateContribution = (contribution: Contribution): void => {
-  const contributions = getContributions();
-  const updatedContributions = contributions.map(c => 
-    c.id === contribution.id ? contribution : c
-  );
-  localStorage.setItem('contributions', JSON.stringify(updatedContributions));
-};
-
-export const createContribution = (contributionData: Omit<Contribution, 'id' | 'createdAt' | 'currentAmount' | 'members' | 'contributors'>): Contribution => {
-  const newContribution: Contribution = {
-    id: uuidv4(),
-    name: contributionData.name,
-    description: contributionData.description,
-    creatorId: contributionData.creatorId,
-    goalAmount: contributionData.goalAmount,
-    targetAmount: contributionData.targetAmount || contributionData.goalAmount,
-    currentAmount: 0,
-    status: contributionData.status || 'active',
-    startDate: contributionData.startDate || new Date().toISOString(),
-    endDate: contributionData.endDate,
-    frequency: contributionData.frequency,
-    createdAt: new Date().toISOString(),
-    members: [contributionData.creatorId],
-    contributors: [],
-    public: contributionData.public || false,
-    accountNumber: contributionData.accountNumber,
-    accountName: contributionData.accountName,
-    bankName: contributionData.bankName,
-    votingThreshold: contributionData.votingThreshold || 50,
-    category: contributionData.category
-  };
-  
-  addContribution(newContribution);
-  
-  // Update stats
-  updateStats({
-    ...getStatistics(),
-    totalContributions: getStatistics().totalContributions + 1,
-    activeContributions: getStatistics().activeContributions + 1
-  });
-  
-  return newContribution;
-};
-
-export const contributeToGroup = (contributionId: string, amount: number, anonymous: boolean = false): void => {
-  const contributions = getContributions();
-  const contributionIndex = contributions.findIndex(c => c.id === contributionId);
-  
-  if (contributionIndex < 0) {
-    throw new Error('Contribution not found');
-  }
-  
-  const currentUser = getCurrentUser();
-  
-  // Check if user has sufficient funds
-  if (currentUser.walletBalance < amount) {
-    throw new Error('Insufficient funds');
-  }
-  
-  // Deduct from user's wallet
-  updateUserBalance(currentUser.id, amount, 'subtract');
-  
-  // Add amount to contribution
-  contributions[contributionIndex].currentAmount += amount;
-  
-  // Add user to members if not already a member
-  if (!contributions[contributionIndex].members.includes(currentUser.id)) {
-    contributions[contributionIndex].members.push(currentUser.id);
-  }
-  
-  // Add to contributors list
-  contributions[contributionIndex].contributors.push({
-    userId: currentUser.id,
-    name: currentUser.name || currentUser.email,
-    amount: amount,
-    date: new Date().toISOString(),
-    anonymous: anonymous
-  });
-  
-  localStorage.setItem('contributions', JSON.stringify(contributions));
-  
-  // Create transaction record
-  const transaction: Transaction = {
-    id: uuidv4(),
-    userId: currentUser.id,
-    type: 'transfer',
-    amount: amount,
-    contributionId: contributionId,
-    description: `Contribution to ${contributions[contributionIndex].name}`,
-    status: 'completed',
-    createdAt: new Date().toISOString(),
-  };
-  
-  addTransaction(transaction);
-  
-  // Update stats
-  updateStats({
-    ...getStatistics(),
-    totalContributed: getStatistics().totalContributed + amount
-  });
-  
-  // Create notification for contribution creator if not the same as contributor
-  if (contributions[contributionIndex].creatorId !== currentUser.id) {
-    addNotification({
-      id: uuidv4(),
-      userId: contributions[contributionIndex].creatorId,
-      message: `${anonymous ? 'Anonymous' : currentUser.name || 'Someone'} contributed ₦${amount.toLocaleString()} to ${contributions[contributionIndex].name}`,
-      type: 'success',
-      read: false,
-      createdAt: new Date().toISOString(),
-      relatedId: contributionId
-    });
-  }
-};
-
-export const contributeByAccountNumber = (accountNumber: string, amount: number, contributorInfo: { name: string, email?: string, phone?: string }, anonymous: boolean = false): void => {
-  const contribution = getContributionByAccountNumber(accountNumber);
-  
-  if (!contribution) {
-    throw new Error('Invalid account number');
-  }
-  
-  // Create pseudo-user for tracking
-  let contributorId = '';
-  const existingUser = contributorInfo.email 
-    ? getUserByEmail(contributorInfo.email)
-    : contributorInfo.phone 
-      ? getUserByPhone(contributorInfo.phone) 
-      : null;
-  
-  if (existingUser) {
-    contributorId = existingUser.id;
-  } else {
-    // Create a temporary ID based on the info provided
-    contributorId = `external_${uuidv4()}`;
-  }
-  
-  // Add amount to contribution
-  const contributions = getContributions();
-  const contributionIndex = contributions.findIndex(c => c.id === contribution.id);
-  
-  if (contributionIndex < 0) {
-    throw new Error('Contribution not found');
-  }
-  
-  contributions[contributionIndex].currentAmount += amount;
-  
-  // Add to contributors list
-  contributions[contributionIndex].contributors.push({
-    userId: contributorId,
-    name: contributorInfo.name,
-    amount: amount,
-    date: new Date().toISOString(),
-    anonymous: anonymous
-  });
-  
-  localStorage.setItem('contributions', JSON.stringify(contributions));
-  
-  // Create transaction record for tracking
-  const transaction: Transaction = {
-    id: uuidv4(),
-    userId: contributorId,
-    type: 'deposit',
-    amount: amount,
-    contributionId: contribution.id,
-    description: `External contribution to ${contribution.name} via account number`,
-    status: 'completed',
-    createdAt: new Date().toISOString(),
-  };
-  
-  addTransaction(transaction);
-  
-  // Update stats
-  updateStats({
-    ...getStatistics(),
-    totalContributed: getStatistics().totalContributed + amount
-  });
-  
-  // Create notification for contribution creator
-  addNotification({
-    id: uuidv4(),
-    userId: contribution.creatorId,
-    message: `${anonymous ? 'Anonymous' : contributorInfo.name} contributed ₦${amount.toLocaleString()} to ${contribution.name} via account number`,
-    type: 'success',
-    read: false,
-    createdAt: new Date().toISOString(),
-    relatedId: contribution.id
-  });
-};
-
-export const generateShareLink = (contributionId: string): string => {
-  return `${window.location.origin}/contribute/share/${contributionId}`;
-};
-
-// Transaction related functions
-export const getTransactions = (): Transaction[] => {
-  const transactionsString = localStorage.getItem('transactions');
-  if (!transactionsString) {
-    return [];
-  }
-  return JSON.parse(transactionsString);
-};
-
-export const addTransaction = (transaction: Transaction): void => {
-  const transactions = getTransactions();
-  // Check if transaction already exists
-  if (!transactions.some(t => t.id === transaction.id)) {
-    transactions.push(transaction);
-    localStorage.setItem('transactions', JSON.stringify(transactions));
-  }
-};
-
-// Withdrawal request related functions
-export const getWithdrawalRequests = (): WithdrawalRequest[] => {
-  const requestsString = localStorage.getItem('withdrawalRequests');
-  if (!requestsString) {
-    return [];
-  }
-  return JSON.parse(requestsString);
-};
-
-export const addWithdrawalRequest = (request: WithdrawalRequest): void => {
-  const requests = getWithdrawalRequests();
-  requests.push(request);
-  localStorage.setItem('withdrawalRequests', JSON.stringify(requests));
-};
-
-export const updateWithdrawalRequest = (request: WithdrawalRequest): void => {
-  const requests = getWithdrawalRequests();
-  const updatedRequests = requests.map(r => 
-    r.id === request.id ? request : r
-  );
-  localStorage.setItem('withdrawalRequests', JSON.stringify(updatedRequests));
-};
-
-export const createWithdrawalRequest = (requestData: Omit<WithdrawalRequest, 'id' | 'createdAt' | 'status' | 'votes' | 'deadline'>): WithdrawalRequest => {
-  // Set deadline to 3 days from now
-  const deadline = new Date();
-  deadline.setDate(deadline.getDate() + 3);
-  
-  const newRequest: WithdrawalRequest = {
-    id: uuidv4(),
-    contributionId: requestData.contributionId,
-    requesterId: requestData.requesterId,
-    amount: requestData.amount,
-    purpose: requestData.purpose,
-    status: 'pending',
-    createdAt: new Date().toISOString(),
-    deadline: deadline.toISOString(),
-    votes: []
-  };
-  
-  addWithdrawalRequest(newRequest);
-  
-  // Get the contribution to find all members
-  const contribution = getContributions().find(c => c.id === requestData.contributionId);
-  
-  // Send notification to all members except the requester
-  if (contribution) {
-    contribution.members.forEach(memberId => {
-      if (memberId !== requestData.requesterId) {
-        addNotification({
-          id: uuidv4(),
-          userId: memberId,
-          message: `New withdrawal request from ${contribution.name}`,
-          type: 'info',
-          read: false,
-          createdAt: new Date().toISOString(),
-          relatedId: newRequest.id
-        });
-      }
-    });
-  }
-  
-  return newRequest;
-};
-
-export const voteOnWithdrawalRequest = (requestId: string, vote: 'approve' | 'reject'): void => {
-  const requests = getWithdrawalRequests();
-  const requestIndex = requests.findIndex(r => r.id === requestId);
-  
-  if (requestIndex < 0) {
-    throw new Error('Withdrawal request not found');
-  }
-  
-  const currentUser = getCurrentUser();
-  
-  // Get the contribution
-  const contribution = getContributions().find(c => c.id === requests[requestIndex].contributionId);
-  
-  if (!contribution) {
-    throw new Error('Associated contribution not found');
-  }
-  
-  // Check if user is a member of the contribution
-  if (!contribution.members.includes(currentUser.id)) {
-    throw new Error('You are not a member of this contribution group');
-  }
-  
-  // Check if user has contributed
-  const hasContributed = contribution.contributors.some(c => c.userId === currentUser.id);
-  
-  if (!hasContributed) {
-    throw new Error('You need to contribute to the group before voting');
-  }
-  
-  // Check if user has already voted
-  const hasVoted = requests[requestIndex].votes.some(v => v.userId === currentUser.id);
-  
-  if (hasVoted) {
-    // Update existing vote
-    requests[requestIndex].votes = requests[requestIndex].votes.map(v => 
-      v.userId === currentUser.id ? { ...v, vote, date: new Date().toISOString() } : v
-    );
-  } else {
-    // Add new vote
-    requests[requestIndex].votes.push({
-      userId: currentUser.id,
-      vote,
-      date: new Date().toISOString()
-    });
-  }
-  
-  // Check if threshold is reached for approval
-  const approvalVotes = requests[requestIndex].votes.filter(v => v.vote === 'approve').length;
-  const contributorsCount = contribution.contributors.length;
-  const votingThreshold = contribution.votingThreshold || 50; // Default to 50%
-  
-  // Create transaction for the vote (for record keeping)
-  const transaction: Transaction = {
-    id: uuidv4(),
-    userId: currentUser.id,
-    type: 'vote',
-    amount: 0,
-    contributionId: contribution.id,
-    description: `Vote ${vote === 'approve' ? 'approved' : 'rejected'} for withdrawal request`,
-    status: 'completed',
-    createdAt: new Date().toISOString(),
-    metaData: {
-      requestId: requestId,
-      vote: vote
-    }
-  };
-  
-  addTransaction(transaction);
-  
-  // Calculate the percentage of approval votes
-  const approvalPercentage = (approvalVotes / contributorsCount) * 100;
-  
-  // Auto approve if threshold is reached
-  if (approvalPercentage >= votingThreshold) {
-    requests[requestIndex].status = 'approved';
-    
-    // Create notification for requester
-    addNotification({
-      id: uuidv4(),
-      userId: requests[requestIndex].requesterId,
-      message: `Your withdrawal request for ₦${requests[requestIndex].amount.toLocaleString()} has been approved`,
-      type: 'success',
-      read: false,
-      createdAt: new Date().toISOString(),
-      relatedId: requestId
-    });
-    
-    // Deduct from contribution amount
-    const contributions = getContributions();
-    const contributionIndex = contributions.findIndex(c => c.id === contribution.id);
-    
-    if (contributionIndex >= 0) {
-      contributions[contributionIndex].currentAmount -= requests[requestIndex].amount;
-      localStorage.setItem('contributions', JSON.stringify(contributions));
-      
-      // Create transaction for the withdrawal
-      const withdrawalTransaction: Transaction = {
-        id: uuidv4(),
-        userId: requests[requestIndex].requesterId,
-        type: 'withdrawal',
-        amount: requests[requestIndex].amount,
-        contributionId: contribution.id,
-        description: `Withdrawal from ${contribution.name}: ${requests[requestIndex].purpose}`,
-        status: 'completed',
-        createdAt: new Date().toISOString(),
-        metaData: {
-          requestId: requestId
-        }
-      };
-      
-      addTransaction(withdrawalTransaction);
-    }
-  }
-  
-  localStorage.setItem('withdrawalRequests', JSON.stringify(requests));
-};
-
-export const updateWithdrawalRequestsStatus = (): void => {
-  const requests = getWithdrawalRequests();
-  const now = new Date();
-  
-  let updated = false;
-  
-  // Check for expired requests
-  const updatedRequests = requests.map(request => {
-    if (request.status === 'pending' && new Date(request.deadline) < now) {
-      updated = true;
-      return { ...request, status: 'expired' };
-    }
-    return request;
-  });
-  
-  if (updated) {
-    localStorage.setItem('withdrawalRequests', JSON.stringify(updatedRequests));
-  }
+  const user = users.find(u => u.phoneNumber === phone);
+  return user || null;
 };
 
 export const pingGroupMembersForVote = (requestId: string): void => {
-  const request = getWithdrawalRequests().find(r => r.id === requestId);
+  const requests = getWithdrawalRequests();
+  const request = requests.find(r => r.id === requestId);
   
   if (!request) {
-    throw new Error('Withdrawal request not found');
+    throw new Error("Withdrawal request not found");
   }
   
-  const contribution = getContributions().find(c => c.id === request.contributionId);
+  if (request.status !== 'pending') {
+    throw new Error(`This request is already ${request.status}`);
+  }
+  
+  // Get contribution to find members
+  const contributions = getContributions();
+  const contribution = contributions.find(c => c.id === request.contributionId);
   
   if (!contribution) {
-    throw new Error('Associated contribution not found');
+    throw new Error("Related contribution not found");
   }
   
-  // Get all members who haven't voted yet
-  const nonVoters = contribution.members.filter(memberId => 
-    !request.votes.some(vote => vote.userId === memberId)
-  );
+  // Get users who haven't voted
+  const votedUserIds = request.votes.map(v => v.userId);
+  const membersToNotify = contribution.members.filter(id => !votedUserIds.includes(id));
   
-  // Send reminder notification to all non-voters
-  nonVoters.forEach(memberId => {
+  // Send notifications
+  membersToNotify.forEach(userId => {
     addNotification({
-      id: uuidv4(),
-      userId: memberId,
-      message: `Reminder: Please vote on the withdrawal request for ${contribution.name}`,
+      userId,
+      message: `Reminder: Your vote is needed for a withdrawal request in "${contribution.name}"`,
       type: 'info',
       read: false,
-      createdAt: new Date().toISOString(),
       relatedId: requestId
     });
   });
 };
 
 export const generateContributionReceipt = (transactionId: string): any => {
-  const transaction = getTransactions().find(t => t.id === transactionId);
+  const transactions = getTransactions();
+  const transaction = transactions.find(t => t.id === transactionId);
   
-  if (!transaction) {
-    return null;
-  }
+  if (!transaction) return null;
   
-  // Get related contribution if exists
-  let contribution = null;
-  if (transaction.contributionId) {
-    contribution = getContributions().find(c => c.id === transaction.contributionId);
-  }
+  const contributions = getContributions();
+  const contribution = contributions.find(c => c.id === transaction.contributionId);
   
-  // Get user info
-  const user = getUsers().find(u => u.id === transaction.userId) || {
-    name: 'Anonymous',
-    email: 'anonymous@user.com'
-  };
-  
-  // Format current date
-  const formatter = new Intl.DateTimeFormat('en-NG', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+  const users = getUsers();
+  const user = users.find(u => u.id === transaction.userId);
   
   return {
-    receiptId: `RCP-${transaction.id.substring(0, 8)}`,
-    transactionId: transaction.id,
-    date: formatter.format(new Date(transaction.createdAt)),
-    type: transaction.type,
-    amount: transaction.amount,
-    description: transaction.description,
-    status: transaction.status,
-    user: {
-      name: user.name,
-      email: user.email
-    },
-    contribution: contribution ? {
-      name: contribution.name,
-      id: contribution.id
-    } : null
+    receipt: {
+      id: `rcpt_${transactionId}`,
+      date: transaction.createdAt,
+      amount: transaction.amount,
+      contributionName: contribution?.name || "Unknown Contribution",
+      contributorName: user?.name || (transaction.metaData?.contributorName || "Anonymous"),
+      description: transaction.description,
+      status: transaction.status,
+      reference: transaction.id
+    }
   };
 };
 
-// Notification related functions
-export const getNotifications = (): Notification[] => {
-  const notificationsString = localStorage.getItem('notifications');
-  if (!notificationsString) {
-    return [];
-  }
-  return JSON.parse(notificationsString);
-};
-
-export const addNotification = (notification: Partial<Notification>): void => {
-  const notifications = getNotifications();
-  const newNotification: Notification = {
-    id: notification.id || uuidv4(),
-    userId: notification.userId || '',
-    message: notification.message || '',
-    type: notification.type || 'info',
-    read: notification.read || false,
-    createdAt: notification.createdAt || new Date().toISOString(),
-    relatedId: notification.relatedId
-  };
+export const updateWithdrawalRequestsStatus = (): void => {
+  const requests = getWithdrawalRequests();
+  let updated = false;
   
-  notifications.push(newNotification);
-  localStorage.setItem('notifications', JSON.stringify(notifications));
-};
-
-export const updateNotification = (notification: Notification): void => {
-  const notifications = getNotifications();
-  const updatedNotifications = notifications.map(n => 
-    n.id === notification.id ? notification : n
-  );
-  localStorage.setItem('notifications', JSON.stringify(updatedNotifications));
-};
-
-export const markNotificationAsRead = (notificationId: string): void => {
-  const notifications = getNotifications();
-  const updatedNotifications = notifications.map(n => 
-    n.id === notificationId ? { ...n, read: true } : n
-  );
-  localStorage.setItem('notifications', JSON.stringify(updatedNotifications));
-};
-
-export const markAllNotificationsAsRead = (userId: string): void => {
-  const notifications = getNotifications();
-  const updatedNotifications = notifications.map(n => 
-    n.userId === userId ? { ...n, read: true } : n
-  );
-  localStorage.setItem('notifications', JSON.stringify(updatedNotifications));
-};
-
-export const clearAllNotifications = (userId: string): void => {
-  const notifications = getNotifications();
-  const otherNotifications = notifications.filter(n => n.userId !== userId);
-  localStorage.setItem('notifications', JSON.stringify(otherNotifications));
-};
-
-// Stats related functions
-export const getStatistics = (): Stats => {
-  const statsString = localStorage.getItem('stats');
-  if (!statsString) {
-    return {
-      totalContributions: 0,
-      activeContributions: 0,
-      totalContributed: 0,
-      totalMembers: 0
-    };
-  }
-  return JSON.parse(statsString);
-};
-
-// Export alias for getStatistics
-export const getStats = getStatistics;
-
-export const updateStats = (stats: Stats): void => {
-  localStorage.setItem('stats', JSON.stringify(stats));
-};
-
-// Helper functions to initialize data if empty
-export const initializeLocalStorageIfEmpty = (): void => {
-  // Initialize users
-  if (!localStorage.getItem('users')) {
-    localStorage.setItem('users', JSON.stringify([]));
-  }
-  
-  // Initialize contributions
-  if (!localStorage.getItem('contributions')) {
-    localStorage.setItem('contributions', JSON.stringify([]));
-  }
-  
-  // Initialize transactions
-  if (!localStorage.getItem('transactions')) {
-    localStorage.setItem('transactions', JSON.stringify([]));
-  }
-  
-  // Initialize withdrawal requests
-  if (!localStorage.getItem('withdrawalRequests')) {
-    localStorage.setItem('withdrawalRequests', JSON.stringify([]));
-  }
-  
-  // Initialize notifications
-  if (!localStorage.getItem('notifications')) {
-    localStorage.setItem('notifications', JSON.stringify([]));
-  }
-  
-  // Initialize stats
-  if (!localStorage.getItem('stats')) {
-    localStorage.setItem('stats', JSON.stringify({
-      totalContributions: 0,
-      activeContributions: 0,
-      totalContributed: 0,
-      totalMembers: 0
-    }));
-  }
-};
-
-// Create default admin account if not exists
-export const createDefaultAdminIfNotExists = (): void => {
-  const usersString = localStorage.getItem('users');
-  let users: User[] = [];
-  
-  if (usersString) {
-    users = JSON.parse(usersString);
-  }
-  
-  // Check if admin exists
-  const adminExists = users.some(user => user.role === 'admin');
-  
-  if (!adminExists) {
-    const adminUser: User = {
-      id: uuidv4(),
-      email: 'admin@collectipay.com',
-      name: 'Admin User',
-      firstName: 'Admin',
-      lastName: 'User',
-      role: 'admin',
-      walletBalance: 0,
-      verified: true,
-      status: 'active',
-      createdAt: new Date().toISOString(),
-      preferences: {
-        darkMode: false,
-        notifications: true
+  requests.forEach((request, index) => {
+    if (request.status === 'pending' && new Date() > new Date(request.deadline)) {
+      requests[index].status = 'expired';
+      updated = true;
+      
+      // Notify the creator
+      const contributions = getContributions();
+      const contribution = contributions.find(c => c.id === request.contributionId);
+      
+      if (contribution) {
+        addNotification({
+          userId: contribution.creatorId,
+          message: `Withdrawal request for "${contribution.name}" has expired due to insufficient votes.`,
+          type: 'warning',
+          read: false,
+          relatedId: request.id
+        });
       }
+    }
+  });
+  
+  if (updated) {
+    localStorage.setItem('withdrawalRequests', JSON.stringify(requests));
+  }
+};
+
+export const markNotificationAsRead = (id: string): void => {
+  const currentUser = getCurrentUser();
+  if (!currentUser || !currentUser.notifications) return;
+  
+  const notifications = [...currentUser.notifications];
+  const notificationIndex = notifications.findIndex(n => n.id === id);
+  
+  if (notificationIndex >= 0) {
+    notifications[notificationIndex] = {
+      ...notifications[notificationIndex],
+      read: true
     };
     
-    users.push(adminUser);
-    localStorage.setItem('users', JSON.stringify(users));
+    updateUser({ notifications });
   }
 };
 
-// Initialize localStorage
-export const initializeLocalStorage = (): void => {
-  initializeLocalStorageIfEmpty();
-  createDefaultAdminIfNotExists();
+export const markAllNotificationsAsRead = (): void => {
+  const currentUser = getCurrentUser();
+  if (!currentUser || !currentUser.notifications) return;
+  
+  const notifications = currentUser.notifications.map(n => ({
+    ...n,
+    read: true
+  }));
+  
+  updateUser({ notifications });
 };

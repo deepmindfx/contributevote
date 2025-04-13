@@ -1,242 +1,239 @@
-import { useState, useEffect } from 'react';
-import { useApp } from '@/contexts/AppContext';
-import { WithdrawalRequest } from '@/types';
-import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import { Clock, CheckCircle, AlertCircle } from 'lucide-react';
-import { format } from 'date-fns';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import Header from "@/components/layout/Header";
+import MobileNav from "@/components/layout/MobileNav";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Check, X, Bell, Clock } from "lucide-react";
+import { useApp } from "@/contexts/AppContext";
+import { hasContributed } from "@/services/localStorage";
+import { format, formatDistanceToNow } from "date-fns";
+import { toast } from "sonner";
 
 const Votes = () => {
-  const { user, contributions, vote: voteOnWithdrawalRequest, refreshData, pingMembersForVote, isGroupCreator } = useApp();
-  const [requests, setRequests] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState<any>(null);
-  const [reason, setReason] = useState('');
+  const navigate = useNavigate();
+  const { withdrawalRequests, contributions, user, vote, pingMembersForVote } = useApp();
+  const [eligibleVotes, setEligibleVotes] = useState<Array<{
+    requestId: string;
+    contributionId: string;
+    contributionName: string;
+    amount: number;
+    purpose: string;
+    createdAt: string;
+    deadline: string;
+    hasContributed: boolean;
+    hasVoted: boolean;
+    userVote: 'approve' | 'reject' | null;
+    votes: { userId: string; vote: 'approve' | 'reject' }[];
+    status: 'pending' | 'approved' | 'rejected';
+  }>>([]);
   
   useEffect(() => {
-    fetchRequests();
-  }, [user, contributions]);
+    // Filter for pending withdrawal requests where the user is a member
+    const pendingRequests = withdrawalRequests.filter(request => {
+      const contribution = contributions.find(c => c.id === request.contributionId);
+      return (
+        request.status === 'pending' &&
+        contribution && 
+        contribution.members.includes(user.id)
+      );
+    });
+    
+    // Prepare the data with additional information
+    const eligibleRequestsData = pendingRequests.map(request => {
+      const contribution = contributions.find(c => c.id === request.contributionId);
+      const userCanContribute = contribution ? hasContributed(user.id, contribution.id) : false;
+      const userHasVoted = request.votes.some(v => v.userId === user.id);
+      const userVoteValue = request.votes.find(v => v.userId === user.id)?.vote || null;
+      
+      return {
+        requestId: request.id,
+        contributionId: request.contributionId,
+        contributionName: contribution ? contribution.name : 'Unknown Group',
+        amount: request.amount,
+        purpose: request.purpose,
+        createdAt: request.createdAt,
+        deadline: request.deadline,
+        hasContributed: userCanContribute,
+        hasVoted: userHasVoted,
+        userVote: userVoteValue,
+        votes: request.votes,
+        status: request.status
+      };
+    });
+    
+    setEligibleVotes(eligibleRequestsData);
+  }, [withdrawalRequests, contributions, user.id]);
+  
+  const handleVote = (requestId: string, voteValue: 'approve' | 'reject') => {
+    const voteInfo = eligibleVotes.find(v => v.requestId === requestId);
+    
+    if (!voteInfo?.hasContributed) {
+      toast.error("You must contribute to this group before voting");
+      return;
+    }
+    
+    vote(requestId, voteValue);
+    toast.success(`Your vote has been submitted: ${voteValue}`);
+    
+    // Update local state
+    setEligibleVotes(prev => 
+      prev.map(v => 
+        v.requestId === requestId 
+          ? {...v, hasVoted: true, userVote: voteValue} 
+          : v
+      )
+    );
+  };
+  
+  const handleRemind = (requestId: string) => {
+    pingMembersForVote(requestId);
+  };
   
   const formatDate = (dateString: string) => {
-    return format(new Date(dateString), 'MMM d, yyyy h:mm a');
+    return format(new Date(dateString), 'MMM d, yyyy');
   };
   
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'approved': return 'bg-green-100 text-green-800';
-      case 'rejected': return 'bg-red-100 text-red-800';
-      case 'expired': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-  
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'pending': return <Clock className="h-4 w-4 mr-2" />;
-      case 'approved': return <CheckCircle className="h-4 w-4 mr-2" />;
-      case 'rejected': return <AlertCircle className="h-4 w-4 mr-2" />;
-      case 'expired': return <AlertCircle className="h-4 w-4 mr-2" />;
-      default: return null;
-    }
-  };
-  
-  const canVote = (request: any) => {
-    // Check if the user is a member of the contribution group and hasn't voted yet
-    return request.hasContributed && !request.hasVoted && request.status === 'pending';
-  };
-  
-  const isExpired = (request: any) => {
-    return request.status === 'expired';
-  };
-  
-  const isRequester = (request: any) => {
-    return request.requesterId === user.id;
-  };
-  
-  const openDialog = (request: any) => {
-    setSelectedRequest(request);
-    setIsDialogOpen(true);
-  };
-  
-  const closeDialog = () => {
-    setIsDialogOpen(false);
-    setSelectedRequest(null);
-    setReason('');
-  };
-
-  // Fix the getWithdrawalRequests function usage
-  const fetchRequests = () => {
-    setIsLoading(true);
-    try {
-      // Get all withdrawal requests
-      // @ts-ignore
-      const allRequests = useApp().withdrawalRequests;
+  const formatDeadline = (deadlineString: string) => {
+    const deadlineDate = new Date(deadlineString);
+    const now = new Date();
     
-      // Format requests with additional info for UI
-      const formattedRequests = allRequests.map(request => {
-        const contribution = contributions.find(c => c.id === request.contributionId);
-        return {
-          ...request,
-          contributionName: contribution ? contribution.name : 'Unknown',
-          hasContributed: contribution ? contribution.members.includes(user.id) : false,
-          hasVoted: request.votes.some(v => v.userId === user.id),
-          userVote: request.votes.find(v => v.userId === user.id)?.vote || null
-        };
-      });
-    
-      setRequests(formattedRequests);
-    } catch (error) {
-      toast.error("Failed to load withdrawal requests");
-      console.error(error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Fix the voteOnWithdrawalRequest function usage
-  const handleVote = (requestId: string, vote: 'approve' | 'reject') => {
-    try {
-      // Submit vote
-      voteOnWithdrawalRequest(requestId, vote);
-      refreshData();
-    
-      // Update local state
-      // @ts-ignore
-      const updatedRequests = useApp().withdrawalRequests;
-      const formattedRequests = updatedRequests.map(request => {
-        const contribution = contributions.find(c => c.id === request.contributionId);
-        return {
-          ...request,
-          contributionName: contribution ? contribution.name : 'Unknown',
-          hasContributed: contribution ? contribution.members.includes(user.id) : false,
-          hasVoted: request.votes.some(v => v.userId === user.id),
-          userVote: request.votes.find(v => v.userId === user.id)?.vote || null
-        };
-      });
-    
-      setRequests(formattedRequests);
-      toast.success(`Vote submitted successfully`);
-    } catch (error) {
-      toast.error("Failed to submit vote");
-      console.error(error);
+    if (deadlineDate > now) {
+      return formatDistanceToNow(deadlineDate);
+    } else {
+      return 'Expired';
     }
   };
   
-  const handlePing = (requestId: string) => {
-    try {
-      pingMembersForVote(requestId);
-    } catch (error) {
-      toast.error("Failed to send reminders");
-      console.error(error);
-    }
-  };
-
   return (
-    <div>
-      <div className="container mx-auto py-10">
-        <h1 className="text-3xl font-semibold mb-6">Withdrawal Requests</h1>
+    <div className="min-h-screen pb-20 md:pb-0">
+      <Header />
+      
+      <main className="container max-w-4xl mx-auto px-4 pt-24 pb-12">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold">Pending Votes</h1>
+          <p className="text-muted-foreground">Cast your vote on pending withdrawal requests</p>
+        </div>
         
-        {isLoading ? (
-          <p>Loading...</p>
+        {eligibleVotes.length === 0 ? (
+          <Card>
+            <CardContent className="py-8">
+              <div className="text-center">
+                <h3 className="text-lg font-medium">No pending votes</h3>
+                <p className="text-muted-foreground mt-2">
+                  There are no withdrawal requests that need your vote at this time.
+                </p>
+                <Button 
+                  className="mt-4 bg-[#42ab35] hover:bg-[#378d2b]" 
+                  onClick={() => navigate("/dashboard")}
+                >
+                  Return to Dashboard
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[200px]">Request</TableHead>
-                  <TableHead>Contribution</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {requests.map((request) => (
-                  <TableRow key={request.id}>
-                    <TableCell className="font-medium">{request.purpose}</TableCell>
-                    <TableCell>{request.contributionName}</TableCell>
-                    <TableCell>₦{request.amount.toLocaleString()}</TableCell>
-                    <TableCell>{formatDate(request.createdAt)}</TableCell>
-                    <TableCell>
-                      <Badge className={`gap-2 ${getStatusColor(request.status)}`}>
-                        {getStatusIcon(request.status)}
-                        {request.status}
+          <div className="space-y-6">
+            {eligibleVotes.map(vote => (
+              <Card key={vote.requestId}>
+                <CardHeader>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <CardTitle>{vote.contributionName}</CardTitle>
+                      <CardDescription>
+                        Withdrawal Request • {formatDate(vote.createdAt)}
+                      </CardDescription>
+                    </div>
+                    <Badge variant="outline">
+                      {vote.votes.length} / {contributions.find(c => c.id === vote.contributionId)?.members.filter(m => 
+                        hasContributed(m, vote.contributionId)
+                      ).length || 0} Votes
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <p className="font-semibold text-xl">₦{vote.amount.toLocaleString()}</p>
+                    <p className="text-muted-foreground">{vote.purpose}</p>
+                    <div className="flex items-center mt-2 text-sm text-amber-500">
+                      <Clock className="h-4 w-4 mr-2" />
+                      Time remaining: {formatDeadline(vote.deadline)}
+                    </div>
+                  </div>
+                  
+                  <div className="bg-muted p-3 rounded-lg">
+                    <p className="text-sm font-medium">Voting Progress</p>
+                    <div className="flex justify-between items-center mt-2">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                        <span className="text-sm">
+                          Approve: {vote.votes.filter(v => v.vote === 'approve').length}
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                        <span className="text-sm">
+                          Reject: {vote.votes.filter(v => v.vote === 'reject').length}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+                <CardFooter className="flex-col space-y-3">
+                  <div className="flex justify-end w-full space-x-2">
+                    {!vote.hasVoted ? (
+                      <>
+                        <Button 
+                          variant="outline"
+                          onClick={() => handleVote(vote.requestId, 'reject')}
+                          disabled={!vote.hasContributed}
+                        >
+                          <X className="h-4 w-4 mr-2" />
+                          Reject
+                        </Button>
+                        <Button 
+                          onClick={() => handleVote(vote.requestId, 'approve')}
+                          disabled={!vote.hasContributed}
+                          className="bg-[#42ab35] hover:bg-[#378d2b]"
+                        >
+                          <Check className="h-4 w-4 mr-2" />
+                          Approve
+                        </Button>
+                      </>
+                    ) : (
+                      <Badge variant={vote.userVote === 'approve' ? 'default' : 'destructive'}>
+                        You voted: {vote.userVote === 'approve' ? 'Approved' : 'Rejected'}
                       </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {canVote(request) && (
-                        <>
-                          <Button size="sm" variant="outline" onClick={() => handleVote(request.id, 'approve')} className="mr-2">Approve</Button>
-                          <Button size="sm" variant="destructive" onClick={() => openDialog(request)}>Reject</Button>
-                        </>
-                      )}
-                      {isExpired(request) && (
-                        <Badge variant="secondary">Expired</Badge>
-                      )}
-                      {isRequester(request) && (
-                        <Badge variant="secondary">Requested</Badge>
-                      )}
-                      {!canVote(request) && !isExpired(request) && !isRequester(request) && request.hasVoted && (
-                        <Badge variant="secondary">Voted</Badge>
-                      )}
-                      {isGroupCreator(request.contributionId) && canVote(request) && (
-                        <Button size="sm" variant="link" onClick={() => handlePing(request.id)}>Ping Members</Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                    )}
+                  </div>
+                  
+                  {!vote.hasContributed && (
+                    <p className="text-xs text-amber-500 text-right">
+                      You must contribute to this group before voting
+                    </p>
+                  )}
+                  
+                  {vote.hasContributed && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="self-center" 
+                      onClick={() => handleRemind(vote.requestId)}
+                    >
+                      <Bell className="h-4 w-4 mr-2 text-[#42AB35]" />
+                      Remind others to vote
+                    </Button>
+                  )}
+                </CardFooter>
+              </Card>
+            ))}
           </div>
         )}
-      </div>
+      </main>
       
-      {/* Rejection Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Reject Withdrawal Request</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to reject this withdrawal request? Please provide a reason.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="reason" className="text-right">
-                Reason
-              </Label>
-              <Textarea id="reason" className="col-span-3" value={reason} onChange={(e) => setReason(e.target.value)} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={closeDialog}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="destructive" onClick={() => {
-              handleVote(selectedRequest.id, 'reject');
-              closeDialog();
-            }}>
-              Reject Request
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <MobileNav />
     </div>
   );
 };
