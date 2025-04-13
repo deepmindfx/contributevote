@@ -8,8 +8,8 @@ import { useApp } from "@/contexts/AppContext";
 import { 
   getUserReservedAccount, 
   createUserReservedAccount, 
-  ReservedAccountData,
-  getReservedAccountTransactions
+  getReservedAccountTransactions,
+  type ReservedAccountData
 } from "@/services/walletIntegration";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";

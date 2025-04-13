@@ -23,7 +23,7 @@ export interface User {
     anonymousContributions?: boolean; // Added for compatibility
   };
   notifications?: Notification[];
-  reservedAccount?: any;
+  reservedAccount?: ReservedAccountData;
   cardTokens?: any[];
   invoices?: any[];
 }
@@ -35,7 +35,7 @@ export interface Contribution {
   description: string;
   creatorId: string;
   goalAmount: number;
-  targetAmount: number; // Added for compatibility
+  targetAmount: number; // Added for compatibility with ContributePage
   currentAmount: number;
   contributionAmount?: number; // Added for compatibility with ContributePage
   status: 'active' | 'paused' | 'completed';

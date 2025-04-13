@@ -107,8 +107,9 @@ export const createPaymentInvoice = async (invoiceData: {
 };
 
 // Functions for user's reserved account
-export const getUserReservedAccount = async (user: User): Promise<ReservedAccountData | null> => {
+export const getUserReservedAccount = async (userId: string): Promise<ReservedAccountData | null> => {
   try {
+    const user = getCurrentUser();
     if (!user || !user.reservedAccount || !user.reservedAccount.accountReference) {
       return null;
     }
@@ -126,8 +127,9 @@ export const getUserReservedAccount = async (user: User): Promise<ReservedAccoun
   }
 };
 
-export const createUserReservedAccount = async (user: User): Promise<ReservedAccountData | null> => {
+export const createUserReservedAccount = async (userId: string, idType: string, idNumber: string): Promise<ReservedAccountData | null> => {
   try {
+    const user = getCurrentUser();
     if (!user || !user.email || !user.name) {
       toast.error("User data is incomplete");
       return null;
@@ -144,7 +146,8 @@ export const createUserReservedAccount = async (user: User): Promise<ReservedAcc
       contractCode: "465595618981",
       customerEmail: user.email,
       customerName: `${firstName} ${lastName}`,
-      customerBvn: "12345678901", // Default BVN 
+      customerBvn: idNumber, // Use provided BVN or NIN 
+      idType: idType, // Add ID type (bvn or nin)
       getAllAvailableBanks: true,
       preferredBanks: ["035"] // Default preferred bank
     };
@@ -154,8 +157,15 @@ export const createUserReservedAccount = async (user: User): Promise<ReservedAcc
     if (response.requestSuccessful && response.responseBody) {
       // Update user with new reserved account
       const accountDetails = response.responseBody as ReservedAccountData;
-      user.reservedAccount = accountDetails;
-      updateUser(user);
+      
+      // Create updated user object with the new reserved account
+      const updatedUser: User = {
+        ...user,
+        reservedAccount: accountDetails
+      };
+      
+      // Update user in local storage
+      updateUser(updatedUser);
       
       toast.success("Virtual account created successfully");
       return accountDetails;
@@ -170,4 +180,5 @@ export const createUserReservedAccount = async (user: User): Promise<ReservedAcc
   }
 };
 
-export { ReservedAccountData };
+// Make sure to export the type as a type, not a value
+export type { ReservedAccountData };
