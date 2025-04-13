@@ -205,7 +205,7 @@ export interface Contribution {
   currentAmount: number;
   category: "personal" | "family" | "community" | "business" | "event" | "education" | "other";
   frequency: "daily" | "weekly" | "monthly" | "one-time";
-  contributionAmount: number;
+  contributionAmount: number; // This field is required
   startDate: string;
   endDate?: string;
   deadline?: string;
@@ -243,4 +243,3 @@ export interface Transaction {
   description?: string;
   anonymous?: boolean;
 }
-
