@@ -1,4 +1,3 @@
-
 import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
 import * as monnifyApi from "./monnifyApi";
@@ -122,7 +121,11 @@ export const createUserReservedAccount = async (
     const result = await monnifyApi.createReservedAccount(requestBody);
     
     if (!result || !result.responseBody) {
-      toast.error("Failed to create reserved account");
+      if (result && !result.success) {
+        toast.error(result.message || "Failed to create reserved account");
+      } else {
+        toast.error("Failed to create reserved account");
+      }
       return null;
     }
     
@@ -249,15 +252,28 @@ export const getReservedAccountTransactions = async (accountReference: string) =
   try {
     const result = await monnifyApi.getReservedAccountTransactions(accountReference);
     
-    if (!result || !result.responseBody) {
+    if (!result) {
+      // If null or undefined, handle gracefully
       toast.error("Failed to fetch transactions");
-      return null;
+      return { content: [] };
+    }
+    
+    if (result && !result.requestSuccessful && result.message) {
+      toast.error(result.message);
+      return { content: [] };
+    }
+    
+    if (!result.responseBody) {
+      return { content: [] };
     }
     
     const responseBody = result.responseBody;
     
     // Process the transactions and add them to the local storage
     if (responseBody.content && Array.isArray(responseBody.content)) {
+      // Get current user data for user ID
+      const currentUser = getCurrentUser();
+      
       for (const transaction of responseBody.content) {
         await processReservedAccountTransaction({
           transactionReference: transaction.transactionReference,
@@ -268,7 +284,9 @@ export const getReservedAccountTransactions = async (accountReference: string) =
           paidOn: transaction.paidOn,
           paymentStatus: transaction.paymentStatus,
           paymentDescription: `Bank transfer from ${transaction.destinationBankName || 'bank'}`,
-          metaData: {},
+          metaData: {
+            userId: currentUser?.id // Ensure transaction is linked to current user
+          },
           accountDetails: {
             accountName: transaction.destinationAccountName || '',
             accountNumber: transaction.destinationAccountNumber || '',
@@ -283,7 +301,7 @@ export const getReservedAccountTransactions = async (accountReference: string) =
   } catch (error) {
     console.error("Error fetching reserved account transactions:", error);
     toast.error("Failed to fetch transactions. Please try again.");
-    return null;
+    return { content: [] };
   }
 };
 
@@ -457,7 +475,7 @@ export const processReservedAccountTransaction = async (data: {
     // Add transaction record
     const transaction = {
       id: transactionReference || uuidv4(),
-      userId,
+      userId, // Ensure transaction is linked to the correct user
       type: "deposit" as "deposit" | "withdrawal" | "transfer" | "vote",
       amount: amountPaid,
       contributionId: metaData?.contributionId || "",
