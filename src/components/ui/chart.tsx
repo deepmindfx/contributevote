@@ -1,3 +1,4 @@
+
 import * as React from "react"
 import * as RechartsPrimitive from "recharts"
 
@@ -352,6 +353,39 @@ function getPayloadConfigFromPayload(
     ? config[configLabelKey]
     : config[key as keyof typeof config]
 }
+
+// Create and export the AreaChart component that WalletCard.tsx is trying to import
+export const AreaChart = ({ data, valueKey, nameKey, aspect = 4/3 }: { 
+  data: any[]; 
+  valueKey: string; 
+  nameKey: string; 
+  aspect?: number 
+}) => {
+  return (
+    <ChartContainer
+      config={{
+        [valueKey]: {
+          label: valueKey,
+          color: "#2DAE75"
+        }
+      }}
+    >
+      <RechartsPrimitive.AreaChart data={data} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
+        <RechartsPrimitive.CartesianGrid strokeDasharray="3 3" />
+        <RechartsPrimitive.XAxis dataKey={nameKey} />
+        <RechartsPrimitive.YAxis />
+        <RechartsPrimitive.Tooltip />
+        <RechartsPrimitive.Area 
+          type="monotone" 
+          dataKey={valueKey} 
+          stroke="#2DAE75" 
+          fill="#2DAE75" 
+          fillOpacity={0.2} 
+        />
+      </RechartsPrimitive.AreaChart>
+    </ChartContainer>
+  );
+};
 
 export {
   ChartContainer,
