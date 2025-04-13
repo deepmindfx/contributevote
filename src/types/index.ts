@@ -50,6 +50,7 @@ export interface Contribution {
   bankName?: string;
   accountReference?: string;
   accountDetails?: any;
+  votingThreshold?: number; // Added voting threshold property
 }
 
 // Transaction related types

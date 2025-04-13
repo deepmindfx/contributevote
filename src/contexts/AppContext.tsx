@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { 
   User, 
@@ -5,6 +6,9 @@ import {
   WithdrawalRequest, 
   Transaction,
   Stats,
+  Notification
+} from '@/types';
+import { 
   getCurrentUser,
   getContributions,
   getUserContributions,

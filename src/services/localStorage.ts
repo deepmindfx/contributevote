@@ -204,6 +204,19 @@ export const verifyUserWithOTP = (userId: string): void => {
   }
 };
 
+// User Balance Management
+export const updateUserBalance = (amount: number): void => {
+  try {
+    const currentUser = getCurrentUser();
+    if (!currentUser || !currentUser.id) return;
+    
+    const newBalance = (currentUser.walletBalance || 0) + amount;
+    updateUser({ walletBalance: newBalance });
+  } catch (error) {
+    console.error('Error updating user balance:', error);
+  }
+};
+
 // Contribution related functions
 export const getContributions = (): Contribution[] => {
   try {
@@ -251,6 +264,7 @@ export const createContribution = (contributionData: any): Contribution => {
       bankName: contributionData.bankName,
       accountReference: contributionData.accountReference,
       accountDetails: contributionData.accountDetails,
+      votingThreshold: contributionData.votingThreshold || 70, // Default 70%
     };
     
     contributions.push(newContribution);
@@ -409,6 +423,77 @@ export const getContributionByAccountNumber = (accountNumber: string): Contribut
   } catch (error) {
     console.error('Error getting contribution by account number:', error);
     return null;
+  }
+};
+
+// Notification related functions
+export const getNotifications = (userId: string): Notification[] => {
+  try {
+    const notifications = localStorage.getItem('notifications');
+    const allNotifications = notifications ? JSON.parse(notifications) : [];
+    return allNotifications.filter((n: Notification) => n.userId === userId);
+  } catch (error) {
+    console.error('Error getting notifications:', error);
+    return [];
+  }
+};
+
+export const addNotification = (notificationData: any): Notification => {
+  try {
+    const notifications = localStorage.getItem('notifications');
+    const allNotifications = notifications ? JSON.parse(notifications) : [];
+    
+    const newNotification: Notification = {
+      id: uuidv4(),
+      userId: notificationData.userId,
+      message: notificationData.message,
+      type: notificationData.type || 'info',
+      read: notificationData.read || false,
+      createdAt: new Date().toISOString(),
+      relatedId: notificationData.relatedId,
+    };
+    
+    allNotifications.unshift(newNotification); // Add to beginning
+    localStorage.setItem('notifications', JSON.stringify(allNotifications));
+    
+    return newNotification;
+  } catch (error) {
+    console.error('Error adding notification:', error);
+    throw error;
+  }
+};
+
+export const markNotificationAsRead = (notificationId: string): void => {
+  try {
+    const notifications = localStorage.getItem('notifications');
+    const allNotifications = notifications ? JSON.parse(notifications) : [];
+    
+    const notificationIndex = allNotifications.findIndex((n: Notification) => n.id === notificationId);
+    
+    if (notificationIndex !== -1) {
+      allNotifications[notificationIndex].read = true;
+      localStorage.setItem('notifications', JSON.stringify(allNotifications));
+    }
+  } catch (error) {
+    console.error('Error marking notification as read:', error);
+  }
+};
+
+export const markAllNotificationsAsRead = (userId: string): void => {
+  try {
+    const notifications = localStorage.getItem('notifications');
+    const allNotifications = notifications ? JSON.parse(notifications) : [];
+    
+    const updatedNotifications = allNotifications.map((n: Notification) => {
+      if (n.userId === userId) {
+        return { ...n, read: true };
+      }
+      return n;
+    });
+    
+    localStorage.setItem('notifications', JSON.stringify(updatedNotifications));
+  } catch (error) {
+    console.error('Error marking all notifications as read:', error);
   }
 };
 
@@ -738,43 +823,6 @@ export const generateContributionReceipt = (transactionId: string): any => {
   } catch (error) {
     console.error('Error generating receipt:', error);
     return null;
-  }
-};
-
-// Notification related functions
-export const getNotifications = (userId: string): Notification[] => {
-  try {
-    const notifications = localStorage.getItem('notifications');
-    const allNotifications = notifications ? JSON.parse(notifications) : [];
-    return allNotifications.filter((n: Notification) => n.userId === userId);
-  } catch (error) {
-    console.error('Error getting notifications:', error);
-    return [];
-  }
-};
-
-export const addNotification = (notificationData: any): Notification => {
-  try {
-    const notifications = localStorage.getItem('notifications');
-    const allNotifications = notifications ? JSON.parse(notifications) : [];
-    
-    const newNotification: Notification = {
-      id: uuidv4(),
-      userId: notificationData.userId,
-      message: notificationData.message,
-      type: notificationData.type || 'info',
-      read: notificationData.read || false,
-      createdAt: new Date().toISOString(),
-      relatedId: notificationData.relatedId,
-    };
-    
-    allNotifications.unshift(newNotification); // Add to beginning
-    localStorage.setItem('notifications', JSON.stringify(allNotifications));
-    
-    return newNotification;
-  } catch (error) {
-    console.error('Error adding notification:', error);
-    throw error;
   }
 };
 
