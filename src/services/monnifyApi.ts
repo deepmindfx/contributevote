@@ -1,4 +1,3 @@
-
 // Monnify API service for handling virtual account operations
 
 // Base URL for Monnify API 
@@ -134,6 +133,27 @@ export const createContributionGroupAccount = async (data: {
       preferredBanks: ["035"], // Use the same bank as personal accounts for consistency
       getAllAvailableBanks: true, // Adding the missing field that was causing the error
     });
+    
+    // If successful, extract the important account details from the response
+    if (response.requestSuccessful && response.responseBody) {
+      const accountDetails = {
+        accountReference: response.responseBody.accountReference,
+        accountName: response.responseBody.accountName,
+        currencyCode: response.responseBody.currencyCode,
+        accounts: response.responseBody.accounts,
+        // For compatibility with existing code, add these fields too
+        accountNumber: response.responseBody.accounts && response.responseBody.accounts.length > 0 
+          ? response.responseBody.accounts[0].accountNumber : '',
+        bankName: response.responseBody.accounts && response.responseBody.accounts.length > 0
+          ? response.responseBody.accounts[0].bankName : 'Unknown Bank',
+        reservedAccountType: response.responseBody.reservedAccountType,
+        status: response.responseBody.status,
+        createdOn: response.responseBody.createdOn
+      };
+      
+      console.log("Parsed account details for group:", accountDetails);
+      return accountDetails;
+    }
     
     return response;
   } catch (error) {

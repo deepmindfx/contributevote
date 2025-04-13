@@ -1,4 +1,5 @@
 
+// Make sure to update the DateRange type to match what's expected
 import * as React from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { DayPicker } from "react-day-picker"
@@ -14,44 +15,6 @@ function Calendar({
   showOutsideDays = true,
   ...props
 }: CalendarProps) {
-  // Create a safe version of the selected prop
-  const safeProps = { ...props };
-  
-  // Handle conversion of selected dates if needed
-  if (safeProps.selected !== undefined && typeof safeProps.selected !== 'undefined') {
-    // Handle single date
-    if (safeProps.mode === 'single' && !Array.isArray(safeProps.selected) && safeProps.selected !== null) {
-      if (typeof safeProps.selected === 'string' || typeof safeProps.selected === 'number') {
-        safeProps.selected = new Date(safeProps.selected);
-      }
-    }
-    // Handle multiple dates
-    else if (safeProps.mode === 'multiple' && Array.isArray(safeProps.selected)) {
-      safeProps.selected = safeProps.selected.map(date => 
-        typeof date === 'string' || typeof date === 'number' ? new Date(date) : date
-      );
-    }
-    // Handle range
-    else if (safeProps.mode === 'range' && safeProps.selected !== null && typeof safeProps.selected === 'object') {
-      const range = safeProps.selected as any;
-      const typedRange: { from?: Date, to?: Date } = {};
-      
-      if (range.from) {
-        typedRange.from = typeof range.from === 'string' || typeof range.from === 'number' 
-          ? new Date(range.from) 
-          : range.from;
-      }
-      
-      if (range.to) {
-        typedRange.to = typeof range.to === 'string' || typeof range.to === 'number'
-          ? new Date(range.to)
-          : range.to;
-      }
-      
-      safeProps.selected = typedRange;
-    }
-  }
-
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
@@ -94,7 +57,7 @@ function Calendar({
         IconLeft: ({ ...props }) => <ChevronLeft className="h-4 w-4" />,
         IconRight: ({ ...props }) => <ChevronRight className="h-4 w-4" />,
       }}
-      {...safeProps}
+      {...props}
     />
   )
 }
