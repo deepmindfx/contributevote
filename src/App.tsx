@@ -4,7 +4,9 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AppProvider, useApp } from "@/contexts/AppContext";
+import { AppProviders } from "@/contexts/AppProviders";
+import { useUser } from "@/contexts/UserContext";
+import { useAdmin } from "@/contexts/AdminContext";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import AdminAuth from "./pages/AdminAuth";
@@ -28,7 +30,7 @@ const queryClient = new QueryClient();
 
 // Admin route guard
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAdmin, isAuthenticated } = useApp();
+  const { isAdmin, isAuthenticated } = useUser();
   
   if (!isAuthenticated) {
     return <Navigate to="/admin-login" replace />;
@@ -43,7 +45,7 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
 
 // Auth guard to keep logged out users from accessing protected routes
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated } = useApp();
+  const { isAuthenticated } = useUser();
   
   if (!isAuthenticated) {
     return <Navigate to="/auth" replace />;
@@ -53,7 +55,8 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const AppRoutes = () => {
-  const { user, isAdmin, isAuthenticated } = useApp();
+  const { user, isAuthenticated } = useUser();
+  const { isAdmin } = useAdmin();
   
   // Apply dark mode on route change if user has it enabled
   useEffect(() => {
@@ -154,7 +157,7 @@ const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AppProvider>
+      <AppProviders>
         <TooltipProvider>
           <Toaster />
           <Sonner />
@@ -162,7 +165,7 @@ const App = () => {
             <AppRoutes />
           </BrowserRouter>
         </TooltipProvider>
-      </AppProvider>
+      </AppProviders>
     </QueryClientProvider>
   );
 };
