@@ -20,6 +20,13 @@ const AllGroups = () => {
   const navigate = useNavigate();
   const { contributions } = useApp();
 
+  // Sort contributions by creation date (newest first)
+  const sortedContributions = [...contributions].sort((a, b) => {
+    const dateA = new Date(a.createdAt).getTime();
+    const dateB = new Date(b.createdAt).getTime();
+    return dateB - dateA; // Sort in descending order (newest first)
+  });
+
   // Helper function to safely format dates
   const safeFormatDate = (dateString: string) => {
     try {
@@ -53,7 +60,7 @@ const AllGroups = () => {
           </div>
         </div>
         
-        {contributions.length === 0 ? (
+        {sortedContributions.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
@@ -70,7 +77,7 @@ const AllGroups = () => {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {contributions.map(contribution => {
+            {sortedContributions.map(contribution => {
               const progressPercentage = Math.min(
                 100,
                 Math.round((contribution.currentAmount / contribution.targetAmount) * 100)

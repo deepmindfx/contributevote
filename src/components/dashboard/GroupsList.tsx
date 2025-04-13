@@ -15,8 +15,15 @@ const GroupsList = () => {
   } = useApp();
   
   const getRecentGroups = () => {
+    // Sort contributions by creation date (newest first)
+    const sortedContributions = [...contributions].sort((a, b) => {
+      const dateA = new Date(a.createdAt).getTime();
+      const dateB = new Date(b.createdAt).getTime();
+      return dateB - dateA; // Sort in descending order (newest first)
+    });
+    
     // Get most recent 3 groups
-    return contributions.slice(0, 3);
+    return sortedContributions.slice(0, 3);
   };
   
   const recentGroups = getRecentGroups();

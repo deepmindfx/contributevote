@@ -142,7 +142,7 @@ const CreateGroup = () => {
         currencyCode: "NGN",
         contractCode: "465595618981", // Use the updated contract code
         customerEmail: user.email,
-        customerName: formData.name,
+        customerName: formData.name,  // Use the group name for customer name too
         customerBvn: formData.bvn
       };
       
@@ -162,7 +162,7 @@ const CreateGroup = () => {
         name: formData.name,
         description: formData.description,
         targetAmount: Number(formData.targetAmount),
-        category: formData.category,
+        category: formData.category as "personal" | "business" | "family" | "event" | "education" | "other", // Fix type
         frequency: formData.frequency,
         contributionAmount: Number(formData.contributionAmount),
         startDate: formData.startDate,
@@ -176,8 +176,9 @@ const CreateGroup = () => {
         status: 'active' as 'active' | 'completed' | 'expired',
         deadline: formData.endDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
         // Add account details
-        accountNumber: accountDetails.accountNumber,
-        bankName: accountDetails.bankName,
+        accountNumber: accountDetails.accounts[0].accountNumber,
+        bankName: accountDetails.accounts[0].bankName,
+        accountName: formData.name, // Use group name as account name
         accountReference: accountDetails.accountReference,
         accountDetails: accountDetails,
       };

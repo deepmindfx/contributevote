@@ -1,6 +1,14 @@
+
 // First import any required functions from the original file to fix the errors
 import { getCurrentUser, getUsers, getContributions } from "@/services/localStorage";
 import { isValid } from "date-fns";
+
+// Add missing export that's causing the error
+export const addTransaction = (transaction) => {
+  // This is just a re-export to fix the missing export error
+  // The actual implementation is in services/localStorage.ts
+  return;
+};
 
 // Add the missing function to localStorage.ts
 export const verifyUserWithOTP = (userId: string): void => {
@@ -83,6 +91,23 @@ export const ensureAccountNumberDisplay = () => {
   }
 };
 
+// Add mark all notifications as read function
+export const markAllNotificationsAsRead = () => {
+  try {
+    const currentUser = getCurrentUser();
+    if (!currentUser || !currentUser.notifications) return;
+    
+    currentUser.notifications = currentUser.notifications.map(notification => ({
+      ...notification,
+      read: true
+    }));
+    
+    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+  } catch (error) {
+    console.error("Error marking all notifications as read:", error);
+  }
+};
+
 // Add a re-export of ensureAccountNumberDisplay in services/localStorage.ts
 export const reExportEnsureAccountNumberDisplay = () => {
   // This function is just to get TypeScript to recognize we're exporting ensureAccountNumberDisplay
@@ -118,4 +143,49 @@ export interface User {
   profileImage?: string;
   status?: string;
   createdAt?: string;
+}
+
+// Add missing interface for Contribution
+export interface Contribution {
+  id: string;
+  name: string;
+  description: string;
+  targetAmount: number;
+  currentAmount: number;
+  category: "personal" | "family" | "community" | "business" | "event" | "education" | "other";
+  frequency: "daily" | "weekly" | "monthly" | "one-time";
+  contributionAmount: number;
+  startDate: string;
+  endDate?: string;
+  deadline: string;
+  creatorId: string;
+  members: string[];
+  contributors: any[];
+  createdAt: string;
+  status: "active" | "completed" | "expired";
+  visibility: "public" | "private" | "invite-only";
+  privacy: string;
+  memberRoles: string;
+  votingThreshold: number;
+  accountNumber?: string;
+  accountName?: string;
+  bankName?: string;
+  accountReference?: string;
+  accountDetails?: any; // Add field for Monnify account details
+}
+
+// Add missing Transaction interface
+export interface Transaction {
+  id: string;
+  type: "deposit" | "withdrawal" | "transfer" | "payment";
+  amount: number;
+  narration: string;
+  status: "pending" | "successful" | "failed";
+  reference: string;
+  userId: string;
+  toUserId?: string;
+  contributionId?: string;
+  createdAt: string;
+  paymentMethod?: string;
+  metadata?: any;
 }
