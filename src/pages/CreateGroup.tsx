@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
@@ -13,9 +14,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { DateRange } from "react-day-picker";
-import { Bank, ShieldCheck, Users2 } from "lucide-react";
+import { Building2, ShieldCheck, Users2 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { createContributionGroupAccount } from "@/services/walletIntegration";
+import { createContributionAccount } from "@/services/walletIntegration";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -29,7 +30,7 @@ const CreateGroup = () => {
     targetAmount: 1000,
     startDate: new Date(),
     endDate: undefined,
-    frequency: "weekly",
+    frequency: "weekly" as "daily" | "weekly" | "monthly", // Type assertion to fix the type error
     privacy: "public",
     accountNumber: "",
     accountName: "",
@@ -48,7 +49,15 @@ const CreateGroup = () => {
   };
   
   const handleSelectChange = (name: string, value: string) => {
-    setFormData(prev => ({ ...prev, [name]: value }));
+    if (name === 'frequency') {
+      // Ensure frequency is always one of the accepted values
+      setFormData(prev => ({ 
+        ...prev, 
+        [name]: value as "daily" | "weekly" | "monthly" 
+      }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
   };
   
   const handleDateChange = (date: DateRange | undefined) => {
@@ -98,14 +107,7 @@ const CreateGroup = () => {
     setGroupAccountLoading(true);
     
     try {
-      const response = await createContributionGroupAccount({
-        accountName: formData.name,
-        preferredBank: "Wema Bank",
-        customerBvn: user.reservedAccount?.customerBvn || "22345678901",
-        customerEmail: user.email,
-        customerName: user.name || `${user.firstName} ${user.lastName}`,
-        customerPhoneNumber: user.phone,
-      });
+      const response = await createContributionAccount(formData.name);
       
       handleAccountCreationResponse(response);
     } catch (error: any) {
@@ -247,7 +249,7 @@ const CreateGroup = () => {
             {formData.accountNumber ? (
               <div className="rounded-md border p-4">
                 <div className="flex items-center space-x-4">
-                  <Bank className="h-5 w-5 text-gray-500" />
+                  <Building2 className="h-5 w-5 text-gray-500" />
                   <div className="space-y-1">
                     <p className="text-sm font-medium leading-none">{formData.bankName}</p>
                     <p className="text-sm text-gray-500">Account Number: {formData.accountNumber}</p>
@@ -268,7 +270,11 @@ const CreateGroup = () => {
             <div className="space-y-2">
               <Label htmlFor="terms">
                 <div className="flex items-center space-x-2">
-                  <Checkbox id="terms" checked={isTermsChecked} onCheckedChange={setIsTermsChecked} />
+                  <Checkbox 
+                    id="terms" 
+                    checked={isTermsChecked} 
+                    onCheckedChange={(checked) => setIsTermsChecked(checked === true)}
+                  />
                   <span className="text-sm">I agree to the <a href="#" className="text-blue-500">terms and conditions</a></span>
                 </div>
               </Label>
