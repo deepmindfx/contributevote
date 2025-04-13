@@ -36,6 +36,10 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { format } from "date-fns";
+import { markAllNotificationsAsRead, markNotificationAsRead } from "@/services/localStorage";
 
 interface NavLinkProps {
   href: string;
@@ -44,9 +48,10 @@ interface NavLinkProps {
 }
 
 const Header = () => {
-  const { user, isAuthenticated, isAdmin, logout, updateProfile } = useApp();
+  const { user, isAuthenticated, isAdmin, logout, updateProfile, refreshData } = useApp();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -98,6 +103,26 @@ const Header = () => {
       {children}
     </Link>
   );
+  
+  const handleNotificationRead = (id: string, relatedId?: string) => {
+    markNotificationAsRead(id);
+    refreshData();
+
+    // If notification is related to a contribution, navigate to it
+    if (relatedId) {
+      const isContribution = user.contributions?.some(c => c.id === relatedId);
+      if (isContribution) {
+        setNotificationsOpen(false);
+        navigate(`/groups/${relatedId}`);
+      }
+    }
+  };
+  
+  const handleMarkAllRead = () => {
+    markAllNotificationsAsRead(user?.id);
+    refreshData();
+    toast.success("All notifications marked as read");
+  };
   
   const unreadNotifications = user?.notifications?.filter(n => !n.read).length || 0;
   
@@ -168,22 +193,67 @@ const Header = () => {
               </NavigationMenu>
               
               <div className="flex items-center ml-4 space-x-3">
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="relative p-2"
-                  onClick={() => navigate('/profile')}
-                >
-                  <Bell className="h-5 w-5" />
-                  {unreadNotifications > 0 && (
-                    <Badge 
-                      className="absolute -top-1 -right-1 px-1 min-w-[18px] h-[18px] flex items-center justify-center"
-                      variant="destructive"
+                <Popover open={notificationsOpen} onOpenChange={setNotificationsOpen}>
+                  <PopoverTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="relative p-2"
                     >
-                      {unreadNotifications}
-                    </Badge>
-                  )}
-                </Button>
+                      <Bell className="h-5 w-5" />
+                      {unreadNotifications > 0 && (
+                        <Badge 
+                          className="absolute -top-1 -right-1 px-1 min-w-[18px] h-[18px] flex items-center justify-center"
+                          variant="destructive"
+                        >
+                          {unreadNotifications}
+                        </Badge>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80 p-0">
+                    <div className="flex items-center justify-between p-4 border-b">
+                      <h4 className="font-semibold">Notifications</h4>
+                      {user?.notifications && user.notifications.length > 0 && 
+                        <Button variant="ghost" size="sm" onClick={handleMarkAllRead}>
+                          Mark all read
+                        </Button>
+                      }
+                    </div>
+                    <ScrollArea className="h-[400px]">
+                      {!user?.notifications || user.notifications.length === 0 ? 
+                        <div className="p-4 text-center text-muted-foreground">
+                          <Bell className="h-10 w-10 mx-auto mb-2 opacity-20" />
+                          <p>No notifications</p>
+                        </div> 
+                        : 
+                        user.notifications.map(notification => 
+                          <div 
+                            key={notification.id} 
+                            className={`p-4 border-b last:border-b-0 ${!notification.read ? 'bg-muted/50' : ''} 
+                              hover:bg-muted/30 cursor-pointer transition-colors`} 
+                            onClick={() => handleNotificationRead(notification.id, notification.relatedId)}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className={`rounded-full w-2 h-2 mt-1.5 ${!notification.read ? 'bg-green-600' : 'bg-transparent'}`} />
+                              <div className="flex-1">
+                                <p className="text-sm">{notification.message}</p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {notification.createdAt && format(new Date(notification.createdAt), 'MMM d, h:mm a')}
+                                </p>
+                              </div>
+                              {notification.read && 
+                                <div className="text-muted-foreground opacity-50">
+                                  <X className="h-3 w-3" />
+                                </div>
+                              }
+                            </div>
+                          </div>
+                        )
+                      }
+                    </ScrollArea>
+                  </PopoverContent>
+                </Popover>
                 
                 <Button 
                   variant="ghost" 
@@ -257,22 +327,67 @@ const Header = () => {
         <div className="md:hidden flex items-center space-x-3">
           {isAuthenticated && (
             <>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="relative p-2"
-                onClick={() => navigate('/profile')}
-              >
-                <Bell className="h-5 w-5" />
-                {unreadNotifications > 0 && (
-                  <Badge 
-                    className="absolute -top-1 -right-1 px-1 min-w-[18px] h-[18px] flex items-center justify-center"
-                    variant="destructive"
+              <Popover open={notificationsOpen} onOpenChange={setNotificationsOpen}>
+                <PopoverTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="relative p-2"
                   >
-                    {unreadNotifications}
-                  </Badge>
-                )}
-              </Button>
+                    <Bell className="h-5 w-5" />
+                    {unreadNotifications > 0 && (
+                      <Badge 
+                        className="absolute -top-1 -right-1 px-1 min-w-[18px] h-[18px] flex items-center justify-center"
+                        variant="destructive"
+                      >
+                        {unreadNotifications}
+                      </Badge>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 p-0">
+                  <div className="flex items-center justify-between p-4 border-b">
+                    <h4 className="font-semibold">Notifications</h4>
+                    {user?.notifications && user.notifications.length > 0 && 
+                      <Button variant="ghost" size="sm" onClick={handleMarkAllRead}>
+                        Mark all read
+                      </Button>
+                    }
+                  </div>
+                  <ScrollArea className="h-[400px]">
+                    {!user?.notifications || user.notifications.length === 0 ? 
+                      <div className="p-4 text-center text-muted-foreground">
+                        <Bell className="h-10 w-10 mx-auto mb-2 opacity-20" />
+                        <p>No notifications</p>
+                      </div> 
+                      : 
+                      user.notifications.map(notification => 
+                        <div 
+                          key={notification.id} 
+                          className={`p-4 border-b last:border-b-0 ${!notification.read ? 'bg-muted/50' : ''} 
+                            hover:bg-muted/30 cursor-pointer transition-colors`} 
+                          onClick={() => handleNotificationRead(notification.id, notification.relatedId)}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className={`rounded-full w-2 h-2 mt-1.5 ${!notification.read ? 'bg-green-600' : 'bg-transparent'}`} />
+                            <div className="flex-1">
+                              <p className="text-sm">{notification.message}</p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {notification.createdAt && format(new Date(notification.createdAt), 'MMM d, h:mm a')}
+                              </p>
+                            </div>
+                            {notification.read && 
+                              <div className="text-muted-foreground opacity-50">
+                                <X className="h-3 w-3" />
+                              </div>
+                            }
+                          </div>
+                        </div>
+                      )
+                    }
+                  </ScrollArea>
+                </PopoverContent>
+              </Popover>
               
               <Button 
                 variant="ghost" 

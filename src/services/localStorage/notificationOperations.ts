@@ -9,14 +9,22 @@ export const getNotifications = (userId: string): Notification[] => {
 };
 
 export const addNotification = (notification: Omit<Notification, 'id' | 'createdAt'>) => {
-  const notifications = getNotifications(notification.userId);
+  const notificationsString = localStorage.getItem('notifications');
+  const allNotifications: Notification[] = notificationsString ? JSON.parse(notificationsString) : [];
+  
   const newNotification: Notification = {
     id: uuidv4(),
     createdAt: new Date().toISOString(),
+    read: false,
     ...notification,
   };
-  notifications.push(newNotification);
-  localStorage.setItem('notifications', JSON.stringify(notifications));
+  
+  // Add the notification to the general notifications list
+  allNotifications.push(newNotification);
+  localStorage.setItem('notifications', JSON.stringify(allNotifications));
+  
+  // Return the notification ID so it can be used for further operations if needed
+  return newNotification.id;
 };
 
 export const markNotificationAsRead = (id: string) => {
@@ -49,4 +57,16 @@ export const markAllNotificationsAsRead = (userId: string = null) => {
   if (updated) {
     localStorage.setItem('notifications', JSON.stringify(notifications));
   }
+};
+
+// Helper function to check if a user has unread notifications
+export const hasUnreadNotifications = (userId: string): boolean => {
+  const notifications = getNotifications(userId);
+  return notifications.some(notification => !notification.read);
+};
+
+// Helper to get the count of unread notifications
+export const getUnreadNotificationsCount = (userId: string): number => {
+  const notifications = getNotifications(userId);
+  return notifications.filter(notification => !notification.read).length;
 };
