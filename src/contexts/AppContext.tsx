@@ -98,6 +98,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     
     // Add this call to ensure account numbers are displayed
     ensureAccountNumberDisplay();
+    
+    // Debug - log contributions to see account numbers
+    const allContributions = getContributions();
+    console.log("All contributions with account numbers:", allContributions);
   }, []);
 
   // New effect to check for expired withdrawal requests

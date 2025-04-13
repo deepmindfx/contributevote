@@ -1,6 +1,6 @@
 
 // First import any required functions from the original file to fix the errors
-import { getCurrentUser, getUsers } from "@/services/localStorage";
+import { getCurrentUser, getUsers, getContributions } from "@/services/localStorage";
 import { isValid } from "date-fns";
 
 // Add the missing function to localStorage.ts
@@ -62,18 +62,31 @@ export const ensureAccountNumberDisplay = () => {
     let updated = false;
     
     contributions.forEach(contribution => {
-      // If no account number exists, create a placeholder one
+      // If no account number exists, create a unique one
       if (!contribution.accountNumber) {
+        // Generate a unique 10-digit account number starting with 60
         contribution.accountNumber = `60${Math.floor(10000000 + Math.random() * 90000000)}`;
         updated = true;
+        console.log(`Generated new account number ${contribution.accountNumber} for ${contribution.name}`);
       }
     });
     
     if (updated) {
       localStorage.setItem('contributions', JSON.stringify(contributions));
-      console.log('Updated contribution account numbers');
+      console.log('Updated contribution account numbers:', contributions);
     }
+    
+    // For debugging - return the contributions
+    return contributions;
   } catch (error) {
     console.error("Error ensuring account numbers:", error);
+    return null;
   }
+};
+
+// Add a re-export of ensureAccountNumberDisplay in services/localStorage.ts
+export const reExportEnsureAccountNumberDisplay = () => {
+  // This function is just to get TypeScript to recognize we're exporting ensureAccountNumberDisplay
+  // This isn't actually used, but it forces the compiler to include the export
+  return ensureAccountNumberDisplay;
 };

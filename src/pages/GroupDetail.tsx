@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import Header from "@/components/layout/Header";
@@ -65,8 +66,11 @@ const GroupDetail = () => {
       return;
     }
     
-    // Ensure account numbers are displayed
+    // Call the function to ensure account numbers exist
     ensureAccountNumberDisplay();
+    
+    // Debug: Log the contribution to check account number
+    console.log("Current contribution:", foundContribution);
     
     // Set contribution and other related data
     setContribution(foundContribution);
@@ -264,11 +268,13 @@ const GroupDetail = () => {
             </div>
             
             <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-muted/30 rounded-lg">
-              {/* Use the new AccountNumberDisplay component */}
-              <AccountNumberDisplay 
-                accountNumber={contribution?.accountNumber || ''} 
-                accountName={contribution?.name || ''}
-              />
+              {/* Use the AccountNumberDisplay component */}
+              {contribution && (
+                <AccountNumberDisplay 
+                  accountNumber={contribution.accountNumber || ''} 
+                  accountName={contribution.name || ''}
+                />
+              )}
               
               <div className="space-y-2">
                 <span className="text-sm font-medium">Group Details</span>

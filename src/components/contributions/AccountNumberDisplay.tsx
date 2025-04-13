@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Check, Copy } from "lucide-react";
 import { toast } from "sonner";
@@ -13,6 +13,11 @@ const AccountNumberDisplay = ({ accountNumber, accountName }: AccountNumberDispl
   const [showCopiedAccountNumber, setShowCopiedAccountNumber] = useState(false);
   
   const copyAccountNumber = () => {
+    if (!accountNumber) {
+      toast.error("No account number available to copy");
+      return;
+    }
+    
     navigator.clipboard.writeText(accountNumber).then(() => {
       setShowCopiedAccountNumber(true);
       toast.success("Account number copied to clipboard");
