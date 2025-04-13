@@ -120,13 +120,17 @@ export const createContributionGroupAccount = async (data: {
   customerBvn: string;
 }) => {
   try {
-    console.log("Creating contribution group account with data:", data);
+    // Format the account name to include CollectiPay prefix
+    const formattedAccountName = `CollectiPay - ${data.accountName}`;
+    console.log("Creating contribution group account with name:", formattedAccountName);
     
     // Use the same createReservedAccount function but with group-specific data
     const response = await createReservedAccount({
       ...data,
-      // Make sure the account name indicates it's a contribution group
-      accountName: `CollectiPay - ${data.accountName}`,
+      // Use the formatted account name
+      accountName: formattedAccountName,
+      // Use the provided contractCode 
+      contractCode: "465595618981", // Updated contract code
       preferredBanks: ["035"], // Use the same bank as personal accounts for consistency
     });
     

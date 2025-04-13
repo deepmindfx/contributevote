@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
   ArrowDown, 
@@ -125,12 +124,17 @@ const RecentActivity = () => {
     fetchData();
   }, [user?.reservedAccount, refreshData]);
   
-  // Get sender details from transaction
+  // Enhanced function to get sender details from transaction
   const getSenderDetails = (transaction: any) => {
     if (transaction.type !== 'deposit') return null;
     
-    const senderName = transaction.metaData?.senderName || transaction.metaData?.contributorName;
-    const bankName = transaction.metaData?.bankName || transaction.metaData?.senderBank;
+    const senderName = transaction.metaData?.senderName || 
+                       transaction.metaData?.contributorName || 
+                       transaction.metaData?.customerName;
+                       
+    const bankName = transaction.metaData?.bankName || 
+                     transaction.metaData?.senderBank || 
+                     transaction.metaData?.paymentBank;
     
     if (senderName && bankName) {
       return `From: ${senderName} (${bankName})`;

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import Header from "@/components/layout/Header";
 import MobileNav from "@/components/layout/MobileNav";
@@ -28,6 +27,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useApp } from "@/contexts/AppContext";
 import { toast } from "sonner";
 import { createContributionGroupAccount } from "@/services/monnifyApi";
+
+// Define visibility type to fix TypeScript error
+type VisibilityType = "public" | "private" | "invite-only";
 
 const CreateGroup = () => {
   const [step, setStep] = useState(1);
@@ -136,9 +138,9 @@ const CreateGroup = () => {
       // Create a virtual account for the group first
       const accountData = {
         accountReference: formData.accountReference,
-        accountName: formData.name,
+        accountName: formData.name, // Use the group name directly
         currencyCode: "NGN",
-        contractCode: "7661041193", // Replace with your actual contract code
+        contractCode: "465595618981", // Use the updated contract code
         customerEmail: user.email,
         customerName: formData.name,
         customerBvn: formData.bvn
@@ -170,7 +172,7 @@ const CreateGroup = () => {
         memberRoles: formData.memberRoles,
         creatorId: user.id,
         // Setting required properties to meet the type requirements
-        visibility: formData.privacy === 'public' ? 'public' : 'private',
+        visibility: formData.privacy === 'public' ? 'public' as VisibilityType : 'private' as VisibilityType,
         status: 'active',
         deadline: formData.endDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
         // Add account details
