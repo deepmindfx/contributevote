@@ -1,3 +1,4 @@
+
 import { 
   getReservedAccountTransactions as fetchReservedAccountTransactions, 
   createContributionGroupAccount, 
@@ -168,3 +169,5 @@ export const createUserReservedAccount = async (user: User): Promise<ReservedAcc
     return null;
   }
 };
+
+export { ReservedAccountData };
