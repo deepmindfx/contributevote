@@ -9,7 +9,7 @@ import { useApp } from "@/contexts/AppContext";
 import { Contribution, WithdrawalRequest, Transaction, hasContributed } from "@/services/localStorage";
 import { ensureAccountNumberDisplay } from "@/localStorage";
 
-// Import the new components
+// Import the components
 import GroupHeader from "@/components/group-detail/GroupHeader";
 import GroupWallet from "@/components/group-detail/GroupWallet";
 import WithdrawalRequests from "@/components/group-detail/WithdrawalRequests";
@@ -30,7 +30,6 @@ const GroupDetail = () => {
     user,
     contribute,
     requestWithdrawal,
-    getShareLink,
     isGroupCreator,
   } = useApp();
   const [contribution, setContribution] = useState<Contribution | null>(null);

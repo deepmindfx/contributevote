@@ -1,18 +1,15 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
+import { DialogTrigger } from "@/components/ui/dialog";
 import { ArrowDown, ArrowUp, Wallet } from "lucide-react";
 import { Contribution } from "@/services/localStorage";
 import { format, isValid } from "date-fns";
 import AccountNumberDisplay from "@/components/contributions/AccountNumberDisplay";
-import { toast } from "sonner";
+import ContributeDialog from "./dialogs/ContributeDialog";
+import WithdrawalRequestDialog from "./dialogs/WithdrawalRequestDialog";
 
 interface GroupWalletProps {
   contribution: Contribution;
@@ -43,6 +40,9 @@ const GroupWallet = ({
   handleContribute,
   handleRequestWithdrawal
 }: GroupWalletProps) => {
+  const [contributeDialogOpen, setContributeDialogOpen] = useState(false);
+  const [withdrawalDialogOpen, setWithdrawalDialogOpen] = useState(false);
+  
   const progressPercentage = Math.min(100, Math.round(contribution.currentAmount / contribution.targetAmount * 100));
   
   const formatDate = (dateString: string) => {
@@ -119,116 +119,56 @@ const GroupWallet = ({
         </div>
         
         <div className="flex flex-col sm:flex-row gap-3 mt-6">
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button className="flex-1 bg-[#2dae75]">
-                <ArrowDown className="mr-2 h-4 w-4" />
-                Contribute
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Make a Contribution</DialogTitle>
-                <DialogDescription>
-                  Enter the amount you want to contribute to this group.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="contribution-amount">Amount</Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-2.5 text-muted-foreground">₦</span>
-                    <Input 
-                      id="contribution-amount" 
-                      type="number" 
-                      className="pl-8" 
-                      placeholder="0.00" 
-                      value={contributionAmount} 
-                      onChange={e => setContributionAmount(e.target.value)} 
-                    />
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="anonymous" 
-                    checked={anonymous} 
-                    onCheckedChange={checked => setAnonymous(checked as boolean)} 
-                  />
-                  <label htmlFor="anonymous" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                    Contribute anonymously
-                  </label>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setContributionAmount("")}>Cancel</Button>
-                <Button onClick={handleContribute} className="bg-green-600 hover:bg-green-700">Contribute</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <Button 
+            className="flex-1 bg-[#2dae75]"
+            onClick={() => setContributeDialogOpen(true)}
+          >
+            <ArrowDown className="mr-2 h-4 w-4" />
+            Contribute
+          </Button>
           
           {isUserCreator && (
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="outline" className="flex-1">
-                  <ArrowUp className="mr-2 h-4 w-4" />
-                  Request Withdrawal
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Request Fund Withdrawal</DialogTitle>
-                  <DialogDescription>
-                    Submit a request to withdraw funds. All contributors will vote on this request within 24 hours.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="withdrawal-amount">Amount</Label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-2.5 text-muted-foreground">₦</span>
-                      <Input 
-                        id="withdrawal-amount" 
-                        type="number" 
-                        className="pl-8" 
-                        placeholder="0.00" 
-                        value={withdrawalAmount} 
-                        onChange={e => setWithdrawalAmount(e.target.value)} 
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="withdrawal-purpose">Purpose</Label>
-                    <Textarea 
-                      id="withdrawal-purpose" 
-                      placeholder="Explain why you're requesting these funds" 
-                      rows={3} 
-                      value={withdrawalPurpose} 
-                      onChange={e => setWithdrawalPurpose(e.target.value)} 
-                    />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => {
-                      setWithdrawalAmount("");
-                      setWithdrawalPurpose("");
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button 
-                    onClick={handleRequestWithdrawal} 
-                    className="bg-green-600 hover:bg-green-700"
-                  >
-                    Submit Request
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+            <Button 
+              variant="outline" 
+              className="flex-1"
+              onClick={() => setWithdrawalDialogOpen(true)}
+            >
+              <ArrowUp className="mr-2 h-4 w-4" />
+              Request Withdrawal
+            </Button>
           )}
         </div>
       </div>
+      
+      {/* Contribute Dialog */}
+      <ContributeDialog
+        open={contributeDialogOpen}
+        onOpenChange={setContributeDialogOpen}
+        contributionAmount={contributionAmount}
+        setContributionAmount={setContributionAmount}
+        anonymous={anonymous}
+        setAnonymous={setAnonymous}
+        onContribute={() => {
+          handleContribute();
+          setContributeDialogOpen(false);
+        }}
+      />
+      
+      {/* Withdrawal Request Dialog */}
+      {isUserCreator && (
+        <WithdrawalRequestDialog
+          open={withdrawalDialogOpen}
+          onOpenChange={setWithdrawalDialogOpen}
+          withdrawalAmount={withdrawalAmount}
+          setWithdrawalAmount={setWithdrawalAmount}
+          withdrawalPurpose={withdrawalPurpose}
+          setWithdrawalPurpose={setWithdrawalPurpose}
+          onRequestWithdrawal={() => {
+            handleRequestWithdrawal();
+            setWithdrawalDialogOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 };
