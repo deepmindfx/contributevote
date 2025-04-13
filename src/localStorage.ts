@@ -1,14 +1,10 @@
 
 // First import any required functions from the original file to fix the errors
-import { getCurrentUser, getUsers, getContributions } from "@/services/localStorage";
+import { getCurrentUser, getUsers, getContributions, createTransaction } from "@/services/localStorage";
 import { isValid } from "date-fns";
 
 // Add missing export that's causing the error
-export const addTransaction = (transaction) => {
-  // This is just a re-export to fix the missing export error
-  // The actual implementation is in services/localStorage.ts
-  return;
-};
+export const addTransaction = createTransaction;
 
 // Add the missing function to localStorage.ts
 export const verifyUserWithOTP = (userId: string): void => {
@@ -125,7 +121,7 @@ export interface User {
   preferences?: {
     darkMode: boolean;
     anonymousContributions: boolean;
-    notificationsEnabled?: boolean;  // Add missing field
+    notificationsEnabled?: boolean;
   };
   role: 'user' | 'admin';
   accountNumber?: string;
@@ -188,4 +184,6 @@ export interface Transaction {
   createdAt: string;
   paymentMethod?: string;
   metadata?: any;
+  description?: string;
+  anonymous?: boolean;
 }

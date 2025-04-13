@@ -30,7 +30,7 @@ const AccountNumberDisplay = ({
     : accountNumber;
     
   const displayAccountName = useMonnifyDetails
-    ? monnifyDetails.accounts[0].accountName || monnifyDetails.accountName
+    ? monnifyDetails.accounts[0].accountName || accountName
     : accountName;
     
   const displayBankName = useMonnifyDetails

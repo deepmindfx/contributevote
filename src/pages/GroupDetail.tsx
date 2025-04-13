@@ -68,7 +68,7 @@ const GroupDetail = () => {
     // Call the function to ensure account numbers exist
     ensureAccountNumberDisplay();
     
-    // Debug: Log the contribution to check account number
+    // Debug: Log the contribution to check account name and details
     console.log("Current contribution:", foundContribution);
     
     // Set contribution and other related data
