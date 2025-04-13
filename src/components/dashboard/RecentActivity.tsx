@@ -129,7 +129,7 @@ const RecentActivity = () => {
   const getSenderDetails = (transaction: any) => {
     if (transaction.type !== 'deposit') return null;
     
-    const senderName = transaction.metaData?.senderName || transaction.senderName;
+    const senderName = transaction.metaData?.senderName || transaction.metaData?.contributorName;
     const bankName = transaction.metaData?.bankName || transaction.metaData?.senderBank;
     
     if (senderName && bankName) {

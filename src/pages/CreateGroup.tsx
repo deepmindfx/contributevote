@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import Header from "@/components/layout/Header";
 import MobileNav from "@/components/layout/MobileNav";
@@ -21,16 +22,18 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { ArrowLeft, Users, Calendar, Check } from "lucide-react";
+import { ArrowLeft, Users, Calendar, Check, AlertCircle } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useApp } from "@/contexts/AppContext";
+import { toast } from "sonner";
+import { createContributionGroupAccount } from "@/services/monnifyApi";
 
 const CreateGroup = () => {
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { createNewContribution } = useApp();
+  const { createNewContribution, user } = useApp();
   
   // Form state
   const [formData, setFormData] = useState({
@@ -48,13 +51,71 @@ const CreateGroup = () => {
     notifyContributions: true,
     notifyVotes: true,
     notifyUpdates: true,
+    // New fields for account creation
+    bvn: '',
+    accountReference: `GROUP_${Date.now()}`,
   });
+
+  const [validationErrors, setValidationErrors] = useState<{
+    bvn?: string;
+  }>({});
 
   const handleChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    
+    // Clear validation errors when field is updated
+    if (validationErrors[field as keyof typeof validationErrors]) {
+      setValidationErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[field as keyof typeof validationErrors];
+        return newErrors;
+      });
+    }
+  };
+
+  const validateStep = (currentStep: number) => {
+    if (currentStep === 1) {
+      if (!formData.name.trim()) {
+        toast.error("Group name is required");
+        return false;
+      }
+      if (formData.targetAmount <= 0) {
+        toast.error("Target amount must be greater than zero");
+        return false;
+      }
+    } else if (currentStep === 2) {
+      if (formData.contributionAmount <= 0) {
+        toast.error("Contribution amount must be greater than zero");
+        return false;
+      }
+      if (!formData.startDate) {
+        toast.error("Start date is required");
+        return false;
+      }
+    } else if (currentStep === 3) {
+      // Validate BVN if we're on the settings step
+      const errors: {bvn?: string} = {};
+      
+      if (!formData.bvn.trim()) {
+        errors.bvn = "BVN is required to create a dedicated account for the group";
+      } else if (formData.bvn.length !== 11 || !/^\d+$/.test(formData.bvn)) {
+        errors.bvn = "BVN must be 11 digits";
+      }
+      
+      if (Object.keys(errors).length > 0) {
+        setValidationErrors(errors);
+        return false;
+      }
+    }
+    
+    return true;
   };
 
   const goToNextStep = () => {
+    if (!validateStep(step)) {
+      return;
+    }
+    
     window.scrollTo(0, 0);
     setStep(step + 1);
   };
@@ -64,33 +125,76 @@ const CreateGroup = () => {
     setStep(step - 1);
   };
 
-  const handleCreateGroup = () => {
+  const handleCreateGroup = async () => {
+    if (!validateStep(step)) {
+      return;
+    }
+    
     setIsLoading(true);
     
-    // Prepare contribution data
-    const contributionData = {
-      name: formData.name,
-      description: formData.description,
-      targetAmount: Number(formData.targetAmount),
-      category: formData.category,
-      frequency: formData.frequency,
-      contributionAmount: Number(formData.contributionAmount),
-      startDate: formData.startDate,
-      endDate: formData.endDate || undefined,
-      votingThreshold: formData.votingThreshold,
-      privacy: formData.privacy,
-      memberRoles: formData.memberRoles,
-      creatorId: '1', // Will be replaced by actual user id from context
-    };
-    
-    // Create contribution
-    createNewContribution(contributionData);
-    
-    // Navigate to dashboard
-    setTimeout(() => {
+    try {
+      // Create a virtual account for the group first
+      const accountData = {
+        accountReference: formData.accountReference,
+        accountName: formData.name,
+        currencyCode: "NGN",
+        contractCode: "7661041193", // Replace with your actual contract code
+        customerEmail: user.email,
+        customerName: formData.name,
+        customerBvn: formData.bvn
+      };
+      
+      const accountResponse = await createContributionGroupAccount(accountData);
+      
+      if (!accountResponse.requestSuccessful) {
+        toast.error(accountResponse.message || "Failed to create account for the group");
+        setIsLoading(false);
+        return;
+      }
+      
+      // Extract account details from response
+      const accountDetails = accountResponse.responseBody;
+      
+      // Prepare contribution data with account details
+      const contributionData = {
+        name: formData.name,
+        description: formData.description,
+        targetAmount: Number(formData.targetAmount),
+        category: formData.category,
+        frequency: formData.frequency,
+        contributionAmount: Number(formData.contributionAmount),
+        startDate: formData.startDate,
+        endDate: formData.endDate || undefined,
+        votingThreshold: formData.votingThreshold,
+        privacy: formData.privacy,
+        memberRoles: formData.memberRoles,
+        creatorId: user.id,
+        // Setting required properties to meet the type requirements
+        visibility: formData.privacy === 'public' ? 'public' : 'private',
+        status: 'active',
+        deadline: formData.endDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+        // Add account details
+        accountNumber: accountDetails.accountNumber,
+        bankName: accountDetails.bankName,
+        accountReference: accountDetails.accountReference,
+        accountDetails: accountDetails,
+      };
+      
+      // Create contribution
+      createNewContribution(contributionData);
+      
+      toast.success("Group created successfully with dedicated account");
+      
+      // Navigate to dashboard
+      setTimeout(() => {
+        setIsLoading(false);
+        navigate("/dashboard");
+      }, 1000);
+    } catch (error) {
+      console.error("Error creating group:", error);
+      toast.error("Failed to create group. Please try again.");
       setIsLoading(false);
-      navigate("/dashboard");
-    }, 1000);
+    }
   };
 
   return (
@@ -300,7 +404,7 @@ const CreateGroup = () => {
             <>
               <CardHeader>
                 <CardTitle>Group Settings</CardTitle>
-                <CardDescription>Configure how your group operates</CardDescription>
+                <CardDescription>Configure how your group operates and set up the dedicated account</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
@@ -349,6 +453,41 @@ const CreateGroup = () => {
                       <Label htmlFor="weighted">Voting power based on contribution amount</Label>
                     </div>
                   </RadioGroup>
+                </div>
+                
+                {/* New section for BVN input */}
+                <div className="space-y-2 p-4 bg-muted/40 rounded-lg border">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5" />
+                    <div>
+                      <h3 className="text-sm font-medium">Account Information</h3>
+                      <p className="text-sm text-muted-foreground">
+                        We need your BVN to create a dedicated account for this group. 
+                        This is required by our payment provider for verification purposes.
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2 mt-3">
+                    <Label htmlFor="bvn" className="text-sm">Bank Verification Number (BVN)</Label>
+                    <Input 
+                      id="bvn" 
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={11}
+                      placeholder="Enter your 11-digit BVN"
+                      value={formData.bvn}
+                      onChange={(e) => handleChange('bvn', e.target.value)}
+                      className={validationErrors.bvn ? "border-red-500" : ""}
+                    />
+                    {validationErrors.bvn && (
+                      <p className="text-xs text-red-500">{validationErrors.bvn}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Your BVN is used only for verification and to create the account. It is not stored after verification.
+                    </p>
+                  </div>
                 </div>
                 
                 <div className="space-y-2">

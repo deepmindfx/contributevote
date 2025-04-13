@@ -1,4 +1,3 @@
-
 import { isValid } from "date-fns";
 import { ReservedAccountData, CardTokenData } from "@/services/walletIntegration";
 
@@ -76,6 +75,17 @@ export interface Contribution {
   visibility: 'public' | 'private' | 'invite-only';
   status: 'active' | 'completed' | 'expired';
   accountNumber?: string;
+  bankName?: string;
+  accountReference?: string;
+  accountDetails?: any;
+  // Additional properties for the enhanced group features
+  frequency?: 'daily' | 'weekly' | 'monthly' | 'one-time';
+  contributionAmount?: number;
+  startDate?: string;
+  endDate?: string;
+  votingThreshold?: number;
+  privacy?: 'public' | 'private';
+  memberRoles?: 'equal' | 'weighted';
 }
 
 export interface WithdrawalRequest {
@@ -94,6 +104,7 @@ export interface WithdrawalRequest {
     vote: 'approve' | 'reject';
     date: string;
   }>;
+  purpose?: string; // For compatibility with existing code
 }
 
 export interface Transaction {
@@ -106,6 +117,7 @@ export interface Transaction {
   status: 'pending' | 'completed' | 'failed';
   createdAt: string;
   metaData?: Record<string, any>;
+  anonymous?: boolean;
 }
 
 export interface Stats {
@@ -113,6 +125,9 @@ export interface Stats {
   totalContributions: number;
   totalTransactions: number;
   totalAmountContributed: number;
+  totalAmount?: number;
+  activeRequests?: number;
+  totalWithdrawals?: number;
 }
 
 // Helper functions
@@ -261,7 +276,7 @@ export const updateUserById = (userId: string, userData: Partial<User>): void =>
   }
 };
 
-export const createContribution = (contribution: Omit<Contribution, 'id' | 'createdAt' | 'currentAmount' | 'members' | 'contributors' | 'accountNumber'>): void => {
+export const createContribution = (contribution: Omit<Contribution, 'id' | 'createdAt' | 'currentAmount' | 'members' | 'contributors'>): void => {
   const contributions = getContributions();
   const currentUser = getCurrentUser();
   
@@ -271,8 +286,9 @@ export const createContribution = (contribution: Omit<Contribution, 'id' | 'crea
     currentAmount: 0,
     members: [currentUser.id],
     contributors: [],
-    accountNumber: `${10000000 + contributions.length}`,
-    ...contribution
+    ...contribution,
+    // If accountNumber is not provided, generate a dummy one like before
+    accountNumber: contribution.accountNumber || `${10000000 + contributions.length}`,
   };
   
   contributions.push(newContribution);
@@ -348,7 +364,7 @@ export const contributeByAccountNumber = (accountNumber: string, amount: number,
     anonymous
   });
   
-  // Add transaction
+  // Add transaction with detailed metadata
   addTransaction({
     id: `t_${Date.now()}`,
     userId: externalUserId,
@@ -361,8 +377,12 @@ export const contributeByAccountNumber = (accountNumber: string, amount: number,
     metaData: {
       contributorName: contributorInfo.name,
       contributorEmail: contributorInfo.email,
-      contributorPhone: contributorInfo.phone
-    }
+      contributorPhone: contributorInfo.phone,
+      senderName: contributorInfo.name,
+      bankName: contributorInfo.email ? `via ${contributorInfo.email}` : undefined,
+      senderBank: contributorInfo.email ? `via ${contributorInfo.email}` : undefined
+    },
+    anonymous
   });
   
   // Save updated contributions

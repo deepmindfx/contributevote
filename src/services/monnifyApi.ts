@@ -1,3 +1,4 @@
+
 // Monnify API service for handling virtual account operations
 
 // Base URL for Monnify API 
@@ -101,6 +102,38 @@ export const createReservedAccount = async (data: any) => {
   } catch (error) {
     console.error("Error creating reserved account:", error);
     return { success: false, message: "Unable to connect to payment provider" };
+  }
+};
+
+/**
+ * Create a reserved account for a contribution group
+ * @param data Account creation data for the group
+ * @returns Response with account details
+ */
+export const createContributionGroupAccount = async (data: {
+  accountReference: string;
+  accountName: string;
+  currencyCode: string;
+  contractCode: string;
+  customerEmail: string;
+  customerName: string;
+  customerBvn: string;
+}) => {
+  try {
+    console.log("Creating contribution group account with data:", data);
+    
+    // Use the same createReservedAccount function but with group-specific data
+    const response = await createReservedAccount({
+      ...data,
+      // Make sure the account name indicates it's a contribution group
+      accountName: `CollectiPay - ${data.accountName}`,
+      preferredBanks: ["035"], // Use the same bank as personal accounts for consistency
+    });
+    
+    return response;
+  } catch (error) {
+    console.error("Error creating contribution group account:", error);
+    return { success: false, message: "Unable to create account for the contribution group" };
   }
 };
 

@@ -46,7 +46,7 @@ interface AppContextType {
   transactions: Transaction[];
   stats: Stats;
   refreshData: () => void;
-  createNewContribution: (contribution: Omit<Contribution, 'id' | 'createdAt' | 'currentAmount' | 'members' | 'contributors' | 'accountNumber'>) => void;
+  createNewContribution: (contribution: Omit<Contribution, 'id' | 'createdAt' | 'currentAmount' | 'members' | 'contributors'>) => void;
   contribute: (contributionId: string, amount: number, anonymous?: boolean) => void;
   contributeViaAccountNumber: (accountNumber: string, amount: number, contributorInfo: { name: string, email?: string, phone?: string }, anonymous?: boolean) => void;
   requestWithdrawal: (request: Omit<WithdrawalRequest, 'id' | 'createdAt' | 'status' | 'votes' | 'deadline'>) => void;
@@ -146,7 +146,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     toast.success("You have been logged out successfully");
   };
 
-  const createNewContribution = (contribution: Omit<Contribution, 'id' | 'createdAt' | 'currentAmount' | 'members' | 'contributors' | 'accountNumber'>) => {
+  const createNewContribution = (contribution: Omit<Contribution, 'id' | 'createdAt' | 'currentAmount' | 'members' | 'contributors'>) => {
     try {
       createContribution(contribution);
       refreshData();
