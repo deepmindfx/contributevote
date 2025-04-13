@@ -6,6 +6,10 @@ import { updateUserBalance } from './utilityOperations';
 import { createTransaction } from './transactionOperations';
 import { getContributionByAccountNumber } from '@/localStorage';
 
+export const getContributions = (): Contribution[] => {
+  return getBaseContributions();
+};
+
 export const getUserContributions = (userId: string): Contribution[] => {
   const contributions = getBaseContributions();
   return contributions.filter(contribution => contribution.members.includes(userId));

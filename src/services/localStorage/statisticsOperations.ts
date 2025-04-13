@@ -1,13 +1,13 @@
 
 import { Stats } from './types';
-import { getUsers } from './userOperations';
-import { getContributions } from './contributionOperations';
+import { getBaseUsers } from './storageUtils';
+import { getBaseContributions } from './storageUtils';
 import { getWithdrawalRequests } from './withdrawalOperations';
 import { getTransactions } from './transactionOperations';
 
 export const getStatistics = (): Stats => {
-  const users = getUsers();
-  const contributions = getContributions();
+  const users = getBaseUsers();
+  const contributions = getBaseContributions();
   const withdrawalRequests = getWithdrawalRequests();
   const transactions = getTransactions();
 

@@ -6,21 +6,26 @@ import { User, Transaction, Contribution, WithdrawalRequest, Notification, Stats
 import {
   ensureAccountNumberDisplay, verifyUserWithOTP, validateDate, 
   getContributionByAccountNumber, reExportEnsureAccountNumberDisplay,
-  addTransaction, getCurrentUser as getBaseCurrentUser, getUsers as getBaseUsers,
-  getContributions as getBaseContributions
+  addTransaction
 } from '@/localStorage';
+
+// Import from storage utilities
+import { 
+  getBaseUsers, getBaseContributions, getBaseCurrentUser, 
+  getBaseContributionById 
+} from './localStorage/storageUtils';
 
 // Import from modules
 import { initializeLocalStorage, generateDummyData } from './localStorage/initialization';
 import { 
   createUser, setCurrentUser, logoutUser, 
   updateUser, updateUserById, pauseUser, activateUser, depositToUser,
-  getUserByEmail, getUserByPhone
+  getUserByEmail, getUserByPhone, getUsers
 } from './localStorage/userOperations';
 import {
   getUserContributions, getContributionById, 
   createContribution, updateContribution, contributeToGroup,
-  contributeByAccountNumber, generateShareLink
+  contributeByAccountNumber, generateShareLink, getContributions
 } from './localStorage/contributionOperations';
 import {
   getWithdrawalRequests, createWithdrawalRequest, updateWithdrawalRequest, 
@@ -30,7 +35,7 @@ import {
   getTransactions, createTransaction
 } from './localStorage/transactionOperations';
 import {
-  getNotifications, addNotification, markNotificationAsRead, markAllNotificationsAsRead as markAllNotifications
+  getNotifications, addNotification, markNotificationAsRead, markAllNotificationsAsRead
 } from './localStorage/notificationOperations';
 import { getStatistics } from './localStorage/statisticsOperations';
 import { generateContributionReceipt } from './localStorage/receiptOperations';
@@ -40,23 +45,21 @@ import {
 
 // Re-export the direct localStorage functions
 export const getCurrentUser = getBaseCurrentUser;
-export const getUsers = getBaseUsers;
-export const getContributions = getBaseContributions;
 
 // Re-export everything for backward compatibility
 export {
   initializeLocalStorage, generateDummyData,
   createUser, setCurrentUser, logoutUser,
   updateUser, updateUserById, pauseUser, activateUser, depositToUser,
-  getUserContributions, getContributionById,
+  getUserContributions, getContributionById, getContributions, getUsers,
   createContribution, updateContribution, contributeToGroup,
   contributeByAccountNumber, getWithdrawalRequests, createWithdrawalRequest,
   updateWithdrawalRequest, voteOnWithdrawalRequest, updateUserBalance,
   getTransactions, createTransaction, hasContributed,
-  getNotifications, addNotification, markNotificationAsRead,
+  getNotifications, addNotification, markNotificationAsRead, markAllNotificationsAsRead,
   getStatistics, generateShareLink, getUserByEmail, getUserByPhone,
   pingGroupMembersForVote, generateContributionReceipt,
-  updateWithdrawalRequestsStatus, markAllNotifications,
+  updateWithdrawalRequestsStatus,
   // Re-exported from original localStorage.ts
   ensureAccountNumberDisplay, verifyUserWithOTP, validateDate,
   getContributionByAccountNumber, reExportEnsureAccountNumberDisplay,

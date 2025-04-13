@@ -1,24 +1,32 @@
 
+import { getBaseUsers } from './storageUtils';
 import { getTransactions } from './transactionOperations';
-import { getContributionById } from './contributionOperations';
-import { getUsers } from './userOperations';
+import { getBaseContributionById } from './storageUtils';
 
 export const generateContributionReceipt = (transactionId: string) => {
-  const transaction = getTransactions().find(t => t.id === transactionId);
+  const transactions = getTransactions();
+  const transaction = transactions.find(t => t.id === transactionId);
+  
   if (!transaction) return null;
   
-  const contribution = getContributionById(transaction.contributionId);
+  const users = getBaseUsers();
+  const user = users.find(u => u.id === transaction.userId);
+  
+  if (!transaction.contributionId) return null;
+  
+  const contribution = getBaseContributionById(transaction.contributionId);
+  
   if (!contribution) return null;
   
-  const user = getUsers().find(u => u.id === transaction.userId);
-  if (!user) return null;
-  
   return {
-    receiptNumber: `RCPT-${Math.floor(1000 + Math.random() * 9000)}`,
-    date: transaction.createdAt,
-    contributionName: contribution.name,
-    accountNumber: contribution.accountNumber,
-    contributorName: user.name,
+    receiptNumber: `RCT-${transactionId.substring(0, 8).toUpperCase()}`,
+    date: new Date(transaction.createdAt).toISOString(),
     amount: transaction.amount,
+    payerName: user?.name || 'Anonymous',
+    payerEmail: user?.email || 'N/A',
+    contributionName: contribution.name,
+    contributionId: contribution.id,
+    transactionId: transaction.id,
+    status: transaction.status || 'completed',
   };
 };
