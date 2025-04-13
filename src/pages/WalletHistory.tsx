@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/layout/Header";
@@ -25,6 +26,11 @@ interface MonnifyTransaction {
   destinationAccountName: string;
   destinationBankName: string;
   destinationAccountNumber: string;
+  payerName?: string;
+  payerEmail?: string;
+  payerPhone?: string;
+  payerBankCode?: string;
+  payerBankName?: string;
 }
 
 const WalletHistory = () => {
@@ -95,13 +101,16 @@ const WalletHistory = () => {
   
   // Find sender name if available
   const getSenderName = (transaction: any) => {
-    // In a real app, you would fetch this from the database
-    // For demo purposes, we'll return a placeholder
     if (transaction.type === 'deposit') {
-      return transaction.senderName || "Bank Transfer";
+      return transaction.metaData?.senderName || transaction.senderName || "Bank Transfer";
     } else {
       return "Wallet Withdrawal";
     }
+  };
+  
+  // Get sender bank if available
+  const getSenderBank = (transaction: any) => {
+    return transaction.metaData?.bankName || transaction.metaData?.senderBank || "";
   };
   
   return (
@@ -174,7 +183,7 @@ const WalletHistory = () => {
             </div>
             
             {/* Currency Toggle - Fixed to work correctly */}
-            <div className="flex items-center bg-green-600/30 dark:bg-green-600/50 rounded-full px-3 py-1.5">
+            <div className="flex items-center bg-green-600/30 dark:bg-green-600/50 rounded-full px-3 py-1.5 cursor-pointer" onClick={toggleCurrency}>
               <span className={`text-xs ${currencyType === 'NGN' ? 'text-foreground' : 'text-muted-foreground'}`}>NGN</span>
               <Switch 
                 checked={currencyType === "USD"}
@@ -234,6 +243,12 @@ const WalletHistory = () => {
                             <p className="text-sm text-muted-foreground">
                               {transaction.description}
                             </p>
+                            {(transaction.metaData?.senderName || getSenderBank(transaction)) && (
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                {transaction.metaData?.senderName ? `From: ${transaction.metaData.senderName}` : ""} 
+                                {getSenderBank(transaction) ? `${transaction.metaData?.senderName ? " via " : "Via "} ${getSenderBank(transaction)}` : ""}
+                              </p>
+                            )}
                             <p className="text-xs text-muted-foreground mt-1">
                               {formatDate(transaction.createdAt)}
                             </p>
@@ -331,6 +346,12 @@ const WalletHistory = () => {
                             <p className="text-sm text-muted-foreground">
                               Via {transaction.paymentMethod}
                             </p>
+                            {transaction.payerName && (
+                              <p className="text-xs text-muted-foreground">
+                                From: {transaction.payerName} 
+                                {transaction.payerBankName ? ` (${transaction.payerBankName})` : ""}
+                              </p>
+                            )}
                             <p className="text-xs text-muted-foreground mt-1">
                               {formatDate(transaction.paidOn)}
                             </p>
@@ -418,10 +439,37 @@ const WalletHistory = () => {
                   <span className="font-medium">{selectedTransaction.id.slice(0, 8)}</span>
                 </div>
                 
-                <div className="flex justify-between py-2 border-b">
-                  <span className="text-muted-foreground">Source</span>
-                  <span className="font-medium">{getSenderName(selectedTransaction)}</span>
-                </div>
+                {selectedTransaction.type === 'deposit' && (
+                  <>
+                    {(selectedTransaction.metaData?.senderName || getSenderName(selectedTransaction) !== "Bank Transfer") && (
+                      <div className="flex justify-between py-2 border-b">
+                        <span className="text-muted-foreground">Sender</span>
+                        <span className="font-medium">{selectedTransaction.metaData?.senderName || getSenderName(selectedTransaction)}</span>
+                      </div>
+                    )}
+                    
+                    {getSenderBank(selectedTransaction) && (
+                      <div className="flex justify-between py-2 border-b">
+                        <span className="text-muted-foreground">Bank</span>
+                        <span className="font-medium">{getSenderBank(selectedTransaction)}</span>
+                      </div>
+                    )}
+                    
+                    {selectedTransaction.metaData?.payerEmail && (
+                      <div className="flex justify-between py-2 border-b">
+                        <span className="text-muted-foreground">Email</span>
+                        <span className="font-medium">{selectedTransaction.metaData.payerEmail}</span>
+                      </div>
+                    )}
+                    
+                    {selectedTransaction.metaData?.transactionReference && (
+                      <div className="flex justify-between py-2 border-b">
+                        <span className="text-muted-foreground">Reference</span>
+                        <span className="font-medium">{selectedTransaction.metaData.transactionReference}</span>
+                      </div>
+                    )}
+                  </>
+                )}
                 
                 {selectedTransaction.description && (
                   <div className="flex justify-between py-2 border-b">
@@ -441,7 +489,17 @@ const WalletHistory = () => {
           )}
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsTransactionDetailsOpen(false)}>Close</Button>
+            <Button 
+              variant="outline" 
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsTransactionDetailsOpen(false);
+              }}
+              type="button"
+            >
+              Close
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

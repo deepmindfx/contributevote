@@ -27,6 +27,7 @@ const WalletCard = () => {
   const [depositMethod, setDepositMethod] = useState<"manual" | "card" | "bank">("manual");
   const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
   const [isTransactionDetailsOpen, setIsTransactionDetailsOpen] = useState(false);
+  const [isProcessingDeposit, setIsProcessingDeposit] = useState(false);
   
   const {
     user,
@@ -56,7 +57,7 @@ const WalletCard = () => {
     }
   };
 
-  // Toggle currency function
+  // Toggle currency function - make the entire container clickable
   const toggleCurrency = () => {
     setCurrencyType(prev => prev === "NGN" ? "USD" : "NGN");
   };
@@ -84,7 +85,7 @@ const WalletCard = () => {
       return;
     }
     
-    setIsLoading(true);
+    setIsProcessingDeposit(true);
     
     try {
       if (depositMethod === "manual") {
@@ -124,13 +125,17 @@ const WalletCard = () => {
       console.error("Error processing deposit:", error);
       toast.error("Failed to process deposit. Please try again.");
     } finally {
-      setIsLoading(false);
+      setIsProcessingDeposit(false);
       setAmount("");
       setIsDepositOpen(false);
     }
   };
   
-  const handleWithdraw = () => {
+  const handleWithdraw = (e: React.MouseEvent) => {
+    // Prevent event bubbling
+    e.preventDefault();
+    e.stopPropagation();
+    
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       toast.error("Please enter a valid amount");
       return;
@@ -182,13 +187,16 @@ const WalletCard = () => {
   
   // Find sender name if available
   const getSenderName = (transaction: any) => {
-    // In a real app, you would fetch this from the database
-    // For demo purposes, we'll return a placeholder
     if (transaction.type === 'deposit') {
-      return transaction.senderName || "Bank Transfer";
+      return transaction.senderName || transaction.metaData?.senderName || "Bank Transfer";
     } else {
       return "Wallet Withdrawal";
     }
+  };
+  
+  // Get sender bank if available
+  const getSenderBank = (transaction: any) => {
+    return transaction.metaData?.bankName || transaction.metaData?.senderBank || "";
   };
 
   return (
@@ -325,7 +333,7 @@ const WalletCard = () => {
                     </TabsContent>
                   </Tabs>
                   
-                  <DialogFooter className="flex justify-between space-x-2">
+                  <DialogFooter className="flex space-x-2">
                     <Button 
                       variant="outline" 
                       className="flex-1" 
@@ -341,10 +349,10 @@ const WalletCard = () => {
                     <Button 
                       className="flex-1" 
                       onClick={handleDeposit} 
-                      disabled={isLoading}
+                      disabled={isProcessingDeposit}
                       type="button"
                     >
-                      {isLoading ? "Processing..." : "Deposit"}
+                      {isProcessingDeposit ? "Processing..." : "Deposit"}
                     </Button>
                   </DialogFooter>
                 </DialogContent>
@@ -390,11 +398,7 @@ const WalletCard = () => {
                       Cancel
                     </Button>
                     <Button 
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handleWithdraw();
-                      }}
+                      onClick={handleWithdraw}
                       type="button"
                     >
                       Withdraw
@@ -447,7 +451,10 @@ const WalletCard = () => {
                           {transaction.type === 'deposit' ? 'Money In' : 'Money Out'}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {formatDate(transaction.createdAt)}
+                          {transaction.metaData?.senderName || getSenderBank(transaction) ? 
+                            `From: ${transaction.metaData?.senderName || ""} ${getSenderBank(transaction) ? `(${getSenderBank(transaction)})` : ""}` : 
+                            formatDate(transaction.createdAt)
+                          }
                         </p>
                       </div>
                     </div>
@@ -519,10 +526,30 @@ const WalletCard = () => {
                   <span className="font-medium">{selectedTransaction.id.slice(0, 8)}</span>
                 </div>
                 
-                <div className="flex justify-between py-2 border-b">
-                  <span className="text-muted-foreground">Source</span>
-                  <span className="font-medium">{getSenderName(selectedTransaction)}</span>
-                </div>
+                {selectedTransaction.type === 'deposit' && (
+                  <>
+                    {(selectedTransaction.metaData?.senderName || getSenderName(selectedTransaction) !== "Bank Transfer") && (
+                      <div className="flex justify-between py-2 border-b">
+                        <span className="text-muted-foreground">Sender</span>
+                        <span className="font-medium">{selectedTransaction.metaData?.senderName || getSenderName(selectedTransaction)}</span>
+                      </div>
+                    )}
+                    
+                    {getSenderBank(selectedTransaction) && (
+                      <div className="flex justify-between py-2 border-b">
+                        <span className="text-muted-foreground">Bank</span>
+                        <span className="font-medium">{getSenderBank(selectedTransaction)}</span>
+                      </div>
+                    )}
+                    
+                    {selectedTransaction.metaData?.transactionReference && (
+                      <div className="flex justify-between py-2 border-b">
+                        <span className="text-muted-foreground">Reference</span>
+                        <span className="font-medium">{selectedTransaction.metaData.transactionReference}</span>
+                      </div>
+                    )}
+                  </>
+                )}
                 
                 {selectedTransaction.description && (
                   <div className="flex justify-between py-2 border-b">

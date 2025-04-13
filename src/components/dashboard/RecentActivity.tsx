@@ -23,9 +23,10 @@ interface ActivityItemProps {
   amount: string;
   date: string;
   status?: "pending" | "completed" | "rejected";
+  senderDetails?: string;
 }
 
-const ActivityItem = ({ type, title, description, amount, date, status }: ActivityItemProps) => {
+const ActivityItem = ({ type, title, description, amount, date, status, senderDetails }: ActivityItemProps) => {
   const getIcon = () => {
     switch (type) {
       case "deposit":
@@ -82,6 +83,7 @@ const ActivityItem = ({ type, title, description, amount, date, status }: Activi
           <div>
             <h4 className="font-medium text-sm">{title}</h4>
             <p className="text-xs text-muted-foreground">{description}</p>
+            {senderDetails && <p className="text-xs text-muted-foreground mt-0.5">{senderDetails}</p>}
           </div>
           <div className="text-right">
             <div className={`font-medium ${type === "deposit" ? "text-green-500" : ""}`}>{amount}</div>
@@ -123,6 +125,24 @@ const RecentActivity = () => {
     fetchData();
   }, [user?.reservedAccount, refreshData]);
   
+  // Get sender details from transaction
+  const getSenderDetails = (transaction: any) => {
+    if (transaction.type !== 'deposit') return null;
+    
+    const senderName = transaction.metaData?.senderName || transaction.senderName;
+    const bankName = transaction.metaData?.bankName || transaction.metaData?.senderBank;
+    
+    if (senderName && bankName) {
+      return `From: ${senderName} (${bankName})`;
+    } else if (senderName) {
+      return `From: ${senderName}`;
+    } else if (bankName) {
+      return `Via: ${bankName}`;
+    }
+    
+    return null;
+  };
+  
   // Format and sort transactions, ensuring we only show the current user's transactions
   const formattedTransactions = transactions
     .filter(transaction => transaction.userId === user?.id) // Only show current user's transactions
@@ -163,6 +183,7 @@ const RecentActivity = () => {
                 `${transaction.type === 'deposit' ? '+' : '-'}₦ ${transaction.amount.toLocaleString()}`,
         date: formatDate(transaction.createdAt),
         status: transaction.status as "pending" | "completed" | "rejected",
+        senderDetails: getSenderDetails(transaction),
       }
     });
 
