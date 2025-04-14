@@ -1,150 +1,50 @@
 
-import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import MobileNav from "@/components/layout/MobileNav";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { toast } from "sonner";
-import { useApp } from "@/contexts/AppContext";
-import { Contribution, WithdrawalRequest, Transaction, hasContributed } from "@/services/localStorage";
-import { ensureAccountNumberDisplay } from "@/localStorage";
-
-// Import the components
 import GroupHeader from "@/components/group-detail/GroupHeader";
-import GroupWallet from "@/components/group-detail/GroupWallet";
-import WithdrawalRequests from "@/components/group-detail/WithdrawalRequests";
-import ContributorsList from "@/components/group-detail/ContributorsList";
-import TransactionsList from "@/components/group-detail/TransactionsList";
+import GroupDetailContent from "@/components/group-detail/GroupDetailContent";
+import LoadingState from "@/components/group-detail/LoadingState";
+import { useContributionDetail } from "@/hooks/use-contribution-detail";
+import { useContributionActions } from "@/hooks/use-contribution-actions";
 
 const GroupDetail = () => {
+  const { id } = useParams<{ id: string }>();
+  
+  // Custom hooks to handle data and actions
   const {
-    id
-  } = useParams<{
-    id: string;
-  }>();
-  const navigate = useNavigate();
+    contribution,
+    contributionRequests,
+    contributionTransactions,
+    hasUserContributed,
+    isLoading,
+  } = useContributionDetail(id);
+  
   const {
-    contributions,
-    withdrawalRequests,
-    transactions,
-    user,
-    contribute,
-    requestWithdrawal,
-    isGroupCreator,
-    refreshData,
-  } = useApp();
-  const [contribution, setContribution] = useState<Contribution | null>(null);
-  const [contributionRequests, setContributionRequests] = useState<WithdrawalRequest[]>([]);
-  const [contributionTransactions, setContributionTransactions] = useState<Transaction[]>([]);
-  const [contributionAmount, setContributionAmount] = useState("");
-  const [withdrawalAmount, setWithdrawalAmount] = useState("");
-  const [withdrawalPurpose, setWithdrawalPurpose] = useState("");
-  const [anonymous, setAnonymous] = useState(user?.preferences?.anonymousContributions || false);
-  const [hasUserContributed, setHasUserContributed] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+    contributionAmount,
+    setContributionAmount,
+    withdrawalAmount,
+    setWithdrawalAmount,
+    withdrawalPurpose,
+    setWithdrawalPurpose,
+    anonymous,
+    setAnonymous,
+    handleContribute,
+    handleRequestWithdrawal,
+    isGroupCreator
+  } = useContributionActions();
   
-  useEffect(() => {
-    // Refresh data when component mounts to ensure fresh data after login
-    refreshData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  
-  useEffect(() => {
-    if (!id) {
-      setIsLoading(false);
-      return;
-    }
-    
-    try {
-      // Add defensive check for contributions array
-      if (!contributions || contributions.length === 0) {
-        // If no contributions yet (possibly still loading), don't show error toast
-        return;
-      }
-      
-      const foundContribution = contributions.find(c => c.id === id);
-      if (!foundContribution) {
-        toast.error("Contribution group not found");
-        navigate("/dashboard");
-        return;
-      }
-      
-      // Call the function to ensure account numbers exist
-      ensureAccountNumberDisplay();
-      
-      // Set contribution and other related data
-      setContribution(foundContribution);
-      setContributionRequests(withdrawalRequests.filter(w => w.contributionId === id));
-      setContributionTransactions(transactions.filter(t => t.contributionId === id));
-
-      // Check if user has contributed to this group
-      if (user && user.id) {
-        setHasUserContributed(hasContributed(user.id, id));
-      }
-      
-      setIsLoading(false);
-    } catch (error) {
-      console.error("Error loading contribution details:", error);
-      setIsLoading(false);
-    }
-  }, [id, contributions, withdrawalRequests, transactions, navigate, user]);
-  
-  if (isLoading) {
-    return <div className="flex justify-center items-center min-h-screen">Loading...</div>;
+  // Check if we're still loading or no contribution found
+  const loadingElement = (
+    <LoadingState isLoading={isLoading} contribution={contribution} />
+  );
+  if (isLoading || !contribution) {
+    return loadingElement;
   }
   
-  if (!contribution) {
-    return <div className="flex justify-center items-center min-h-screen">
-      <div className="text-center">
-        <p className="text-xl mb-4">Contribution group not found or still loading</p>
-        <button 
-          onClick={() => navigate("/dashboard")} 
-          className="px-4 py-2 bg-primary text-white rounded-md"
-        >
-          Return to Dashboard
-        </button>
-      </div>
-    </div>;
-  }
-  
-  const handleContribute = () => {
-    if (!contributionAmount || isNaN(Number(contributionAmount)) || Number(contributionAmount) <= 0) {
-      toast.error("Please enter a valid amount");
-      return;
-    }
-    contribute(contribution.id, Number(contributionAmount), anonymous);
-    setContributionAmount("");
-    setHasUserContributed(true);
-  };
-  
-  const handleRequestWithdrawal = () => {
-    if (!withdrawalAmount || isNaN(Number(withdrawalAmount)) || Number(withdrawalAmount) <= 0) {
-      toast.error("Please enter a valid amount");
-      return;
-    }
-    if (Number(withdrawalAmount) > contribution.currentAmount) {
-      toast.error("Requested amount exceeds available funds");
-      return;
-    }
-    if (!withdrawalPurpose.trim()) {
-      toast.error("Please enter a purpose for the withdrawal");
-      return;
-    }
-    requestWithdrawal({
-      contributionId: contribution.id,
-      amount: Number(withdrawalAmount),
-      reason: withdrawalPurpose,
-      beneficiary: user.name || "Group Creator",
-      accountNumber: "0000000000", // Default value, would be replaced with user's account in real app
-      bankName: "User's Bank", // Default value, would be replaced with user's bank in real app
-      purpose: withdrawalPurpose
-    });
-    setWithdrawalAmount("");
-    setWithdrawalPurpose("");
-  };
-  
+  // Derive some values needed for the components
   const isUserCreator = isGroupCreator(contribution.id);
-
+  
   return (
     <div className="min-h-screen pb-20 md:pb-0">
       <Header />
@@ -153,9 +53,12 @@ const GroupDetail = () => {
         {/* Group Header */}
         <GroupHeader contribution={contribution} />
         
-        {/* Group Wallet Card */}
-        <GroupWallet 
+        {/* Main Content */}
+        <GroupDetailContent 
           contribution={contribution}
+          contributionRequests={contributionRequests}
+          contributionTransactions={contributionTransactions}
+          hasUserContributed={hasUserContributed}
           isUserCreator={isUserCreator}
           contributionAmount={contributionAmount}
           setContributionAmount={setContributionAmount}
@@ -165,38 +68,9 @@ const GroupDetail = () => {
           setWithdrawalPurpose={setWithdrawalPurpose}
           anonymous={anonymous}
           setAnonymous={setAnonymous}
-          handleContribute={handleContribute}
-          handleRequestWithdrawal={handleRequestWithdrawal}
+          handleContribute={() => handleContribute(contribution.id)}
+          handleRequestWithdrawal={() => handleRequestWithdrawal(contribution.id, contribution.currentAmount)}
         />
-        
-        <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
-          <Tabs defaultValue="withdrawals" className="w-full">
-            <TabsList className="grid grid-cols-3 mb-6">
-              <TabsTrigger value="withdrawals">Withdrawal Requests</TabsTrigger>
-              <TabsTrigger value="contributors">Contributors</TabsTrigger>
-              <TabsTrigger value="transactions">Transactions</TabsTrigger>
-            </TabsList>
-            
-            {/* Withdrawal Requests Tab */}
-            <TabsContent value="withdrawals">
-              <WithdrawalRequests 
-                contribution={contribution}
-                contributionRequests={contributionRequests}
-                hasUserContributed={hasUserContributed}
-              />
-            </TabsContent>
-            
-            {/* Contributors Tab */}
-            <TabsContent value="contributors">
-              <ContributorsList contributors={contribution.contributors || []} />
-            </TabsContent>
-            
-            {/* Transactions Tab */}
-            <TabsContent value="transactions">
-              <TransactionsList transactions={contributionTransactions} />
-            </TabsContent>
-          </Tabs>
-        </div>
       </main>
       
       <MobileNav />
