@@ -4,7 +4,7 @@ import { useApp } from "@/contexts/AppContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowDown, ArrowUp, HelpCircle, Receipt } from "lucide-react";
+import { ArrowDown, ArrowUp, HelpCircle, Receipt, RefreshCw } from "lucide-react";
 import { format, isValid } from "date-fns";
 import { Transaction } from "@/services/localStorage";
 import TransactionReceiptDialog from "./dialogs/TransactionReceiptDialog";
@@ -14,10 +14,11 @@ interface TransactionsListProps {
 }
 
 const TransactionsList = ({ transactions }: TransactionsListProps) => {
-  const { getReceipt } = useApp();
+  const { getReceipt, refreshData } = useApp();
   const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
   const [receiptData, setReceiptData] = useState<any>(null);
   const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return "Unknown date";
@@ -27,7 +28,7 @@ const TransactionsList = ({ transactions }: TransactionsListProps) => {
       if (!isValid(date)) {
         return "Invalid date";
       }
-      return format(date, 'MMMM d, yyyy');
+      return format(date, 'MMMM d, yyyy h:mm a');
     } catch (error) {
       console.error("Error formatting date:", error, dateString);
       return "Invalid date";
@@ -40,6 +41,20 @@ const TransactionsList = ({ transactions }: TransactionsListProps) => {
       setReceiptData(receipt);
       setSelectedTransactionId(transactionId);
       setReceiptDialogOpen(true);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    
+    try {
+      await refreshData();
+      setTimeout(() => {
+        setIsRefreshing(false);
+      }, 1000);
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+      setIsRefreshing(false);
     }
   };
 
@@ -58,12 +73,48 @@ const TransactionsList = ({ transactions }: TransactionsListProps) => {
     }
   });
 
+  const getContributorName = (transaction: Transaction) => {
+    // For direct contributions
+    if (transaction.metaData?.contributorName) {
+      return transaction.metaData.contributorName;
+    }
+    
+    // For Monnify transactions
+    if (transaction.metaData?.senderName) {
+      return transaction.metaData.senderName;
+    }
+    
+    // For other transactions
+    if (transaction.metaData?.customerName) {
+      return transaction.metaData.customerName;
+    }
+    
+    // Anonymous contributions
+    if (transaction.anonymous) {
+      return "Anonymous";
+    }
+    
+    return "Unknown User";
+  };
+
   return (
     <>
       <Card className="glass-card animate-slide-up">
-        <CardHeader>
-          <CardTitle>Transaction History</CardTitle>
-          <CardDescription>All transactions for this contribution group</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Transaction History</CardTitle>
+            <CardDescription>All transactions for this contribution group</CardDescription>
+          </div>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleRefresh} 
+            disabled={isRefreshing}
+            className={isRefreshing ? "animate-spin" : ""}
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
         </CardHeader>
         <CardContent>
           {sortedTransactions.length === 0 ? (
@@ -97,9 +148,14 @@ const TransactionsList = ({ transactions }: TransactionsListProps) => {
                               : 'Vote'}
                         </h4>
                         <p className="text-xs text-muted-foreground">
-                          {transaction.description}
-                          {transaction.anonymous && ' (Anonymous)'}
+                          {transaction.description || "Transaction"}
                         </p>
+                        {transaction.type === 'deposit' && (
+                          <p className="text-xs font-medium mt-1 text-green-600">
+                            From: {getContributorName(transaction)}
+                            {transaction.metaData?.bankName && ` (${transaction.metaData.bankName})`}
+                          </p>
+                        )}
                       </div>
                       <div className="text-right">
                         <div className={`font-medium ${transaction.type === 'deposit' ? 'text-green-500' : ''}`}>

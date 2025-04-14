@@ -1,5 +1,4 @@
 
-// Update the votes page to handle the "expired" status
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,11 +10,14 @@ import { Check, X } from "lucide-react";
 import { format, isValid } from "date-fns";
 import Header from "@/components/layout/Header";
 import MobileNav from "@/components/layout/MobileNav";
+import CountdownTimer from "@/components/ui/countdown-timer";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const VotesPage = () => {
   const navigate = useNavigate();
   const { user, contributions, withdrawalRequests, vote } = useApp();
   const [voteRequests, setVoteRequests] = useState<any[]>([]);
+  const isMobile = useIsMobile();
   
   useEffect(() => {
     if (user && contributions && withdrawalRequests) {
@@ -36,7 +38,6 @@ const VotesPage = () => {
     }
   };
 
-  // Update the setUserVotes function to handle the "expired" status
   const setUserVotes = () => {
     const formattedRequests = withdrawalRequests
       .filter(request => request.status === "pending" || request.status === "approved" || request.status === "rejected" || request.status === "expired")
@@ -91,13 +92,29 @@ const VotesPage = () => {
             ) : (
               <div className="space-y-4">
                 {voteRequests.map(request => (
-                  <Card key={request.requestId} className={`overflow-hidden ${request.status === 'pending' ? 'border-amber-200 dark:border-amber-800' : request.status === 'approved' ? 'border-green-200 dark:border-green-800' : request.status === 'rejected' ? 'border-red-200 dark:border-red-800' : 'border-gray-200 dark:border-gray-800'}`}>
+                  <Card key={request.requestId} className={`overflow-hidden ${
+                    request.status === 'pending' 
+                      ? 'border-amber-200 dark:border-amber-800' 
+                      : request.status === 'approved' 
+                        ? 'border-green-200 dark:border-green-800' 
+                        : request.status === 'expired'
+                          ? 'border-gray-200 dark:border-gray-800'
+                          : 'border-red-200 dark:border-red-800'
+                  }`}>
                     <CardContent className="p-4">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <div className="font-semibold mb-1">
-                            ₦{request.amount.toLocaleString()}
-                            <Badge className="ml-2" variant={request.status === 'pending' ? 'outline' : request.status === 'approved' ? 'default' : request.status === 'rejected' ? 'destructive' : 'secondary'}>
+                      <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+                        <div className="flex-1">
+                          <div className="font-semibold mb-1 flex flex-wrap items-center gap-2">
+                            <span>₦{request.amount.toLocaleString()}</span>
+                            <Badge className="ml-0 md:ml-2" variant={
+                              request.status === 'pending' 
+                                ? 'outline' 
+                                : request.status === 'approved' 
+                                  ? 'default' 
+                                  : request.status === 'expired'
+                                    ? 'secondary'
+                                    : 'destructive'
+                            }>
                               {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
                             </Badge>
                           </div>
@@ -105,11 +122,25 @@ const VotesPage = () => {
                           <p className="text-xs text-muted-foreground mt-1">
                             Requested: {formatDate(request.createdAt)}
                           </p>
-                        </div>
-                        <div className="text-right text-sm">
-                          <p className="font-medium">
-                            {request.votes.length} votes
+                          <p className="text-sm font-medium mt-1">
+                            {request.contributionName}
                           </p>
+                        </div>
+                        
+                        <div className="flex md:flex-col justify-between items-center md:items-end gap-2">
+                          {request.status === 'pending' && request.deadline && (
+                            <CountdownTimer 
+                              deadline={request.deadline} 
+                              size={isMobile ? "sm" : "md"}
+                              showLabel={false}
+                            />
+                          )}
+                          
+                          <div className="text-right text-sm">
+                            <p className="font-medium">
+                              {request.votes.length} votes
+                            </p>
+                          </div>
                         </div>
                       </div>
                       
@@ -118,8 +149,8 @@ const VotesPage = () => {
                           <div className="mt-4 text-sm text-center p-2 bg-muted rounded-md">
                             You voted to {request.userVote === 'approve' ? 'approve' : 'reject'} this request.
                           </div>
-                        ) : (
-                          <div className="flex space-x-2 mt-4">
+                        ) : request.status === 'pending' ? (
+                          <div className="flex flex-col sm:flex-row gap-2 mt-4">
                             <Button onClick={() => handleVote(request.requestId, 'approve')} className="flex-1 bg-green-600 hover:bg-green-700" size="sm">
                               <Check className="h-4 w-4 mr-2" />
                               Approve
@@ -129,7 +160,7 @@ const VotesPage = () => {
                               Reject
                             </Button>
                           </div>
-                        )
+                        ) : null
                       ) : (
                         <div className="mt-2 text-xs text-amber-500 text-center">
                           You must contribute to the group to vote

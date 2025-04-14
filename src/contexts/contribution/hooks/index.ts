@@ -13,6 +13,7 @@ export const useContributionState = (user: any, isAuthenticated: boolean, getUse
     refreshContributionData,
     checkExpiredRequests,
     isGroupCreator,
+    lastRefreshTime,
   } = useContributionData(user, isAuthenticated);
 
   const {
@@ -60,6 +61,7 @@ export const useContributionState = (user: any, isAuthenticated: boolean, getUse
     pingMembersForVote,
     getReceipt,
     isGroupCreator,
+    lastRefreshTime,
   };
 };
 

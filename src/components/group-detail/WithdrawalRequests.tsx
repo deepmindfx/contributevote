@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Bell, Check, Clock, X } from "lucide-react";
 import { format, formatDistanceToNow, isValid } from "date-fns";
+import CountdownTimer from "@/components/ui/countdown-timer";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface WithdrawalRequestsProps {
   contribution: Contribution;
@@ -19,6 +21,7 @@ const WithdrawalRequests = ({
   hasUserContributed
 }: WithdrawalRequestsProps) => {
   const { user, vote, pingMembersForVote } = useApp();
+  const isMobile = useIsMobile();
 
   const formatDate = (dateString: string) => {
     try {
@@ -30,25 +33,6 @@ const WithdrawalRequests = ({
     } catch (error) {
       console.error("Error formatting date:", error, dateString);
       return "Invalid date";
-    }
-  };
-  
-  const formatDeadline = (deadlineString: string) => {
-    try {
-      const deadlineDate = new Date(deadlineString);
-      if (!isValid(deadlineDate)) {
-        return "Invalid deadline";
-      }
-      
-      const now = new Date();
-      if (deadlineDate > now) {
-        return `Ends in ${formatDistanceToNow(deadlineDate)}`;
-      } else {
-        return 'Voting ended';
-      }
-    } catch (error) {
-      console.error("Error formatting deadline:", error, deadlineString);
-      return "Invalid deadline";
     }
   };
   
@@ -93,22 +77,26 @@ const WithdrawalRequests = ({
                     ? 'border-amber-200 dark:border-amber-800' 
                     : request.status === 'approved' 
                       ? 'border-green-200 dark:border-green-800' 
-                      : 'border-red-200 dark:border-red-800'
+                      : request.status === 'expired'
+                        ? 'border-gray-200 dark:border-gray-800'
+                        : 'border-red-200 dark:border-red-800'
                 }`}
               >
                 <CardContent className="p-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <div className="font-semibold mb-1">
-                        ₦{request.amount.toLocaleString()}
+                  <div className="flex flex-col md:flex-row md:items-start gap-4">
+                    <div className="flex-1">
+                      <div className="font-semibold mb-1 flex flex-wrap items-center gap-2">
+                        <span>₦{request.amount.toLocaleString()}</span>
                         <Badge 
-                          className="ml-2" 
+                          className="ml-0 md:ml-2" 
                           variant={
                             request.status === 'pending' 
                               ? 'outline' 
                               : request.status === 'approved' 
                                 ? 'default' 
-                                : 'destructive'
+                                : request.status === 'expired'
+                                  ? 'secondary'
+                                  : 'destructive'
                           }
                         >
                           {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
@@ -118,25 +106,30 @@ const WithdrawalRequests = ({
                       <p className="text-xs text-muted-foreground mt-1">
                         Requested: {formatDate(request.createdAt)}
                       </p>
-                      {request.status === 'pending' && request.deadline && (
-                        <div className="flex items-center mt-1 text-xs text-amber-500">
-                          <Clock className="h-3 w-3 mr-1" />
-                          {formatDeadline(request.deadline)}
-                        </div>
-                      )}
                     </div>
-                    <div className="text-right text-sm">
-                      <p className="font-medium">
-                        {request.votes.length} / {contribution.members.filter(m => hasContributed(m, contribution.id)).length} votes
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        51% approval needed
-                      </p>
+                    
+                    <div className="flex md:flex-col justify-between items-center md:items-end gap-2">
+                      {request.status === 'pending' && request.deadline && (
+                        <CountdownTimer 
+                          deadline={request.deadline} 
+                          size={isMobile ? "sm" : "md"}
+                          showLabel={false}
+                        />
+                      )}
+                      
+                      <div className="text-right text-sm">
+                        <p className="font-medium">
+                          {request.votes.length} / {contribution.members.filter(m => hasContributed(m, contribution.id)).length} votes
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          51% approval needed
+                        </p>
+                      </div>
                     </div>
                   </div>
                   
                   {request.status === 'pending' && !hasVoted(request) ? (
-                    <div className="flex space-x-2 mt-4">
+                    <div className="flex flex-col sm:flex-row gap-2 mt-4">
                       <Button 
                         onClick={() => handleVote(request.id, 'approve')} 
                         className="flex-1 bg-green-600 hover:bg-green-700" 
