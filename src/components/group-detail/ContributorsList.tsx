@@ -11,6 +11,7 @@ interface ContributorsListProps {
     amount: number;
     date?: string;
     anonymous?: boolean;
+    profileImage?: string; // Add this property to fix the type error
   }>;
 }
 

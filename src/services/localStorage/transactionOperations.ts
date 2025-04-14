@@ -17,7 +17,8 @@ export const createTransaction = (transaction: Omit<Transaction, 'id' | 'created
     };
     
     // Add defensive check to ensure all required fields are present
-    if (!transaction.userId && transaction.type !== 'system') {
+    if (!transaction.userId && transaction.type !== 'deposit' && transaction.type !== 'withdrawal' 
+        && transaction.type !== 'transfer' && transaction.type !== 'payment' && transaction.type !== 'vote') {
       console.error("Transaction is missing userId", transaction);
       // For non-system transactions, userId is required
       return;
