@@ -1,23 +1,18 @@
-
 import { useNavigate, Link } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import MobileNav from "@/components/layout/MobileNav";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { 
-  ArrowLeft, 
-  Users, 
-  Calendar, 
-  ArrowUpRight
-} from "lucide-react";
+import { ArrowLeft, Users, Calendar, ArrowUpRight } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
 import { format, isValid, parseISO } from "date-fns";
 import { Progress } from "@/components/ui/progress";
-
 const AllGroups = () => {
   const navigate = useNavigate();
-  const { contributions } = useApp();
+  const {
+    contributions
+  } = useApp();
 
   // Sort contributions by creation date (newest first)
   const sortedContributions = [...contributions].sort((a, b) => {
@@ -27,13 +22,13 @@ const AllGroups = () => {
   });
 
   // Helper function to safely format dates
-  const safeFormatDate = (dateString) => {
+  const safeFormatDate = dateString => {
     try {
       // Check if dateString is undefined or null
       if (!dateString) {
         return "No date";
       }
-      
+
       // Try to parse the date using parseISO first for ISO strings
       let date;
       try {
@@ -42,22 +37,19 @@ const AllGroups = () => {
         // If parseISO fails, try direct Date constructor
         date = new Date(dateString);
       }
-      
+
       // Verify the date is valid
       if (!isValid(date)) {
         console.log("Invalid date in AllGroups:", dateString);
         return "Invalid date";
       }
-      
       return format(date, 'MMM d, yyyy');
     } catch (err) {
       console.error("Error formatting date in AllGroups:", err, "for date:", dateString);
       return "Invalid date";
     }
   };
-
-  return (
-    <div className="min-h-screen pb-20 md:pb-0">
+  return <div className="min-h-screen pb-20 md:pb-0">
       <Header />
       
       <main className="container max-w-5xl mx-auto px-4 pt-24 pb-12">
@@ -67,15 +59,14 @@ const AllGroups = () => {
             Dashboard
           </Button>
           <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold">All Contribution Groups</h1>
+            <h1 className="font-bold text-base">All Contribution Groups</h1>
             <Button size="sm" asChild className="bg-green-600 hover:bg-green-700">
               <Link to="/create-group">Create New Group</Link>
             </Button>
           </div>
         </div>
         
-        {sortedContributions.length === 0 ? (
-          <Card>
+        {sortedContributions.length === 0 ? <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
                 <Users className="h-8 w-8 text-muted-foreground" />
@@ -88,20 +79,13 @@ const AllGroups = () => {
                 <Link to="/create-group">Create New Group</Link>
               </Button>
             </CardContent>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          </Card> : <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {sortedContributions.map(contribution => {
-              // Add null checks and default values
-              const currentAmount = contribution.currentAmount || 0;
-              const targetAmount = contribution.targetAmount || 1; // Prevent division by zero
-              const progressPercentage = Math.min(
-                100,
-                Math.round((currentAmount / targetAmount) * 100) || 0
-              );
-              
-              return (
-                <Card key={contribution.id} className="hover:shadow-md transition-shadow">
+          // Add null checks and default values
+          const currentAmount = contribution.currentAmount || 0;
+          const targetAmount = contribution.targetAmount || 1; // Prevent division by zero
+          const progressPercentage = Math.min(100, Math.round(currentAmount / targetAmount * 100) || 0);
+          return <Card key={contribution.id} className="hover:shadow-md transition-shadow">
                   <CardHeader>
                     <div className="flex justify-between">
                       <Badge className="mb-2 capitalize">{contribution.category || "General"}</Badge>
@@ -115,7 +99,7 @@ const AllGroups = () => {
                       </div>
                       <div className="flex items-center mt-1">
                         <Users className="h-3 w-3 mr-1" />
-                        {(contribution.members?.length || 0)} members
+                        {contribution.members?.length || 0} members
                       </div>
                     </div>
                   </CardHeader>
@@ -144,16 +128,12 @@ const AllGroups = () => {
                       </Link>
                     </Button>
                   </CardFooter>
-                </Card>
-              );
-            })}
-          </div>
-        )}
+                </Card>;
+        })}
+          </div>}
       </main>
       
       <MobileNav />
-    </div>
-  );
+    </div>;
 };
-
 export default AllGroups;
