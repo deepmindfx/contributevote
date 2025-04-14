@@ -1,5 +1,5 @@
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EyeOff } from "lucide-react";
 import { format, isValid } from "date-fns";
@@ -17,7 +17,21 @@ interface ContributorsListProps {
 const ContributorsList = ({ contributors }: ContributorsListProps) => {
   // Function to get contributor name
   const getContributorName = (contributor: any) => {
+    if (contributor.anonymous) {
+      return "Anonymous Contributor";
+    }
     return contributor.name || "Unknown User";
+  };
+
+  // Get contributor initials for avatar
+  const getContributorInitials = (name: string) => {
+    if (!name || name === "Unknown User") return "U";
+    
+    const nameParts = name.split(' ');
+    if (nameParts.length === 1) {
+      return nameParts[0].charAt(0).toUpperCase();
+    }
+    return `${nameParts[0].charAt(0)}${nameParts[1].charAt(0)}`.toUpperCase();
   };
 
   const formatDate = (dateString?: string) => {
@@ -53,14 +67,18 @@ const ContributorsList = ({ contributors }: ContributorsListProps) => {
                     </div>
                   ) : (
                     <Avatar className="w-10 h-10">
+                      <AvatarImage 
+                        src={contributor.profileImage} 
+                        alt={getContributorName(contributor)} 
+                      />
                       <AvatarFallback>
-                        {getContributorName(contributor).charAt(0).toUpperCase()}
+                        {getContributorInitials(getContributorName(contributor))}
                       </AvatarFallback>
                     </Avatar>
                   )}
                   <div className="ml-3">
                     <p className="font-medium text-sm">
-                      {contributor.anonymous ? 'Anonymous Contributor' : getContributorName(contributor)}
+                      {getContributorName(contributor)}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {formatDate(contributor.date)}

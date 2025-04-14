@@ -78,11 +78,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   } = useContribution();
 
   useEffect(() => {
-    initializeLocalStorage();
-    refreshData();
-    
-    // Add this call to ensure account numbers are displayed
-    ensureAccountNumberDisplay();
+    // Initialize local storage when the app first loads
+    try {
+      initializeLocalStorage();
+      refreshData();
+      
+      // Add this call to ensure account numbers are displayed
+      ensureAccountNumberDisplay();
+    } catch (error) {
+      console.error("Error in initial load:", error);
+    }
   }, []);
 
   // Combine all refresh functions
@@ -98,7 +103,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       
       // Ensure account numbers are displayed for contributions
-      ensureAccountNumberDisplay();
+      try {
+        ensureAccountNumberDisplay();
+      } catch (error) {
+        console.info("Non-critical error in ensureAccountNumberDisplay:", error);
+      }
       
     } catch (error) {
       console.error("Error in refreshData:", error);

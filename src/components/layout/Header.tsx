@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
 import { 
@@ -13,7 +13,7 @@ import {
   Moon,
   Sun,
   ShieldCheck,
-  LucideIcon
+  BellDot
 } from "lucide-react";
 import { 
   NavigationMenu,
@@ -52,6 +52,7 @@ const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const popoverTriggerRef = useRef<HTMLButtonElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -137,7 +138,11 @@ const Header = () => {
           <div className="rounded-md bg-primary p-1.5">
             <Wallet className="h-5 w-5 text-white" />
           </div>
-          <span className="font-bold text-xl">CollectiPay</span>
+          {isAuthenticated && user?.firstName ? (
+            <span className="font-medium text-lg">Hi, {user.firstName}</span>
+          ) : (
+            <span className="font-bold text-xl">CollectiPay</span>
+          )}
         </Link>
         
         {/* Desktop Navigation */}
@@ -193,14 +198,22 @@ const Header = () => {
               </NavigationMenu>
               
               <div className="flex items-center ml-4 space-x-3">
-                <Popover open={notificationsOpen} onOpenChange={setNotificationsOpen}>
+                <Popover 
+                  open={notificationsOpen} 
+                  onOpenChange={setNotificationsOpen}
+                >
                   <PopoverTrigger asChild>
                     <Button 
                       variant="ghost" 
                       size="sm" 
                       className="relative p-2"
+                      ref={popoverTriggerRef}
                     >
-                      <Bell className="h-5 w-5" />
+                      {unreadNotifications > 0 ? (
+                        <BellDot className="h-5 w-5" />
+                      ) : (
+                        <Bell className="h-5 w-5" />
+                      )}
                       {unreadNotifications > 0 && (
                         <Badge 
                           className="absolute -top-1 -right-1 px-1 min-w-[18px] h-[18px] flex items-center justify-center"
@@ -211,7 +224,7 @@ const Header = () => {
                       )}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-80 p-0">
+                  <PopoverContent className="w-80 p-0" align="end">
                     <div className="flex items-center justify-between p-4 border-b">
                       <h4 className="font-semibold">Notifications</h4>
                       {user?.notifications && user.notifications.length > 0 && 
@@ -327,14 +340,22 @@ const Header = () => {
         <div className="md:hidden flex items-center space-x-3">
           {isAuthenticated && (
             <>
-              <Popover open={notificationsOpen} onOpenChange={setNotificationsOpen}>
+              <Popover 
+                open={notificationsOpen} 
+                onOpenChange={setNotificationsOpen}
+              >
                 <PopoverTrigger asChild>
                   <Button 
                     variant="ghost" 
                     size="sm" 
                     className="relative p-2"
+                    ref={popoverTriggerRef}
                   >
-                    <Bell className="h-5 w-5" />
+                    {unreadNotifications > 0 ? (
+                      <BellDot className="h-5 w-5" />
+                    ) : (
+                      <Bell className="h-5 w-5" />
+                    )}
                     {unreadNotifications > 0 && (
                       <Badge 
                         className="absolute -top-1 -right-1 px-1 min-w-[18px] h-[18px] flex items-center justify-center"
@@ -345,7 +366,7 @@ const Header = () => {
                     )}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-80 p-0">
+                <PopoverContent className="w-80 p-0" align="end">
                   <div className="flex items-center justify-between p-4 border-b">
                     <h4 className="font-semibold">Notifications</h4>
                     {user?.notifications && user.notifications.length > 0 && 
