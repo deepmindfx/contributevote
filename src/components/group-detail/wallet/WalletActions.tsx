@@ -6,6 +6,7 @@ import { payWithMonnify } from "@/utils/monnifyPayment";
 import { useUser } from "@/contexts/UserContext";
 import { useApp } from "@/contexts/AppContext";
 import { toast } from "sonner";
+import MonnifyAmountDialog from "../dialogs/MonnifyAmountDialog";
 
 interface WalletActionsProps {
   isUserCreator: boolean;
@@ -25,8 +26,9 @@ const WalletActions = ({
   const { user } = useUser();
   const { refreshData } = useApp();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isMonnifyDialogOpen, setIsMonnifyDialogOpen] = useState(false);
 
-  const handleMonnifyPayment = async () => {
+  const handleMonnifyPayment = (amount: number, anonymous: boolean) => {
     if (!user || !user.id) {
       toast.error("Please log in to contribute");
       return;
@@ -35,8 +37,8 @@ const WalletActions = ({
     setIsProcessing(true);
     
     try {
-      await payWithMonnify({
-        amount: 0, // Will be set via prompt
+      payWithMonnify({
+        amount: amount,
         user: {
           id: user.id,
           name: user.name,
@@ -46,52 +48,67 @@ const WalletActions = ({
           id: contributionId,
           name: contributionName
         },
+        anonymous: anonymous,
         onSuccess: (response) => {
-          toast.success("Payment successful!");
           refreshData();
+          setIsProcessing(false);
+          setIsMonnifyDialogOpen(false);
         },
         onClose: () => {
           setIsProcessing(false);
+          setIsMonnifyDialogOpen(false);
         }
       });
     } catch (error) {
       console.error("Monnify payment error:", error);
       toast.error("Payment initialization failed. Please try again.");
       setIsProcessing(false);
+      setIsMonnifyDialogOpen(false);
     }
   };
 
   return (
-    <div className="flex flex-col sm:flex-row gap-3 mt-6">
-      <Button 
-        className="flex-1 bg-[#2dae75]"
-        onClick={onContributeClick}
-      >
-        <ArrowDown className="mr-2 h-4 w-4" />
-        Contribute from Wallet
-      </Button>
-      
-      <Button 
-        className="flex-1"
-        variant="outline"
-        onClick={handleMonnifyPayment}
-        disabled={isProcessing}
-      >
-        <CreditCard className="mr-2 h-4 w-4" />
-        {isProcessing ? "Processing..." : "Pay with Card/Bank"}
-      </Button>
-      
-      {isUserCreator && (
+    <>
+      <div className="flex flex-col sm:flex-row gap-3 mt-6">
         <Button 
-          variant="outline" 
-          className="flex-1"
-          onClick={onWithdrawClick}
+          className="flex-1 bg-[#2dae75]"
+          onClick={onContributeClick}
         >
-          <ArrowUp className="mr-2 h-4 w-4" />
-          Withdrawal
+          <ArrowDown className="mr-2 h-4 w-4" />
+          Contribute from Wallet
         </Button>
-      )}
-    </div>
+        
+        <Button 
+          className="flex-1"
+          variant="outline"
+          onClick={() => setIsMonnifyDialogOpen(true)}
+          disabled={isProcessing}
+        >
+          <CreditCard className="mr-2 h-4 w-4" />
+          {isProcessing ? "Processing..." : "Pay with Card/Bank"}
+        </Button>
+        
+        {isUserCreator && (
+          <Button 
+            variant="outline" 
+            className="flex-1"
+            onClick={onWithdrawClick}
+          >
+            <ArrowUp className="mr-2 h-4 w-4" />
+            Withdrawal
+          </Button>
+        )}
+      </div>
+      
+      {/* Custom Monnify Amount Dialog */}
+      <MonnifyAmountDialog
+        open={isMonnifyDialogOpen}
+        onOpenChange={setIsMonnifyDialogOpen}
+        onProceed={handleMonnifyPayment}
+        isProcessing={isProcessing}
+        contributionName={contributionName}
+      />
+    </>
   );
 };
 

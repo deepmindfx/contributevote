@@ -1,3 +1,4 @@
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Contribution, WithdrawalRequest, Transaction } from "@/services/localStorage";
 
@@ -6,6 +7,7 @@ import GroupWallet from "@/components/group-detail/GroupWallet";
 import WithdrawalRequests from "@/components/group-detail/WithdrawalRequests";
 import ContributorsList from "@/components/group-detail/ContributorsList";
 import TransactionsList from "@/components/group-detail/TransactionsList";
+
 interface GroupDetailContentProps {
   contribution: Contribution;
   contributionRequests: WithdrawalRequest[];
@@ -23,6 +25,7 @@ interface GroupDetailContentProps {
   handleContribute: () => void;
   handleRequestWithdrawal: () => void;
 }
+
 const GroupDetailContent = ({
   contribution,
   contributionRequests,
@@ -40,9 +43,23 @@ const GroupDetailContent = ({
   handleContribute,
   handleRequestWithdrawal
 }: GroupDetailContentProps) => {
-  return <div className="space-y-6">
+  return (
+    <div className="space-y-6">
       {/* Group Wallet Card */}
-      <GroupWallet contribution={contribution} isUserCreator={isUserCreator} contributionAmount={contributionAmount} setContributionAmount={setContributionAmount} withdrawalAmount={withdrawalAmount} setWithdrawalAmount={setWithdrawalAmount} withdrawalPurpose={withdrawalPurpose} setWithdrawalPurpose={setWithdrawalPurpose} anonymous={anonymous} setAnonymous={setAnonymous} handleContribute={handleContribute} handleRequestWithdrawal={handleRequestWithdrawal} />
+      <GroupWallet 
+        contribution={contribution} 
+        isUserCreator={isUserCreator} 
+        contributionAmount={contributionAmount} 
+        setContributionAmount={setContributionAmount} 
+        withdrawalAmount={withdrawalAmount} 
+        setWithdrawalAmount={setWithdrawalAmount} 
+        withdrawalPurpose={withdrawalPurpose} 
+        setWithdrawalPurpose={setWithdrawalPurpose} 
+        anonymous={anonymous} 
+        setAnonymous={setAnonymous} 
+        handleContribute={handleContribute} 
+        handleRequestWithdrawal={handleRequestWithdrawal} 
+      />
       
       <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
         <Tabs defaultValue="withdrawals" className="w-full">
@@ -54,7 +71,11 @@ const GroupDetailContent = ({
           
           {/* Withdrawal Requests Tab */}
           <TabsContent value="withdrawals">
-            <WithdrawalRequests contribution={contribution} contributionRequests={contributionRequests} hasUserContributed={hasUserContributed} />
+            <WithdrawalRequests 
+              contribution={contribution} 
+              contributionRequests={contributionRequests} 
+              hasUserContributed={hasUserContributed} 
+            />
           </TabsContent>
           
           {/* Contributors Tab */}
@@ -68,6 +89,8 @@ const GroupDetailContent = ({
           </TabsContent>
         </Tabs>
       </div>
-    </div>;
+    </div>
+  );
 };
+
 export default GroupDetailContent;

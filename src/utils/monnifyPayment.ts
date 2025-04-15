@@ -22,6 +22,7 @@ interface MonnifyPaymentProps {
     name: string;
     accountNumber?: string;
   };
+  anonymous: boolean;
   onSuccess?: (response: any) => void;
   onClose?: () => void;
 }
@@ -57,6 +58,7 @@ export async function payWithMonnify({
   amount,
   user,
   contribution,
+  anonymous,
   onSuccess,
   onClose
 }: MonnifyPaymentProps) {
@@ -68,22 +70,11 @@ export async function payWithMonnify({
     return;
   }
 
-  // Show amount input dialog if amount is 0
-  if (amount <= 0) {
-    const contributionAmount = prompt("Enter contribution amount (NGN):");
-    if (!contributionAmount || isNaN(Number(contributionAmount)) || Number(contributionAmount) <= 0) {
-      toast.error("Please enter a valid amount");
-      if (onClose) onClose();
-      return;
-    }
-    amount = Number(contributionAmount);
-  }
-
   // Generate unique transaction reference
   const reference = `CONTRIB_${contribution.id}_${Date.now()}`;
   
   console.log("Initializing Monnify payment with:", {
-    amount, reference, name: user.name, email: user.email, contributionId: contribution.id
+    amount, reference, name: user.name, email: user.email, contributionId: contribution.id, anonymous
   });
   
   // Initialize payment
@@ -100,7 +91,7 @@ export async function payWithMonnify({
       userId: user.id,
       contributionId: contribution.id,
       device: "web",
-      anonymous: false
+      anonymous: anonymous
     },
     paymentMethods: ["CARD", "ACCOUNT_TRANSFER", "USSD", "PHONE_NUMBER"],
     onComplete: function(response: any) {
@@ -119,8 +110,11 @@ export async function payWithMonnify({
           paymentMethod: response.paymentMethod,
           metaData: {
             ...response,
-            contributorName: user.name
-          }
+            contributorName: anonymous ? "Anonymous" : user.name,
+            senderName: anonymous ? "Anonymous" : user.name,
+            anonymous: anonymous
+          },
+          anonymous: anonymous
         });
         
         // Update contribution amount
@@ -132,13 +126,16 @@ export async function payWithMonnify({
               ...contributionDetail.contributors,
               {
                 userId: user.id,
+                name: anonymous ? "Anonymous" : user.name,
                 amount: response.amount,
                 date: new Date().toISOString(),
-                anonymous: false,
+                anonymous: anonymous,
               }
             ]
           });
         }
+        
+        toast.success("Payment successful! Your contribution has been recorded.");
         
         // Call onSuccess callback if provided
         if (onSuccess) {
