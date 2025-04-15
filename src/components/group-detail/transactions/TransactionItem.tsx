@@ -2,7 +2,7 @@
 import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowDown, ArrowUp, HelpCircle, Receipt } from "lucide-react";
+import { ArrowDown, ArrowUp, HelpCircle, Receipt, CreditCard, Banknote } from "lucide-react";
 import { Transaction } from "@/services/localStorage";
 import { format, isValid } from "date-fns";
 
@@ -51,6 +51,41 @@ const TransactionItem = ({ transaction, onViewReceipt }: TransactionItemProps) =
     return "Unknown User";
   };
 
+  const getPaymentIcon = () => {
+    if (transaction.type === 'deposit') {
+      if (transaction.paymentMethod === 'CARD') {
+        return <CreditCard size={18} />;
+      } else if (
+        transaction.paymentMethod === 'ACCOUNT_TRANSFER' || 
+        transaction.paymentMethod === 'USSD' || 
+        transaction.paymentMethod === 'PHONE_NUMBER'
+      ) {
+        return <Banknote size={18} />;
+      }
+      return <ArrowDown size={18} />;
+    } else if (transaction.type === 'withdrawal') {
+      return <ArrowUp size={18} />;
+    }
+    return <HelpCircle size={18} />;
+  };
+
+  const getPaymentMethod = () => {
+    if (!transaction.paymentMethod) return "";
+    
+    switch (transaction.paymentMethod) {
+      case 'CARD':
+        return ' via Card';
+      case 'ACCOUNT_TRANSFER':
+        return ' via Bank Transfer';
+      case 'USSD':
+        return ' via USSD';
+      case 'PHONE_NUMBER':
+        return ' via Phone';
+      default:
+        return ` via ${transaction.paymentMethod}`;
+    }
+  };
+
   return (
     <div className="flex items-start py-3 border-b last:border-b-0">
       <div className={`w-10 h-10 rounded-full flex items-center justify-center
@@ -59,18 +94,14 @@ const TransactionItem = ({ transaction, onViewReceipt }: TransactionItemProps) =
           : transaction.type === 'withdrawal' 
             ? 'bg-amber-100 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400' 
             : 'bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'}`}>
-        {transaction.type === 'deposit' 
-          ? <ArrowDown size={18} /> 
-          : transaction.type === 'withdrawal' 
-            ? <ArrowUp size={18} /> 
-            : <HelpCircle size={18} />}
+        {getPaymentIcon()}
       </div>
       <div className="ml-3 flex-1">
         <div className="flex justify-between">
           <div>
             <h4 className="font-medium text-sm">
               {transaction.type === 'deposit' 
-                ? 'Contribution' 
+                ? 'Contribution' + getPaymentMethod()
                 : transaction.type === 'withdrawal' 
                   ? 'Fund Withdrawal' 
                   : 'Vote'}
