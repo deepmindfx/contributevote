@@ -10,7 +10,7 @@ interface TransactionListContentProps {
 }
 
 const TransactionListContent = ({ transactions, onViewReceipt }: TransactionListContentProps) => {
-  if (transactions.length === 0) {
+  if (!transactions || transactions.length === 0) {
     return <EmptyTransactionsList />;
   }
 

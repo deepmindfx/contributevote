@@ -59,7 +59,7 @@ const WithdrawalRequests = ({
   return (
     <Card className="glass-card animate-slide-up">
       <CardHeader>
-        <CardTitle>Withdrawal Requests</CardTitle>
+        <CardTitle>Withdrawal</CardTitle>
         <CardDescription>Vote on pending withdrawal requests (51% approval threshold)</CardDescription>
       </CardHeader>
       <CardContent>

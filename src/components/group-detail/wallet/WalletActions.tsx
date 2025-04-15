@@ -23,7 +23,7 @@ const WalletActions = ({
   contributionName
 }: WalletActionsProps) => {
   const { user } = useUser();
-  const { refreshContributionData } = useApp();
+  const { refreshData } = useApp(); // Changed from refreshContributionData to refreshData
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleMonnifyPayment = async () => {
@@ -48,7 +48,7 @@ const WalletActions = ({
         },
         onSuccess: (response) => {
           toast.success("Payment successful!");
-          refreshContributionData();
+          refreshData(); // Changed from refreshContributionData to refreshData
         },
         onClose: () => {
           setIsProcessing(false);
