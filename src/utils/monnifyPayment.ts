@@ -1,6 +1,7 @@
 
 import { createTransaction } from "@/services/localStorage/transactionOperations";
 import { updateContribution } from "@/services/localStorage/contributionOperations";
+import { toast } from "sonner";
 
 // Declare Monnify SDK global type
 declare global {
@@ -39,6 +40,7 @@ export function initMonnifyScript(): Promise<boolean> {
     script.async = true;
     
     script.onload = () => {
+      console.log("Monnify SDK loaded successfully");
       resolve(true);
     };
     
@@ -62,11 +64,27 @@ export async function payWithMonnify({
   const isLoaded = await initMonnifyScript();
   if (!isLoaded) {
     console.error('Monnify SDK failed to load');
+    toast.error("Payment initialization failed. Please try again.");
     return;
+  }
+
+  // Show amount input dialog if amount is 0
+  if (amount <= 0) {
+    const contributionAmount = prompt("Enter contribution amount (NGN):");
+    if (!contributionAmount || isNaN(Number(contributionAmount)) || Number(contributionAmount) <= 0) {
+      toast.error("Please enter a valid amount");
+      if (onClose) onClose();
+      return;
+    }
+    amount = Number(contributionAmount);
   }
 
   // Generate unique transaction reference
   const reference = `CONTRIB_${contribution.id}_${Date.now()}`;
+  
+  console.log("Initializing Monnify payment with:", {
+    amount, reference, name: user.name, email: user.email, contributionId: contribution.id
+  });
   
   // Initialize payment
   window.MonnifySDK.initialize({
@@ -126,6 +144,8 @@ export async function payWithMonnify({
         if (onSuccess) {
           onSuccess(response);
         }
+      } else {
+        toast.error("Payment was not successful");
       }
     },
     onClose: function(data: any) {

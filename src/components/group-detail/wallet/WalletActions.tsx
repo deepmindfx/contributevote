@@ -23,7 +23,7 @@ const WalletActions = ({
   contributionName
 }: WalletActionsProps) => {
   const { user } = useUser();
-  const { refreshData } = useApp(); // Changed from refreshContributionData to refreshData
+  const { refreshData } = useApp();
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleMonnifyPayment = async () => {
@@ -36,7 +36,7 @@ const WalletActions = ({
     
     try {
       await payWithMonnify({
-        amount: 0, // Will be set in the dialog
+        amount: 0, // Will be set via prompt
         user: {
           id: user.id,
           name: user.name,
@@ -48,7 +48,7 @@ const WalletActions = ({
         },
         onSuccess: (response) => {
           toast.success("Payment successful!");
-          refreshData(); // Changed from refreshContributionData to refreshData
+          refreshData();
         },
         onClose: () => {
           setIsProcessing(false);
@@ -88,7 +88,7 @@ const WalletActions = ({
           onClick={onWithdrawClick}
         >
           <ArrowUp className="mr-2 h-4 w-4" />
-          Request Withdrawal
+          Withdrawal
         </Button>
       )}
     </div>

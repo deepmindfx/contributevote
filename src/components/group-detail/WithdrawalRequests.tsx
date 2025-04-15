@@ -1,3 +1,4 @@
+
 import { useApp } from "@/contexts/AppContext";
 import { Contribution, WithdrawalRequest, hasContributed } from "@/services/localStorage";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,11 +8,13 @@ import { Bell, Check, Clock, X } from "lucide-react";
 import { format, formatDistanceToNow, isValid } from "date-fns";
 import CountdownTimer from "@/components/ui/countdown-timer";
 import { useIsMobile } from "@/hooks/use-mobile";
+
 interface WithdrawalRequestsProps {
   contribution: Contribution;
   contributionRequests: WithdrawalRequest[];
   hasUserContributed: boolean;
 }
+
 const WithdrawalRequests = ({
   contribution,
   contributionRequests,
@@ -22,7 +25,9 @@ const WithdrawalRequests = ({
     vote,
     pingMembersForVote
   } = useApp();
+  
   const isMobile = useIsMobile();
+  
   const formatDate = (dateString: string) => {
     try {
       const date = new Date(dateString);
@@ -35,38 +40,64 @@ const WithdrawalRequests = ({
       return "Invalid date";
     }
   };
+  
   const hasVoted = (request: WithdrawalRequest) => {
     return request.votes.some(v => v.userId === user.id);
   };
+  
   const userVote = (request: WithdrawalRequest) => {
     const vote = request.votes.find(v => v.userId === user.id);
     return vote ? vote.vote : null;
   };
+  
   const handleVote = (requestId: string, voteValue: 'approve' | 'reject') => {
     if (!hasUserContributed) {
       return;
     }
     vote(requestId, voteValue);
   };
+  
   const handlePingMembers = (requestId: string) => {
     pingMembersForVote(requestId);
   };
-  return <Card className="glass-card animate-slide-up">
+  
+  return (
+    <Card className="glass-card animate-slide-up">
       <CardHeader>
-        <CardTitle>Withdrawal Requests</CardTitle>
+        <CardTitle>Withdrawal</CardTitle>
         <CardDescription>Vote on pending withdrawal requests (51% approval threshold)</CardDescription>
       </CardHeader>
       <CardContent>
-        {contributionRequests.length === 0 ? <div className="text-center py-8 text-muted-foreground">
+        {contributionRequests.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
             <p>No withdrawal requests yet.</p>
-          </div> : <div className="space-y-4">
-            {contributionRequests.map(request => <Card key={request.id} className={`overflow-hidden ${request.status === 'pending' ? 'border-amber-200 dark:border-amber-800' : request.status === 'approved' ? 'border-green-200 dark:border-green-800' : request.status === 'expired' ? 'border-gray-200 dark:border-gray-800' : 'border-red-200 dark:border-red-800'}`}>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {contributionRequests.map(request => (
+              <Card 
+                key={request.id} 
+                className={`overflow-hidden ${
+                  request.status === 'pending' ? 'border-amber-200 dark:border-amber-800' : 
+                  request.status === 'approved' ? 'border-green-200 dark:border-green-800' : 
+                  request.status === 'expired' ? 'border-gray-200 dark:border-gray-800' : 
+                  'border-red-200 dark:border-red-800'
+                }`}
+              >
                 <CardContent className="p-4">
                   <div className="flex flex-col md:flex-row md:items-start gap-4">
                     <div className="flex-1">
                       <div className="font-semibold mb-1 flex flex-wrap items-center gap-2">
                         <span>₦{request.amount.toLocaleString()}</span>
-                        <Badge className="ml-0 md:ml-2" variant={request.status === 'pending' ? 'outline' : request.status === 'approved' ? 'default' : request.status === 'expired' ? 'secondary' : 'destructive'}>
+                        <Badge 
+                          className="ml-0 md:ml-2" 
+                          variant={
+                            request.status === 'pending' ? 'outline' : 
+                            request.status === 'approved' ? 'default' : 
+                            request.status === 'expired' ? 'secondary' : 
+                            'destructive'
+                          }
+                        >
                           {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
                         </Badge>
                       </div>
@@ -77,7 +108,13 @@ const WithdrawalRequests = ({
                     </div>
                     
                     <div className="flex md:flex-col justify-between items-center md:items-end gap-2">
-                      {request.status === 'pending' && request.deadline && <CountdownTimer deadline={request.deadline} size={isMobile ? "sm" : "md"} showLabel={false} />}
+                      {request.status === 'pending' && request.deadline && (
+                        <CountdownTimer 
+                          deadline={request.deadline} 
+                          size={isMobile ? "sm" : "md"} 
+                          showLabel={false} 
+                        />
+                      )}
                       
                       <div className="text-right text-sm">
                         <p className="font-medium">
@@ -90,33 +127,61 @@ const WithdrawalRequests = ({
                     </div>
                   </div>
                   
-                  {request.status === 'pending' && !hasVoted(request) ? <div className="flex flex-col sm:flex-row gap-2 mt-4">
-                      <Button onClick={() => handleVote(request.id, 'approve')} className="flex-1 bg-green-600 hover:bg-green-700" size="sm" disabled={!hasUserContributed}>
+                  {request.status === 'pending' && !hasVoted(request) ? (
+                    <div className="flex flex-col sm:flex-row gap-2 mt-4">
+                      <Button 
+                        onClick={() => handleVote(request.id, 'approve')} 
+                        className="flex-1 bg-green-600 hover:bg-green-700" 
+                        size="sm" 
+                        disabled={!hasUserContributed}
+                      >
                         <Check className="h-4 w-4 mr-2" />
                         Approve
                       </Button>
-                      <Button onClick={() => handleVote(request.id, 'reject')} variant="outline" className="flex-1" size="sm" disabled={!hasUserContributed}>
+                      <Button 
+                        onClick={() => handleVote(request.id, 'reject')} 
+                        variant="outline" 
+                        className="flex-1" 
+                        size="sm" 
+                        disabled={!hasUserContributed}
+                      >
                         <X className="h-4 w-4 mr-2" />
                         Reject
                       </Button>
-                    </div> : request.status === 'pending' && hasVoted(request) ? <div className="mt-4 text-sm text-center p-2 bg-muted rounded-md">
+                    </div>
+                  ) : request.status === 'pending' && hasVoted(request) ? (
+                    <div className="mt-4 text-sm text-center p-2 bg-muted rounded-md">
                       You voted to {userVote(request) === 'approve' ? 'approve' : 'reject'} this request.
-                    </div> : null}
+                    </div>
+                  ) : null}
                   
-                  {request.status === 'pending' && hasUserContributed && <div className="mt-2 flex justify-center">
-                      <Button variant="ghost" size="sm" className="text-xs" onClick={() => handlePingMembers(request.id)}>
+                  {request.status === 'pending' && hasUserContributed && (
+                    <div className="mt-2 flex justify-center">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-xs" 
+                        onClick={() => handlePingMembers(request.id)}
+                      >
                         <Bell className="h-3 w-3 mr-1 text-green-600" />
                         Remind others to vote
                       </Button>
-                    </div>}
+                    </div>
+                  )}
                   
-                  {request.status === 'pending' && !hasUserContributed && <div className="mt-2 text-xs text-amber-500 text-center">
+                  {request.status === 'pending' && !hasUserContributed && (
+                    <div className="mt-2 text-xs text-amber-500 text-center">
                       You must contribute to this group before you can vote
-                    </div>}
+                    </div>
+                  )}
                 </CardContent>
-              </Card>)}
-          </div>}
+              </Card>
+            ))}
+          </div>
+        )}
       </CardContent>
-    </Card>;
+    </Card>
+  );
 };
+
 export default WithdrawalRequests;
