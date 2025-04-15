@@ -47,7 +47,7 @@ const GroupDetailContent = ({
       <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
         <Tabs defaultValue="withdrawals" className="w-full">
           <TabsList className="grid grid-cols-3 mb-6">
-            <TabsTrigger value="withdrawals" className="text-xs">Withdrawal Requests</TabsTrigger>
+            <TabsTrigger value="withdrawals" className="text-sm">Withdrawal</TabsTrigger>
             <TabsTrigger value="contributors">Contributors</TabsTrigger>
             <TabsTrigger value="transactions">Transactions</TabsTrigger>
           </TabsList>
