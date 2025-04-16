@@ -98,7 +98,7 @@ export const payWithMonnify = async ({
         amount,
         contributionId: contribution ? contribution.id : "",
         description,
-        status: "pending",
+        status: "pending" as const, // Fix the type error by specifying the exact allowed value
         anonymous: !!anonymous,
         reference: response.invoiceReference || undefined,
         metaData: {

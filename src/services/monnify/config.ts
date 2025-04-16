@@ -1,10 +1,10 @@
 
 // Base configuration for Monnify API
 
-// Use the sandbox URL for testing
-export const BASE_URL = 'https://sandbox.monnify.com';
-export const API_KEY = "MK_TEST_SAF7HR5F3F";
-export const SECRET_KEY = "4ENM8YPJKUAWYBYGVS4NQCKF3PN7X2JV";
+// Use the live URL for production
+export const BASE_URL = 'https://api.monnify.com';
+export const API_KEY = "MK_PROD_YDQW9Y37QK";
+export const SECRET_KEY = "F3BWRYFTS4E3AECEGXTRMM47HSMCQH8H";
 export const CONTRACT_CODE = "465595618981";
 
 /**
