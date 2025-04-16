@@ -9,26 +9,45 @@ const MobileNav = () => {
   
   // Fix for disappearing icons - force a repaint when route changes
   useEffect(() => {
-    const handleScroll = () => {
+    const forceRepaint = () => {
       if (navRef.current) {
-        // Force a repaint by accessing a layout property
-        // This triggers a recalculation which fixes the disappearing icons
+        // Multiple techniques to force a repaint
+        // 1. Force a layout calculation and repaint
         const height = navRef.current.getBoundingClientRect().height;
+        
+        // 2. Add and remove a class to force redraw
+        navRef.current.classList.add('force-repaint');
+        setTimeout(() => {
+          if (navRef.current) {
+            navRef.current.classList.remove('force-repaint');
+          }
+        }, 10);
+        
+        // 3. Apply and remove a transform
         navRef.current.style.transform = 'translateZ(0)';
         setTimeout(() => {
           if (navRef.current) {
             navRef.current.style.transform = '';
           }
-        }, 0);
+        }, 10);
       }
     };
     
-    // Call once on route change
-    handleScroll();
+    // Call immediately when route changes
+    forceRepaint();
     
-    // Also listen to scroll events which can cause rendering issues
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    // Also add click and scroll listeners to catch other cases
+    const handleEvent = () => forceRepaint();
+    
+    window.addEventListener('scroll', handleEvent);
+    window.addEventListener('click', handleEvent);
+    window.addEventListener('touchstart', handleEvent);
+    
+    return () => {
+      window.removeEventListener('scroll', handleEvent);
+      window.removeEventListener('click', handleEvent);
+      window.removeEventListener('touchstart', handleEvent);
+    };
   }, [location.pathname]);
 
   return (

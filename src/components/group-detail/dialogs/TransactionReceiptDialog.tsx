@@ -6,21 +6,26 @@ import TransactionReceipt from "@/components/shared/TransactionReceipt";
 interface TransactionReceiptDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  transaction: any;
+  transaction?: any;
+  receiptData?: any;
 }
 
 const TransactionReceiptDialog = ({ 
   open, 
   onOpenChange, 
-  transaction 
+  transaction,
+  receiptData
 }: TransactionReceiptDialogProps) => {
-  if (!transaction) return null;
+  // Use receiptData if provided, otherwise use transaction
+  const data = receiptData || transaction;
+  
+  if (!data) return null;
   
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <TransactionReceipt 
-          transaction={transaction} 
+          transaction={data} 
           onClose={() => onOpenChange(false)} 
         />
       </DialogContent>

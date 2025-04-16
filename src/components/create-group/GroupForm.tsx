@@ -195,7 +195,7 @@ const GroupForm = () => {
           <DetailsStep 
             formData={formData} 
             handleChange={handleChange} 
-            onSubmit={goToNextStep} 
+            goToNextStep={goToNextStep} 
           />
         );
       case 2:
@@ -203,8 +203,8 @@ const GroupForm = () => {
           <ScheduleStep 
             formData={formData} 
             handleChange={handleChange} 
-            onSubmit={goToNextStep} 
-            onBack={goToPreviousStep} 
+            goToNextStep={goToNextStep} 
+            goToPreviousStep={goToPreviousStep} 
           />
         );
       case 3:
@@ -212,8 +212,8 @@ const GroupForm = () => {
           <SettingsStep 
             formData={formData} 
             handleChange={handleChange} 
-            onSubmit={handleCreateGroup} 
-            onBack={goToPreviousStep} 
+            handleCreateGroup={handleCreateGroup} 
+            goToPreviousStep={goToPreviousStep} 
             isLoading={isLoading}
             validationErrors={validationErrors}
           />

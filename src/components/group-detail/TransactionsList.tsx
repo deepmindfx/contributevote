@@ -15,16 +15,14 @@ interface TransactionsListProps {
 
 const TransactionsList = ({ transactions }: TransactionsListProps) => {
   const { getReceipt, refreshData } = useApp();
-  const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
-  const [receiptData, setReceiptData] = useState<any>(null);
+  const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
   const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleViewReceipt = (transactionId: string) => {
     const receipt = getReceipt(transactionId);
     if (receipt) {
-      setReceiptData(receipt);
-      setSelectedTransactionId(transactionId);
+      setSelectedTransaction(receipt);
       setReceiptDialogOpen(true);
     }
   };
@@ -62,7 +60,7 @@ const TransactionsList = ({ transactions }: TransactionsListProps) => {
       <TransactionReceiptDialog
         open={receiptDialogOpen}
         onOpenChange={setReceiptDialogOpen}
-        receiptData={receiptData}
+        transaction={selectedTransaction}
       />
     </>
   );

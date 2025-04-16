@@ -17,22 +17,21 @@ export const createTransaction = (transaction: Omit<Transaction, 'id' | 'created
   try {
     const transactions = getTransactions();
     
-    // Check for duplicate transactions with same amount and reference within last 5 minutes
-    // This helps prevent duplicate transactions from being created
+    // Strengthen duplicate check:
+    // 1. Check reference duplication
     if (transaction.reference) {
-      const existingTransaction = transactions.find(t => 
-        t.reference === transaction.reference && 
-        t.amount === transaction.amount
+      const existingTransactionByRef = transactions.find(t => 
+        t.reference === transaction.reference
       );
       
-      if (existingTransaction) {
-        console.warn("Duplicate transaction detected, skipping:", transaction);
+      if (existingTransactionByRef) {
+        console.warn("Duplicate transaction by reference detected, skipping:", transaction);
         return;
       }
     }
     
-    // Also check for near-duplicate transactions (same type, amount, and contribution)
-    // within the last 30 seconds to prevent double-processing
+    // 2. Check for near-duplicate transactions based on properties
+    // This catches duplicates even if they don't have the same reference
     const last30Sec = Date.now() - 30 * 1000;
     const recentDuplicate = transactions.find(t => 
       t.type === transaction.type && 
@@ -44,6 +43,18 @@ export const createTransaction = (transaction: Omit<Transaction, 'id' | 'created
     if (recentDuplicate) {
       console.warn("Recent duplicate transaction detected, skipping:", transaction);
       return;
+    }
+    
+    // 3. Add an additional check for payment references in metaData
+    if (transaction.metaData?.paymentReference) {
+      const existingByPaymentRef = transactions.find(t => 
+        t.metaData?.paymentReference === transaction.metaData?.paymentReference
+      );
+      
+      if (existingByPaymentRef) {
+        console.warn("Duplicate transaction by payment reference detected, skipping:", transaction);
+        return;
+      }
     }
     
     const newTransaction: Transaction = {
