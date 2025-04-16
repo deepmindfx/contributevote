@@ -18,6 +18,5 @@ export {
 // Export payment functionality
 export {
   createInvoice,
-  chargeCardToken,
-  createDirectPayment
+  chargeCardToken
 } from './monnify/payments';
