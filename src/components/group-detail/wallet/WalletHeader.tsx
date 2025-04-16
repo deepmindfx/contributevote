@@ -13,8 +13,12 @@ const WalletHeader = ({ contribution, progressPercentage }: WalletHeaderProps) =
   return (
     <div className="flex flex-col md:flex-row justify-between items-center gap-4">
       <div className="flex items-center gap-3">
-        <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-          <Wallet className="h-6 w-6 text-green-600 dark:text-green-400" />
+        <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center overflow-hidden">
+          <img 
+            src="/lovable-uploads/91e5c361-b912-4a7e-bcf3-4602a512cb51.png" 
+            alt="CollectiPay Logo" 
+            className="object-contain h-10 w-10"
+          />
         </div>
         <div>
           <h3 className="font-medium text-lg">Group Wallet</h3>

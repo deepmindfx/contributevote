@@ -1,14 +1,6 @@
 
-import { createTransaction } from "@/services/localStorage/transactionOperations";
-import { updateContribution } from "@/services/localStorage/contributionOperations";
-import { toast } from "sonner";
-
-// Declare Monnify SDK global type
-declare global {
-  interface Window {
-    MonnifySDK: any;
-  }
-}
+import { createPaymentInvoice } from "@/services/walletIntegration";
+import { contributeToGroup } from "@/services/localStorage";
 
 interface MonnifyPaymentProps {
   amount: number;
@@ -17,147 +9,84 @@ interface MonnifyPaymentProps {
     name: string;
     email: string;
   };
-  contribution: {
+  contribution?: {
     id: string;
     name: string;
-    accountNumber?: string;
+    accountReference?: string;
   };
-  anonymous: boolean;
+  anonymous?: boolean;
   onSuccess?: (response: any) => void;
   onClose?: () => void;
 }
 
-export function initMonnifyScript(): Promise<boolean> {
-  return new Promise((resolve) => {
-    // Check if script is already loaded
-    if (window.MonnifySDK) {
-      resolve(true);
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.type = 'text/javascript';
-    script.src = 'https://sdk.monnify.com/plugin/monnify.js';
-    script.async = true;
-    
-    script.onload = () => {
-      console.log("Monnify SDK loaded successfully");
-      resolve(true);
-    };
-    
-    script.onerror = () => {
-      console.error('Failed to load Monnify SDK');
-      resolve(false);
-    };
-    
-    document.body.appendChild(script);
-  });
-}
-
-export async function payWithMonnify({
+export const payWithMonnify = async ({
   amount,
   user,
   contribution,
-  anonymous,
+  anonymous = false,
   onSuccess,
   onClose
-}: MonnifyPaymentProps) {
-  // Ensure the script is loaded
-  const isLoaded = await initMonnifyScript();
-  if (!isLoaded) {
-    console.error('Monnify SDK failed to load');
-    toast.error("Payment initialization failed. Please try again.");
-    return;
-  }
-
-  // Generate unique transaction reference
-  const reference = `CONTRIB_${contribution.id}_${Date.now()}`;
-  
-  console.log("Initializing Monnify payment with:", {
-    amount, reference, name: user.name, email: user.email, contributionId: contribution.id, anonymous
-  });
-  
-  // Initialize payment
-  window.MonnifySDK.initialize({
-    amount: amount,
-    currency: "NGN",
-    reference: reference,
-    customerFullName: user.name,
-    customerEmail: user.email,
-    apiKey: "MK_PROD_XR897H4H43",
-    contractCode: "465595618981",
-    paymentDescription: `Contribution to ${contribution.name}`,
-    metadata: {
+}: MonnifyPaymentProps) => {
+  try {
+    // Create payload with appropriate references
+    let payload: any = {
+      amount: amount,
+      customerName: user.name,
+      customerEmail: user.email,
       userId: user.id,
-      contributionId: contribution.id,
-      device: "web",
-      anonymous: anonymous
-    },
-    paymentMethods: ["CARD", "ACCOUNT_TRANSFER", "USSD", "PHONE_NUMBER"],
-    onComplete: function(response: any) {
-      console.log("Monnify payment complete:", response);
+      description: contribution 
+        ? `Contribution to ${contribution.name}` 
+        : "Wallet top-up",
+    };
+    
+    // If contribution details are provided, include them in the payload
+    if (contribution && contribution.id) {
+      payload.contributionId = contribution.id;
+      payload.contributionName = contribution.name;
+      payload.anonymous = anonymous;
       
-      if (response.status === "SUCCESS") {
-        // Create transaction record
-        createTransaction({
-          contributionId: contribution.id,
-          userId: user.id,
-          type: "deposit",
-          amount: response.amount,
-          description: `Contribution to ${contribution.name} via ${response.paymentMethod}`,
-          status: "successful",
-          reference: response.transactionReference,
-          paymentMethod: response.paymentMethod,
-          metaData: {
-            ...response,
-            contributorName: anonymous ? "Anonymous" : user.name,
-            senderName: anonymous ? "Anonymous" : user.name,
-            anonymous: anonymous
-          },
-          anonymous: anonymous
-        });
-        
-        // Update contribution amount
-        const contributionDetail = getContributionById(contribution.id);
-        if (contributionDetail) {
-          updateContribution(contribution.id, {
-            currentAmount: contributionDetail.currentAmount + response.amount,
-            contributors: [
-              ...contributionDetail.contributors,
-              {
-                userId: user.id,
-                name: anonymous ? "Anonymous" : user.name,
-                amount: response.amount,
-                date: new Date().toISOString(),
-                anonymous: anonymous,
-              }
-            ]
-          });
-        }
-        
-        toast.success("Payment successful! Your contribution has been recorded.");
-        
-        // Call onSuccess callback if provided
-        if (onSuccess) {
-          onSuccess(response);
-        }
-      } else {
-        toast.error("Payment was not successful");
-      }
-    },
-    onClose: function(data: any) {
-      console.log("User closed payment modal", data);
-      if (onClose) {
-        onClose();
+      // Include contribution account reference if available
+      if (contribution.accountReference) {
+        payload.contributionAccountReference = contribution.accountReference;
+        console.log("Using contribution account reference:", contribution.accountReference);
       }
     }
-  });
-}
-
-function getContributionById(contributionId: string) {
-  const contributionsString = localStorage.getItem('contributions');
-  if (!contributionsString) return null;
-  
-  const contributions = JSON.parse(contributionsString);
-  return contributions.find((c: any) => c.id === contributionId) || null;
-}
+    
+    console.log("Creating payment with payload:", payload);
+    
+    // Create the payment invoice
+    const result = await createPaymentInvoice(payload);
+    
+    if (!result || !result.checkoutUrl) {
+      throw new Error("Failed to create payment invoice");
+    }
+    
+    // For debugging purposes
+    console.log("Payment invoice created:", result);
+    
+    // Open the checkout URL in a new window
+    const checkoutWindow = window.open(result.checkoutUrl, "_blank");
+    
+    // Set up a polling mechanism to check for payment completion
+    const checkPaymentStatus = setInterval(() => {
+      if (checkoutWindow && checkoutWindow.closed) {
+        clearInterval(checkPaymentStatus);
+        
+        // Call the onClose callback when the window is closed
+        if (onClose) {
+          onClose();
+        }
+      }
+    }, 1000);
+    
+    // Return the result for further processing if needed
+    if (onSuccess) {
+      onSuccess(result);
+    }
+    
+    return result;
+  } catch (error) {
+    console.error("Error in payWithMonnify:", error);
+    throw error;
+  }
+};
