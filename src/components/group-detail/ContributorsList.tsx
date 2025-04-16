@@ -1,3 +1,4 @@
+
 import { useApp } from "@/contexts/AppContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -95,13 +96,14 @@ const ContributorsList = ({ contributors }: ContributorsListProps) => {
         </div>
         <Button 
           variant="outline" 
-          size="sm" 
+          size="icon" 
           onClick={handleRefresh} 
           disabled={isRefreshing}
           className={isRefreshing ? "animate-spin" : ""}
+          title="Refresh"
         >
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
+          <RefreshCw className="h-4 w-4" />
+          <span className="sr-only">Refresh</span>
         </Button>
       </CardHeader>
       <CardContent>
