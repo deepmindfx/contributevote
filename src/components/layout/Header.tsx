@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
@@ -135,8 +134,12 @@ const Header = () => {
     >
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
         <Link to="/" className="flex items-center space-x-2">
-          <div className="rounded-md bg-primary p-1.5">
-            <Wallet className="h-5 w-5 text-white" />
+          <div className="rounded-full bg-green-100 p-1.5 w-8 h-8 flex items-center justify-center">
+            <img 
+              src="/lovable-uploads/e42496b1-7582-432a-8a35-d596e573ab7d.png" 
+              alt="CollectiPay Logo" 
+              className="w-6 h-6"
+            />
           </div>
           {isAuthenticated && user?.firstName ? (
             <span className="font-medium text-lg">Hi, {user.firstName}</span>

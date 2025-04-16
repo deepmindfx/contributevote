@@ -1,7 +1,6 @@
 
 import React from "react";
 import { Badge } from "@/components/ui/badge";
-import { Wallet } from "lucide-react";
 import { Contribution } from "@/services/localStorage";
 
 interface WalletHeaderProps {
@@ -14,7 +13,11 @@ const WalletHeader = ({ contribution, progressPercentage }: WalletHeaderProps) =
     <div className="flex flex-col md:flex-row justify-between items-center gap-4">
       <div className="flex items-center gap-3">
         <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-          <Wallet className="h-6 w-6 text-green-600 dark:text-green-400" />
+          <img 
+            src="/lovable-uploads/e42496b1-7582-432a-8a35-d596e573ab7d.png" 
+            alt="CollectiPay Logo" 
+            className="h-8 w-8"
+          />
         </div>
         <div>
           <h3 className="font-medium text-lg">Group Wallet</h3>

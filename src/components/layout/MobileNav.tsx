@@ -1,6 +1,6 @@
 
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, Wallet, VoteIcon, Users, Settings, ArrowLeft } from "lucide-react";
+import { Home, VoteIcon, Users, Settings, ArrowLeft } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
 import { useState, useEffect } from "react";
 
@@ -61,7 +61,13 @@ const MobileNav = () => {
               location.pathname === "/wallet-history" ? "text-[#2DAE75]" : "text-muted-foreground"
             }`}
           >
-            <Wallet className="h-5 w-5" />
+            <div className="w-5 h-5 flex items-center justify-center">
+              <img 
+                src="/lovable-uploads/e42496b1-7582-432a-8a35-d596e573ab7d.png" 
+                alt="Wallet" 
+                className="w-5 h-5"
+              />
+            </div>
             <span className="text-xs mt-1">Wallet</span>
           </Link>
           
