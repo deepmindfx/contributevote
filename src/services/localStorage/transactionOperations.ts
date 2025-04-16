@@ -16,6 +16,21 @@ export const getTransactions = (): Transaction[] => {
 export const createTransaction = (transaction: Omit<Transaction, 'id' | 'createdAt'>): void => {
   try {
     const transactions = getTransactions();
+    
+    // Check for duplicate transactions with same amount and reference within last 5 minutes
+    // This helps prevent duplicate transactions from being created
+    if (transaction.reference) {
+      const existingTransaction = transactions.find(t => 
+        t.reference === transaction.reference && 
+        t.amount === transaction.amount
+      );
+      
+      if (existingTransaction) {
+        console.warn("Duplicate transaction detected, skipping:", transaction);
+        return;
+      }
+    }
+    
     const newTransaction: Transaction = {
       id: uuidv4(),
       createdAt: new Date().toISOString(),

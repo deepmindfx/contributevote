@@ -1,6 +1,7 @@
 
 import { BASE_URL, CONTRACT_CODE } from './config';
 import { getAuthToken } from './auth';
+import { toast } from 'sonner';
 
 /**
  * Create a Monnify invoice
@@ -11,13 +12,26 @@ export const createInvoice = async (data: any) => {
   try {
     console.log("Creating invoice with data:", data);
     
+    // Initialize request body
+    const requestBody: any = {
+      amount: data.amount,
+      customerName: data.customerName,
+      customerEmail: data.customerEmail,
+      paymentDescription: data.description || "Payment",
+      paymentReference: `PAY-${Date.now()}-${Math.floor(Math.random() * 1000000)}`,
+      paymentMethods: ["CARD", "ACCOUNT_TRANSFER"],
+      currencyCode: "NGN",
+      contractCode: CONTRACT_CODE,
+      redirectUrl: window.location.origin,
+    };
+    
     // If contributionId is provided, include account reference in request
     if (data.contributionId && data.contributionAccountReference) {
-      data.incomeSplitConfig = [{
+      requestBody.incomeSplitConfig = [{
         subAccountCode: data.contributionAccountReference,
-        feePercentage: 100, // Send 100% of the payment to the contribution account
-        splitAmount: data.amount,
-        feeBearer: false
+        feePercentage: 0, // No fee percentage
+        splitAmount: data.amount, // Send entire amount to contribution account
+        feeBearer: false // Group doesn't bear the fee
       }];
       console.log("Adding split configuration for contribution account:", data.contributionAccountReference);
     }
@@ -29,22 +43,30 @@ export const createInvoice = async (data: any) => {
       return { success: false, message: "Failed to authenticate with payment provider" };
     }
     
-    const response = await fetch(`${BASE_URL}/api/v1/invoice/create`, {
+    const response = await fetch(`${BASE_URL}/api/v1/merchant/invoices`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(data)
+      body: JSON.stringify(requestBody)
     });
     
+    const responseData = await response.json();
+    
     if (!response.ok) {
-      const errorData = await response.json();
-      console.error("Failed to create invoice:", errorData);
-      throw new Error(errorData.responseMessage || `Failed to create invoice: ${response.status}`);
+      console.error("Failed to create invoice:", responseData);
+      throw new Error(responseData.responseMessage || `Failed to create invoice: ${response.status}`);
     }
     
-    return await response.json();
+    // Check if request was successful
+    if (!responseData.requestSuccessful) {
+      console.error("Invoice creation failed with error:", responseData);
+      throw new Error(responseData.responseMessage || "Failed to create invoice");
+    }
+    
+    console.log("Invoice created successfully:", responseData);
+    return responseData.responseBody;
   } catch (error) {
     console.error("Error creating invoice:", error);
     throw error;
@@ -76,13 +98,21 @@ export const chargeCardToken = async (data: any) => {
       body: JSON.stringify(data)
     });
     
+    const responseData = await response.json();
+    
     if (!response.ok) {
-      const errorData = await response.json();
-      console.error("Failed to charge card token:", errorData);
-      throw new Error(errorData.responseMessage || `Failed to charge card token: ${response.status}`);
+      console.error("Failed to charge card token:", responseData);
+      throw new Error(responseData.responseMessage || `Failed to charge card token: ${response.status}`);
     }
     
-    return await response.json();
+    // Check if request was successful
+    if (!responseData.requestSuccessful) {
+      console.error("Card token charging failed with error:", responseData);
+      throw new Error(responseData.responseMessage || "Failed to charge card token");
+    }
+    
+    console.log("Card token charged successfully:", responseData);
+    return responseData.responseBody;
   } catch (error) {
     console.error("Error charging card token:", error);
     throw error;
