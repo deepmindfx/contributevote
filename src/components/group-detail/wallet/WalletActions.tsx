@@ -24,7 +24,7 @@ const WalletActions = ({
   contributionName
 }: WalletActionsProps) => {
   const { user } = useUser();
-  const { refreshData } = useApp();
+  const { refreshData, contributions } = useApp();
   const [isProcessing, setIsProcessing] = useState(false);
   const [isMonnifyDialogOpen, setIsMonnifyDialogOpen] = useState(false);
 
@@ -37,6 +37,23 @@ const WalletActions = ({
     setIsProcessing(true);
     
     try {
+      // Find the contribution to get its account reference
+      const contribution = contributions.find(c => c.id === contributionId);
+      
+      if (!contribution) {
+        toast.error("Contribution not found");
+        setIsProcessing(false);
+        return;
+      }
+      
+      // Log details for debugging
+      console.log("Initiating payment for contribution:", {
+        contributionId,
+        contributionName,
+        accountReference: contribution.accountReference,
+        amount
+      });
+      
       payWithMonnify({
         amount: amount,
         user: {
@@ -46,10 +63,12 @@ const WalletActions = ({
         },
         contribution: {
           id: contributionId,
-          name: contributionName
+          name: contributionName,
+          accountReference: contribution.accountReference // Pass the account reference
         },
         anonymous: anonymous,
         onSuccess: (response) => {
+          console.log("Payment successful:", response);
           refreshData();
           setIsProcessing(false);
           setIsMonnifyDialogOpen(false);

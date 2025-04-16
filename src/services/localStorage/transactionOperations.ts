@@ -31,6 +31,21 @@ export const createTransaction = (transaction: Omit<Transaction, 'id' | 'created
       }
     }
     
+    // Also check for near-duplicate transactions (same type, amount, and contribution)
+    // within the last 30 seconds to prevent double-processing
+    const last30Sec = Date.now() - 30 * 1000;
+    const recentDuplicate = transactions.find(t => 
+      t.type === transaction.type && 
+      t.amount === transaction.amount &&
+      t.contributionId === transaction.contributionId &&
+      new Date(t.createdAt).getTime() > last30Sec
+    );
+    
+    if (recentDuplicate) {
+      console.warn("Recent duplicate transaction detected, skipping:", transaction);
+      return;
+    }
+    
     const newTransaction: Transaction = {
       id: uuidv4(),
       createdAt: new Date().toISOString(),

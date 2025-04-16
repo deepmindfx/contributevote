@@ -195,7 +195,7 @@ const GroupForm = () => {
           <DetailsStep 
             formData={formData} 
             handleChange={handleChange} 
-            onNext={goToNextStep} 
+            onSubmit={goToNextStep} 
           />
         );
       case 2:
@@ -203,7 +203,7 @@ const GroupForm = () => {
           <ScheduleStep 
             formData={formData} 
             handleChange={handleChange} 
-            onNext={goToNextStep} 
+            onSubmit={goToNextStep} 
             onBack={goToPreviousStep} 
           />
         );
@@ -212,7 +212,7 @@ const GroupForm = () => {
           <SettingsStep 
             formData={formData} 
             handleChange={handleChange} 
-            onNext={handleCreateGroup} 
+            onSubmit={handleCreateGroup} 
             onBack={goToPreviousStep} 
             isLoading={isLoading}
             validationErrors={validationErrors}
@@ -225,7 +225,7 @@ const GroupForm = () => {
 
   return (
     <Card className="shadow-none border-0 p-6">
-      <StepIndicator currentStep={step} totalSteps={3} />
+      <StepIndicator currentStep={step} />
       {renderStep()}
     </Card>
   );
