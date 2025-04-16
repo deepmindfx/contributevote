@@ -21,13 +21,16 @@ export const getAuthToken = async () => {
     
     if (!response.ok) {
       const errorText = await response.text();
+      console.error("Authentication failed with status:", response.status);
+      console.error("Response text:", errorText);
+      
       let errorData;
       try {
         errorData = JSON.parse(errorText);
       } catch (e) {
         errorData = { message: errorText || "Unknown error" };
       }
-      console.error("Authentication error details:", errorData);
+      
       throw new Error(`Authentication failed: ${response.status} - ${errorData.message || response.statusText}`);
     }
     
@@ -38,10 +41,10 @@ export const getAuthToken = async () => {
       throw new Error("Invalid authentication response from server");
     }
     
-    console.log("Authentication successful");
+    console.log("Authentication successful with Monnify");
     return data.responseBody.accessToken;
   } catch (error) {
     console.error("Error getting auth token:", error);
-    return null;
+    throw error; // Re-throw to handle in the calling function
   }
 };
