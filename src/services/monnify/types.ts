@@ -11,6 +11,12 @@ export interface MonnifyApiResponse<T = any> {
   responseBody: T;
 }
 
+// Simple response for error cases
+export interface SimpleResponse {
+  success: boolean;
+  message: string;
+}
+
 // Account response types
 export interface MonnifyAccountDetails {
   accountReference: string;
@@ -51,6 +57,7 @@ export interface MonnifyTransaction {
   destinationAccountName?: string;
   destinationAccountNumber?: string;
   destinationBankName?: string;
+  amount?: number; // Added to support both API versions
 }
 
 export interface MonnifyTransactionResponse {
@@ -85,8 +92,18 @@ export interface CreateGroupAccountRequest {
   customerBvn: string;
 }
 
-// Simple response for error cases
-export interface SimpleResponse {
-  success: boolean;
-  message: string;
+// Invoice response types
+export interface MonnifyInvoice {
+  invoiceReference: string;
+  description: string;
+  amount: number;
+  currencyCode: string;
+  customerEmail: string;
+  customerName: string;
+  expiryDate: string;
+  redirectUrl: string;
+  paymentReference: string;
+  checkoutUrl: string;
+  status: string;
+  createdOn: string;
 }

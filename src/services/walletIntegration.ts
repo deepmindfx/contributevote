@@ -1,3 +1,4 @@
+
 import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
 import * as monnifyApi from "./monnifyApi";
@@ -9,6 +10,7 @@ import {
   updateUserById, 
   addTransaction 
 } from "./localStorage";
+import { MonnifyApiResponse, SimpleResponse, MonnifyTransaction } from "./monnify/types";
 
 /**
  * Interface for the reserved account data stored in user settings
@@ -120,17 +122,20 @@ export const createUserReservedAccount = async (
     // Create a reserved account using the provided ID
     const result = await monnifyApi.createReservedAccount(requestBody);
     
-    if (!result || !result.responseBody) {
-      if (result && !result.success) {
-        toast.error(result.message || "Failed to create reserved account");
-      } else {
-        toast.error("Failed to create reserved account");
-      }
+    // Handle different response types
+    if ((result as SimpleResponse).success === false) {
+      toast.error((result as SimpleResponse).message || "Failed to create reserved account");
+      return null;
+    }
+    
+    const apiResponse = result as MonnifyApiResponse;
+    if (!apiResponse.requestSuccessful || !apiResponse.responseBody) {
+      toast.error(apiResponse.responseMessage || "Failed to create reserved account");
       return null;
     }
     
     // Extract relevant account data
-    const responseBody = result.responseBody;
+    const responseBody = apiResponse.responseBody;
     const reservedAccount: ReservedAccountData = {
       accountReference: responseBody.accountReference,
       accountName: responseBody.accountName,
@@ -194,13 +199,20 @@ export const getUserReservedAccount = async (userId: string): Promise<ReservedAc
     // Fetch the latest details from Monnify
     const result = await monnifyApi.getReservedAccountDetails(user.reservedAccount.accountReference);
     
-    if (!result || !result.responseBody) {
-      toast.error("Failed to get reserved account details");
+    // Handle different response types
+    if ((result as SimpleResponse).success === false) {
+      toast.error((result as SimpleResponse).message || "Failed to get reserved account details");
+      return user.reservedAccount; // Return cached version
+    }
+    
+    const apiResponse = result as MonnifyApiResponse;
+    if (!apiResponse.requestSuccessful || !apiResponse.responseBody) {
+      toast.error(apiResponse.responseMessage || "Failed to get reserved account details");
       return user.reservedAccount; // Return cached version
     }
     
     // Extract relevant account data
-    const responseBody = result.responseBody;
+    const responseBody = apiResponse.responseBody;
     const reservedAccount: ReservedAccountData = {
       accountReference: responseBody.accountReference,
       accountName: responseBody.accountName,
@@ -258,29 +270,38 @@ export const getReservedAccountTransactions = async (accountReference: string) =
       return { content: [] };
     }
     
-    if (result && !result.requestSuccessful && result.message) {
-      toast.error(result.message);
+    // Handle different response types
+    if ((result as SimpleResponse).success === false) {
+      toast.error((result as SimpleResponse).message || "Failed to fetch transactions");
       return { content: [] };
     }
     
-    if (!result.responseBody) {
+    const apiResponse = result as MonnifyApiResponse;
+    if (!apiResponse.requestSuccessful) {
+      toast.error(apiResponse.responseMessage || "Failed to fetch transactions");
       return { content: [] };
     }
     
-    const responseBody = result.responseBody;
+    if (!apiResponse.responseBody) {
+      return { content: [] };
+    }
+    
+    const transactions = apiResponse.responseBody.content;
     
     // Process the transactions and add them to the local storage
-    if (responseBody.content && Array.isArray(responseBody.content)) {
+    if (transactions && Array.isArray(transactions)) {
       // Get current user data for user ID
       const currentUser = getCurrentUser();
       
-      for (const transaction of responseBody.content) {
+      for (const transaction of transactions) {
+        const amountValue = transaction.amountPaid || transaction.amount || 0;
+        
         await processReservedAccountTransaction({
           transactionReference: transaction.transactionReference,
           paymentReference: transaction.paymentReference,
-          amountPaid: transaction.amount,
-          totalPayable: transaction.amount,
-          settlementAmount: transaction.amount,
+          amountPaid: amountValue,
+          totalPayable: amountValue,
+          settlementAmount: amountValue,
           paidOn: transaction.paidOn,
           paymentStatus: transaction.paymentStatus,
           paymentDescription: `Bank transfer from ${transaction.destinationBankName || 'bank'}`,
@@ -297,7 +318,7 @@ export const getReservedAccountTransactions = async (accountReference: string) =
       }
     }
     
-    return responseBody;
+    return apiResponse.responseBody;
   } catch (error) {
     console.error("Error fetching reserved account transactions:", error);
     toast.error("Failed to fetch transactions. Please try again.");

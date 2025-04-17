@@ -28,7 +28,7 @@ const WalletActions = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [isMonnifyDialogOpen, setIsMonnifyDialogOpen] = useState(false);
 
-  const handleMonnifyPayment = (amount: number, anonymous: boolean) => {
+  const handleMonnifyPayment = async (amount: number, anonymous: boolean) => {
     if (!user || !user.id) {
       toast.error("Please log in to contribute");
       return;
@@ -54,7 +54,7 @@ const WalletActions = ({
         amount
       });
       
-      payWithMonnify({
+      await payWithMonnify({
         amount: amount,
         user: {
           id: user.id,

@@ -3,6 +3,7 @@ import { getAuthToken } from "@/services/monnify/auth";
 import { createInvoice } from "@/services/monnify/payments";
 import { toast } from "sonner";
 import { createTransaction } from "@/services/localStorage/transactionOperations";
+import { MonnifyApiResponse, SimpleResponse } from "@/services/monnify/types";
 
 interface PayWithMonnifyProps {
   amount: number;
@@ -77,12 +78,18 @@ export const payWithMonnify = async ({
     try {
       const response = await createInvoice(invoiceData);
       
-      if (!response || !response.checkoutUrl) {
-        throw new Error("Failed to create payment invoice");
+      // Handle different response types
+      if ((response as SimpleResponse).success === false) {
+        throw new Error((response as SimpleResponse).message);
+      }
+      
+      const apiResponse = response as MonnifyApiResponse;
+      if (!apiResponse.responseBody || !apiResponse.responseBody.checkoutUrl) {
+        throw new Error("Failed to create payment invoice - missing checkout URL");
       }
       
       // Open checkout in new window
-      const checkoutWindow = window.open(response.checkoutUrl, "_blank");
+      const checkoutWindow = window.open(apiResponse.responseBody.checkoutUrl, "_blank");
       
       // If window was blocked, show error
       if (!checkoutWindow) {
@@ -94,16 +101,16 @@ export const payWithMonnify = async ({
       // Create a local transaction record with the correct transaction type
       const transactionData = {
         userId: user.id,
-        type: "deposit" as const, // Type assertion to allowed values
+        type: "deposit" as const,
         amount,
         contributionId: contribution ? contribution.id : "",
         description,
-        status: "pending" as const, // Fix the type error by specifying the exact allowed value
+        status: "pending" as const,
         anonymous: !!anonymous,
-        reference: response.invoiceReference || undefined,
+        reference: apiResponse.responseBody.invoiceReference || undefined,
         metaData: {
-          paymentReference: response.paymentReference,
-          invoiceReference: response.invoiceReference,
+          paymentReference: apiResponse.responseBody.paymentReference,
+          invoiceReference: apiResponse.responseBody.invoiceReference,
           contributionId: contribution?.id,
           contributionName: contribution?.name
         }
@@ -113,7 +120,7 @@ export const payWithMonnify = async ({
       
       // Call success callback
       if (onSuccess) {
-        onSuccess(response);
+        onSuccess(apiResponse.responseBody);
       }
       
       toast.success("Payment initialized. Complete your payment in the new window.");

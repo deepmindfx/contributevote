@@ -1,13 +1,15 @@
+
 import { BASE_URL, CONTRACT_CODE } from './config';
 import { getAuthToken } from './auth';
 import { toast } from 'sonner';
+import { MonnifyApiResponse, SimpleResponse } from './types';
 
 /**
  * Create a Monnify invoice
  * @param data Invoice creation data
  * @returns Response with invoice details
  */
-export const createInvoice = async (data: any) => {
+export const createInvoice = async (data: any): Promise<MonnifyApiResponse | SimpleResponse> => {
   try {
     console.log("Creating invoice with data:", data);
     
@@ -47,10 +49,12 @@ export const createInvoice = async (data: any) => {
     // Get authentication token
     const token = await getAuthToken();
     
-    console.log("Sending invoice creation request to:", `${BASE_URL}/api/v1/merchant/invoices`);
+    // FIXED: Use the correct invoice endpoint
+    const invoiceEndpoint = `${BASE_URL}/api/v2/invoice/create`;
+    console.log("Sending invoice creation request to:", invoiceEndpoint);
     console.log("Request payload:", JSON.stringify(requestBody, null, 2));
     
-    const response = await fetch(`${BASE_URL}/api/v1/merchant/invoices`, {
+    const response = await fetch(invoiceEndpoint, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -65,30 +69,42 @@ export const createInvoice = async (data: any) => {
     const responseText = await response.text();
     console.log("Invoice API response text:", responseText);
     
-    let responseData;
+    let responseData: MonnifyApiResponse | SimpleResponse;
     try {
       responseData = JSON.parse(responseText);
     } catch (e) {
       console.error("Failed to parse response as JSON:", e);
-      throw new Error(`Invalid response from server: ${responseText}`);
+      return {
+        success: false,
+        message: `Invalid response from server: ${responseText}`
+      };
     }
     
     if (!response.ok) {
       console.error("Failed to create invoice:", responseData);
-      throw new Error(responseData.responseMessage || `Failed to create invoice: ${response.status}`);
+      return {
+        success: false,
+        message: responseData.responseMessage || `Failed to create invoice: ${response.status}`
+      };
     }
     
     // Check if request was successful
-    if (!responseData.requestSuccessful) {
+    if ((responseData as MonnifyApiResponse).requestSuccessful === false) {
       console.error("Invoice creation failed with error:", responseData);
-      throw new Error(responseData.responseMessage || "Failed to create invoice");
+      return {
+        success: false,
+        message: (responseData as MonnifyApiResponse).responseMessage || "Failed to create invoice"
+      };
     }
     
     console.log("Invoice created successfully:", responseData);
-    return responseData.responseBody;
+    return responseData;
   } catch (error) {
     console.error("Error creating invoice:", error);
-    throw error;
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Unknown error creating invoice"
+    };
   }
 };
 
@@ -97,7 +113,7 @@ export const createInvoice = async (data: any) => {
  * @param data Card token charging data
  * @returns Response with payment details
  */
-export const chargeCardToken = async (data: any) => {
+export const chargeCardToken = async (data: any): Promise<MonnifyApiResponse | SimpleResponse> => {
   try {
     console.log("Charging card token with data:", data);
     
@@ -114,30 +130,42 @@ export const chargeCardToken = async (data: any) => {
     });
     
     const responseText = await response.text();
-    let responseData;
+    let responseData: MonnifyApiResponse | SimpleResponse;
     
     try {
       responseData = JSON.parse(responseText);
     } catch (e) {
       console.error("Failed to parse response as JSON:", e);
-      throw new Error(`Invalid response from server: ${responseText}`);
+      return {
+        success: false,
+        message: `Invalid response from server: ${responseText}`
+      };
     }
     
     if (!response.ok) {
       console.error("Failed to charge card token:", responseData);
-      throw new Error(responseData.responseMessage || `Failed to charge card token: ${response.status}`);
+      return {
+        success: false,
+        message: (responseData as MonnifyApiResponse).responseMessage || `Failed to charge card token: ${response.status}`
+      };
     }
     
     // Check if request was successful
-    if (!responseData.requestSuccessful) {
+    if ((responseData as MonnifyApiResponse).requestSuccessful === false) {
       console.error("Card token charging failed with error:", responseData);
-      throw new Error(responseData.responseMessage || "Failed to charge card token");
+      return {
+        success: false,
+        message: (responseData as MonnifyApiResponse).responseMessage || "Failed to charge card token"
+      };
     }
     
     console.log("Card token charged successfully:", responseData);
-    return responseData.responseBody;
+    return responseData;
   } catch (error) {
     console.error("Error charging card token:", error);
-    throw error;
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Unknown error charging card token"
+    };
   }
 };
