@@ -1,4 +1,3 @@
-
 import { getAuthToken } from "@/services/monnify/auth";
 import { createInvoice } from "@/services/monnify/payments";
 import { toast } from "sonner";
@@ -57,7 +56,10 @@ export const payWithMonnify = async ({
     // Generate payment reference if not provided  
     const invoiceReference = paymentReference || `PAY-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
     
-    // Prepare invoice data
+    // Format expiry date to match 'yyyy-MM-dd HH:mm:ss'
+    const expiryDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const formattedExpiryDate = expiryDate.toISOString().replace('T', ' ').substring(0, 19);
+
     const invoiceData: any = {
       amount,
       customerName: user.name,
@@ -65,6 +67,7 @@ export const payWithMonnify = async ({
       description: paymentDescription,
       invoiceReference: invoiceReference,
       redirectUrl: window.location.origin,
+      expiryDate: formattedExpiryDate,
     };
     
     // Add contribution details if making a contribution

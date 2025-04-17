@@ -1,4 +1,3 @@
-
 import { BASE_URL, CONTRACT_CODE } from './config';
 import { getAuthToken } from './auth';
 import { toast } from 'sonner';
@@ -28,7 +27,11 @@ export const createInvoice = async (data: any): Promise<MonnifyApiResponse | Sim
     
     // Set expiry date if provided
     if (data.expiryDate) {
-      requestBody.expiryDate = data.expiryDate;
+      // If the date is already in the correct format, use it directly
+      // If not, convert it to the correct format
+      requestBody.expiryDate = typeof data.expiryDate === 'string' 
+        ? data.expiryDate 
+        : data.expiryDate.toISOString().replace('T', ' ').substring(0, 19);
     }
 
     // Add metadata if provided

@@ -1,4 +1,3 @@
-
 import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
 import * as monnifyApi from "./monnifyApi";
@@ -356,7 +355,11 @@ export const createPaymentInvoice = async (data: {
     // Generate a unique invoice reference
     const invoiceReference = `INV_${userId}_${Date.now()}`;
     
-    // Create the invoice data
+    // Format expiry date to match 'yyyy-MM-dd HH:mm:ss'
+    const formattedExpiryDate = data.expiryDate 
+      ? data.expiryDate.toISOString().replace('T', ' ').substring(0, 19)
+      : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().replace('T', ' ').substring(0, 19);
+
     const invoiceData: any = {
       amount,
       invoiceReference,
@@ -365,7 +368,7 @@ export const createPaymentInvoice = async (data: {
       customerName,
       currencyCode: "NGN",
       contractCode: "465595618981", // Updated with real contract code
-      expiryDate: expiryDate ? expiryDate.toISOString() : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      expiryDate: formattedExpiryDate,
       redirectUrl: redirectUrl || window.location.origin + "/dashboard"
     };
     
