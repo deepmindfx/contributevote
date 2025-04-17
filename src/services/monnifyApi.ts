@@ -12,7 +12,13 @@ export {
   createReservedAccount,
   createContributionGroupAccount,
   getReservedAccountDetails,
-  getReservedAccountTransactions
+  getReservedAccountTransactions,
+  // Export types
+  type MonnifyAccountDetails,
+  type MonnifyTransaction,
+  type MonnifyTransactionResponse,
+  type CreateReservedAccountRequest,
+  type CreateGroupAccountRequest,
 } from './monnify/reservedAccounts';
 
 // Export payment functionality
