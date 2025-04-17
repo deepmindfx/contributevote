@@ -1,9 +1,10 @@
 
-import { createPaymentInvoice } from "@/services/walletIntegration";
-import { contributeToGroup } from "@/services/localStorage";
+import { getAuthToken } from "@/services/monnify/auth";
+import { createInvoice } from "@/services/monnify/payments";
 import { toast } from "sonner";
+import { createTransaction } from "@/services/localStorage/transactionOperations";
 
-interface MonnifyPaymentProps {
+interface PayWithMonnifyProps {
   amount: number;
   user: {
     id: string;
@@ -27,79 +28,109 @@ export const payWithMonnify = async ({
   anonymous = false,
   onSuccess,
   onClose
-}: MonnifyPaymentProps) => {
+}: PayWithMonnifyProps) => {
   try {
-    // Create payload with appropriate references
-    let payload: any = {
-      amount: amount,
+    // Validate amount
+    if (!amount || amount <= 0) {
+      toast.error("Please enter a valid amount");
+      if (onClose) onClose();
+      return;
+    }
+    
+    // Check if authenticated
+    if (!user || !user.id) {
+      toast.error("You must be logged in to make a payment");
+      if (onClose) onClose();
+      return;
+    }
+    
+    // Create payment description
+    const description = contribution 
+      ? `Contribution to ${contribution.name}${anonymous ? ' (Anonymous)' : ''}`
+      : `Wallet top-up by ${user.name}`;
+    
+    // Prepare invoice data
+    const invoiceData: any = {
+      amount,
       customerName: user.name,
       customerEmail: user.email,
-      userId: user.id,
-      description: contribution 
-        ? `Contribution to ${contribution.name}` 
-        : "Wallet top-up",
+      description,
     };
     
-    // If contribution details are provided, include them in the payload
-    if (contribution && contribution.id) {
-      payload.contributionId = contribution.id;
-      payload.contributionName = contribution.name;
-      payload.anonymous = anonymous;
+    // Add contribution details if making a contribution
+    if (contribution) {
+      invoiceData.contributionId = contribution.id;
+      invoiceData.contributionName = contribution.name;
       
-      // Include contribution account reference if available
+      // If we have an account reference for the contribution, include it
       if (contribution.accountReference) {
-        payload.contributionAccountReference = contribution.accountReference;
-        console.log("Using contribution account reference:", contribution.accountReference);
+        console.log(`Using account reference ${contribution.accountReference} for contribution payment`);
+        invoiceData.contributionAccountReference = contribution.accountReference;
+      } else {
+        console.warn("No account reference found for contribution:", contribution.id);
       }
     }
     
-    console.log("Creating payment with payload:", payload);
+    console.log("Creating invoice with data:", invoiceData);
     
+    // Create invoice
     try {
-      // Create the payment invoice
-      const result = await createPaymentInvoice(payload);
+      const response = await createInvoice(invoiceData);
       
-      if (!result || !result.checkoutUrl) {
-        console.error("Failed to create payment invoice:", result);
-        toast.error("Failed to create payment invoice. Please try again.");
+      if (!response || !response.checkoutUrl) {
+        throw new Error("Failed to create payment invoice");
+      }
+      
+      // Open checkout in new window
+      const checkoutWindow = window.open(response.checkoutUrl, "_blank");
+      
+      // If window was blocked, show error
+      if (!checkoutWindow) {
+        toast.error("Please allow pop-ups to complete payment");
         if (onClose) onClose();
-        return null;
+        return;
       }
       
-      // For debugging purposes
-      console.log("Payment invoice created:", result);
-      
-      // Open the checkout URL in a new window
-      const checkoutWindow = window.open(result.checkoutUrl, "_blank");
-      
-      // Set up a polling mechanism to check for payment completion
-      const checkPaymentStatus = setInterval(() => {
-        if (checkoutWindow && checkoutWindow.closed) {
-          clearInterval(checkPaymentStatus);
-          
-          // Call the onClose callback when the window is closed
-          if (onClose) {
-            onClose();
-          }
+      // Create a local transaction record
+      const transactionData = {
+        userId: user.id,
+        type: contribution ? "deposit" : "deposit",
+        amount,
+        contributionId: contribution ? contribution.id : "",
+        description,
+        status: "pending",
+        anonymous: !!anonymous,
+        reference: response.invoiceReference || undefined,
+        metaData: {
+          paymentReference: response.paymentReference,
+          invoiceReference: response.invoiceReference,
+          contributionId: contribution?.id,
+          contributionName: contribution?.name
         }
-      }, 1000);
+      };
       
-      // Return the result for further processing if needed
+      createTransaction(transactionData);
+      
+      // Call success callback
       if (onSuccess) {
-        onSuccess(result);
+        onSuccess(response);
       }
       
-      return result;
+      toast.success("Payment initialized. Complete your payment in the new window.");
     } catch (error) {
-      console.error("Error creating payment invoice:", error);
-      toast.error("Failed to create payment invoice. Please try again.");
+      console.error("Payment error:", error);
+      if (error instanceof Error) {
+        toast.error(error.message || "Failed to create payment invoice. Please try again.");
+      } else {
+        toast.error("Failed to create payment invoice. Please try again.");
+      }
       if (onClose) onClose();
-      return null;
     }
   } catch (error) {
-    console.error("Error in payWithMonnify:", error);
-    toast.error("Payment processing failed. Please try again.");
+    console.error("Error setting up payment:", error);
+    toast.error("Failed to set up payment. Please try again.");
     if (onClose) onClose();
-    return null;
   }
 };
+
+export default payWithMonnify;
