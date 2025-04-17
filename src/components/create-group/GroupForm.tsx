@@ -37,7 +37,7 @@ const GroupForm = () => {
     notifyContributions: true,
     notifyVotes: true,
     notifyUpdates: true,
-    // Fields for account creation
+    // New fields for account creation
     bvn: '',
     accountReference: `GROUP_${Date.now()}`,
   });
@@ -119,12 +119,9 @@ const GroupForm = () => {
     setIsLoading(true);
     
     try {
-      // Create a unique account reference for this group
-      const accountRef = `GROUP_${user.id}_${Date.now()}`;
-      
       // Create a virtual account for the group first
       const accountData = {
-        accountReference: accountRef,
+        accountReference: formData.accountReference,
         accountName: formData.name, // Use the group name directly
         currencyCode: "NGN",
         contractCode: "465595618981", // Use the updated contract code
@@ -133,7 +130,6 @@ const GroupForm = () => {
         customerBvn: formData.bvn
       };
       
-      console.log("Creating contribution group account:", accountData);
       const accountResponse = await createContributionGroupAccount(accountData);
       
       if (!accountResponse.requestSuccessful) {
@@ -144,14 +140,13 @@ const GroupForm = () => {
       
       // Extract account details from response
       const accountDetails = accountResponse.responseBody;
-      console.log("Account creation successful:", accountDetails);
       
       // Prepare contribution data with account details
       const contributionData = {
         name: formData.name,
         description: formData.description,
         targetAmount: Number(formData.targetAmount),
-        category: formData.category as "personal" | "business" | "family" | "event" | "education" | "other", 
+        category: formData.category as "personal" | "business" | "family" | "event" | "education" | "other", // Fix type
         frequency: formData.frequency,
         contributionAmount: Number(formData.contributionAmount),
         startDate: formData.startDate,
@@ -168,7 +163,7 @@ const GroupForm = () => {
         accountNumber: accountDetails.accounts[0].accountNumber,
         bankName: accountDetails.accounts[0].bankName,
         accountName: formData.name, // Use group name as account name
-        accountReference: accountRef, // Save the account reference for future API calls
+        accountReference: accountDetails.accountReference,
         accountDetails: accountDetails,
       };
       
@@ -178,56 +173,49 @@ const GroupForm = () => {
       toast.success("Group created successfully with dedicated account");
       
       // Navigate to dashboard
-      navigate("/dashboard");
+      setTimeout(() => {
+        setIsLoading(false);
+        navigate("/dashboard");
+      }, 1000);
     } catch (error) {
       console.error("Error creating group:", error);
-      toast.error(`Failed to create group: ${error instanceof Error ? error.message : "Unknown error"}`);
-    } finally {
+      toast.error("Failed to create group. Please try again.");
       setIsLoading(false);
     }
   };
 
-  // Render the appropriate step
-  const renderStep = () => {
-    switch (step) {
-      case 1:
-        return (
+  return (
+    <>
+      <StepIndicator currentStep={step} />
+      
+      <Card className="glass-card animate-scale">
+        {step === 1 && (
           <DetailsStep 
             formData={formData} 
             handleChange={handleChange} 
-            onNext={goToNextStep} 
+            goToNextStep={goToNextStep} 
           />
-        );
-      case 2:
-        return (
+        )}
+        
+        {step === 2 && (
           <ScheduleStep 
             formData={formData} 
             handleChange={handleChange} 
-            onNext={goToNextStep} 
-            onBack={goToPreviousStep} 
+            goToNextStep={goToNextStep} 
           />
-        );
-      case 3:
-        return (
+        )}
+        
+        {step === 3 && (
           <SettingsStep 
             formData={formData} 
             handleChange={handleChange} 
-            onNext={handleCreateGroup} 
-            onBack={goToPreviousStep} 
+            handleCreateGroup={handleCreateGroup} 
             isLoading={isLoading}
             validationErrors={validationErrors}
           />
-        );
-      default:
-        return null;
-    }
-  };
-
-  return (
-    <Card className="shadow-none border-0 p-6">
-      <StepIndicator currentStep={step} totalSteps={3} />
-      {renderStep()}
-    </Card>
+        )}
+      </Card>
+    </>
   );
 };
 

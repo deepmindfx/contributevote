@@ -3,9 +3,10 @@ import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
 import { 
-  LogOut, 
+  Wallet, 
   Menu, 
   X, 
+  LogOut, 
   User, 
   Settings, 
   Bell, 
@@ -20,7 +21,8 @@ import {
   NavigationMenuItem,
   NavigationMenuLink,
   NavigationMenuList,
-  NavigationMenuTrigger
+  NavigationMenuTrigger,
+  navigationMenuTriggerStyle
 } from "@/components/ui/navigation-menu";
 import {
   DropdownMenu,
@@ -132,13 +134,9 @@ const Header = () => {
       }`}
     >
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-        <Link to="/" className="flex items-center space-x-3">
-          <div className="h-10 w-10 relative flex-shrink-0">
-            <img 
-              src="/lovable-uploads/91e5c361-b912-4a7e-bcf3-4602a512cb51.png" 
-              alt="CollectiPay Logo" 
-              className="object-contain h-full w-full"
-            />
+        <Link to="/" className="flex items-center space-x-2">
+          <div className="rounded-md bg-primary p-1.5">
+            <Wallet className="h-5 w-5 text-white" />
           </div>
           {isAuthenticated && user?.firstName ? (
             <span className="font-medium text-lg">Hi, {user.firstName}</span>
