@@ -1,10 +1,16 @@
+
 import { v4 as uuidv4 } from 'uuid';
 import { Transaction } from './types';
 import { addTransaction } from '@/localStorage'; // Import from original localStorage.ts
 
 export const getTransactions = (): Transaction[] => {
-  const transactionsString = localStorage.getItem('transactions');
-  return transactionsString ? JSON.parse(transactionsString) : [];
+  try {
+    const transactionsString = localStorage.getItem('transactions');
+    return transactionsString ? JSON.parse(transactionsString) : [];
+  } catch (error) {
+    console.error("Error getting transactions:", error);
+    return [];
+  }
 };
 
 export const createTransaction = (transaction: Omit<Transaction, 'id' | 'createdAt'>): void => {
@@ -33,7 +39,7 @@ export const createTransaction = (transaction: Omit<Transaction, 'id' | 'created
     try {
       addTransaction(newTransaction);
     } catch (error) {
-      console.info("Skip adding transaction to old storage system after logout", error);
+      console.info("Skip adding transaction to old storage system", error);
     }
   } catch (error) {
     console.error("Failed to create transaction:", error);

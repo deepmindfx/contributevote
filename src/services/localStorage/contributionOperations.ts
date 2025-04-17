@@ -11,18 +11,28 @@ export const getContributions = (): Contribution[] => {
 };
 
 export const getUserContributions = (userId: string): Contribution[] => {
-  const contributions = getBaseContributions();
-  return contributions.filter(contribution => contribution.members.includes(userId));
+  try {
+    if (!userId) return [];
+    
+    const contributions = getBaseContributions();
+    return contributions.filter(contribution => contribution.members.includes(userId));
+  } catch (error) {
+    console.error("Error getting user contributions:", error);
+    return [];
+  }
 };
 
 export const getContributionById = (id: string): Contribution | undefined => {
   return getBaseContributionById(id);
 };
 
-export const createContribution = (contribution: Omit<Contribution, 'id' | 'createdAt' | 'currentAmount' | 'members' | 'contributors' | 'accountNumber'>) => {
+export const createContribution = (contribution: Omit<Contribution, 'id' | 'createdAt' | 'currentAmount' | 'members' | 'contributors'>) => {
   const contributions = getBaseContributions();
   const currentUser = getBaseCurrentUser();
   if (!currentUser) throw new Error('User not logged in');
+  
+  // Make sure accountNumber is provided if it's available in the input
+  const accountNumber = contribution.accountNumber || `60${Math.floor(10000000 + Math.random() * 90000000)}`;
   
   const newContribution: Contribution = {
     id: uuidv4(),
@@ -30,9 +40,15 @@ export const createContribution = (contribution: Omit<Contribution, 'id' | 'crea
     members: [currentUser.id],
     contributors: [],
     createdAt: new Date().toISOString(),
-    accountNumber: `60${Math.floor(10000000 + Math.random() * 90000000)}`,
+    accountNumber,
     ...contribution,
   };
+  
+  // Ensure we store account reference if it's available
+  if (contribution.accountReference) {
+    console.log(`Storing account reference ${contribution.accountReference} for contribution`);
+  }
+  
   contributions.push(newContribution);
   localStorage.setItem('contributions', JSON.stringify(contributions));
   return newContribution;
@@ -85,6 +101,11 @@ export const contributeToGroup = (contributionId: string, amount: number, anonym
     amount,
     description: `Contribution to ${contribution.name}`,
     anonymous,
+    status: 'completed',
+    metaData: {
+      accountNumber: contribution.accountNumber,
+      accountReference: contribution.accountReference
+    }
   });
 };
 
@@ -136,6 +157,11 @@ export const contributeByAccountNumber = (accountNumber: string, amount: number,
     amount,
     description: `Contribution to ${contribution.name}`,
     anonymous,
+    status: 'completed',
+    metaData: {
+      accountNumber: contribution.accountNumber,
+      accountReference: contribution.accountReference || undefined
+    }
   });
 };
 

@@ -13,7 +13,7 @@ const MobileNav = () => {
   // Check if there are any pending votes for the current user
   const pendingVotes = withdrawalRequests.filter(request => 
     request.status === 'pending' && 
-    !request.votes.some(vote => vote.userId === user.id)
+    !request.votes.some(vote => vote.userId === user?.id)
   );
 
   // Determine if back button should be shown based on current route

@@ -11,6 +11,17 @@ export const createInvoice = async (data: any) => {
   try {
     console.log("Creating invoice with data:", data);
     
+    // If contributionId is provided, include account reference in request
+    if (data.contributionId && data.contributionAccountReference) {
+      data.incomeSplitConfig = [{
+        subAccountCode: data.contributionAccountReference,
+        feePercentage: 100, // Send 100% of the payment to the contribution account
+        splitAmount: data.amount,
+        feeBearer: false
+      }];
+      console.log("Adding split configuration for contribution account:", data.contributionAccountReference);
+    }
+    
     // Get authentication token
     const token = await getAuthToken();
     if (!token) {
