@@ -2,7 +2,7 @@
 // Re-export all Monnify API functionality from modular files
 
 // Export constants and config
-export { BASE_URL, API_KEY, SECRET_KEY, CONTRACT_CODE, getEncodedCredentials } from './monnify/config';
+export { BASE_URL, API_KEY, SECRET_KEY, CONTRACT_CODE } from './monnify/config';
 
 // Export auth functionality
 export { getAuthToken } from './monnify/auth';

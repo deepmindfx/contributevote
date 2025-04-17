@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -194,7 +195,7 @@ const GroupForm = () => {
           <DetailsStep 
             formData={formData} 
             handleChange={handleChange} 
-            goToNextStep={goToNextStep} 
+            onNext={goToNextStep} 
           />
         );
       case 2:
@@ -202,8 +203,8 @@ const GroupForm = () => {
           <ScheduleStep 
             formData={formData} 
             handleChange={handleChange} 
-            goToNextStep={goToNextStep} 
-            goToPreviousStep={goToPreviousStep} 
+            onNext={goToNextStep} 
+            onBack={goToPreviousStep} 
           />
         );
       case 3:
@@ -211,8 +212,8 @@ const GroupForm = () => {
           <SettingsStep 
             formData={formData} 
             handleChange={handleChange} 
-            handleCreateGroup={handleCreateGroup} 
-            goToPreviousStep={goToPreviousStep} 
+            onNext={handleCreateGroup} 
+            onBack={goToPreviousStep} 
             isLoading={isLoading}
             validationErrors={validationErrors}
           />
@@ -224,7 +225,7 @@ const GroupForm = () => {
 
   return (
     <Card className="shadow-none border-0 p-6">
-      <StepIndicator currentStep={step} />
+      <StepIndicator currentStep={step} totalSteps={3} />
       {renderStep()}
     </Card>
   );

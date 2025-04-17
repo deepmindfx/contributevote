@@ -17,42 +17,16 @@ export const createTransaction = (transaction: Omit<Transaction, 'id' | 'created
   try {
     const transactions = getTransactions();
     
-    // Strengthen duplicate check:
-    // 1. Check reference duplication
+    // Check for duplicate transactions with same amount and reference within last 5 minutes
+    // This helps prevent duplicate transactions from being created
     if (transaction.reference) {
-      const existingTransactionByRef = transactions.find(t => 
-        t.reference === transaction.reference
+      const existingTransaction = transactions.find(t => 
+        t.reference === transaction.reference && 
+        t.amount === transaction.amount
       );
       
-      if (existingTransactionByRef) {
-        console.warn("Duplicate transaction by reference detected, skipping:", transaction);
-        return;
-      }
-    }
-    
-    // 2. Check for near-duplicate transactions based on properties
-    // This catches duplicates even if they don't have the same reference
-    const last30Sec = Date.now() - 30 * 1000;
-    const recentDuplicate = transactions.find(t => 
-      t.type === transaction.type && 
-      t.amount === transaction.amount &&
-      t.contributionId === transaction.contributionId &&
-      new Date(t.createdAt).getTime() > last30Sec
-    );
-    
-    if (recentDuplicate) {
-      console.warn("Recent duplicate transaction detected, skipping:", transaction);
-      return;
-    }
-    
-    // 3. Add an additional check for payment references in metaData
-    if (transaction.metaData?.paymentReference) {
-      const existingByPaymentRef = transactions.find(t => 
-        t.metaData?.paymentReference === transaction.metaData?.paymentReference
-      );
-      
-      if (existingByPaymentRef) {
-        console.warn("Duplicate transaction by payment reference detected, skipping:", transaction);
+      if (existingTransaction) {
+        console.warn("Duplicate transaction detected, skipping:", transaction);
         return;
       }
     }
