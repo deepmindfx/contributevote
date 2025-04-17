@@ -1,23 +1,18 @@
-
 import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Contribution } from "@/services/localStorage";
-
 interface WalletHeaderProps {
   contribution: Contribution;
   progressPercentage: number;
 }
-
-const WalletHeader = ({ contribution, progressPercentage }: WalletHeaderProps) => {
-  return (
-    <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+const WalletHeader = ({
+  contribution,
+  progressPercentage
+}: WalletHeaderProps) => {
+  return <div className="flex flex-col md:flex-row justify-between items-center gap-4">
       <div className="flex items-center gap-3">
         <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center overflow-hidden">
-          <img 
-            src="/lovable-uploads/e7056a4c-9b9c-4ca8-b393-4cfe5027fa67.png" 
-            alt="CollectiPay Logo" 
-            className="object-contain h-10 w-10"
-          />
+          <img alt="CollectiPay Logo" className="object-contain h-10 w-10" src="/lovable-uploads/85c09632-4fd3-46fb-b70a-45daac74abfc.png" />
         </div>
         <div>
           <h3 className="font-medium text-lg">Group Wallet</h3>
@@ -38,8 +33,6 @@ const WalletHeader = ({ contribution, progressPercentage }: WalletHeaderProps) =
           of ₦{contribution?.targetAmount.toLocaleString()} goal ({progressPercentage}%)
         </p>
       </div>
-    </div>
-  );
+    </div>;
 };
-
 export default WalletHeader;
