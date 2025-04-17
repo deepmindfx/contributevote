@@ -1,258 +1,242 @@
 
-import React, { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import React, { useState } from "react";
+import { Card } from "@/components/ui/card";
+import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { v4 as uuidv4 } from "uuid";
+import { createContributionGroupAccount } from "@/services/monnifyApi";
+import { useApp } from "@/contexts/AppContext";
+
+// Import Step Components
 import DetailsStep from "./DetailsStep";
 import ScheduleStep from "./ScheduleStep";
 import SettingsStep from "./SettingsStep";
 import StepIndicator from "./StepIndicator";
-import { useUser } from "@/contexts/UserContext";
-import { useContribution } from "@/contexts/ContributionContext";
-import { toast } from "sonner";
-import { createContributionGroupAccount } from "@/services/monnify/accountCreation";
-import { MonnifyApiResponse, SimpleResponse } from "@/services/monnify/types";
 
-interface FormData {
-  name: string;
-  description: string;
-  targetAmount: number;
-  category: string;
-  frequency: "daily" | "weekly" | "monthly" | "one-time";
-  contributionAmount: number;
-  startDate: string;
-  endDate: string;
-  isPublic: boolean;
-  requireApproval: boolean;
-  isFixedContribution: boolean;
-  allowAnonymous: boolean;
-  isOpenToJoin: boolean;
-  allowWithdrawals: boolean;
-  accountReference: string;
+// Define visibility type to fix TypeScript error
+type VisibilityType = "public" | "private" | "invite-only";
+
+// Define props for the step components to fix TypeScript errors
+interface DetailsStepProps {
+  formData: any;
+  handleChange: (field: string, value: any) => void;
+  goToNextStep: () => void;
+}
+
+interface ScheduleStepProps {
+  formData: any;
+  handleChange: (field: string, value: any) => void;
+  goToNextStep: () => void;
+  goToPreviousStep: () => void;
+}
+
+interface SettingsStepProps {
+  formData: any;
+  handleChange: (field: string, value: any) => void;
+  handleCreateGroup: () => void;
+  goToPreviousStep: () => void;
+  isLoading: boolean;
+  validationErrors: {[key: string]: string};
 }
 
 const GroupForm = () => {
-  const navigate = useNavigate();
-  const { user } = useUser();
-  const { createNewContribution } = useContribution();
-  const [currentStep, setCurrentStep] = useState(1);
-  const [formData, setFormData] = useState<FormData>({
-    name: "",
-    description: "",
-    targetAmount: 0,
-    category: "general",
-    frequency: "one-time",
-    contributionAmount: 0,
-    startDate: new Date().toISOString().split("T")[0],
-    endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0], // Default 30 days
-    isPublic: true,
-    requireApproval: false,
-    isFixedContribution: false,
-    allowAnonymous: true,
-    isOpenToJoin: true,
-    allowWithdrawals: true,
-    accountReference: ""
-  });
-  
+  const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
+  const { createNewContribution, user } = useApp();
+  
+  // Form state
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    targetAmount: 0,
+    category: 'personal',
+    frequency: 'monthly' as 'daily' | 'weekly' | 'monthly' | 'one-time',
+    contributionAmount: 0,
+    startDate: '',
+    endDate: '',
+    votingThreshold: 70,
+    privacy: 'private' as 'public' | 'private',
+    memberRoles: 'equal' as 'equal' | 'weighted',
+    notifyContributions: true,
+    notifyVotes: true,
+    notifyUpdates: true,
+    // Fields for account creation
+    bvn: '',
+    accountReference: `GROUP_${Date.now()}`,
+  });
+
   const [validationErrors, setValidationErrors] = useState<{
-    [key: string]: string;
+    bvn?: string;
   }>({});
-  
-  const MAX_STEPS = 3;
-  
-  // Listen for changes in formData.targetAmount to update minimum contribution
-  useEffect(() => {
-    // Set default contribution amount to 5% of target amount or 1000, whichever is less
-    if (formData.targetAmount > 0 && !formData.contributionAmount) {
-      const defaultAmount = Math.min(Math.ceil(formData.targetAmount * 0.05), 1000);
-      handleChange("contributionAmount", defaultAmount);
-    }
-  }, [formData.targetAmount]);
-  
-  // Handle form field changes
+
   const handleChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     
-    // Clear validation error when field is updated
-    if (validationErrors[field]) {
+    // Clear validation errors when field is updated
+    if (validationErrors[field as keyof typeof validationErrors]) {
       setValidationErrors(prev => {
         const newErrors = { ...prev };
-        delete newErrors[field];
+        delete newErrors[field as keyof typeof validationErrors];
         return newErrors;
       });
     }
   };
-  
-  // Validate the current step
-  const validateStep = () => {
-    const errors: { [key: string]: string } = {};
-    
+
+  const validateStep = (currentStep: number) => {
     if (currentStep === 1) {
       if (!formData.name.trim()) {
-        errors.name = "Group name is required";
-      }
-      if (!formData.description.trim()) {
-        errors.description = "Description is required";
+        toast.error("Group name is required");
+        return false;
       }
       if (formData.targetAmount <= 0) {
-        errors.targetAmount = "Target amount must be greater than zero";
+        toast.error("Target amount must be greater than zero");
+        return false;
       }
     } else if (currentStep === 2) {
-      if (formData.contributionAmount < 0) {
-        errors.contributionAmount = "Contribution amount cannot be negative";
+      if (formData.contributionAmount <= 0) {
+        toast.error("Contribution amount must be greater than zero");
+        return false;
       }
-      if (new Date(formData.startDate) > new Date(formData.endDate)) {
-        errors.endDate = "End date must be after start date";
+      if (!formData.startDate) {
+        toast.error("Start date is required");
+        return false;
+      }
+    } else if (currentStep === 3) {
+      // Validate BVN if we're on the settings step
+      const errors: {bvn?: string} = {};
+      
+      if (!formData.bvn.trim()) {
+        errors.bvn = "BVN is required to create a dedicated account for the group";
+      } else if (formData.bvn.length !== 11 || !/^\d+$/.test(formData.bvn)) {
+        errors.bvn = "BVN must be 11 digits";
+      }
+      
+      if (Object.keys(errors).length > 0) {
+        setValidationErrors(errors);
+        return false;
       }
     }
     
-    setValidationErrors(errors);
-    return Object.keys(errors).length === 0;
+    return true;
   };
-  
-  // Move to the next step
+
   const goToNextStep = () => {
-    if (validateStep()) {
-      if (currentStep < MAX_STEPS) {
-        setCurrentStep(prev => prev + 1);
-        window.scrollTo(0, 0);
-      } else {
-        handleSubmit();
-      }
+    if (!validateStep(step)) {
+      return;
     }
+    
+    window.scrollTo(0, 0);
+    setStep(step + 1);
   };
-  
-  // Move to the previous step
+
   const goToPreviousStep = () => {
-    if (currentStep > 1) {
-      setCurrentStep(prev => prev - 1);
-      window.scrollTo(0, 0);
-    }
+    window.scrollTo(0, 0);
+    setStep(step - 1);
   };
-  
-  // Create a Monnify account for the contribution group
-  const createGroupAccount = async () => {
-    if (!user || !user.name || !user.bvn) {
-      toast.error("BVN is required to create a contribution group");
-      return null;
+
+  const handleCreateGroup = async () => {
+    if (!validateStep(step)) {
+      return;
     }
-    
-    const groupAccountRef = `GROUP_${uuidv4()}_${Date.now()}`;
-    
-    const accountResult = await createContributionGroupAccount({
-      accountReference: groupAccountRef,
-      accountName: formData.name,
-      currencyCode: "NGN",
-      contractCode: "465595618981",
-      customerEmail: user.email,
-      customerName: user.name,
-      customerBvn: user.bvn
-    });
-    
-    // Handle the different response types correctly
-    if ((accountResult as SimpleResponse).success === false) {
-      toast.error((accountResult as SimpleResponse).message || "Failed to create group account");
-      return null;
-    }
-    
-    const apiResponse = accountResult as MonnifyApiResponse;
-    if (!apiResponse.requestSuccessful) {
-      toast.error(apiResponse.responseMessage || "Failed to create group account");
-      return null;
-    }
-    
-    return apiResponse.responseBody;
-  };
-  
-  // Submit the form data
-  const handleSubmit = async () => {
-    if (!validateStep()) return;
     
     setIsLoading(true);
     
     try {
-      // Create bank account for the group
-      const accountDetails = await createGroupAccount();
+      // Create a unique account reference for this group
+      const accountRef = `GROUP_${user.id}_${Date.now()}`;
       
-      if (!accountDetails) {
+      // Create a virtual account for the group first
+      const accountData = {
+        accountReference: accountRef,
+        accountName: formData.name, // Use the group name directly
+        currencyCode: "NGN",
+        contractCode: "465595618981", // Use the updated contract code
+        customerEmail: user.email,
+        customerName: formData.name,  // Use the group name for customer name too
+        customerBvn: formData.bvn
+      };
+      
+      console.log("Creating contribution group account:", accountData);
+      const accountResponse = await createContributionGroupAccount(accountData);
+      
+      if (!accountResponse.requestSuccessful) {
+        toast.error(accountResponse.message || "Failed to create account for the group");
         setIsLoading(false);
-        toast.error("Failed to create bank account for the group");
         return;
       }
       
-      // Create a new contribution with the form data
-      const contribution = {
-        id: uuidv4(),
+      // Extract account details from response
+      const accountDetails = accountResponse.responseBody;
+      console.log("Account creation successful:", accountDetails);
+      
+      // Prepare contribution data with account details
+      const contributionData = {
         name: formData.name,
         description: formData.description,
-        targetAmount: formData.targetAmount,
-        currentAmount: 0,
-        category: formData.category,
+        targetAmount: Number(formData.targetAmount),
+        category: formData.category as "personal" | "business" | "family" | "event" | "education" | "other", 
         frequency: formData.frequency,
-        contributionAmount: formData.contributionAmount,
-        createdBy: user.id,
-        createdAt: new Date().toISOString(),
+        contributionAmount: Number(formData.contributionAmount),
         startDate: formData.startDate,
-        endDate: formData.endDate,
-        members: [user.id],
-        contributors: [],
-        isPublic: formData.isPublic,
-        requireApproval: formData.requireApproval,
-        isFixedContribution: formData.isFixedContribution,
-        allowAnonymous: formData.allowAnonymous,
-        isOpenToJoin: formData.isOpenToJoin,
-        allowWithdrawals: formData.allowWithdrawals,
-        accountNumber: accountDetails.accounts?.[0]?.accountNumber || "",
-        accountBank: accountDetails.accounts?.[0]?.bankName || "",
-        accountReference: accountDetails.accountReference,
-        accountDetails: accountDetails
+        endDate: formData.endDate || undefined,
+        votingThreshold: formData.votingThreshold,
+        privacy: formData.privacy,
+        memberRoles: formData.memberRoles,
+        creatorId: user.id,
+        // Setting required properties to meet the type requirements
+        visibility: formData.privacy === 'public' ? 'public' as VisibilityType : 'private' as VisibilityType,
+        status: 'active' as 'active' | 'completed' | 'expired',
+        deadline: formData.endDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+        // Add account details
+        accountNumber: accountDetails.accounts[0].accountNumber,
+        bankName: accountDetails.accounts[0].bankName,
+        accountName: formData.name, // Use group name as account name
+        accountReference: accountRef, // Save the account reference for future API calls
+        accountDetails: accountDetails,
       };
       
-      createNewContribution(contribution);
+      // Create contribution
+      createNewContribution(contributionData);
       
-      // Navigate to the detail page for the new contribution
-      navigate(`/groups/${contribution.id}`);
+      toast.success("Group created successfully with dedicated account");
       
-      toast.success("Contribution group created successfully!");
+      // Navigate to dashboard
+      navigate("/dashboard");
     } catch (error) {
-      console.error("Error creating contribution group:", error);
-      toast.error("Failed to create contribution group");
+      console.error("Error creating group:", error);
+      toast.error(`Failed to create group: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       setIsLoading(false);
     }
   };
-  
-  // Render the appropriate step based on currentStep
+
+  // Render the appropriate step
   const renderStep = () => {
-    switch (currentStep) {
+    switch (step) {
       case 1:
         return (
-          <DetailsStep
-            formData={formData}
-            handleChange={handleChange}
-            goToNextStep={goToNextStep}
-            validationErrors={validationErrors}
+          <DetailsStep 
+            formData={formData} 
+            handleChange={handleChange} 
+            goToNextStep={goToNextStep} 
           />
         );
       case 2:
         return (
-          <ScheduleStep
-            formData={formData}
-            handleChange={handleChange}
-            goToNextStep={goToNextStep}
-            goToPreviousStep={goToPreviousStep}
-            validationErrors={validationErrors}
+          <ScheduleStep 
+            formData={formData} 
+            handleChange={handleChange} 
+            goToNextStep={goToNextStep} 
+            goToPreviousStep={goToPreviousStep} 
           />
         );
       case 3:
         return (
-          <SettingsStep
-            formData={formData}
-            handleChange={handleChange}
-            handleSubmit={handleSubmit}
-            goToPreviousStep={goToPreviousStep}
+          <SettingsStep 
+            formData={formData} 
+            handleChange={handleChange} 
+            handleCreateGroup={handleCreateGroup} 
+            goToPreviousStep={goToPreviousStep} 
             isLoading={isLoading}
             validationErrors={validationErrors}
           />
@@ -261,27 +245,12 @@ const GroupForm = () => {
         return null;
     }
   };
-  
+
   return (
-    <div className="container mx-auto max-w-4xl py-8 px-4">
-      <Card className="mb-8 border-0 shadow-none bg-transparent">
-        <CardContent className="p-0">
-          <StepIndicator currentStep={currentStep} totalSteps={MAX_STEPS} />
-        </CardContent>
-      </Card>
-      
-      <Card className="glass-card">
-        <CardContent className="p-6">
-          {renderStep()}
-        </CardContent>
-      </Card>
-      
-      <div className="mt-6 text-center text-sm text-muted-foreground">
-        <p>
-          By creating a contribution group, you agree to our Terms of Service and Privacy Policy.
-        </p>
-      </div>
-    </div>
+    <Card className="shadow-none border-0 p-6">
+      <StepIndicator currentStep={step} />
+      {renderStep()}
+    </Card>
   );
 };
 

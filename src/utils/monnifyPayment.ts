@@ -1,8 +1,8 @@
+
 import { getAuthToken } from "@/services/monnify/auth";
 import { createInvoice } from "@/services/monnify/payments";
 import { toast } from "sonner";
 import { createTransaction } from "@/services/localStorage/transactionOperations";
-import { MonnifyApiResponse, SimpleResponse } from "@/services/monnify/types";
 
 interface PayWithMonnifyProps {
   amount: number;
@@ -16,8 +16,6 @@ interface PayWithMonnifyProps {
     name: string;
     accountReference?: string;
   };
-  paymentReference?: string;
-  description?: string;
   anonymous?: boolean;
   onSuccess?: (response: any) => void;
   onClose?: () => void;
@@ -27,8 +25,6 @@ export const payWithMonnify = async ({
   amount,
   user,
   contribution,
-  paymentReference,
-  description,
   anonymous = false,
   onSuccess,
   onClose
@@ -48,41 +44,27 @@ export const payWithMonnify = async ({
       return;
     }
     
-    // Create payment description if not provided
-    const paymentDescription = description || (contribution 
+    // Create payment description
+    const description = contribution 
       ? `Contribution to ${contribution.name}${anonymous ? ' (Anonymous)' : ''}`
-      : `Wallet top-up by ${user.name}`);
-
-    // Generate payment reference if not provided  
-    const invoiceReference = paymentReference || `PAY-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
+      : `Wallet top-up by ${user.name}`;
     
-    // Format expiry date to match 'yyyy-MM-dd HH:mm:ss'
-    const expiryDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    const formattedExpiryDate = expiryDate.toISOString().replace('T', ' ').substring(0, 19);
-
+    // Prepare invoice data
     const invoiceData: any = {
       amount,
       customerName: user.name,
       customerEmail: user.email,
-      description: paymentDescription,
-      invoiceReference: invoiceReference,
-      redirectUrl: window.location.origin,
-      expiryDate: formattedExpiryDate,
+      description,
     };
     
     // Add contribution details if making a contribution
     if (contribution) {
-      invoiceData.metadata = {
-        contributionId: contribution.id,
-        contributionName: contribution.name,
-        isAnonymous: anonymous
-      };
+      invoiceData.contributionId = contribution.id;
+      invoiceData.contributionName = contribution.name;
       
       // If we have an account reference for the contribution, include it
       if (contribution.accountReference) {
         console.log(`Using account reference ${contribution.accountReference} for contribution payment`);
-        invoiceData.contributionId = contribution.id;
-        invoiceData.contributionName = contribution.name;
         invoiceData.contributionAccountReference = contribution.accountReference;
       } else {
         console.warn("No account reference found for contribution:", contribution.id);
@@ -95,18 +77,12 @@ export const payWithMonnify = async ({
     try {
       const response = await createInvoice(invoiceData);
       
-      // Handle different response types
-      if ((response as SimpleResponse).success === false) {
-        throw new Error((response as SimpleResponse).message);
-      }
-      
-      const apiResponse = response as MonnifyApiResponse;
-      if (!apiResponse.responseBody || !apiResponse.responseBody.checkoutUrl) {
-        throw new Error("Failed to create payment invoice - missing checkout URL");
+      if (!response || !response.checkoutUrl) {
+        throw new Error("Failed to create payment invoice");
       }
       
       // Open checkout in new window
-      const checkoutWindow = window.open(apiResponse.responseBody.checkoutUrl, "_blank");
+      const checkoutWindow = window.open(response.checkoutUrl, "_blank");
       
       // If window was blocked, show error
       if (!checkoutWindow) {
@@ -118,16 +94,16 @@ export const payWithMonnify = async ({
       // Create a local transaction record with the correct transaction type
       const transactionData = {
         userId: user.id,
-        type: contribution ? "contribution" as const : "deposit" as const,
+        type: "deposit" as const, // Type assertion to allowed values
         amount,
         contributionId: contribution ? contribution.id : "",
-        description: paymentDescription,
-        status: "pending" as const,
+        description,
+        status: "pending" as const, // Fix the type error by specifying the exact allowed value
         anonymous: !!anonymous,
-        reference: apiResponse.responseBody.invoiceReference || invoiceReference,
+        reference: response.invoiceReference || undefined,
         metaData: {
-          paymentReference: apiResponse.responseBody.paymentReference,
-          invoiceReference: apiResponse.responseBody.invoiceReference,
+          paymentReference: response.paymentReference,
+          invoiceReference: response.invoiceReference,
           contributionId: contribution?.id,
           contributionName: contribution?.name
         }
@@ -137,7 +113,7 @@ export const payWithMonnify = async ({
       
       // Call success callback
       if (onSuccess) {
-        onSuccess(apiResponse.responseBody);
+        onSuccess(response);
       }
       
       toast.success("Payment initialized. Complete your payment in the new window.");

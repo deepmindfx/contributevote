@@ -28,7 +28,7 @@ const WalletActions = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [isMonnifyDialogOpen, setIsMonnifyDialogOpen] = useState(false);
 
-  const handleMonnifyPayment = async (amount: number, anonymous: boolean) => {
+  const handleMonnifyPayment = (amount: number, anonymous: boolean) => {
     if (!user || !user.id) {
       toast.error("Please log in to contribute");
       return;
@@ -54,11 +54,7 @@ const WalletActions = ({
         amount
       });
       
-      // Generate a unique reference for this transaction
-      const paymentReference = `CONT-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
-      const description = `Contribution to ${contributionName}${anonymous ? ' (Anonymous)' : ''}`;
-      
-      await payWithMonnify({
+      payWithMonnify({
         amount: amount,
         user: {
           id: user.id,
@@ -70,15 +66,12 @@ const WalletActions = ({
           name: contributionName,
           accountReference: contribution.accountReference // Pass the account reference
         },
-        paymentReference: paymentReference,
-        description: description,
         anonymous: anonymous,
         onSuccess: (response) => {
           console.log("Payment successful:", response);
           refreshData();
           setIsProcessing(false);
           setIsMonnifyDialogOpen(false);
-          toast.success("Payment successful! Thank you for your contribution.");
         },
         onClose: () => {
           setIsProcessing(false);

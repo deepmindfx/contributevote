@@ -11,12 +11,6 @@ export interface MonnifyApiResponse<T = any> {
   responseBody: T;
 }
 
-// Simple response for error cases
-export interface SimpleResponse {
-  success: boolean;
-  message: string;
-}
-
 // Account response types
 export interface MonnifyAccountDetails {
   accountReference: string;
@@ -57,7 +51,6 @@ export interface MonnifyTransaction {
   destinationAccountName?: string;
   destinationAccountNumber?: string;
   destinationBankName?: string;
-  amount?: number; // Added to support both API versions
 }
 
 export interface MonnifyTransactionResponse {
@@ -89,44 +82,11 @@ export interface CreateGroupAccountRequest {
   contractCode: string;
   customerEmail: string;
   customerName: string;
-  customerBvn?: string;
+  customerBvn: string;
 }
 
-// Invoice response types
-export interface MonnifyInvoice {
-  invoiceReference: string;
-  description: string;
-  amount: number;
-  currencyCode: string;
-  customerEmail: string;
-  customerName: string;
-  expiryDate?: string;
-  redirectUrl: string;
-  paymentReference: string;
-  checkoutUrl: string;
-  status: string;
-  createdOn: string;
-}
-
-// Invoice creation types
-export interface CreateInvoiceRequest {
-  amount: number;
-  customerName: string;
-  customerEmail: string;
-  description: string;
-  invoiceReference?: string;
-  paymentMethods?: string[];
-  currencyCode?: string;
-  contractCode?: string;
-  redirectUrl?: string;
-  expiryDate?: string;
-  metadata?: Record<string, any>;
-  incomeSplitConfig?: IncomeSplitConfig[];
-}
-
-export interface IncomeSplitConfig {
-  subAccountCode: string;
-  feePercentage: number;
-  splitAmount: number;
-  feeBearer: boolean;
+// Simple response for error cases
+export interface SimpleResponse {
+  success: boolean;
+  message: string;
 }
