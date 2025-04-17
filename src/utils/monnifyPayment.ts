@@ -94,7 +94,7 @@ export const payWithMonnify = async ({
       // Create a local transaction record with the correct transaction type
       const transactionData = {
         userId: user.id,
-        type: "deposit" as const, // Type assertion to allowed values
+        type: contribution ? "deposit" as const : "deposit" as const, // Type assertion to allowed values
         amount,
         contributionId: contribution ? contribution.id : "",
         description,

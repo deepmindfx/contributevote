@@ -58,7 +58,7 @@ const WalletActions = ({
         amount: amount,
         user: {
           id: user.id,
-          name: user.name || `${user.firstName} ${user.lastName}`,
+          name: user.name,
           email: user.email
         },
         contribution: {

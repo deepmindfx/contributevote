@@ -1,3 +1,4 @@
+
 import { BASE_URL, CONTRACT_CODE } from './config';
 import { getAuthToken } from './auth';
 import { toast } from 'sonner';
@@ -47,8 +48,10 @@ export const createInvoice = async (data: any) => {
     // Get authentication token
     const token = await getAuthToken();
     
-    console.log("Sending invoice creation request to:", `${BASE_URL}/api/v1/merchant/invoices`);
-    console.log("Request payload:", JSON.stringify(requestBody, null, 2));
+    console.log("Sending invoice creation request with body:", JSON.stringify(requestBody, null, 2));
+    
+    // Add debugging for token value (only show first and last 10 chars for security)
+    console.log("Using auth token:", token.substring(0, 10) + "..." + token.substring(token.length - 10));
     
     const response = await fetch(`${BASE_URL}/api/v1/merchant/invoices`, {
       method: 'POST',
