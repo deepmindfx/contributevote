@@ -47,10 +47,14 @@ export const createInvoice = async (data: any) => {
     
     // Get authentication token
     const token = await getAuthToken();
+    if (!token) {
+      console.error("Failed to authenticate with payment provider");
+      throw new Error("Failed to authenticate with payment provider");
+    }
     
     console.log("Sending invoice creation request with body:", JSON.stringify(requestBody, null, 2));
     
-    // Add debugging for token value (only show first and last 10 chars for security)
+    // Add debugging for token value
     console.log("Using auth token:", token.substring(0, 10) + "..." + token.substring(token.length - 10));
     
     const response = await fetch(`${BASE_URL}/api/v1/merchant/invoices`, {
@@ -106,6 +110,10 @@ export const chargeCardToken = async (data: any) => {
     
     // Get authentication token
     const token = await getAuthToken();
+    if (!token) {
+      console.error("Failed to authenticate with payment provider");
+      throw new Error("Failed to authenticate with payment provider");
+    }
     
     const response = await fetch(`${BASE_URL}/api/v1/payments/charge-card-token`, {
       method: 'POST',
@@ -116,15 +124,7 @@ export const chargeCardToken = async (data: any) => {
       body: JSON.stringify(data)
     });
     
-    const responseText = await response.text();
-    let responseData;
-    
-    try {
-      responseData = JSON.parse(responseText);
-    } catch (e) {
-      console.error("Failed to parse response as JSON:", e);
-      throw new Error(`Invalid response from server: ${responseText}`);
-    }
+    const responseData = await response.json();
     
     if (!response.ok) {
       console.error("Failed to charge card token:", responseData);
