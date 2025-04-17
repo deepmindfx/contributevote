@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -13,6 +14,29 @@ import StepIndicator from "./StepIndicator";
 
 // Define visibility type to fix TypeScript error
 type VisibilityType = "public" | "private" | "invite-only";
+
+// Define props for the step components to fix TypeScript errors
+interface DetailsStepProps {
+  formData: any;
+  handleChange: (field: string, value: any) => void;
+  goToNextStep: () => void;
+}
+
+interface ScheduleStepProps {
+  formData: any;
+  handleChange: (field: string, value: any) => void;
+  goToNextStep: () => void;
+  goToPreviousStep: () => void;
+}
+
+interface SettingsStepProps {
+  formData: any;
+  handleChange: (field: string, value: any) => void;
+  handleCreateGroup: () => void;
+  goToPreviousStep: () => void;
+  isLoading: boolean;
+  validationErrors: {[key: string]: string};
+}
 
 const GroupForm = () => {
   const [step, setStep] = useState(1);

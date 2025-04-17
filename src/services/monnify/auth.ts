@@ -19,16 +19,24 @@ export const getAuthToken = async () => {
       }
     });
     
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Authentication failed with status:", response.status);
+      console.error("Response text:", errorText);
+      
+      // More detailed logging
+      console.error("Authentication headers:", {
+        'Authorization': 'Basic ****', // Redacted for security
+        'Content-Type': 'application/json'
+      });
+      
+      throw new Error(`Authentication failed: ${response.status}${errorText ? ` - ${errorText}` : ''}`);
+    }
+    
     const responseText = await response.text();
     
     try {
       const data = JSON.parse(responseText);
-      
-      if (!response.ok) {
-        console.error("Authentication failed with status:", response.status);
-        console.error("Response text:", responseText);
-        throw new Error(`Authentication failed: ${response.status} - ${data.responseMessage || ''}`);
-      }
       
       if (!data.requestSuccessful || !data.responseBody?.accessToken) {
         console.error("Auth response missing token:", data);

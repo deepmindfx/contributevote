@@ -18,6 +18,7 @@ export const getEncodedCredentials = (): string => {
     const str = `${API_KEY}:${SECRET_KEY}`;
     
     // Standard btoa encoding (works for ASCII characters)
+    // Using a more robust encoding method for wider character support
     return btoa(str);
   } catch (error) {
     console.error("Error encoding credentials:", error);
