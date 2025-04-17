@@ -86,6 +86,22 @@ const TransactionItem = ({ transaction, onViewReceipt }: TransactionItemProps) =
     }
   };
 
+  const getTransactionTitle = () => {
+    if (transaction.type === 'deposit') {
+      // For personal wallet deposits (no contributionId)
+      if (!transaction.contributionId) {
+        return 'Wallet Top-up' + getPaymentMethod();
+      }
+      // For contribution deposits
+      return 'Contribution' + getPaymentMethod();
+    } else if (transaction.type === 'withdrawal') {
+      return 'Fund Withdrawal';
+    } else if (transaction.type === 'vote') {
+      return 'Vote';
+    }
+    return 'Transaction';
+  };
+
   return (
     <div className="flex items-start py-3 border-b last:border-b-0">
       <div className={`w-10 h-10 rounded-full flex items-center justify-center
@@ -100,11 +116,7 @@ const TransactionItem = ({ transaction, onViewReceipt }: TransactionItemProps) =
         <div className="flex justify-between">
           <div>
             <h4 className="font-medium text-sm">
-              {transaction.type === 'deposit' 
-                ? 'Contribution' + getPaymentMethod()
-                : transaction.type === 'withdrawal' 
-                  ? 'Fund Withdrawal' 
-                  : 'Vote'}
+              {getTransactionTitle()}
             </h4>
             <p className="text-xs text-muted-foreground">
               {transaction.description || "Transaction"}

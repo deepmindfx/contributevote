@@ -1,6 +1,7 @@
 
 import { createPaymentInvoice } from "@/services/walletIntegration";
 import { contributeToGroup } from "@/services/localStorage";
+import { toast } from "sonner";
 
 interface MonnifyPaymentProps {
   amount: number;
@@ -54,39 +55,51 @@ export const payWithMonnify = async ({
     
     console.log("Creating payment with payload:", payload);
     
-    // Create the payment invoice
-    const result = await createPaymentInvoice(payload);
-    
-    if (!result || !result.checkoutUrl) {
-      throw new Error("Failed to create payment invoice");
-    }
-    
-    // For debugging purposes
-    console.log("Payment invoice created:", result);
-    
-    // Open the checkout URL in a new window
-    const checkoutWindow = window.open(result.checkoutUrl, "_blank");
-    
-    // Set up a polling mechanism to check for payment completion
-    const checkPaymentStatus = setInterval(() => {
-      if (checkoutWindow && checkoutWindow.closed) {
-        clearInterval(checkPaymentStatus);
-        
-        // Call the onClose callback when the window is closed
-        if (onClose) {
-          onClose();
-        }
+    try {
+      // Create the payment invoice
+      const result = await createPaymentInvoice(payload);
+      
+      if (!result || !result.checkoutUrl) {
+        console.error("Failed to create payment invoice:", result);
+        toast.error("Failed to create payment invoice. Please try again.");
+        if (onClose) onClose();
+        return null;
       }
-    }, 1000);
-    
-    // Return the result for further processing if needed
-    if (onSuccess) {
-      onSuccess(result);
+      
+      // For debugging purposes
+      console.log("Payment invoice created:", result);
+      
+      // Open the checkout URL in a new window
+      const checkoutWindow = window.open(result.checkoutUrl, "_blank");
+      
+      // Set up a polling mechanism to check for payment completion
+      const checkPaymentStatus = setInterval(() => {
+        if (checkoutWindow && checkoutWindow.closed) {
+          clearInterval(checkPaymentStatus);
+          
+          // Call the onClose callback when the window is closed
+          if (onClose) {
+            onClose();
+          }
+        }
+      }, 1000);
+      
+      // Return the result for further processing if needed
+      if (onSuccess) {
+        onSuccess(result);
+      }
+      
+      return result;
+    } catch (error) {
+      console.error("Error creating payment invoice:", error);
+      toast.error("Failed to create payment invoice. Please try again.");
+      if (onClose) onClose();
+      return null;
     }
-    
-    return result;
   } catch (error) {
     console.error("Error in payWithMonnify:", error);
-    throw error;
+    toast.error("Payment processing failed. Please try again.");
+    if (onClose) onClose();
+    return null;
   }
 };
