@@ -27,22 +27,13 @@ export const createInvoice = async (data: any) => {
     
     // If contributionId is provided, include account reference in request
     if (data.contributionId && data.contributionAccountReference) {
-      console.log("Adding split configuration for contribution account:", data.contributionAccountReference);
-      
       requestBody.incomeSplitConfig = [{
         subAccountCode: data.contributionAccountReference,
         feePercentage: 0, // No fee percentage
         splitAmount: data.amount, // Send entire amount to contribution account
         feeBearer: false // Group doesn't bear the fee
       }];
-      
-      // Add the contribution details to the metadata
-      requestBody.metaData = {
-        ...requestBody.metaData,
-        contributionId: data.contributionId,
-        contributionName: data.contributionName || "Group Contribution",
-        contributionAccountReference: data.contributionAccountReference
-      };
+      console.log("Adding split configuration for contribution account:", data.contributionAccountReference);
     }
     
     // Get authentication token
@@ -51,8 +42,6 @@ export const createInvoice = async (data: any) => {
       console.error("Failed to authenticate with payment provider");
       return { success: false, message: "Failed to authenticate with payment provider" };
     }
-    
-    console.log("Sending invoice creation request with body:", JSON.stringify(requestBody, null, 2));
     
     const response = await fetch(`${BASE_URL}/api/v1/merchant/invoices`, {
       method: 'POST',
