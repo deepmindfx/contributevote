@@ -18,13 +18,23 @@ export const createInvoice = async (data: any): Promise<MonnifyApiResponse | Sim
       amount: data.amount,
       customerName: data.customerName,
       customerEmail: data.customerEmail,
-      paymentDescription: data.description || "Payment",
-      paymentReference: `PAY-${Date.now()}-${Math.floor(Math.random() * 1000000)}`,
+      description: data.description || "Payment",
+      invoiceReference: data.invoiceReference || `PAY-${Date.now()}-${Math.floor(Math.random() * 1000000)}`,
       paymentMethods: ["CARD", "ACCOUNT_TRANSFER"],
       currencyCode: "NGN",
       contractCode: CONTRACT_CODE,
-      redirectUrl: window.location.origin,
+      redirectUrl: data.redirectUrl || window.location.origin,
     };
+    
+    // Set expiry date if provided
+    if (data.expiryDate) {
+      requestBody.expiryDate = data.expiryDate;
+    }
+
+    // Add metadata if provided
+    if (data.metadata) {
+      requestBody.metadata = data.metadata;
+    }
     
     // If contributionId is provided, include account reference in request
     if (data.contributionId && data.contributionAccountReference) {
@@ -38,8 +48,8 @@ export const createInvoice = async (data: any): Promise<MonnifyApiResponse | Sim
       }];
       
       // Add the contribution details to the metadata
-      requestBody.metaData = {
-        ...requestBody.metaData,
+      requestBody.metadata = {
+        ...requestBody.metadata,
         contributionId: data.contributionId,
         contributionName: data.contributionName || "Group Contribution",
         contributionAccountReference: data.contributionAccountReference
@@ -49,8 +59,8 @@ export const createInvoice = async (data: any): Promise<MonnifyApiResponse | Sim
     // Get authentication token
     const token = await getAuthToken();
     
-    // FIXED: Use the correct invoice endpoint
-    const invoiceEndpoint = `${BASE_URL}/api/v2/invoice/create`;
+    // FIXED: Use the correct invoice endpoint (v1 instead of v2)
+    const invoiceEndpoint = `${BASE_URL}/api/v1/invoice/create`;
     console.log("Sending invoice creation request to:", invoiceEndpoint);
     console.log("Request payload:", JSON.stringify(requestBody, null, 2));
     
@@ -84,7 +94,7 @@ export const createInvoice = async (data: any): Promise<MonnifyApiResponse | Sim
       console.error("Failed to create invoice:", responseData);
       return {
         success: false,
-        message: responseData.responseMessage || `Failed to create invoice: ${response.status}`
+        message: (responseData as MonnifyApiResponse)?.responseMessage || `Failed to create invoice: ${response.status}`
       };
     }
     
@@ -93,7 +103,7 @@ export const createInvoice = async (data: any): Promise<MonnifyApiResponse | Sim
       console.error("Invoice creation failed with error:", responseData);
       return {
         success: false,
-        message: (responseData as MonnifyApiResponse).responseMessage || "Failed to create invoice"
+        message: (responseData as MonnifyApiResponse)?.responseMessage || "Failed to create invoice"
       };
     }
     
@@ -146,7 +156,7 @@ export const chargeCardToken = async (data: any): Promise<MonnifyApiResponse | S
       console.error("Failed to charge card token:", responseData);
       return {
         success: false,
-        message: (responseData as MonnifyApiResponse).responseMessage || `Failed to charge card token: ${response.status}`
+        message: (responseData as MonnifyApiResponse)?.responseMessage || `Failed to charge card token: ${response.status}`
       };
     }
     
@@ -155,7 +165,7 @@ export const chargeCardToken = async (data: any): Promise<MonnifyApiResponse | S
       console.error("Card token charging failed with error:", responseData);
       return {
         success: false,
-        message: (responseData as MonnifyApiResponse).responseMessage || "Failed to charge card token"
+        message: (responseData as MonnifyApiResponse)?.responseMessage || "Failed to charge card token"
       };
     }
     

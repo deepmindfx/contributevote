@@ -17,6 +17,8 @@ interface PayWithMonnifyProps {
     name: string;
     accountReference?: string;
   };
+  paymentReference?: string;
+  description?: string;
   anonymous?: boolean;
   onSuccess?: (response: any) => void;
   onClose?: () => void;
@@ -26,6 +28,8 @@ export const payWithMonnify = async ({
   amount,
   user,
   contribution,
+  paymentReference,
+  description,
   anonymous = false,
   onSuccess,
   onClose
@@ -45,27 +49,37 @@ export const payWithMonnify = async ({
       return;
     }
     
-    // Create payment description
-    const description = contribution 
+    // Create payment description if not provided
+    const paymentDescription = description || (contribution 
       ? `Contribution to ${contribution.name}${anonymous ? ' (Anonymous)' : ''}`
-      : `Wallet top-up by ${user.name}`;
+      : `Wallet top-up by ${user.name}`);
+
+    // Generate payment reference if not provided  
+    const invoiceReference = paymentReference || `PAY-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
     
     // Prepare invoice data
     const invoiceData: any = {
       amount,
       customerName: user.name,
       customerEmail: user.email,
-      description,
+      description: paymentDescription,
+      invoiceReference: invoiceReference,
+      redirectUrl: window.location.origin,
     };
     
     // Add contribution details if making a contribution
     if (contribution) {
-      invoiceData.contributionId = contribution.id;
-      invoiceData.contributionName = contribution.name;
+      invoiceData.metadata = {
+        contributionId: contribution.id,
+        contributionName: contribution.name,
+        isAnonymous: anonymous
+      };
       
       // If we have an account reference for the contribution, include it
       if (contribution.accountReference) {
         console.log(`Using account reference ${contribution.accountReference} for contribution payment`);
+        invoiceData.contributionId = contribution.id;
+        invoiceData.contributionName = contribution.name;
         invoiceData.contributionAccountReference = contribution.accountReference;
       } else {
         console.warn("No account reference found for contribution:", contribution.id);
@@ -101,13 +115,13 @@ export const payWithMonnify = async ({
       // Create a local transaction record with the correct transaction type
       const transactionData = {
         userId: user.id,
-        type: "deposit" as const,
+        type: contribution ? "contribution" as const : "deposit" as const,
         amount,
         contributionId: contribution ? contribution.id : "",
-        description,
+        description: paymentDescription,
         status: "pending" as const,
         anonymous: !!anonymous,
-        reference: apiResponse.responseBody.invoiceReference || undefined,
+        reference: apiResponse.responseBody.invoiceReference || invoiceReference,
         metaData: {
           paymentReference: apiResponse.responseBody.paymentReference,
           invoiceReference: apiResponse.responseBody.invoiceReference,

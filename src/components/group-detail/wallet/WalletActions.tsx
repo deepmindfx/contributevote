@@ -54,6 +54,10 @@ const WalletActions = ({
         amount
       });
       
+      // Generate a unique reference for this transaction
+      const paymentReference = `CONT-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
+      const description = `Contribution to ${contributionName}${anonymous ? ' (Anonymous)' : ''}`;
+      
       await payWithMonnify({
         amount: amount,
         user: {
@@ -66,12 +70,15 @@ const WalletActions = ({
           name: contributionName,
           accountReference: contribution.accountReference // Pass the account reference
         },
+        paymentReference: paymentReference,
+        description: description,
         anonymous: anonymous,
         onSuccess: (response) => {
           console.log("Payment successful:", response);
           refreshData();
           setIsProcessing(false);
           setIsMonnifyDialogOpen(false);
+          toast.success("Payment successful! Thank you for your contribution.");
         },
         onClose: () => {
           setIsProcessing(false);
