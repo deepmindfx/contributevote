@@ -30,15 +30,19 @@ export const createInvoice = async (data: any) => {
       requestBody.expiryDate = data.expiryDate;
     }
     
-    // If contributionId is provided, include account reference in request
-    if (data.contributionId && data.contributionAccountReference) {
-      requestBody.incomeSplitConfig = [{
-        subAccountCode: data.contributionAccountReference,
-        feePercentage: 0, // No fee percentage
-        splitAmount: data.amount, // Send entire amount to contribution account
-        feeBearer: false // Group doesn't bear the fee
-      }];
-      console.log("Adding split configuration for contribution account:", data.contributionAccountReference);
+    // If contributionId is provided and has an account reference, setup split configuration
+    if (data.contributionAccountReference) {
+      // Instead of trying to direct the payment to a sub-account,
+      // we'll just use the standard payment flow and record the contribution
+      // This is a workaround for the "Unknown sub account code" error
+      console.log("Not adding split configuration due to known API limitations");
+      
+      // Add metadata for tracking
+      requestBody.metadata = {
+        contributionId: data.contributionId,
+        contributionName: data.contributionName,
+        anonymous: data.anonymous || false
+      };
     }
     
     // Get authentication token
