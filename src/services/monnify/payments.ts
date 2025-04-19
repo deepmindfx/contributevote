@@ -25,6 +25,11 @@ export const createInvoice = async (data: any) => {
       redirectUrl: window.location.origin,
     };
     
+    // Add expiry date if provided (should be in format: yyyy-MM-dd HH:mm:ss)
+    if (data.expiryDate) {
+      requestBody.expiryDate = data.expiryDate;
+    }
+    
     // If contributionId is provided, include account reference in request
     if (data.contributionId && data.contributionAccountReference) {
       requestBody.incomeSplitConfig = [{
@@ -43,7 +48,8 @@ export const createInvoice = async (data: any) => {
       return { success: false, message: "Failed to authenticate with payment provider" };
     }
     
-    const response = await fetch(`${BASE_URL}/api/v1/merchant/invoices`, {
+    // Use the correct endpoint for invoice creation
+    const response = await fetch(`${BASE_URL}/api/v1/merchant/transactions/init-transaction`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -89,7 +95,7 @@ export const chargeCardToken = async (data: any) => {
       throw new Error("Failed to authenticate with payment provider");
     }
     
-    const response = await fetch(`${BASE_URL}/api/v1/payments/charge-card-token`, {
+    const response = await fetch(`${BASE_URL}/api/v1/merchant/cards/charge`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,

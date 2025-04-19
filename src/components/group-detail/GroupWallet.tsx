@@ -57,6 +57,7 @@ const GroupWallet = ({
           onWithdrawClick={() => setWithdrawalDialogOpen(true)}
           contributionId={contribution.id}
           contributionName={contribution.name}
+          contributionAccountReference={contribution.accountReference}
         />
       </div>
       

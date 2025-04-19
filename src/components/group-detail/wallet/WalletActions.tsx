@@ -14,6 +14,7 @@ interface WalletActionsProps {
   onWithdrawClick: () => void;
   contributionId: string;
   contributionName: string;
+  contributionAccountReference?: string;
 }
 
 const WalletActions = ({ 
@@ -21,7 +22,8 @@ const WalletActions = ({
   onContributeClick, 
   onWithdrawClick,
   contributionId,
-  contributionName
+  contributionName,
+  contributionAccountReference
 }: WalletActionsProps) => {
   const { user } = useUser();
   const { refreshData } = useApp();
@@ -46,15 +48,19 @@ const WalletActions = ({
         },
         contribution: {
           id: contributionId,
-          name: contributionName
+          name: contributionName,
+          accountReference: contributionAccountReference
         },
         anonymous: anonymous,
         onSuccess: (response) => {
+          console.log("Payment success, refreshing data", response);
           refreshData();
           setIsProcessing(false);
           setIsMonnifyDialogOpen(false);
+          toast.success("Payment initiated successfully. Check back for confirmation.");
         },
         onClose: () => {
+          console.log("Payment window closed");
           setIsProcessing(false);
           setIsMonnifyDialogOpen(false);
         }

@@ -315,10 +315,11 @@ export const createPaymentInvoice = async (data: {
   description: string;
   customerEmail: string;
   customerName: string;
-  expiryDate?: Date;
+  expiryDate?: string;
   contributionId?: string;
   userId: string;
   redirectUrl?: string;
+  contributionAccountReference?: string;
 }): Promise<any> => {
   try {
     const {
@@ -329,7 +330,8 @@ export const createPaymentInvoice = async (data: {
       expiryDate,
       contributionId,
       userId,
-      redirectUrl
+      redirectUrl,
+      contributionAccountReference
     } = data;
     
     // Generate a unique invoice reference
@@ -344,9 +346,17 @@ export const createPaymentInvoice = async (data: {
       customerName,
       currencyCode: "NGN",
       contractCode: "465595618981", // Updated with real contract code
-      expiryDate: expiryDate ? expiryDate.toISOString() : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       redirectUrl: redirectUrl || window.location.origin + "/dashboard"
     };
+    
+    // Format expiry date if provided in the format yyyy-MM-dd HH:mm:ss
+    if (expiryDate) {
+      invoiceData.expiryDate = expiryDate;
+    } else {
+      // Default expiry date (24 hours)
+      const defaultExpiryDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      invoiceData.expiryDate = defaultExpiryDate.toISOString().replace('T', ' ').substring(0, 19);
+    }
     
     // Get user data to check for reserved account
     const currentUser = getCurrentUser();
@@ -364,49 +374,55 @@ export const createPaymentInvoice = async (data: {
       Object.assign(invoiceData, { metaData });
     }
     
+    // If contribution account reference is provided, add split configuration
+    if (contributionId && contributionAccountReference) {
+      invoiceData.contributionId = contributionId;
+      invoiceData.contributionAccountReference = contributionAccountReference;
+    }
+    
     // Create the invoice
     const result = await monnifyApi.createInvoice(invoiceData);
     
-    if (!result || !result.responseBody) {
+    if (!result || !result.checkoutUrl) {
       toast.error("Failed to create invoice");
       return null;
     }
     
-    const responseBody = result.responseBody;
-    
     // Store the invoice in the user's data
-    const userInvoices = user?.invoices || [];
-    const newInvoice: InvoiceData = {
-      invoiceReference: responseBody.invoiceReference,
-      description: responseBody.description,
-      amount: responseBody.amount,
-      currencyCode: responseBody.currencyCode,
-      status: responseBody.status,
-      customerEmail: responseBody.customerEmail,
-      customerName: responseBody.customerName,
-      expiryDate: responseBody.expiryDate,
-      redirectUrl: responseBody.redirectUrl,
-      checkoutUrl: responseBody.checkoutUrl,
-      createdOn: responseBody.createdOn,
-      createdAt: new Date().toISOString(),
-      contributionId: contributionId || ""
-    };
+    if (user) {
+      const userInvoices = user.invoices || [];
+      const newInvoice = {
+        invoiceReference: result.invoiceReference || invoiceReference,
+        description: description,
+        amount: amount,
+        currencyCode: "NGN",
+        status: "PENDING",
+        customerEmail: customerEmail,
+        customerName: customerName,
+        expiryDate: expiryDate || invoiceData.expiryDate,
+        redirectUrl: redirectUrl || window.location.origin + "/dashboard",
+        checkoutUrl: result.checkoutUrl,
+        createdOn: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        contributionId: contributionId || ""
+      };
     
-    if (userId === currentUser.id) {
-      // Update current user
-      updateUser({ 
-        ...currentUser, 
-        invoices: [...userInvoices, newInvoice] 
-      });
-    } else {
-      // Update other user (admin action)
-      updateUserById(userId, { 
-        invoices: [...userInvoices, newInvoice] 
-      });
+      if (userId === currentUser.id) {
+        // Update current user
+        updateUser({ 
+          ...currentUser, 
+          invoices: [...userInvoices, newInvoice] 
+        });
+      } else {
+        // Update other user (admin action)
+        updateUserById(userId, { 
+          invoices: [...userInvoices, newInvoice] 
+        });
+      }
     }
     
     toast.success("Invoice created successfully");
-    return responseBody;
+    return result;
   } catch (error) {
     console.error("Error creating invoice:", error);
     toast.error("Failed to create invoice. Please try again.");

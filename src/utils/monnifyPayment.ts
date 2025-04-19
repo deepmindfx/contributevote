@@ -1,6 +1,7 @@
 
 import { createPaymentInvoice } from "@/services/walletIntegration";
 import { contributeToGroup } from "@/services/localStorage";
+import { createTransaction } from "@/services/localStorage/transactionOperations";
 import { toast } from "sonner";
 
 interface MonnifyPaymentProps {
@@ -53,6 +54,11 @@ export const payWithMonnify = async ({
       }
     }
     
+    // Add expiryDate formatted as yyyy-MM-dd HH:mm:ss (24 hours from now)
+    const expiryDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const formattedExpiryDate = expiryDate.toISOString().replace('T', ' ').substring(0, 19);
+    payload.expiryDate = formattedExpiryDate;
+    
     console.log("Creating payment with payload:", payload);
     
     try {
@@ -64,6 +70,26 @@ export const payWithMonnify = async ({
         toast.error("Failed to create payment invoice. Please try again.");
         if (onClose) onClose();
         return null;
+      }
+      
+      // Create a local transaction record to track the payment
+      if (contribution && contribution.id) {
+        createTransaction({
+          userId: user.id,
+          type: "payment",
+          amount: amount,
+          contributionId: contribution.id,
+          description: `Card payment for ${contribution.name}`,
+          status: "pending",
+          anonymous: anonymous || false,
+          reference: result.invoiceReference,
+          metaData: {
+            paymentReference: result.paymentReference,
+            invoiceReference: result.invoiceReference,
+            contributionId: contribution.id,
+            contributionName: contribution.name
+          }
+        });
       }
       
       // For debugging purposes
