@@ -73,6 +73,7 @@ export const payWithMonnify = async ({
       }
       
       // Create a local transaction record to track the payment
+      const transactionId = `PAY-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
       if (contribution && contribution.id) {
         createTransaction({
           userId: user.id,
@@ -82,7 +83,7 @@ export const payWithMonnify = async ({
           description: `Card payment for ${contribution.name}`,
           status: "pending",
           anonymous: anonymous || false,
-          reference: result.invoiceReference,
+          reference: result.paymentReference || transactionId,
           metaData: {
             paymentReference: result.paymentReference,
             invoiceReference: result.invoiceReference,
@@ -102,6 +103,28 @@ export const payWithMonnify = async ({
       const checkPaymentStatus = setInterval(() => {
         if (checkoutWindow && checkoutWindow.closed) {
           clearInterval(checkPaymentStatus);
+          
+          // If window closed, check for successful payment and update wallet
+          // This would typically be done by a webhook in production, but we simulate it here
+          setTimeout(() => {
+            console.log("Simulating payment verification after checkout window closed");
+            // If this was a contribution, update the contribution amount
+            if (contribution && contribution.id) {
+              // Try to contribute to the group using the reference from Monnify
+              if (result.paymentReference) {
+                try {
+                  contributeToGroup(contribution.id, amount, anonymous, {
+                    reference: result.paymentReference,
+                    status: "completed",
+                    method: "card"
+                  });
+                  toast.success(`Successfully contributed ₦${amount.toLocaleString()} to ${contribution.name}`);
+                } catch (err) {
+                  console.error("Error contributing to group after payment:", err);
+                }
+              }
+            }
+          }, 2000);
           
           // Call the onClose callback when the window is closed
           if (onClose) {

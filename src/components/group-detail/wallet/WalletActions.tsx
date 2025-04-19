@@ -61,6 +61,10 @@ const WalletActions = ({
         },
         onClose: () => {
           console.log("Payment window closed");
+          // Since we added auto-contribution in payWithMonnify, we need to refresh here
+          setTimeout(() => {
+            refreshData();
+          }, 2000);
           setIsProcessing(false);
           setIsMonnifyDialogOpen(false);
         }
