@@ -120,11 +120,11 @@ const GroupForm = () => {
     
     try {
       // Create a unique account reference for this group
-      const accountRef = `GROUP_${user.id}_${Date.now()}`;
+      const accountRef = `GROUP_${user?.id}_${Date.now()}`;
       
       // Create a virtual account for the group using Flutterwave
       const accountParams = {
-        email: user.email,
+        email: user?.email || '',
         name: formData.name, // Use the group name
         bvn: formData.bvn,
         narration: `Please make a bank transfer to ${formData.name} Contribution Group`
@@ -156,7 +156,7 @@ const GroupForm = () => {
         votingThreshold: formData.votingThreshold,
         privacy: formData.privacy,
         memberRoles: formData.memberRoles,
-        creatorId: user.id,
+        creatorId: user?.id || '',
         // Setting required properties to meet the type requirements
         visibility: formData.privacy === 'public' ? 'public' as VisibilityType : 'private' as VisibilityType,
         status: 'active' as 'active' | 'completed' | 'expired',

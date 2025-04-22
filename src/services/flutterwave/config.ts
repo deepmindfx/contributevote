@@ -11,4 +11,3 @@ export const getHeaders = () => ({
   'Authorization': `Bearer ${API_KEY}`,
   'Content-Type': 'application/json'
 });
-

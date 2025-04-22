@@ -1,3 +1,4 @@
+
 export interface User {
   id: string;
   firstName: string;
@@ -28,6 +29,12 @@ export interface User {
   passwordResetExpires?: Date;
   createdAt: string;
   updatedAt: string;
+  name?: string;
+  role?: string;
+  preferences?: {
+    theme: string;
+    notifications: boolean;
+  };
 }
 
 export interface Contribution {
@@ -57,6 +64,11 @@ export interface Contribution {
   contributors?: string[];
   createdAt: string;
   updatedAt: string;
+  members?: Array<{
+    userId: string;
+    role: string;
+    joinedAt: string;
+  }>;
 }
 
 export interface WithdrawalRequest {
@@ -71,6 +83,7 @@ export interface WithdrawalRequest {
   createdAt: string;
   updatedAt: string;
   requestedBy: string;
+  deadline?: string;
 }
 
 export interface Transaction {
@@ -78,7 +91,7 @@ export interface Transaction {
   userId: string;
   amount: number;
   type: 'deposit' | 'withdrawal' | 'contribution' | 'payout';
-  status: 'pending' | 'completed' | 'failed';
+  status: 'pending' | 'completed' | 'failed' | 'successful';
   description?: string;
   referenceId?: string;
   accountReference?: string;
@@ -88,9 +101,35 @@ export interface Transaction {
   withdrawalRequestId?: string;
   paymentMethod?: string;
   isAnonymous?: boolean;
+  reference?: string;
+  metaData?: {
+    contributionName?: string;
+    bankName?: string;
+    accountNumber?: string;
+    contributorName?: string;
+    withdrawalPurpose?: string;
+    paymentReference?: string;
+  };
   userDetails?: {
     name: string;
     email?: string;
     phone?: string;
   };
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  title: string;
+  message: string;
+  type: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export interface Stats {
+  totalContributions: number;
+  totalAmount: number;
+  activeGroups: number;
+  completedGroups: number;
 }

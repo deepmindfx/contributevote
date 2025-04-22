@@ -117,23 +117,35 @@ const ReservedAccount = () => {
         return;
       }
       
-      const result = await getUserReservedAccount(user.id);
-      if (result) {
-        console.log("Retrieved account details:", result);
-        setAccountDetails(result);
+      // Get a response with the correct format
+      const response = await getUserReservedAccount({
+        email: user.email,
+        name: user.name || `${user.firstName} ${user.lastName}`,
+        isPermanent: true
+      });
+      
+      if (response.requestSuccessful) {
+        // This data will already be in the right format for accountDetails
+        setAccountDetails({
+          accountNumber: response.responseBody.accounts[0].accountNumber,
+          bankName: response.responseBody.accounts[0].bankName,
+          accountName: response.responseBody.accountName,
+          accountReference: response.responseBody.accountReference,
+          accounts: response.responseBody.accounts
+        });
         
         // Fetch transactions when refreshing account details
-        if (result.accountReference) {
-          try {
-            await getReservedAccountTransactions(result.accountReference);
-          } catch (error) {
-            console.error("Error fetching transactions after refresh:", error);
-            // Continue even if this fails
-          }
+        try {
+          await getReservedAccountTransactions(response.responseBody.accountReference);
+        } catch (error) {
+          console.error("Error fetching transactions after refresh:", error);
+          // Continue even if this fails
         }
         
         refreshData();
         toast.success("Account details refreshed");
+      } else {
+        toast.error(response.responseMessage || "Failed to refresh account details");
       }
     } catch (error) {
       console.error("Error refreshing reserved account:", error);
