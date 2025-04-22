@@ -1,3 +1,4 @@
+
 import {
   createVirtualAccount,
   createGroupVirtualAccount
@@ -24,14 +25,15 @@ export interface ReservedAccountData {
 }
 
 export interface VirtualAccountResponse {
-  status: string;
-  message: string;
-  data: {
-    account_number: string;
-    bank_name: string;
-    note: string;
-    flw_ref: string;
-    order_ref: string;
+  requestSuccessful: boolean;
+  responseMessage: string;
+  responseBody: {
+    accounts: Array<{
+      accountNumber: string;
+      bankName: string;
+    }>;
+    accountReference: string;
+    accountName: string;
   };
 }
 
