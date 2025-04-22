@@ -17,46 +17,44 @@ interface VirtualAccountResponse {
 interface AccountCreationParams {
   email: string;
   name: string;
-  amount?: number;
   bvn?: string;
+  amount?: number;
   isPermanent?: boolean;
   narration?: string;
 }
 
-/**
- * Create a virtual account for a user
- */
 export const createVirtualAccount = async (params: AccountCreationParams) => {
   try {
-    console.log("Creating virtual account with Flutterwave...");
-    
-    // In a real production environment, this API call should be proxied through a backend
-    // Since we're in a demo environment, let's mock a successful response
-    // This avoids CORS issues with direct API calls from the browser
-    
-    // Mock a successful response
-    const mockResponse = {
-      status: "success",
-      message: "Virtual account created",
-      data: {
-        account_number: "7" + Math.floor(Math.random() * 10000000000),
-        bank_name: "WEMA BANK",
-        note: `Please make a bank transfer to ${params.name}`,
-        flw_ref: `FLW-MOCK-${uuidv4()}`,
-        order_ref: `URF-MOCK-${uuidv4()}`
-      }
-    };
+    const response = await fetch(`${BASE_URL}/virtual-account-numbers`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({
+        email: params.email,
+        is_permanent: params.isPermanent || true,
+        bvn: params.bvn,
+        tx_ref: `VA_${uuidv4()}`,
+        narration: params.narration || `Please make a bank transfer to ${params.name}`,
+        currency: "NGN",
+        ...(params.amount && { amount: params.amount })
+      })
+    });
 
-    // Transform response to match expected format
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to create virtual account');
+    }
+
+    const data = await response.json();
+
     return {
       requestSuccessful: true,
-      responseMessage: "Virtual account created successfully",
+      responseMessage: data.message || "Virtual account created successfully",
       responseBody: {
         accounts: [{
-          accountNumber: mockResponse.data.account_number,
-          bankName: mockResponse.data.bank_name
+          accountNumber: data.data.account_number,
+          bankName: data.data.bank_name
         }],
-        accountReference: mockResponse.data.flw_ref,
+        accountReference: data.data.flw_ref,
         accountName: params.name
       }
     };
@@ -70,12 +68,13 @@ export const createVirtualAccount = async (params: AccountCreationParams) => {
   }
 };
 
-/**
- * Create a virtual account for a contribution group
- */
 export const createGroupVirtualAccount = async (params: AccountCreationParams) => {
+  // Make sure BVN is included for permanent group accounts
+  if (!params.bvn) {
+    throw new Error("BVN is required for creating group virtual accounts");
+  }
+
   try {
-    // Use same function but with permanent account setting for groups
     return await createVirtualAccount({
       ...params,
       isPermanent: true,

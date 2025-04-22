@@ -1,16 +1,9 @@
-
 import React, { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { createGroupVirtualAccount } from "@/services/flutterwave/virtualAccounts";
 import { useApp } from "@/contexts/AppContext";
-
-// Import Step Components
-import DetailsStep from "./DetailsStep";
-import ScheduleStep from "./ScheduleStep";
-import SettingsStep from "./SettingsStep";
-import StepIndicator from "./StepIndicator";
 
 // Define visibility type to fix TypeScript error
 type VisibilityType = "public" | "private" | "invite-only";
@@ -125,7 +118,7 @@ const GroupForm = () => {
       // Create a virtual account for the group using Flutterwave
       const accountParams = {
         email: user?.email || '',
-        name: formData.name, // Use the group name
+        name: formData.name,
         bvn: formData.bvn,
         narration: `Please make a bank transfer to ${formData.name} Contribution Group`
       };
@@ -157,16 +150,14 @@ const GroupForm = () => {
         privacy: formData.privacy,
         memberRoles: formData.memberRoles,
         creatorId: user?.id || '',
-        // Setting required properties to meet the type requirements
-        visibility: formData.privacy === 'public' ? 'public' as VisibilityType : 'private' as VisibilityType,
-        status: 'active' as 'active' | 'completed' | 'expired',
+        visibility: formData.privacy === 'public' ? 'public' as const : 'private' as const,
+        status: 'active' as const,
         deadline: formData.endDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-        // Add account details
         accountNumber: accountDetails.accounts[0].accountNumber,
         bankName: accountDetails.accounts[0].bankName,
-        accountName: formData.name, // Use group name as account name
-        accountReference: accountRef, // Save the account reference for future API calls
-        accountDetails: accountDetails,
+        accountName: formData.name,
+        accountReference: accountRef,
+        accountDetails: accountDetails
       };
       
       // Create contribution
