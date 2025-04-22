@@ -1,3 +1,4 @@
+
 export interface User {
   id: string;
   firstName: string;
@@ -11,10 +12,12 @@ export interface User {
   walletBalance: number;
   preferences: {
     darkMode: boolean;
+    anonymousContributions?: boolean;
   };
   reservedAccount?: ReservedAccountData;
   otp?: string;
   isVerified?: boolean;
+  name?: string; // Added for compatibility
 }
 
 export interface ReservedAccountData {
@@ -51,6 +54,8 @@ export interface Contribution {
   accountName: string;
   accountReference: string;
   accountDetails: any;
+  contributors?: { [userId: string]: number };
+  members?: string[];
 }
 
 export interface WithdrawalRequest {
@@ -64,20 +69,24 @@ export interface WithdrawalRequest {
     [userId: string]: 'approve' | 'reject';
   };
   createdAt: string;
+  deadline?: string;
 }
 
 export interface Transaction {
   id: string;
   userId: string;
   amount: number;
-  type: 'contribution' | 'withdrawal' | 'deposit';
-  status: 'pending' | 'completed' | 'failed';
+  type: 'contribution' | 'withdrawal' | 'deposit' | 'transfer' | 'payment' | 'vote';
+  status: 'pending' | 'completed' | 'failed' | 'successful';
   description: string;
   referenceId: string;
+  reference?: string; // Added for backward compatibility
   contributionId?: string;
   paymentMethod: string;
   isAnonymous?: boolean;
+  anonymous?: boolean; // Added for backward compatibility
   updatedAt: string;
+  createdAt?: string; // Added for backward compatibility
   metaData?: TransactionMetaData;
   userDetails?: {
     name: string;
@@ -97,4 +106,26 @@ export interface TransactionMetaData {
   senderBank?: string;
   transactionReference?: string;
   accountReference?: string;
+  customerName?: string; // Added for compatibility
+}
+
+// Added for backward compatibility
+export interface Notification {
+  id: string;
+  userId: string;
+  title: string;
+  message: string;
+  type: string;
+  isRead: boolean;
+  createdAt: string;
+  link?: string;
+}
+
+// Added for backward compatibility
+export interface Stats {
+  totalUsers: number;
+  totalContributions: number;
+  totalTransactions: number;
+  totalWithdrawals: number;
+  totalDeposits: number;
 }

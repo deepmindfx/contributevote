@@ -1,9 +1,16 @@
+
 import React, { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { createGroupVirtualAccount } from "@/services/flutterwave/virtualAccounts";
+import { createContributionGroupAccount } from "@/services/monnifyApi";
 import { useApp } from "@/contexts/AppContext";
+
+// Import Step Components
+import DetailsStep from "./DetailsStep";
+import ScheduleStep from "./ScheduleStep";
+import SettingsStep from "./SettingsStep";
+import StepIndicator from "./StepIndicator";
 
 // Define visibility type to fix TypeScript error
 type VisibilityType = "public" | "private" | "invite-only";
@@ -117,14 +124,17 @@ const GroupForm = () => {
       
       // Create a virtual account for the group using Flutterwave
       const accountParams = {
-        email: user?.email || '',
-        name: formData.name,
-        bvn: formData.bvn,
-        narration: `Please make a bank transfer to ${formData.name} Contribution Group`
+        accountReference: accountRef,
+        accountName: formData.name,
+        currencyCode: "NGN",
+        contractCode: "465595618981", // This might need to be updated with your actual contract code
+        customerEmail: user?.email || '',
+        customerName: formData.name,
+        customerBvn: formData.bvn
       };
       
       console.log("Creating contribution group account:", accountParams);
-      const accountResponse = await createGroupVirtualAccount(accountParams);
+      const accountResponse = await createContributionGroupAccount(accountParams);
       
       if (!accountResponse.requestSuccessful) {
         toast.error(accountResponse.responseMessage || "Failed to create account for the group");

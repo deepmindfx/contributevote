@@ -25,12 +25,14 @@ interface AccountCreationParams {
 
 export const createVirtualAccount = async (params: AccountCreationParams) => {
   try {
+    console.log("Creating virtual account with params:", params);
+    
     const response = await fetch(`${BASE_URL}/virtual-account-numbers`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify({
         email: params.email,
-        is_permanent: params.isPermanent || true,
+        is_permanent: params.isPermanent === undefined ? true : params.isPermanent,
         bvn: params.bvn,
         tx_ref: `VA_${uuidv4()}`,
         narration: params.narration || `Please make a bank transfer to ${params.name}`,
@@ -39,12 +41,12 @@ export const createVirtualAccount = async (params: AccountCreationParams) => {
       })
     });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to create virtual account');
-    }
-
     const data = await response.json();
+    console.log("Flutterwave response:", data);
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to create virtual account');
+    }
 
     return {
       requestSuccessful: true,
@@ -75,6 +77,7 @@ export const createGroupVirtualAccount = async (params: AccountCreationParams) =
   }
 
   try {
+    console.log("Creating group virtual account with BVN:", params.bvn);
     return await createVirtualAccount({
       ...params,
       isPermanent: true,
