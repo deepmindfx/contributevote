@@ -48,6 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log("Initial session check:", !!session);
       setSession(session);
       setUser(session?.user ?? null);
       setIsAuthenticated(!!session?.user);
@@ -72,7 +73,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .eq('id', userId)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching profile:', error);
+        throw error;
+      }
+      
+      if (!data) {
+        console.error('No profile found for user:', userId);
+        setProfile(null);
+        return;
+      }
       
       // Convert the data to match our Profile type
       const profileData: Profile = {
@@ -103,6 +113,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, password: string, metadata: { name: string }) => {
     try {
+      // First check if email already exists
+      const { data: existingUsers } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('email', email)
+        .limit(1);
+      
+      if (existingUsers && existingUsers.length > 0) {
+        throw new Error('Email is already registered');
+      }
+      
       const { error } = await supabase.auth.signUp({
         email,
         password,
@@ -122,13 +143,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { error, data } = await supabase.auth.signInWithPassword({
         email,
         password
       });
 
       if (error) throw error;
-      toast.success('Signed in successfully');
+      
+      if (data?.user) {
+        console.log("Successfully signed in user:", data.user.email);
+        toast.success('Signed in successfully');
+      } else {
+        console.error("Sign in succeeded but no user returned");
+        toast.error('Something went wrong while signing in');
+      }
     } catch (error) {
       console.error('Error signing in:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to sign in');

@@ -1,11 +1,15 @@
-
 import { useState, useEffect } from "react";
+import { Navigate } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import MobileNav from "@/components/layout/MobileNav";
 import WalletCard from "@/components/dashboard/WalletCard";
 import GroupsList from "@/components/dashboard/GroupsList";
 import RecentActivity from "@/components/dashboard/RecentActivity";
 import ReservedAccount from "@/components/wallet/ReservedAccount";
+import { useApp } from "@/contexts/AppContext";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuth } from "@/contexts/AuthContext";
+import Loading from "@/components/ui/loading";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { UserPlus, Bell, Settings, User, X } from "lucide-react";
@@ -15,33 +19,53 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { markAllNotificationsAsRead, markNotificationAsRead } from "@/services/localStorage";
-import { useApp } from "@/contexts/AppContext";
 import { format } from "date-fns";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Dashboard = () => {
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const {
     user,
     refreshData,
+    isLoading,
     contributions
   } = useApp();
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  
   const [activeTab, setActiveTab] = useState("wallet");
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   
   useEffect(() => {
     // Refresh data when dashboard loads to ensure shared contributions are visible
-    refreshData();
-  }, [refreshData]);
+    if (isAuthenticated) {
+      refreshData();
+    }
+  }, [isAuthenticated, refreshData]);
 
   // Force an additional refresh a few seconds after the component mounts 
   // to ensure we have the latest notifications and shared contributions
   useEffect(() => {
-    const timer = setTimeout(() => {
-      refreshData();
-    }, 1500);
-    return () => clearTimeout(timer);
-  }, [refreshData]);
+    if (isAuthenticated) {
+      const timer = setTimeout(() => {
+        refreshData();
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [isAuthenticated, refreshData]);
+
+  // Show loading state while checking authentication
+  if (authLoading) {
+    return <Loading fullPage />;
+  }
+
+  // Redirect to auth page if not authenticated
+  if (!isAuthenticated) {
+    return <Navigate to="/auth" replace />;
+  }
   
+  // Show loading while fetching user data
+  if (isLoading || !user) {
+    return <Loading fullPage text="Loading your dashboard..." />;
+  }
+
   const handleNotificationRead = (id: string, relatedId?: string) => {
     markNotificationAsRead(id);
     refreshData();

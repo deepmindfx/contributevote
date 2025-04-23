@@ -14,25 +14,23 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
 import { useApp } from "@/contexts/AppContext";
-import { Moon, Sun, Bell, LogOut, User as UserIcon, Settings, ChevronDown, Menu } from "lucide-react";
-import { useUser } from "@/contexts/UserContext";
+import { Moon, Sun, Bell, LogOut, User as UserIcon, Settings, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import MobileNav from "./MobileNav";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 const Header = () => {
-  const { user, logout } = useUser();
   const { isAuthenticated } = useAuth();
-  const { darkMode, toggleDarkMode } = useApp();
+  const { user, darkMode, toggleDarkMode, logout } = useApp();
   const location = useLocation();
   const [isScrolled, setIsScrolled] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
-  const unreadNotificationsCount = 0;
-
+  
   // Check if we're on a landing/auth page or app page
   const isLandingOrAuthPage = location.pathname === "/" || location.pathname === "/auth";
+  
+  // Calculate unread notifications count
+  const unreadNotificationsCount = user?.notifications?.filter((n: any) => !n.read)?.length || 0;
   
   useEffect(() => {
     const handleScroll = () => {
@@ -89,8 +87,8 @@ const Header = () => {
               <Link to="/dashboard" className="text-muted-foreground hover:text-foreground transition-colors">
                 Dashboard
               </Link>
-              <Link to="/explore" className="text-muted-foreground hover:text-foreground transition-colors">
-                Explore
+              <Link to="/groups" className="text-muted-foreground hover:text-foreground transition-colors">
+                Groups
               </Link>
               <Link to="/create-group" className="text-muted-foreground hover:text-foreground transition-colors">
                 Create Group
@@ -109,7 +107,7 @@ const Header = () => {
             {darkMode ? <Sun size={20} /> : <Moon size={20} />}
           </Button>
           
-          {isAuthenticated ? (
+          {isAuthenticated && user ? (
             <>
               <Dialog open={notificationsOpen} onOpenChange={setNotificationsOpen}>
                 <DialogTrigger asChild>
@@ -130,9 +128,20 @@ const Header = () => {
                     <DialogTitle>Notifications</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4">
-                    <div className="text-center py-8 text-muted-foreground">
-                      No notifications yet
-                    </div>
+                    {user.notifications && user.notifications.length > 0 ? (
+                      user.notifications.map((notification: any) => (
+                        <div key={notification.id} className="p-3 border-b">
+                          <p className="text-sm">{notification.message}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {notification.createdAt && new Date(notification.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        No notifications yet
+                      </div>
+                    )}
                   </div>
                 </DialogContent>
               </Dialog>
@@ -141,7 +150,7 @@ const Header = () => {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-8 flex items-center gap-2 pl-3 pr-1 py-2">
                     <Avatar className="h-7 w-7">
-                      <AvatarImage src={user?.profileImage || ""} alt={user?.name} />
+                      <AvatarImage src={user.avatar || ""} alt={user.name} />
                       <AvatarFallback>{userInitials}</AvatarFallback>
                     </Avatar>
                     <ChevronDown size={16} />
@@ -150,9 +159,9 @@ const Header = () => {
                 <DropdownMenuContent className="w-56" align="end" forceMount>
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">{user?.name || "User"}</p>
+                      <p className="text-sm font-medium leading-none">{user.name || "User"}</p>
                       <p className="text-xs leading-none text-muted-foreground">
-                        {user?.email}
+                        {user.email}
                       </p>
                     </div>
                   </DropdownMenuLabel>
@@ -178,37 +187,19 @@ const Header = () => {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              
-              <Button 
-                variant="ghost" 
-                size="icon"
-                className="md:hidden"
-                onClick={() => setMobileMenuOpen(true)}
-              >
-                <Menu size={24} />
-              </Button>
             </>
           ) : (
             <div className="flex items-center gap-2">
               <Button asChild variant="ghost">
                 <Link to="/auth">Login</Link>
               </Button>
-              <Button asChild>
-                <Link to="/auth">Sign Up</Link>
+              <Button asChild variant="secondary">
+                <Link to="/auth?signup=true">Sign Up</Link>
               </Button>
             </div>
           )}
         </div>
       </div>
-      
-      {/* Mobile navigation */}
-      {isAuthenticated && (
-        <MobileNav 
-          isOpen={mobileMenuOpen} 
-          setIsOpen={setMobileMenuOpen}
-          headerHeight={headerRef.current?.offsetHeight || 64}
-        />
-      )}
     </header>
   );
 };

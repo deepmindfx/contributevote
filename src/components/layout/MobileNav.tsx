@@ -2,19 +2,26 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Home, Wallet, VoteIcon, Users, Settings, ArrowLeft } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
 
 const MobileNav = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const { withdrawalRequests, user } = useApp();
   const [showBackButton, setShowBackButton] = useState(false);
   
   // Check if there are any pending votes for the current user
   const pendingVotes = user?.id ? withdrawalRequests.filter(request => 
     request.status === 'pending' && 
-    !request.votes.some(vote => vote.userId === user?.id)
-  ) : [];
+    !request.votes?.some(vote => vote.userId === user?.id)
+  ).length || 0 : 0;
+
+  // Don't show mobile nav if not authenticated
+  if (!isAuthenticated) {
+    return null;
+  }
 
   // Determine if back button should be shown based on current route
   useEffect(() => {
@@ -30,8 +37,12 @@ const MobileNav = () => {
   useEffect(() => {
     const nav = document.querySelector('.mobile-nav');
     if (nav) {
-      // Force a repaint by getting offsetHeight
-      nav.offsetHeight;
+      // Force a repaint
+      const displayValue = window.getComputedStyle(nav).display;
+      nav.style.display = 'none';
+      // Force reflow
+      void nav.offsetWidth;
+      nav.style.display = displayValue;
     }
   }, [location.pathname]);
 
@@ -79,18 +90,18 @@ const MobileNav = () => {
             aria-label="Votes"
           >
             <VoteIcon className="h-5 w-5" />
-            {pendingVotes.length > 0 && (
+            {pendingVotes > 0 && (
               <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
-                {pendingVotes.length > 9 ? '9+' : pendingVotes.length}
+                {pendingVotes > 9 ? '9+' : pendingVotes}
               </span>
             )}
             <span className="text-xs mt-1">Votes</span>
           </Link>
           
           <Link 
-            to="/all-groups" 
+            to="/groups" 
             className={`flex flex-col items-center py-3 px-2 ${
-              location.pathname === "/all-groups" ? "text-[#2DAE75]" : "text-muted-foreground"
+              location.pathname === "/groups" ? "text-[#2DAE75]" : "text-muted-foreground"
             }`}
             aria-label="Groups"
           >

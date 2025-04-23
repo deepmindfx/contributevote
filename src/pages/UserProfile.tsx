@@ -24,11 +24,18 @@ import {
   LogOut,
   ArrowRight
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 const UserProfile = () => {
+  const { isAuthenticated } = useAuth();
   const { user, contributions, transactions, logout } = useApp();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  // If not authenticated, redirect to auth page
+  if (!isAuthenticated || !user) {
+    return <Navigate to="/auth" replace />;
+  }
 
   const handleLogout = () => {
     setIsLoggingOut(true);
@@ -39,7 +46,7 @@ const UserProfile = () => {
   };
 
   // Calculate statistics - count only user's contributions
-  const totalContributions = contributions.filter(c => c.contributors.some(contrib => contrib.userId === user.id)).length;
+  const totalContributions = contributions.filter(c => c.contributors?.some(contrib => contrib.userId === user.id)).length || 0;
   
   // Calculate total amount contributed by this user across all groups
   const totalAmountContributed = transactions
@@ -52,8 +59,8 @@ const UserProfile = () => {
     
   const activeContributions = contributions.filter(c => 
     c.currentAmount < c.targetAmount && 
-    c.contributors.some(contrib => contrib.userId === user.id)
-  ).length;
+    c.contributors?.some(contrib => contrib.userId === user.id)
+  ).length || 0;
 
   return (
     <div className="min-h-screen pb-20 md:pb-0">
