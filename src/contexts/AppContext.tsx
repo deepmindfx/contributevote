@@ -23,7 +23,6 @@ interface AppContextType {
   shareToContacts: (contributionId: string, recipients: string[]) => void;
   getReceipt: (transactionId: string) => any;
   isGroupCreator: (contributionId: string) => boolean;
-  logout: () => void;  // Added logout function
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -33,8 +32,8 @@ interface AppProviderProps {
 }
 
 export function AppProvider({ children }: AppProviderProps) {
-  const { user: authUser, isAuthenticated, signOut } = useAuth();
-  const { user: userDetails, refreshUserData, logout: userLogout } = useUser();
+  const { user: authUser, isAuthenticated } = useAuth();
+  const { user: userDetails, refreshUserData } = useUser();
   const {
     contributions,
     transactions,
@@ -109,29 +108,11 @@ export function AppProvider({ children }: AppProviderProps) {
     }
   };
 
-  // Add logout function that coordinates both auth providers
-  const logout = async () => {
-    try {
-      // First log out from Supabase authentication
-      if (signOut) {
-        await signOut();
-      }
-      
-      // Then clear local storage user data
-      userLogout();
-      
-      toast.success("You have been logged out successfully");
-    } catch (error) {
-      console.error("Error during logout:", error);
-      toast.error("Failed to log out properly");
-    }
-  };
-
   // Combine user details from auth and user contexts
-  const combinedUser = isAuthenticated ? {
+  const combinedUser = {
     ...authUser,
     ...userDetails
-  } : null;
+  };
 
   return (
     <AppContext.Provider value={{
@@ -151,8 +132,7 @@ export function AppProvider({ children }: AppProviderProps) {
       getShareLink,
       shareToContacts,
       getReceipt,
-      isGroupCreator,
-      logout
+      isGroupCreator
     }}>
       {children}
     </AppContext.Provider>
