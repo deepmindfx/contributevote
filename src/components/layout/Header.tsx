@@ -1,7 +1,7 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { 
   LogOut, 
   Menu, 
@@ -46,29 +46,44 @@ interface NavLinkProps {
 }
 
 const Header = () => {
-  const { user, isAuthenticated, isAdmin, logout, updateProfile, refreshData } = useApp();
+  const auth = useAuth();
+  const app = useApp();
+  
+  // Use auth context directly for authenticated state
+  const isAuthenticated = !!auth.user;
+  const user = auth.profile;
+  const isAdmin = user?.role === 'admin';
+  
+  // Extract other variables and functions from contexts
+  const navigate = useNavigate();
+  const location = useLocation();
+  
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const popoverTriggerRef = useRef<HTMLButtonElement>(null);
-  const navigate = useNavigate();
-  const location = useLocation();
+  
+  const handleLogout = async () => {
+    try {
+      await auth.signOut();
+      navigate('/auth');
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  };
   
   const toggleDarkMode = () => {
-    if (user && user.id) {
+    if (user) {
       const newPreferences = {
         ...user.preferences,
         darkMode: !user.preferences?.darkMode
       };
       
-      updateProfile({ preferences: newPreferences });
-      toast.success(`${newPreferences.darkMode ? 'Dark' : 'Light'} mode enabled`);
+      // Use app context to update profile
+      if (app.updateProfile) {
+        app.updateProfile({ preferences: newPreferences });
+      }
     }
-  };
-  
-  const handleLogout = () => {
-    logout();
-    navigate('/');
   };
   
   useEffect(() => {
@@ -89,6 +104,17 @@ const Header = () => {
     setIsMenuOpen(false);
   }, [location]);
   
+  // Fallback handling for notifications until fully integrated with backend
+  const unreadNotifications = user?.notifications?.filter(n => !n.read)?.length || 0;
+  const handleMarkAllRead = () => {
+    if (app.refreshData) app.refreshData();
+  };
+  
+  const handleNotificationRead = (id: string, relatedId?: string) => {
+    // Implement actual notification reading once backend is connected
+    if (app.refreshData) app.refreshData();
+  };
+  
   const NavLink = ({ href, children, disabled = false }: NavLinkProps) => (
     <Link 
       to={disabled ? '#' : href} 
@@ -103,28 +129,27 @@ const Header = () => {
     </Link>
   );
   
-  const handleNotificationRead = (id: string, relatedId?: string) => {
-    markNotificationAsRead(id);
-    refreshData();
-
-    // If notification is related to a contribution, navigate to it
-    if (relatedId) {
-      const isContribution = user.contributions?.some(c => c.id === relatedId);
-      if (isContribution) {
-        setNotificationsOpen(false);
-        navigate(`/groups/${relatedId}`);
-      }
-    }
-  };
+  // Return a simpler version if context isn't ready yet
+  if (auth.loading) {
+    return (
+      <header className="fixed top-0 left-0 right-0 z-[100] bg-background">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+          <Link to="/" className="flex items-center space-x-3">
+            <div className="h-10 w-10 relative flex-shrink-0">
+              <img 
+                src="/lovable-uploads/91e5c361-b912-4a7e-bcf3-4602a512cb51.png" 
+                alt="CollectiPay Logo" 
+                className="object-contain h-full w-full"
+              />
+            </div>
+            <span className="font-bold text-xl">CollectiPay</span>
+          </Link>
+        </div>
+      </header>
+    );
+  }
   
-  const handleMarkAllRead = () => {
-    markAllNotificationsAsRead(user?.id);
-    refreshData();
-    toast.success("All notifications marked as read");
-  };
-  
-  const unreadNotifications = user?.notifications?.filter(n => !n.read).length || 0;
-  
+  // Return the complete header
   return (
     <header 
       className={`fixed top-0 left-0 right-0 z-[100] transition-all duration-200 ${
@@ -140,8 +165,8 @@ const Header = () => {
               className="object-contain h-full w-full"
             />
           </div>
-          {isAuthenticated && user?.firstName ? (
-            <span className="font-medium text-lg">Hi, {user.firstName}</span>
+          {isAuthenticated && user?.name ? (
+            <span className="font-medium text-lg">Hi, {user.name.split(' ')[0]}</span>
           ) : (
             <span className="font-bold text-xl">CollectiPay</span>
           )}
@@ -200,76 +225,6 @@ const Header = () => {
               </NavigationMenu>
               
               <div className="flex items-center ml-4 space-x-3">
-                <Popover 
-                  open={notificationsOpen} 
-                  onOpenChange={setNotificationsOpen}
-                >
-                  <PopoverTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="relative p-2"
-                      ref={popoverTriggerRef}
-                    >
-                      {unreadNotifications > 0 ? (
-                        <BellDot className="h-5 w-5" />
-                      ) : (
-                        <Bell className="h-5 w-5" />
-                      )}
-                      {unreadNotifications > 0 && (
-                        <Badge 
-                          className="absolute -top-1 -right-1 px-1 min-w-[18px] h-[18px] flex items-center justify-center"
-                          variant="destructive"
-                        >
-                          {unreadNotifications}
-                        </Badge>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-80 p-0" align="end">
-                    <div className="flex items-center justify-between p-4 border-b">
-                      <h4 className="font-semibold">Notifications</h4>
-                      {user?.notifications && user.notifications.length > 0 && 
-                        <Button variant="ghost" size="sm" onClick={handleMarkAllRead}>
-                          Mark all read
-                        </Button>
-                      }
-                    </div>
-                    <ScrollArea className="h-[400px]">
-                      {!user?.notifications || user.notifications.length === 0 ? 
-                        <div className="p-4 text-center text-muted-foreground">
-                          <Bell className="h-10 w-10 mx-auto mb-2 opacity-20" />
-                          <p>No notifications</p>
-                        </div> 
-                        : 
-                        user.notifications.map(notification => 
-                          <div 
-                            key={notification.id} 
-                            className={`p-4 border-b last:border-b-0 ${!notification.read ? 'bg-muted/50' : ''} 
-                              hover:bg-muted/30 cursor-pointer transition-colors`} 
-                            onClick={() => handleNotificationRead(notification.id, notification.relatedId)}
-                          >
-                            <div className="flex items-start gap-3">
-                              <div className={`rounded-full w-2 h-2 mt-1.5 ${!notification.read ? 'bg-green-600' : 'bg-transparent'}`} />
-                              <div className="flex-1">
-                                <p className="text-sm">{notification.message}</p>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  {notification.createdAt && format(new Date(notification.createdAt), 'MMM d, h:mm a')}
-                                </p>
-                              </div>
-                              {notification.read && 
-                                <div className="text-muted-foreground opacity-50">
-                                  <X className="h-3 w-3" />
-                                </div>
-                              }
-                            </div>
-                          </div>
-                        )
-                      }
-                    </ScrollArea>
-                  </PopoverContent>
-                </Popover>
-                
                 <Button 
                   variant="ghost" 
                   size="sm"
@@ -286,9 +241,9 @@ const Header = () => {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Avatar className="h-8 w-8 cursor-pointer">
-                      <AvatarImage src={user.profileImage} alt={user.name} />
+                      <AvatarImage src={user?.profileImage} alt={user?.name || ""} />
                       <AvatarFallback>
-                        {user.firstName?.charAt(0)}{user.lastName?.charAt(0) || ""}
+                        {user?.name?.charAt(0) || "U"}
                       </AvatarFallback>
                     </Avatar>
                   </DropdownMenuTrigger>
@@ -333,100 +288,12 @@ const Header = () => {
             <>
               <NavLink href="/">Home</NavLink>
               <NavLink href="/auth">Login / Register</NavLink>
-              <NavLink href="/admin-login">Admin Login</NavLink>
             </>
           )}
         </div>
         
         {/* Mobile Navigation */}
-        <div className="md:hidden flex items-center space-x-3">
-          {isAuthenticated && (
-            <>
-              <Popover 
-                open={notificationsOpen} 
-                onOpenChange={setNotificationsOpen}
-              >
-                <PopoverTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="relative p-2"
-                    ref={popoverTriggerRef}
-                  >
-                    {unreadNotifications > 0 ? (
-                      <BellDot className="h-5 w-5" />
-                    ) : (
-                      <Bell className="h-5 w-5" />
-                    )}
-                    {unreadNotifications > 0 && (
-                      <Badge 
-                        className="absolute -top-1 -right-1 px-1 min-w-[18px] h-[18px] flex items-center justify-center"
-                        variant="destructive"
-                      >
-                        {unreadNotifications}
-                      </Badge>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-80 p-0" align="end">
-                  <div className="flex items-center justify-between p-4 border-b">
-                    <h4 className="font-semibold">Notifications</h4>
-                    {user?.notifications && user.notifications.length > 0 && 
-                      <Button variant="ghost" size="sm" onClick={handleMarkAllRead}>
-                        Mark all read
-                      </Button>
-                    }
-                  </div>
-                  <ScrollArea className="h-[400px]">
-                    {!user?.notifications || user.notifications.length === 0 ? 
-                      <div className="p-4 text-center text-muted-foreground">
-                        <Bell className="h-10 w-10 mx-auto mb-2 opacity-20" />
-                        <p>No notifications</p>
-                      </div> 
-                      : 
-                      user.notifications.map(notification => 
-                        <div 
-                          key={notification.id} 
-                          className={`p-4 border-b last:border-b-0 ${!notification.read ? 'bg-muted/50' : ''} 
-                            hover:bg-muted/30 cursor-pointer transition-colors`} 
-                          onClick={() => handleNotificationRead(notification.id, notification.relatedId)}
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className={`rounded-full w-2 h-2 mt-1.5 ${!notification.read ? 'bg-green-600' : 'bg-transparent'}`} />
-                            <div className="flex-1">
-                              <p className="text-sm">{notification.message}</p>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {notification.createdAt && format(new Date(notification.createdAt), 'MMM d, h:mm a')}
-                              </p>
-                            </div>
-                            {notification.read && 
-                              <div className="text-muted-foreground opacity-50">
-                                <X className="h-3 w-3" />
-                              </div>
-                            }
-                          </div>
-                        </div>
-                      )
-                    }
-                  </ScrollArea>
-                </PopoverContent>
-              </Popover>
-              
-              <Button 
-                variant="ghost" 
-                size="sm"
-                className="p-2"
-                onClick={toggleDarkMode}
-              >
-                {user?.preferences?.darkMode ? (
-                  <Sun className="h-5 w-5" />
-                ) : (
-                  <Moon className="h-5 w-5" />
-                )}
-              </Button>
-            </>
-          )}
-          
+        <div className="md:hidden">
           <Button 
             variant="ghost" 
             size="sm" 
@@ -444,61 +311,28 @@ const Header = () => {
           <div className="container mx-auto py-4 px-4 space-y-4">
             {isAuthenticated ? (
               <>
-                <div className="flex items-center space-x-3 p-3 bg-muted rounded-md">
-                  <Avatar className="h-10 w-10">
-                    <AvatarImage src={user.profileImage} alt={user.name} />
-                    <AvatarFallback>
-                      {user.firstName?.charAt(0)}{user.lastName?.charAt(0) || ""}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="font-medium">{user.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      Balance: ₦{user.walletBalance?.toLocaleString() || 0}
-                    </p>
-                  </div>
-                </div>
+                <Link 
+                  to="/dashboard" 
+                  className="block p-3 rounded-md hover:bg-accent"
+                >
+                  Dashboard
+                </Link>
                 
-                <div className="space-y-2">
-                  <Link 
-                    to="/dashboard" 
-                    className="block p-3 rounded-md hover:bg-accent"
-                  >
-                    Dashboard
-                  </Link>
-                  
-                  <Link 
-                    to="/profile" 
-                    className="block p-3 rounded-md hover:bg-accent"
-                  >
-                    Profile
-                  </Link>
-                  
-                  <Link 
-                    to="/settings" 
-                    className="block p-3 rounded-md hover:bg-accent"
-                  >
-                    Settings
-                  </Link>
-                  
-                  {isAdmin && (
-                    <Link 
-                      to="/admin" 
-                      className="block p-3 rounded-md hover:bg-accent"
-                    >
-                      Admin Dashboard
-                    </Link>
-                  )}
-                  
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start"
-                    onClick={handleLogout}
-                  >
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Logout
-                  </Button>
-                </div>
+                <Link 
+                  to="/groups" 
+                  className="block p-3 rounded-md hover:bg-accent"
+                >
+                  Groups
+                </Link>
+                
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start"
+                  onClick={handleLogout}
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Logout
+                </Button>
               </>
             ) : (
               <div className="space-y-2">
@@ -514,13 +348,6 @@ const Header = () => {
                   className="block p-3 rounded-md hover:bg-accent"
                 >
                   Login / Register
-                </Link>
-                
-                <Link 
-                  to="/admin-login" 
-                  className="block p-3 rounded-md hover:bg-accent"
-                >
-                  Admin Login
                 </Link>
               </div>
             )}

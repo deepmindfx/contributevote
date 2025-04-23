@@ -66,7 +66,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single();
 
       if (error) throw error;
-      setProfile(data);
+      
+      // Convert the data to match our Profile type
+      const profileData: Profile = {
+        id: data.id,
+        name: data.name,
+        email: data.email,
+        phone: data.phone || null,
+        wallet_balance: data.wallet_balance,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+        status: data.status as 'active' | 'inactive',
+        role: data.role as 'user' | 'admin',
+        preferences: data.preferences || {}
+      };
+      
+      setProfile(profileData);
     } catch (error) {
       console.error('Error fetching profile:', error);
       setProfile(null);
