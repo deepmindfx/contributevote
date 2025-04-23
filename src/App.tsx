@@ -7,6 +7,7 @@ import Dashboard from '@/pages/Dashboard';
 import { useAuth } from '@/contexts/AuthContext';
 import { AppProviders } from '@/contexts/AppProviders';
 import Index from '@/pages/Index';
+import Loading from '@/components/ui/loading';
 
 // Lazy-loaded pages
 const CreateGroup = lazy(() => import('@/pages/CreateGroup'));
@@ -15,13 +16,7 @@ const Profile = lazy(() => import('@/pages/UserProfile'));
 const AllGroups = lazy(() => import('@/pages/AllGroups'));
 const Votes = lazy(() => import('@/pages/Votes'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
-
-// Loading component for Suspense fallback
-const Loading = () => (
-  <div className="flex items-center justify-center h-screen">
-    <div className="animate-spin h-10 w-10 border-4 border-primary border-t-transparent rounded-full"></div>
-  </div>
-);
+const Settings = lazy(() => import('@/pages/UserSettings'));
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
@@ -94,6 +89,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Profile />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <Settings />
                 </ProtectedRoute>
               }
             />

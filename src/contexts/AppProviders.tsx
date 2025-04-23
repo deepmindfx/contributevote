@@ -4,6 +4,7 @@ import { UserProvider } from './UserContext';
 import { ContributionProvider } from './ContributionContext';
 import { AdminProvider } from './AdminContext';
 import { AppProvider } from './AppContext';
+import { AuthProvider } from './AuthContext';
 import { ensureAccountNumberDisplay } from '@/localStorage';
 import { useEffect } from 'react';
 
@@ -25,14 +26,16 @@ export function AppProviders({ children }: AppProvidersProps) {
   }, []);
 
   return (
-    <UserProvider>
-      <ContributionProvider>
-        <AdminProvider>
-          <AppProvider>
-            {children}
-          </AppProvider>
-        </AdminProvider>
-      </ContributionProvider>
-    </UserProvider>
+    <AuthProvider>
+      <UserProvider>
+        <ContributionProvider>
+          <AdminProvider>
+            <AppProvider>
+              {children}
+            </AppProvider>
+          </AdminProvider>
+        </ContributionProvider>
+      </UserProvider>
+    </AuthProvider>
   );
 }
