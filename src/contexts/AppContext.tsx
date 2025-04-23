@@ -4,7 +4,6 @@ import { useAuth } from './AuthContext';
 import { useUser } from './UserContext';
 import { useContribution } from './ContributionContext';
 import { toast } from 'sonner';
-import { type Transaction } from '@/services/localStorage/types';
 
 interface AppContextType {
   isReady: boolean;
@@ -14,6 +13,8 @@ interface AppContextType {
   transactions: any[];
   withdrawalRequests: any[];
   stats: any;
+  darkMode: boolean;
+  toggleDarkMode: () => void;
   refreshData: () => void;
   createNewContribution: (contribution: any) => void;
   contribute: (contributionId: string, amount: number, anonymous?: boolean) => void;
@@ -50,6 +51,29 @@ export function AppProvider({ children }: AppProviderProps) {
 
   const [isReady, setIsReady] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [darkMode, setDarkMode] = useState(() => {
+    // Initialize darkMode from localStorage or system preference
+    const savedMode = localStorage.getItem('darkMode');
+    if (savedMode !== null) {
+      return savedMode === 'true';
+    } else {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+  });
+
+  // Effect to apply dark mode class to document
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('darkMode', darkMode.toString());
+  }, [darkMode]);
+
+  const toggleDarkMode = () => {
+    setDarkMode(prevMode => !prevMode);
+  };
 
   // Initialize and set up
   useEffect(() => {
@@ -99,6 +123,8 @@ export function AppProvider({ children }: AppProviderProps) {
       transactions,
       withdrawalRequests,
       stats,
+      darkMode,
+      toggleDarkMode,
       refreshData,
       createNewContribution,
       contribute,

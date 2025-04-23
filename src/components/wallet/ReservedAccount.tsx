@@ -1,3 +1,5 @@
+
+// Only updating the form schema and handler section
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -81,7 +83,13 @@ const ReservedAccount = () => {
       // Close the ID form dialog after submission
       setShowIdForm(false);
       
-      const result = await createUserReservedAccount(user.id, values.idType, values.idNumber);
+      // Pass the BVN or NIN based on the selected ID type
+      const result = await createUserReservedAccount(
+        user.id, 
+        values.idType === "bvn" ? values.idNumber : undefined, 
+        values.idType === "nin" ? values.idNumber : undefined
+      );
+      
       if (result) {
         console.log("Reserved account created:", result);
         setAccountDetails(result);

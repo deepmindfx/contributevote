@@ -199,7 +199,7 @@ const WalletCard = () => {
   };
 
   return (
-    <Card className="overflow-hidden rounded-3xl border-0 shadow-none">
+    <Card className="overflow-hidden rounded-3xl border shadow-sm">
       <div className="wallet-gradient p-6 text-white relative overflow-hidden bg-[#2DAE75]">
         {/* Large circle decorations */}
         <div className="absolute -top-24 -right-24 w-60 h-60 rounded-full border border-white/10 opacity-20"></div>
