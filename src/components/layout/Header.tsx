@@ -1,213 +1,358 @@
-
 import { useState, useEffect, useRef } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { useApp } from "@/contexts/AppContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { 
+  LogOut, 
+  Menu, 
+  X, 
+  User, 
+  Settings, 
+  Bell, 
+  Moon,
+  Sun,
+  ShieldCheck,
+  BellDot
+} from "lucide-react";
+import { 
+  NavigationMenu,
+  NavigationMenuContent,
+  NavigationMenuItem,
+  NavigationMenuLink,
+  NavigationMenuList,
+  NavigationMenuTrigger
+} from "@/components/ui/navigation-menu";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useAuth } from "@/contexts/AuthContext";
-import { useApp } from "@/contexts/AppContext";
-import { Moon, Sun, Bell, LogOut, User as UserIcon, Settings, ChevronDown, Menu } from "lucide-react";
-import { useUser } from "@/contexts/UserContext";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import MobileNav from "./MobileNav";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { toast } from "sonner";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { format } from "date-fns";
+import { markAllNotificationsAsRead, markNotificationAsRead } from "@/services/localStorage";
+
+interface NavLinkProps {
+  href: string;
+  children: React.ReactNode;
+  disabled?: boolean;
+}
 
 const Header = () => {
-  const { user, logout } = useUser();
-  const { isAuthenticated } = useAuth();
-  const { darkMode, toggleDarkMode } = useApp();
+  const auth = useAuth();
+  const app = useApp();
+  
+  // Use auth context directly for authenticated state
+  const isAuthenticated = !!auth.user;
+  const user = auth.profile;
+  const isAdmin = user?.role === 'admin';
+  
+  // Extract other variables and functions from contexts
+  const navigate = useNavigate();
   const location = useLocation();
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const headerRef = useRef<HTMLElement>(null);
-  const unreadNotificationsCount = 0;
-
-  // Check if we're on a landing/auth page or app page
-  const isLandingOrAuthPage = location.pathname === "/" || location.pathname === "/auth";
+  const popoverTriggerRef = useRef<HTMLButtonElement>(null);
+  
+  const handleLogout = async () => {
+    try {
+      await auth.signOut();
+      navigate('/auth');
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  };
+  
+  const toggleDarkMode = () => {
+    if (user) {
+      const newPreferences = {
+        ...user.preferences,
+        darkMode: !user.preferences?.darkMode
+      };
+      
+      // Use app context to update profile
+      if (app.updateProfile) {
+        app.updateProfile({ preferences: newPreferences });
+      }
+    }
+  };
   
   useEffect(() => {
     const handleScroll = () => {
       if (window.scrollY > 10) {
-        setIsScrolled(true);
+        setScrolled(true);
       } else {
-        setIsScrolled(false);
+        setScrolled(false);
       }
     };
     
     window.addEventListener('scroll', handleScroll);
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-    };
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
   
-  const handleToggleTheme = () => {
-    toggleDarkMode();
+  useEffect(() => {
+    // Close mobile menu when route changes
+    setIsMenuOpen(false);
+  }, [location]);
+  
+  // Fallback handling for notifications until fully integrated with backend
+  const unreadNotifications = user?.notifications?.filter(n => !n.read)?.length || 0;
+  const handleMarkAllRead = () => {
+    if (app.refreshData) app.refreshData();
   };
   
-  const handleLogout = async () => {
-    try {
-      await logout();
-    } catch (error) {
-      console.error('Logout failed', error);
-    }
+  const handleNotificationRead = (id: string, relatedId?: string) => {
+    // Implement actual notification reading once backend is connected
+    if (app.refreshData) app.refreshData();
   };
   
-  const userInitials = user?.name 
-    ? user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2)
-    : user?.email?.substring(0, 2).toUpperCase() || 'U';
-
+  const NavLink = ({ href, children, disabled = false }: NavLinkProps) => (
+    <Link 
+      to={disabled ? '#' : href} 
+      className={`px-5 py-2 rounded-md text-sm font-medium transition-colors ${
+        location.pathname === href 
+          ? 'text-primary' 
+          : 'text-muted-foreground hover:text-foreground'
+      } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+      onClick={disabled ? (e) => e.preventDefault() : undefined}
+    >
+      {children}
+    </Link>
+  );
+  
+  // Return a simpler version if context isn't ready yet
+  if (auth.loading) {
+    return (
+      <header className="fixed top-0 left-0 right-0 z-[100] bg-background">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+          <Link to="/" className="flex items-center space-x-3">
+            <div className="h-10 w-10 relative flex-shrink-0">
+              <img 
+                src="/lovable-uploads/91e5c361-b912-4a7e-bcf3-4602a512cb51.png" 
+                alt="CollectiPay Logo" 
+                className="object-contain h-full w-full"
+              />
+            </div>
+            <span className="font-bold text-xl">CollectiPay</span>
+          </Link>
+        </div>
+      </header>
+    );
+  }
+  
+  // Return the complete header
   return (
     <header 
-      ref={headerRef}
-      className={`sticky top-0 z-50 transition-all duration-200 ${
-        isScrolled 
-          ? 'bg-background/90 backdrop-blur-md border-b'
-          : isLandingOrAuthPage 
-            ? 'bg-transparent' 
-            : 'bg-background'
+      className={`fixed top-0 left-0 right-0 z-[100] transition-all duration-200 ${
+        scrolled ? 'bg-background/95 backdrop-blur-lg shadow-sm' : 'bg-background'
       }`}
     >
-      <div className="container mx-auto px-4 flex h-16 items-center justify-between">
-        <div className="flex items-center">
-          <Link to="/" className="flex items-center">
-            <span className="text-2xl font-bold bg-gradient-to-r from-primary to-green-400 text-transparent bg-clip-text">
-              CollectiPay
-            </span>
-          </Link>
-          
-          {isAuthenticated && (
-            <nav className="ml-8 hidden md:flex gap-6">
-              <Link to="/dashboard" className="text-muted-foreground hover:text-foreground transition-colors">
-                Dashboard
-              </Link>
-              <Link to="/explore" className="text-muted-foreground hover:text-foreground transition-colors">
-                Explore
-              </Link>
-              <Link to="/create-group" className="text-muted-foreground hover:text-foreground transition-colors">
-                Create Group
-              </Link>
-            </nav>
+      <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+        <Link to="/" className="flex items-center space-x-3">
+          <div className="h-10 w-10 relative flex-shrink-0">
+            <img 
+              src="/lovable-uploads/91e5c361-b912-4a7e-bcf3-4602a512cb51.png" 
+              alt="CollectiPay Logo" 
+              className="object-contain h-full w-full"
+            />
+          </div>
+          {isAuthenticated && user?.name ? (
+            <span className="font-medium text-lg">Hi, {user.name.split(' ')[0]}</span>
+          ) : (
+            <span className="font-bold text-xl">CollectiPay</span>
           )}
-        </div>
+        </Link>
         
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={handleToggleTheme}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            {darkMode ? <Sun size={20} /> : <Moon size={20} />}
-          </Button>
-          
+        {/* Desktop Navigation */}
+        <div className="hidden md:flex items-center space-x-1">
           {isAuthenticated ? (
             <>
-              <Dialog open={notificationsOpen} onOpenChange={setNotificationsOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="ghost" size="icon" className="relative">
-                    <Bell size={20} />
-                    {unreadNotificationsCount > 0 && (
-                      <Badge 
-                        className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center bg-primary text-white" 
-                        variant="secondary"
-                      >
-                        {unreadNotificationsCount}
-                      </Badge>
-                    )}
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Notifications</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div className="text-center py-8 text-muted-foreground">
-                      No notifications yet
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-8 flex items-center gap-2 pl-3 pr-1 py-2">
-                    <Avatar className="h-7 w-7">
-                      <AvatarImage src={user?.profileImage || ""} alt={user?.name} />
-                      <AvatarFallback>{userInitials}</AvatarFallback>
+              <NavigationMenu>
+                <NavigationMenuList>
+                  <NavigationMenuItem>
+                    <NavLink href="/dashboard">Dashboard</NavLink>
+                  </NavigationMenuItem>
+                  
+                  <NavigationMenuItem>
+                    <NavigationMenuTrigger>Groups</NavigationMenuTrigger>
+                    <NavigationMenuContent>
+                      <ul className="grid gap-3 p-6 w-[400px]">
+                        <li>
+                          <NavigationMenuLink asChild>
+                            <Link
+                              to="/dashboard"
+                              className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+                            >
+                              <div className="text-sm font-medium leading-none">My Groups</div>
+                              <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
+                                View all your contribution groups
+                              </p>
+                            </Link>
+                          </NavigationMenuLink>
+                        </li>
+                        <li>
+                          <NavigationMenuLink asChild>
+                            <Link
+                              to="/create-group"
+                              className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+                            >
+                              <div className="text-sm font-medium leading-none">Create New Group</div>
+                              <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
+                                Start a new contribution group
+                              </p>
+                            </Link>
+                          </NavigationMenuLink>
+                        </li>
+                      </ul>
+                    </NavigationMenuContent>
+                  </NavigationMenuItem>
+                  
+                  {isAdmin && (
+                    <NavigationMenuItem>
+                      <NavLink href="/admin">Admin</NavLink>
+                    </NavigationMenuItem>
+                  )}
+                </NavigationMenuList>
+              </NavigationMenu>
+              
+              <div className="flex items-center ml-4 space-x-3">
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className="p-2"
+                  onClick={toggleDarkMode}
+                >
+                  {user?.preferences?.darkMode ? (
+                    <Sun className="h-5 w-5" />
+                  ) : (
+                    <Moon className="h-5 w-5" />
+                  )}
+                </Button>
+                
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Avatar className="h-8 w-8 cursor-pointer">
+                      <AvatarImage src={user?.profileImage} alt={user?.name || ""} />
+                      <AvatarFallback>
+                        {user?.name?.charAt(0) || "U"}
+                      </AvatarFallback>
                     </Avatar>
-                    <ChevronDown size={16} />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56" align="end" forceMount>
-                  <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">{user?.name || "User"}</p>
-                      <p className="text-xs leading-none text-muted-foreground">
-                        {user?.email}
-                      </p>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuGroup>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    
                     <DropdownMenuItem asChild>
                       <Link to="/profile" className="cursor-pointer">
-                        <UserIcon className="mr-2 h-4 w-4" />
+                        <User className="mr-2 h-4 w-4" />
                         <span>Profile</span>
                       </Link>
                     </DropdownMenuItem>
+                    
                     <DropdownMenuItem asChild>
                       <Link to="/settings" className="cursor-pointer">
                         <Settings className="mr-2 h-4 w-4" />
                         <span>Settings</span>
                       </Link>
                     </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Log out</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              
-              <Button 
-                variant="ghost" 
-                size="icon"
-                className="md:hidden"
-                onClick={() => setMobileMenuOpen(true)}
-              >
-                <Menu size={24} />
-              </Button>
+                    
+                    {isAdmin && (
+                      <DropdownMenuItem asChild>
+                        <Link to="/admin" className="cursor-pointer">
+                          <ShieldCheck className="mr-2 h-4 w-4" />
+                          <span>Admin</span>
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
+                    
+                    <DropdownMenuSeparator />
+                    
+                    <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
+                      <LogOut className="mr-2 h-4 w-4" />
+                      <span>Logout</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </>
           ) : (
-            <div className="flex items-center gap-2">
-              <Button asChild variant="ghost">
-                <Link to="/auth">Login</Link>
-              </Button>
-              <Button asChild>
-                <Link to="/auth">Sign Up</Link>
-              </Button>
-            </div>
+            <>
+              <NavLink href="/">Home</NavLink>
+              <NavLink href="/auth">Login / Register</NavLink>
+            </>
           )}
+        </div>
+        
+        {/* Mobile Navigation */}
+        <div className="md:hidden">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="p-2"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+          >
+            {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </Button>
         </div>
       </div>
       
-      {/* Mobile navigation */}
-      {isAuthenticated && (
-        <MobileNav 
-          isOpen={mobileMenuOpen} 
-          setIsOpen={setMobileMenuOpen}
-          headerHeight={headerRef.current?.offsetHeight || 64}
-        />
+      {/* Mobile Menu */}
+      {isMenuOpen && (
+        <div className="md:hidden bg-background border-t">
+          <div className="container mx-auto py-4 px-4 space-y-4">
+            {isAuthenticated ? (
+              <>
+                <Link 
+                  to="/dashboard" 
+                  className="block p-3 rounded-md hover:bg-accent"
+                >
+                  Dashboard
+                </Link>
+                
+                <Link 
+                  to="/groups" 
+                  className="block p-3 rounded-md hover:bg-accent"
+                >
+                  Groups
+                </Link>
+                
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start"
+                  onClick={handleLogout}
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Logout
+                </Button>
+              </>
+            ) : (
+              <div className="space-y-2">
+                <Link 
+                  to="/" 
+                  className="block p-3 rounded-md hover:bg-accent"
+                >
+                  Home
+                </Link>
+                
+                <Link 
+                  to="/auth" 
+                  className="block p-3 rounded-md hover:bg-accent"
+                >
+                  Login / Register
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </header>
   );
