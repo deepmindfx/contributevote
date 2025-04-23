@@ -1,143 +1,183 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
+import { corsHeaders } from '../_shared/cors.ts';
 
-// CORS headers
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-};
-
-// Flutterwave API base URL
-const FLUTTERWAVE_API_BASE = "https://api.flutterwave.com/v3";
+// Load environment variables
+const FLUTTERWAVE_SECRET_KEY = Deno.env.get('FLUTTERWAVE_SECRET_KEY') || '';
+const FLUTTERWAVE_API_URL = 'https://api.flutterwave.com/v3';
 
 serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders, status: 204 });
+  // Handle OPTIONS request for CORS
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
   }
-
+  
   try {
-    // Extract the specific endpoint from the URL path
     const url = new URL(req.url);
-    const pathParts = url.pathname.split('/');
-    const endpoint = pathParts.length > 2 ? pathParts[2] : '';
+    const pathParts = url.pathname.split('/').filter(Boolean);
     
-    // Get Flutterwave API key from environment variables
-    const apiKey = Deno.env.get("FLUTTERWAVE_SECRET_KEY");
-    if (!apiKey) {
-      throw new Error("FLUTTERWAVE_SECRET_KEY is not set in the environment");
-    }
-
-    // Handle different endpoint types
-    let flutterwaveResponse;
+    // Get the endpoint from the path (e.g. /flutterwave-api/create-virtual-account => create-virtual-account)
+    const endpoint = pathParts[pathParts.length - 1];
     
-    if (endpoint === "create-virtual-account") {
-      // Extract request body
-      const requestData = await req.json();
-      console.log("Create virtual account request:", requestData);
-      
-      // Make request to Flutterwave API
-      flutterwaveResponse = await fetch(`${FLUTTERWAVE_API_BASE}/virtual-account-numbers`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          email: requestData.email,
-          is_permanent: requestData.is_permanent,
-          bvn: requestData.bvn,
-          nin: requestData.nin,
-          tx_ref: requestData.tx_ref,
-          narration: requestData.narration,
-          phonenumber: requestData.phonenumber,
-          firstname: requestData.firstname,
-          lastname: requestData.lastname,
-          currency: requestData.currency || "NGN",
-          amount: requestData.amount
-        })
-      });
-      
-    } else if (endpoint === "verify-transaction") {
-      const requestData = await req.json();
-      const transactionId = requestData.transactionId;
-      
-      flutterwaveResponse = await fetch(`${FLUTTERWAVE_API_BASE}/transactions/${transactionId}/verify`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`
+    // Check if we have a secret key
+    if (!FLUTTERWAVE_SECRET_KEY) {
+      return new Response(
+        JSON.stringify({ 
+          status: 'error', 
+          message: 'FLUTTERWAVE_SECRET_KEY environment variable is not set' 
+        }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
-      });
-      
-    } else if (endpoint === "get-transactions") {
-      const accountReference = url.searchParams.get('account_reference');
-      
-      if (!accountReference) {
-        throw new Error("Account reference is required");
-      }
-      
-      flutterwaveResponse = await fetch(`${FLUTTERWAVE_API_BASE}/virtual-account/transactions?account_reference=${accountReference}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`
-        }
-      });
-      
-    } else if (endpoint === "payment-link") {
-      const requestData = await req.json();
-      console.log("Create payment link request:", requestData);
-      
-      flutterwaveResponse = await fetch(`${FLUTTERWAVE_API_BASE}/payments`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          tx_ref: requestData.tx_ref || `FLW-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-          amount: requestData.amount,
-          currency: requestData.currency || "NGN",
-          redirect_url: requestData.redirect_url || "https://collectipay.app/payment-callback",
-          customer: {
-            email: requestData.customer_email,
-            name: requestData.customer_name
-          },
-          customizations: {
-            title: requestData.title || "CollectiPay Payment",
-            description: requestData.description || "Fund your wallet",
-            logo: requestData.logo || "https://collectipay.app/logo.png"
-          },
-          meta: requestData.meta || {}
-        })
-      });
-      
-    } else {
-      throw new Error(`Unknown endpoint: ${endpoint}`);
+      );
     }
-
-    // Process Flutterwave API response
-    const responseData = await flutterwaveResponse.json();
     
-    console.log("Flutterwave API response:", responseData);
-
-    // Return the response with CORS headers
-    return new Response(JSON.stringify(responseData), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: flutterwaveResponse.status
-    });
+    // Define request data
+    let requestData;
+    
+    if (req.method !== 'GET') {
+      requestData = await req.json();
+    }
+    
+    console.log(`Processing ${endpoint} request:`, requestData);
+    
+    // Handle different endpoints
+    switch (endpoint) {
+      case 'create-virtual-account': 
+        return await createVirtualAccount(requestData);
+        
+      case 'verify-transaction':
+        return await verifyTransaction(requestData.transactionId);
+        
+      default:
+        return new Response(
+          JSON.stringify({ status: 'error', message: 'Endpoint not found' }),
+          { 
+            status: 404, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+    }
     
   } catch (error) {
-    console.error("Error in Flutterwave Edge Function:", error.message);
-    
-    return new Response(JSON.stringify({
-      status: "error",
-      message: error.message
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500
-    });
+    console.error('Error in Flutterwave API:', error);
+    return new Response(
+      JSON.stringify({ status: 'error', message: error.message || 'Internal server error' }),
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    );
   }
 });
+
+async function createVirtualAccount(data: any) {
+  try {
+    const response = await fetch(`${FLUTTERWAVE_API_URL}/virtual-account-numbers`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${FLUTTERWAVE_SECRET_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        email: data.email,
+        is_permanent: data.is_permanent,
+        bvn: data.bvn,
+        nin: data.nin,
+        tx_ref: data.tx_ref,
+        phonenumber: data.phonenumber,
+        firstname: data.firstname,
+        lastname: data.lastname,
+        narration: data.narration,
+        currency: 'NGN',
+      })
+    });
+    
+    const result = await response.json();
+    
+    console.log('Flutterwave create virtual account response:', result);
+    
+    if (response.ok) {
+      return new Response(
+        JSON.stringify(result),
+        { 
+          status: 200, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    } else {
+      return new Response(
+        JSON.stringify({ 
+          status: 'error', 
+          message: result.message || 'Failed to create virtual account' 
+        }),
+        { 
+          status: response.status, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+  } catch (error) {
+    console.error('Error creating virtual account:', error);
+    return new Response(
+      JSON.stringify({ 
+        status: 'error', 
+        message: error.message || 'Error creating virtual account' 
+      }),
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    );
+  }
+}
+
+async function verifyTransaction(transactionId: string) {
+  try {
+    const response = await fetch(`${FLUTTERWAVE_API_URL}/transactions/${transactionId}/verify`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${FLUTTERWAVE_SECRET_KEY}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    const result = await response.json();
+    
+    console.log('Flutterwave verify transaction response:', result);
+    
+    if (response.ok) {
+      return new Response(
+        JSON.stringify(result),
+        { 
+          status: 200, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    } else {
+      return new Response(
+        JSON.stringify({ 
+          status: 'error', 
+          message: result.message || 'Failed to verify transaction' 
+        }),
+        { 
+          status: response.status, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+  } catch (error) {
+    console.error('Error verifying transaction:', error);
+    return new Response(
+      JSON.stringify({ 
+        status: 'error', 
+        message: error.message || 'Error verifying transaction' 
+      }),
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    );
+  }
+}
