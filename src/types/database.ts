@@ -1,19 +1,15 @@
 
 export interface Profile {
   id: string;
-  name: string | null;
-  email: string | null;
+  name: string;
+  email: string;
   phone: string | null;
   wallet_balance: number;
   created_at: string;
   updated_at: string;
   status: 'active' | 'inactive';
   role: 'user' | 'admin';
-  preferences: {
-    darkMode?: boolean;
-    notifications?: boolean;
-    anonymousContributions?: boolean;
-  };
+  preferences: Record<string, any>;
 }
 
 export interface ContributionGroup {
@@ -30,14 +26,14 @@ export interface ContributionGroup {
   end_date: string | null;
   voting_threshold: number;
   privacy: 'public' | 'private';
-  status: 'active' | 'completed' | 'paused';
+  status: 'active' | 'paused' | 'completed' | 'cancelled';
   created_at: string;
   updated_at: string;
   account_number: string | null;
   bank_name: string | null;
   account_name: string | null;
   account_reference: string | null;
-  account_details: any | null;
+  account_details: Record<string, any> | null;
 }
 
 export interface Contributor {
@@ -51,27 +47,27 @@ export interface Contributor {
 
 export interface Transaction {
   id: string;
-  user_id: string;
+  user_id: string | null;
   contribution_id: string | null;
   type: 'deposit' | 'withdrawal' | 'contribution' | 'refund';
   amount: number;
   description: string | null;
-  status: 'pending' | 'completed' | 'failed';
-  reference_id: string;
-  payment_method: string;
+  status: 'pending' | 'completed' | 'failed' | 'cancelled';
+  reference_id: string | null;
+  payment_method: string | null;
   created_at: string;
   updated_at: string;
   anonymous: boolean;
-  metadata: any | null;
+  metadata: Record<string, any> | null;
 }
 
 export interface WithdrawalRequest {
   id: string;
-  contribution_id: string;
-  requester_id: string;
+  contribution_id: string | null;
+  requester_id: string | null;
   amount: number;
   purpose: string | null;
-  status: 'pending' | 'approved' | 'rejected' | 'expired';
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled' | 'completed';
   created_at: string;
   deadline: string | null;
   votes: Record<string, 'approve' | 'reject'>;
@@ -79,9 +75,20 @@ export interface WithdrawalRequest {
 
 export interface Notification {
   id: string;
-  user_id: string;
+  user_id: string | null;
   message: string;
   related_id: string | null;
   created_at: string;
   is_read: boolean;
+}
+
+export interface ReservedAccountData {
+  accountNumber?: string;
+  bankName?: string;
+  accountName?: string;
+  accountReference?: string;
+  accounts?: Array<{
+    accountNumber: string;
+    bankName: string;
+  }>;
 }

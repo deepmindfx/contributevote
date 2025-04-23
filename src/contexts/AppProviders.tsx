@@ -12,13 +12,12 @@ interface AppProvidersProps {
 }
 
 export function AppProviders({ children }: AppProvidersProps) {
-  // Initialize localStorage and ensure account numbers on app start
+  // Initialize localStorage but don't generate mock data
   useEffect(() => {
     try {
-      // Make sure account numbers are displayed
+      // Make sure account numbers are displayed but don't generate mock data
       ensureAccountNumberDisplay();
       
-      // Debug - log contributions to see account numbers
       console.log("Initialized app providers");
     } catch (error) {
       console.error("Error initializing app providers:", error);

@@ -13,6 +13,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   loading: boolean;
+  isAuthenticated: boolean;
   refreshProfile: () => Promise<void>;
 }
 
@@ -23,13 +24,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state changed:', event);
         setSession(session);
         setUser(session?.user ?? null);
+        setIsAuthenticated(!!session?.user);
         
         if (session?.user) {
           // Defer profile fetch to avoid auth deadlock
@@ -46,9 +50,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      setIsAuthenticated(!!session?.user);
+      
       if (session?.user) {
         fetchProfile(session.user.id);
       }
+      
       setLoading(false);
     });
 
@@ -150,6 +157,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signIn,
       signOut,
       loading,
+      isAuthenticated,
       refreshProfile
     }}>
       {children}

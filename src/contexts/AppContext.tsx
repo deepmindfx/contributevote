@@ -1,159 +1,122 @@
 
-import { createContext, useContext, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { useAuth } from './AuthContext';
 import { useUser } from './UserContext';
-import { useContribution } from './ContributionContext'; 
-import { useAdmin } from './AdminContext';
-import { initializeLocalStorage } from '@/services/localStorage';
-import { ensureAccountNumberDisplay } from '@/localStorage';
+import { useContribution } from './ContributionContext';
+import { toast } from 'sonner';
+import { type Transaction } from '@/services/localStorage/types';
 
-// Create a backward compatibility context
 interface AppContextType {
+  isReady: boolean;
+  isLoading: boolean;
   user: any;
-  users: any[];
   contributions: any[];
-  withdrawalRequests: any[];
   transactions: any[];
+  withdrawalRequests: any[];
   stats: any;
   refreshData: () => void;
   createNewContribution: (contribution: any) => void;
   contribute: (contributionId: string, amount: number, anonymous?: boolean) => void;
-  contributeViaAccountNumber: (accountNumber: string, amount: number, contributorInfo: { name: string, email?: string, phone?: string }, anonymous?: boolean) => void;
-  requestWithdrawal: (request: any) => void;
-  vote: (requestId: string, vote: 'approve' | 'reject') => void;
+  contributeViaAccountNumber: (accountNumber: string, amount: number, contributorInfo: any, anonymous?: boolean) => void;
   getShareLink: (contributionId: string) => string;
-  updateProfile: (userData: any) => void;
-  updateUserAsAdmin: (userId: string, userData: any) => void;
-  depositToUserAsAdmin: (userId: string, amount: number) => void;
-  pauseUserAsAdmin: (userId: string) => void;
-  activateUserAsAdmin: (userId: string) => void;
-  isAdmin: boolean;
-  isAuthenticated: boolean;
   shareToContacts: (contributionId: string, recipients: string[]) => void;
-  logout: () => void;
-  getUserByEmail: (email: string) => any | null;
-  getUserByPhone: (phone: string) => any | null;
-  pingMembersForVote: (requestId: string) => void;
   getReceipt: (transactionId: string) => any;
-  verifyUser: (userId: string) => void;
   isGroupCreator: (contributionId: string) => boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-// This is our backward compatibility provider
-export function AppProvider({ children }: { children: ReactNode }) {
-  const { 
-    user, 
-    users, 
-    isAdmin, 
-    isAuthenticated, 
-    refreshUserData,
-    updateProfile,
-    updateUserAsAdmin,
-    depositToUserAsAdmin,
-    pauseUserAsAdmin,
-    activateUserAsAdmin,
-    getUserByEmail,
-    getUserByPhone,
-    verifyUser,
-    logout
-  } = useUser();
+interface AppProviderProps {
+  children: ReactNode;
+}
 
+export function AppProvider({ children }: AppProviderProps) {
+  const { user: authUser, isAuthenticated } = useAuth();
+  const { user: userDetails, refreshUserData } = useUser();
   const {
     contributions,
-    withdrawalRequests,
     transactions,
+    withdrawalRequests,
     stats,
     refreshContributionData,
+    isGroupCreator,
     createNewContribution,
     contribute,
     contributeViaAccountNumber,
-    requestWithdrawal,
-    vote,
     getShareLink,
     shareToContacts,
-    pingMembersForVote,
     getReceipt,
-    isGroupCreator
   } = useContribution();
 
-  useEffect(() => {
-    // Initialize local storage when the app first loads
-    try {
-      initializeLocalStorage();
-      refreshData();
-      
-      // Add this call to ensure account numbers are displayed
-      ensureAccountNumberDisplay();
-    } catch (error) {
-      console.error("Error in initial load:", error);
-    }
-  }, []);
+  const [isReady, setIsReady] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Combine all refresh functions
+  // Initialize and set up
+  useEffect(() => {
+    if (isAuthenticated) {
+      refreshData();
+    }
+    
+    // Mark as ready after initial loading
+    setTimeout(() => {
+      setIsReady(true);
+      setIsLoading(false);
+    }, 1000);
+  }, [isAuthenticated]);
+
+  // Refresh all data from various contexts
   const refreshData = () => {
-    // Make sure localStorage is initialized before refreshing data
+    setIsLoading(true);
+    
     try {
-      initializeLocalStorage();
+      // Refresh user data first
       refreshUserData();
       
-      // Only refresh contribution data if user is authenticated
-      if (isAuthenticated && user?.id) {
-        refreshContributionData();
-      }
+      // Then refresh contribution data which might depend on user data
+      refreshContributionData();
       
-      // Ensure account numbers are displayed for contributions
-      try {
-        ensureAccountNumberDisplay();
-      } catch (error) {
-        console.info("Non-critical error in ensureAccountNumberDisplay:", error);
-      }
-      
+      console.log("App data refreshed");
     } catch (error) {
-      console.error("Error in refreshData:", error);
+      console.error("Error refreshing app data:", error);
+      toast.error("Failed to refresh data");
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  // Combine user details from auth and user contexts
+  const combinedUser = {
+    ...authUser,
+    ...userDetails
   };
 
   return (
     <AppContext.Provider value={{
-      user,
-      users,
+      isReady,
+      isLoading,
+      user: combinedUser,
       contributions,
-      withdrawalRequests,
       transactions,
+      withdrawalRequests,
       stats,
       refreshData,
       createNewContribution,
       contribute,
       contributeViaAccountNumber,
-      requestWithdrawal,
-      vote,
       getShareLink,
-      updateProfile,
-      updateUserAsAdmin,
-      depositToUserAsAdmin,
-      pauseUserAsAdmin,
-      activateUserAsAdmin,
-      isAdmin,
-      isAuthenticated,
       shareToContacts,
-      logout,
-      getUserByEmail,
-      getUserByPhone,
-      pingMembersForVote,
       getReceipt,
-      verifyUser,
-      isGroupCreator,
+      isGroupCreator
     }}>
       {children}
     </AppContext.Provider>
   );
 }
 
-export function useApp() {
+export const useApp = () => {
   const context = useContext(AppContext);
   if (context === undefined) {
     throw new Error('useApp must be used within an AppProvider');
   }
   return context;
-}
+};

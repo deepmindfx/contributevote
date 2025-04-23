@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -192,7 +191,7 @@ const ReservedAccount = () => {
                 className="flex items-center gap-2"
               >
                 <Plus size={16} />
-                Create Virtual Account
+                Create Flutterwave Virtual Account
               </Button>
               
               {/* BVN/NIN Input Dialog */}

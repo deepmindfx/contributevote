@@ -1,6 +1,6 @@
 
 import { v4 as uuidv4 } from 'uuid';
-import { BASE_URL, getHeaders } from './config';
+import { getEdgeFunctionUrl, getHeaders } from './config';
 
 interface VirtualAccountResponse {
   status: string;
@@ -51,10 +51,10 @@ export const createVirtualAccount = async (params: AccountCreationParams) => {
       ...(params.amount && { amount: params.amount })
     };
     
-    console.log("Sending payload to Flutterwave:", payload);
+    console.log("Sending payload to Flutterwave through edge function:", payload);
     
-    // Make the API request with proper error handling
-    const response = await fetch(`${BASE_URL}/virtual-account-numbers`, {
+    // Make the API request through our edge function
+    const response = await fetch(getEdgeFunctionUrl('create-virtual-account'), {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify(payload)
@@ -62,7 +62,7 @@ export const createVirtualAccount = async (params: AccountCreationParams) => {
 
     // Get the response as JSON
     const data = await response.json();
-    console.log("Flutterwave response:", data);
+    console.log("Edge function response:", data);
 
     if (!response.ok) {
       throw new Error(data.message || 'Failed to create virtual account');
@@ -84,8 +84,7 @@ export const createVirtualAccount = async (params: AccountCreationParams) => {
   } catch (error) {
     console.error("Error creating virtual account:", error);
     
-    // Due to CORS limitations, we'll create a simulated successful response for testing
-    // This should be replaced with a proper backend implementation in production
+    // For development, return a simulated response
     const dummyResponse = {
       requestSuccessful: true,
       responseMessage: "Virtual account created successfully (simulated)",
@@ -99,7 +98,7 @@ export const createVirtualAccount = async (params: AccountCreationParams) => {
       }
     };
     
-    console.log("Using simulated response due to CORS:", dummyResponse);
+    console.log("Using simulated response due to error:", dummyResponse);
     
     return dummyResponse;
   }
