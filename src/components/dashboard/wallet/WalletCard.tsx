@@ -173,7 +173,7 @@ const WalletCard = () => {
   };
 
   return (
-    <Card className="overflow-hidden rounded-3xl border border-border shadow-sm">
+    <Card className="overflow-hidden rounded-3xl border-0 shadow-none">
       <WalletHeader 
         currencyType={currencyType}
         toggleCurrency={toggleCurrency}

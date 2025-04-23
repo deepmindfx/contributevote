@@ -87,7 +87,16 @@ export const createGroupVirtualAccount = async (params: {
   amount?: number;
 }) => {
   try {
-    // Make sure we pass through the BVN/NIN provided by the user
+    // Make sure BVN/NIN is included for permanent group accounts
+    if (!params.bvn && !params.nin) {
+      console.error("BVN or NIN is required for creating group virtual accounts");
+      return {
+        requestSuccessful: false,
+        responseMessage: "BVN or NIN is required for creating group virtual accounts",
+        responseBody: null
+      };
+    }
+
     console.log("Creating group virtual account with ID:", params.bvn || params.nin);
     
     // Create permanent account for groups
