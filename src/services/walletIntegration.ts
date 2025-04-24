@@ -5,6 +5,7 @@ import {
 } from './flutterwave/virtualAccounts';
 import { v4 as uuidv4 } from 'uuid';
 import { Transaction } from './localStorage/types';
+import { updateUser } from './localStorage';
 
 // Re-export virtual account functions
 export {
@@ -111,6 +112,8 @@ export const createUserReservedAccount = async (userId: string, idType: string, 
       throw new Error('User not found');
     }
     
+    console.log(`Creating virtual account for user ${userId} with ${idType}: ${idNumber}`);
+    
     // Create virtual account with Flutterwave
     const result = await createVirtualAccount({
       email: user.email,
@@ -124,32 +127,52 @@ export const createUserReservedAccount = async (userId: string, idType: string, 
       throw new Error(result.responseMessage || 'Failed to create virtual account');
     }
     
-    // Update user with reserved account details
-    const updatedUsers = users.map((u: any) => {
-      if (u.id === userId) {
-        return {
-          ...u,
-          reservedAccount: {
-            accountNumber: result.responseBody.accounts[0].accountNumber,
-            bankName: result.responseBody.accounts[0].bankName,
-            accountName: result.responseBody.accountName,
-            accountReference: result.responseBody.accountReference,
-            accounts: result.responseBody.accounts
-          }
-        };
-      }
-      return u;
-    });
+    console.log("Virtual account API response:", result);
     
-    localStorage.setItem('users', JSON.stringify(updatedUsers));
-    
-    return {
+    // Create account data structure
+    const accountData = {
       accountNumber: result.responseBody.accounts[0].accountNumber,
       bankName: result.responseBody.accounts[0].bankName,
       accountName: result.responseBody.accountName,
       accountReference: result.responseBody.accountReference,
       accounts: result.responseBody.accounts
     };
+    
+    // Update user with reserved account details
+    const updatedUsers = users.map((u: any) => {
+      if (u.id === userId) {
+        return {
+          ...u,
+          reservedAccount: accountData
+        };
+      }
+      return u;
+    });
+    
+    // Save updated users to localStorage
+    localStorage.setItem('users', JSON.stringify(updatedUsers));
+    
+    // Also update the current user if this is for the current user
+    const currentUserStr = localStorage.getItem('currentUser');
+    if (currentUserStr) {
+      const currentUser = JSON.parse(currentUserStr);
+      if (currentUser.id === userId) {
+        currentUser.reservedAccount = accountData;
+        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+      }
+    }
+    
+    // Update user in the profiles table to ensure persistence
+    try {
+      updateUser(userId, { reservedAccount: accountData });
+    } catch (error) {
+      console.error("Failed to update user profile with reserved account:", error);
+      // Continue since we already updated the users array
+    }
+    
+    console.log(`Successfully created and saved virtual account for user ${userId}`);
+    
+    return accountData;
   } catch (error) {
     console.error('Error creating user reserved account:', error);
     throw error;

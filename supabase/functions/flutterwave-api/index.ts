@@ -55,6 +55,8 @@ serve(async (req) => {
           if (!body.currency) {
             body.currency = "NGN";
           }
+          
+          console.log("Final create virtual account payload:", JSON.stringify(body));
         }
         break;
         
@@ -93,10 +95,12 @@ serve(async (req) => {
       console.log(`Flutterwave API response for ${path}: Success`);
       console.log(`Response status: ${response.status}`);
       console.log(`Response message: ${data.message || 'No message'}`);
+      console.log(`Response data:`, JSON.stringify(data));
     } else {
       console.error(`Flutterwave API error for ${path}:`, data);
       console.error(`Response status: ${response.status}`);
       console.error(`Error message: ${data.message || 'No error message'}`);
+      console.error(`Error details:`, JSON.stringify(data));
     }
     
     // Return the response with CORS headers
