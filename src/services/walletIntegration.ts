@@ -105,15 +105,7 @@ export const createUserReservedAccount = async (userId: string, idType: string, 
   try {
     // Get user data
     const usersStr = localStorage.getItem('users');
-    let users = [];
-    
-    try {
-      users = usersStr ? JSON.parse(usersStr) : [];
-    } catch (error) {
-      console.error('Error parsing users from localStorage:', error);
-      users = [];
-    }
-    
+    const users = usersStr ? JSON.parse(usersStr) : [];
     const user = users.find((u: any) => u.id === userId);
     
     if (!user) {
@@ -135,12 +127,6 @@ export const createUserReservedAccount = async (userId: string, idType: string, 
       throw new Error('BVN must be 11 digits');
     }
     
-    // Check if the user already has a virtual account (to avoid duplicates)
-    if (user.reservedAccount && user.reservedAccount.accountNumber) {
-      console.log('User already has a virtual account, returning existing details.');
-      return user.reservedAccount;
-    }
-    
     // Create virtual account with Flutterwave
     const result = await createVirtualAccount({
       email: user.email,
@@ -157,17 +143,13 @@ export const createUserReservedAccount = async (userId: string, idType: string, 
     
     console.log("Virtual account API response:", result);
     
-    if (!result.responseBody) {
-      throw new Error('Invalid response from API - no response body');
-    }
-    
     // Create account data structure
     const accountData = {
-      accountNumber: result.responseBody.accounts[0].accountNumber,
-      bankName: result.responseBody.accounts[0].bankName,
-      accountName: result.responseBody.accountName,
-      accountReference: result.responseBody.accountReference,
-      accounts: result.responseBody.accounts
+      accountNumber: result.responseBody?.accounts[0].accountNumber,
+      bankName: result.responseBody?.accounts[0].bankName,
+      accountName: result.responseBody?.accountName,
+      accountReference: result.responseBody?.accountReference,
+      accounts: result.responseBody?.accounts
     };
     
     // Update user with reserved account details
@@ -187,17 +169,10 @@ export const createUserReservedAccount = async (userId: string, idType: string, 
     // Also update the current user if this is for the current user
     const currentUserStr = localStorage.getItem('currentUser');
     if (currentUserStr) {
-      try {
-        let currentUser = JSON.parse(currentUserStr);
-        if (currentUser && currentUser.id === userId) {
-          currentUser = {
-            ...currentUser,
-            reservedAccount: accountData
-          };
-          localStorage.setItem('currentUser', JSON.stringify(currentUser));
-        }
-      } catch (error) {
-        console.error("Error updating current user:", error);
+      const currentUser = JSON.parse(currentUserStr);
+      if (currentUser && currentUser.id === userId) {
+        currentUser.reservedAccount = accountData;
+        localStorage.setItem('currentUser', JSON.stringify(currentUser));
       }
     }
     

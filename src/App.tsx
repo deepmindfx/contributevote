@@ -13,7 +13,7 @@ import Index from '@/pages/Index';
 const CreateGroup = lazy(() => import('@/pages/CreateGroup'));
 const GroupDetail = lazy(() => import('@/pages/GroupDetail'));
 const Explore = lazy(() => import('@/pages/Explore'));
-const Profile = lazy(() => import('@/pages/UserProfile')); // Corrected import
+const Profile = lazy(() => import('@/pages/UserProfile'));
 const Settings = lazy(() => import('@/pages/UserSettings'));
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {

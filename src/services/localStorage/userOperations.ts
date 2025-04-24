@@ -4,27 +4,20 @@ import { User } from './types';
 import { getBaseUsers, getBaseCurrentUser } from './storageUtils';
 import { addNotification } from './notificationOperations';
 import { createTransaction } from './transactionOperations';
-import { ensureCleanAccountForNewUser } from './initialization';
 
 export const getUsers = (): User[] => {
   return getBaseUsers();
 };
 
-export const createUser = (user: Omit<User, 'id' | 'walletBalance' | 'role' | 'isVerified'>): User => {
+export const createUser = (user: Omit<User, 'id' | 'walletBalance' | 'role' | 'verified'>): User => {
   const users = getBaseUsers();
-  const userId = uuidv4();
-  
   const newUser: User = {
-    id: userId,
+    id: uuidv4(),
     walletBalance: 0,
     role: 'user',
-    isVerified: false,
+    verified: false,
     ...user,
   };
-  
-  // Ensure this is a clean account with no associated data
-  ensureCleanAccountForNewUser(userId);
-  
   users.push(newUser);
   localStorage.setItem('users', JSON.stringify(users));
   return newUser;

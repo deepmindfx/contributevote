@@ -27,25 +27,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    // Clear any stale data first to prevent potential mixing
-    const clearStaleData = () => {
-      setSession(null);
-      setUser(null);
-      setProfile(null);
-      setIsAuthenticated(false);
-    };
-    
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth state changed:', event);
-        
-        // Handle logout explicitly to clear data
-        if (event === 'SIGNED_OUT') {
-          clearStaleData();
-          return;
-        }
-        
         setSession(session);
         setUser(session?.user ?? null);
         setIsAuthenticated(!!session?.user);
@@ -69,8 +54,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       if (session?.user) {
         fetchProfile(session.user.id);
-      } else {
-        setProfile(null);
       }
       
       setLoading(false);
@@ -97,7 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         name: data.name,
         email: data.email,
         phone: data.phone || null,
-        wallet_balance: data.wallet_balance || 0,
+        wallet_balance: data.wallet_balance,
         created_at: data.created_at,
         updated_at: data.updated_at,
         status: data.status as 'active' | 'inactive',
@@ -120,11 +103,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, password: string, metadata: { name: string }) => {
     try {
-      // Clear any existing data first
-      setSession(null);
-      setUser(null);
-      setProfile(null);
-      
       const { error } = await supabase.auth.signUp({
         email,
         password,
@@ -144,11 +122,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
-      // Clear any existing data first to prevent mixing
-      setSession(null);
-      setUser(null);
-      setProfile(null);
-      
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -167,13 +140,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
-      
-      // Clear all auth state
-      setSession(null);
-      setUser(null);
-      setProfile(null);
-      setIsAuthenticated(false);
-      
       toast.success('Signed out successfully');
     } catch (error) {
       console.error('Error signing out:', error);

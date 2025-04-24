@@ -27,31 +27,10 @@ serve(async (req) => {
     let method = 'GET';
     let body = null;
     
-    // Set a timeout for the request
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-    
     // Extract the request body if present
     if (req.method === 'POST' || req.method === 'PUT') {
-      try {
-        body = await req.json();
-        console.log(`Request body for ${path}:`, JSON.stringify({
-          ...body,
-          bvn: body.bvn ? "****" : undefined // Mask BVN in logs
-        }));
-      } catch (error) {
-        console.error(`Error parsing request body for ${path}:`, error);
-        return new Response(
-          JSON.stringify({ 
-            status: "error", 
-            message: "Invalid request body" 
-          }), 
-          { 
-            status: 400, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        );
-      }
+      body = await req.json();
+      console.log(`Request body for ${path}:`, JSON.stringify(body));
     }
     
     // Determine the endpoint and HTTP method based on the path
@@ -138,70 +117,49 @@ serve(async (req) => {
     console.log(`Proxying request to Flutterwave: ${FLUTTERWAVE_BASE_URL}${endpoint}`);
     console.log(`Method: ${method}`);
     
-    // Make the request to Flutterwave API with timeout
-    try {
-      const response = await fetch(`${FLUTTERWAVE_BASE_URL}${endpoint}`, {
-        method: method,
-        headers: {
-          'Authorization': `Bearer ${FLUTTERWAVE_SECRET_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: body ? JSON.stringify(body) : undefined,
-        signal: controller.signal
-      });
+    // Make the request to Flutterwave API
+    const response = await fetch(`${FLUTTERWAVE_BASE_URL}${endpoint}`, {
+      method: method,
+      headers: {
+        'Authorization': `Bearer ${FLUTTERWAVE_SECRET_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    
+    // Get the response data
+    const data = await response.json();
+    
+    // Log success or error for debugging
+    if (response.ok) {
+      console.log(`Flutterwave API response for ${path}: Success`);
+      console.log(`Response status: ${response.status}`);
+      console.log(`Response message: ${data.message || 'No message'}`);
       
-      // Clear the timeout since the request completed
-      clearTimeout(timeoutId);
-      
-      // Get the response data
-      const data = await response.json();
-      
-      // Log success or error for debugging
-      if (response.ok) {
-        console.log(`Flutterwave API response for ${path}: Success`);
-        console.log(`Response status: ${response.status}`);
-        console.log(`Response message: ${data.message || 'No message'}`);
-        
-        if (path === 'create-virtual-account') {
-          // Log the created account details
-          if (data.data) {
-            console.log(`Created account number: ${data.data.account_number || 'Not provided'}`);
-            console.log(`Bank name: ${data.data.bank_name || 'Not provided'}`);
-            console.log(`Reference: ${data.data.flw_ref || 'Not provided'}`);
-          }
-        }
-      } else {
-        console.error(`Flutterwave API error for ${path}:`, data);
-        console.error(`Response status: ${response.status}`);
-        console.error(`Error message: ${data.message || 'No error message'}`);
-        
+      if (path === 'create-virtual-account') {
+        // Log the created account details
         if (data.data) {
-          console.error("Error details:", JSON.stringify(data.data));
+          console.log(`Created account number: ${data.data.account_number || 'Not provided'}`);
+          console.log(`Bank name: ${data.data.bank_name || 'Not provided'}`);
+          console.log(`Reference: ${data.data.flw_ref || 'Not provided'}`);
         }
       }
+    } else {
+      console.error(`Flutterwave API error for ${path}:`, data);
+      console.error(`Response status: ${response.status}`);
+      console.error(`Error message: ${data.message || 'No error message'}`);
       
-      // Return the response with CORS headers
-      return new Response(JSON.stringify(data), {
-        status: response.status,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    } catch (error) {
-      if (error.name === 'AbortError') {
-        console.error(`Flutterwave API request timeout for ${path}`);
-        return new Response(
-          JSON.stringify({ 
-            status: "error", 
-            message: "Request timed out. Please try again." 
-          }), 
-          { 
-            status: 504, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        );
+      if (data.data) {
+        console.error("Error details:", JSON.stringify(data.data));
       }
-      
-      throw error;
     }
+    
+    // Return the response with CORS headers
+    return new Response(JSON.stringify(data), {
+      status: response.status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+    
   } catch (error) {
     console.error(`Error in flutterwave-api function:`, error);
     
