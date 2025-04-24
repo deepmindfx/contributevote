@@ -25,16 +25,14 @@ interface AccountCreationParams {
 
 export const createVirtualAccount = async (params: AccountCreationParams) => {
   try {
-    console.log("Creating virtual account with params:", params);
+    console.log("Creating virtual account with params:", {
+      ...params,
+      bvn: params.bvn ? "****" : undefined // Mask BVN in logs
+    });
     
     // For real API call, we need to ensure BVN is provided for permanent accounts
     if (params.isPermanent && !params.bvn) {
-      console.error("BVN is required for permanent accounts");
-      return {
-        requestSuccessful: false,
-        responseMessage: "BVN is required for permanent accounts",
-        responseBody: null
-      };
+      console.log("No BVN provided for permanent account - this might cause issues with the Flutterwave API");
     }
     
     // Generate a unique reference
@@ -51,7 +49,10 @@ export const createVirtualAccount = async (params: AccountCreationParams) => {
       ...(params.amount && { amount: params.amount })
     };
     
-    console.log("Sending payload to Flutterwave through edge function:", payload);
+    console.log("Sending payload to Flutterwave through edge function:", {
+      ...payload,
+      bvn: payload.bvn ? "****" : undefined // Mask BVN in logs
+    });
     
     // Make the API request through our edge function
     const response = await fetch(getEdgeFunctionUrl('create-virtual-account'), {
@@ -84,23 +85,11 @@ export const createVirtualAccount = async (params: AccountCreationParams) => {
   } catch (error) {
     console.error("Error creating virtual account:", error);
     
-    // For development, return a simulated response
-    const dummyResponse = {
-      requestSuccessful: true,
-      responseMessage: "Virtual account created successfully (simulated)",
-      responseBody: {
-        accounts: [{
-          accountNumber: "7824822527",
-          bankName: "WEMA BANK"
-        }],
-        accountReference: `FLW-REF-${Math.floor(Math.random() * 1000000)}`,
-        accountName: params.name
-      }
+    return {
+      requestSuccessful: false,
+      responseMessage: error instanceof Error ? error.message : "Failed to create virtual account",
+      responseBody: null
     };
-    
-    console.log("Using simulated response due to error:", dummyResponse);
-    
-    return dummyResponse;
   }
 };
 
@@ -116,7 +105,7 @@ export const createGroupVirtualAccount = async (params: AccountCreationParams) =
       };
     }
 
-    console.log("Creating group virtual account with BVN:", params.bvn);
+    console.log("Creating group virtual account with BVN:", params.bvn ? "****" : "Not provided");
     
     // Create permanent account for groups
     return await createVirtualAccount({
