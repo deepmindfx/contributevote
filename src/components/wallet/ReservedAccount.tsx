@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,23 +11,29 @@ import {
   getReservedAccountTransactions
 } from "@/services/walletIntegration";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormDescription, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-// Form schema for validation - Only BVN is required now
-const bvnFormSchema = z.object({
-  bvn: z.string()
-    .length(11, "BVN must be exactly 11 digits")
-    .regex(/^\d+$/, "BVN must contain only digits"),
+// Form schema for validation
+const idFormSchema = z.object({
+  idType: z.enum(["bvn", "nin"], {
+    required_error: "Please select an ID type",
+  }),
+  idNumber: z.string()
+    .min(10, "ID number must be at least 10 digits")
+    .max(11, "ID number cannot exceed 11 digits")
+    .regex(/^\d+$/, "ID number must contain only digits"),
 });
 
 // Define the interface for the form data
-interface BvnFormData {
-  bvn: string;
+interface IdFormData {
+  idType: "bvn" | "nin";
+  idNumber: string;
 }
 
 const ReservedAccount = () => {
@@ -36,13 +41,14 @@ const ReservedAccount = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [accountDetails, setAccountDetails] = useState<ReservedAccountData | null>(null);
   const [showFullDetails, setShowFullDetails] = useState(false);
-  const [showBvnForm, setShowBvnForm] = useState(false);
+  const [showIdForm, setShowIdForm] = useState(false);
   
   // Initialize the form with explicit type
-  const form = useForm<BvnFormData>({
-    resolver: zodResolver(bvnFormSchema),
+  const form = useForm<IdFormData>({
+    resolver: zodResolver(idFormSchema),
     defaultValues: {
-      bvn: "",
+      idType: "bvn",
+      idNumber: "",
     },
   });
   
@@ -58,7 +64,7 @@ const ReservedAccount = () => {
     }
   }, [user]);
   
-  const handleCreateAccount = async (values?: BvnFormData) => {
+  const handleCreateAccount = async (values?: IdFormData) => {
     setIsLoading(true);
     try {
       if (!user || !user.id) {
@@ -67,16 +73,15 @@ const ReservedAccount = () => {
       }
       
       if (!values) {
-        setShowBvnForm(true);
+        setShowIdForm(true);
         setIsLoading(false);
         return;
       }
       
-      // Close the BVN form dialog after submission
-      setShowBvnForm(false);
+      // Close the ID form dialog after submission
+      setShowIdForm(false);
       
-      console.log("Creating account with BVN:", values.bvn ? "****" : "Not provided");
-      const result = await createUserReservedAccount(user.id, "bvn", values.bvn);
+      const result = await createUserReservedAccount(user.id, values.idType, values.idNumber);
       if (result) {
         console.log("Reserved account created:", result);
         setAccountDetails(result);
@@ -89,6 +94,7 @@ const ReservedAccount = () => {
             refreshData();
           } catch (error) {
             console.error("Error fetching transactions after account creation:", error);
+            // Continue even if this fails
           }
         }
         
@@ -96,7 +102,7 @@ const ReservedAccount = () => {
       }
     } catch (error) {
       console.error("Error creating reserved account:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to create reserved account. Please try again.");
+      toast.error("Failed to create reserved account. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -132,6 +138,7 @@ const ReservedAccount = () => {
           await getReservedAccountTransactions(response.responseBody.accountReference);
         } catch (error) {
           console.error("Error fetching transactions after refresh:", error);
+          // Continue even if this fails
         }
         
         refreshData();
@@ -152,7 +159,7 @@ const ReservedAccount = () => {
     toast.success(`${label} copied to clipboard`);
   };
   
-  const onSubmitBvnForm = (values: BvnFormData) => {
+  const onSubmitIdForm = (values: IdFormData) => {
     handleCreateAccount(values);
   };
   
@@ -187,32 +194,65 @@ const ReservedAccount = () => {
                 Create Flutterwave Virtual Account
               </Button>
               
-              {/* BVN Input Dialog */}
-              <Dialog open={showBvnForm} onOpenChange={setShowBvnForm}>
+              {/* BVN/NIN Input Dialog */}
+              <Dialog open={showIdForm} onOpenChange={setShowIdForm}>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Provide BVN</DialogTitle>
+                    <DialogTitle>Provide Identification</DialogTitle>
                     <DialogDescription>
-                      Your BVN is required to create your virtual account. This is required by financial regulations.
+                      We need your BVN or NIN to create your virtual account. This information is required by financial regulations.
                     </DialogDescription>
                   </DialogHeader>
                   
                   <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmitBvnForm)} className="space-y-4">
+                    <form onSubmit={form.handleSubmit(onSubmitIdForm)} className="space-y-4">
                       <FormField
                         control={form.control}
-                        name="bvn"
+                        name="idType"
+                        render={({ field }) => (
+                          <FormItem className="space-y-3">
+                            <FormLabel>ID Type</FormLabel>
+                            <RadioGroup 
+                              onValueChange={field.onChange} 
+                              defaultValue={field.value}
+                              className="flex flex-col space-y-1"
+                            >
+                              <FormItem className="flex items-center space-x-3 space-y-0">
+                                <FormControl>
+                                  <RadioGroupItem value="bvn" />
+                                </FormControl>
+                                <FormLabel className="font-normal">
+                                  Bank Verification Number (BVN)
+                                </FormLabel>
+                              </FormItem>
+                              <FormItem className="flex items-center space-x-3 space-y-0">
+                                <FormControl>
+                                  <RadioGroupItem value="nin" />
+                                </FormControl>
+                                <FormLabel className="font-normal">
+                                  National Identification Number (NIN)
+                                </FormLabel>
+                              </FormItem>
+                            </RadioGroup>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="idNumber"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Bank Verification Number (BVN)</FormLabel>
+                            <FormLabel>ID Number</FormLabel>
                             <FormControl>
                               <Input 
-                                placeholder="Enter your 11-digit BVN"
+                                placeholder={field.value === "bvn" ? "Enter your 11-digit BVN" : "Enter your NIN"}
                                 {...field}
                               />
                             </FormControl>
                             <FormDescription>
-                              Your BVN is required and securely encrypted.
+                              Your information is encrypted and secure.
                             </FormDescription>
                             <FormMessage />
                           </FormItem>
@@ -220,7 +260,7 @@ const ReservedAccount = () => {
                       />
                       
                       <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setShowBvnForm(false)}>
+                        <Button type="button" variant="outline" onClick={() => setShowIdForm(false)}>
                           Cancel
                         </Button>
                         <Button type="submit" disabled={isLoading}>

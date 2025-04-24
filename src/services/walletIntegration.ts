@@ -5,7 +5,6 @@ import {
 } from './flutterwave/virtualAccounts';
 import { v4 as uuidv4 } from 'uuid';
 import { Transaction } from './localStorage/types';
-import { updateUser } from './localStorage';
 
 // Re-export virtual account functions
 export {
@@ -35,7 +34,7 @@ export interface VirtualAccountResponse {
     }>;
     accountReference: string;
     accountName: string;
-  } | null;
+  };
 }
 
 export const getReservedAccountTransactions = async (accountReference: string) => {
@@ -109,22 +108,7 @@ export const createUserReservedAccount = async (userId: string, idType: string, 
     const user = users.find((u: any) => u.id === userId);
     
     if (!user) {
-      console.error(`User not found with ID: ${userId}`);
       throw new Error('User not found');
-    }
-    
-    console.log(`Creating virtual account for user ${userId} with ${idType}: ${idNumber ? "****" : "Not provided"}`);
-    
-    if (idType !== 'bvn') {
-      throw new Error('BVN is required for creating virtual accounts');
-    }
-
-    if (!idNumber) {
-      throw new Error('BVN number is required');
-    }
-
-    if (idNumber.length !== 11 || !/^\d+$/.test(idNumber)) {
-      throw new Error('BVN must be 11 digits');
     }
     
     // Create virtual account with Flutterwave
@@ -132,64 +116,40 @@ export const createUserReservedAccount = async (userId: string, idType: string, 
       email: user.email,
       name: user.name || `${user.firstName} ${user.lastName}`,
       isPermanent: true,
-      bvn: idNumber,
+      bvn: idType === 'bvn' ? idNumber : undefined,
       narration: `Please make a bank transfer to ${user.name || `${user.firstName} ${user.lastName}`}`
     });
     
     if (!result.requestSuccessful) {
-      console.error('Failed to create virtual account:', result.responseMessage);
       throw new Error(result.responseMessage || 'Failed to create virtual account');
     }
-    
-    console.log("Virtual account API response:", result);
-    
-    // Create account data structure
-    const accountData = {
-      accountNumber: result.responseBody?.accounts[0].accountNumber,
-      bankName: result.responseBody?.accounts[0].bankName,
-      accountName: result.responseBody?.accountName,
-      accountReference: result.responseBody?.accountReference,
-      accounts: result.responseBody?.accounts
-    };
     
     // Update user with reserved account details
     const updatedUsers = users.map((u: any) => {
       if (u.id === userId) {
         return {
           ...u,
-          reservedAccount: accountData
+          reservedAccount: {
+            accountNumber: result.responseBody.accounts[0].accountNumber,
+            bankName: result.responseBody.accounts[0].bankName,
+            accountName: result.responseBody.accountName,
+            accountReference: result.responseBody.accountReference,
+            accounts: result.responseBody.accounts
+          }
         };
       }
       return u;
     });
     
-    // Save updated users to localStorage
     localStorage.setItem('users', JSON.stringify(updatedUsers));
     
-    // Also update the current user if this is for the current user
-    const currentUserStr = localStorage.getItem('currentUser');
-    if (currentUserStr) {
-      const currentUser = JSON.parse(currentUserStr);
-      if (currentUser && currentUser.id === userId) {
-        currentUser.reservedAccount = accountData;
-        localStorage.setItem('currentUser', JSON.stringify(currentUser));
-      }
-    }
-    
-    // Update user in the profiles table to ensure persistence
-    try {
-      updateUser({ 
-        id: userId, 
-        reservedAccount: accountData 
-      });
-    } catch (error) {
-      console.error("Failed to update user profile with reserved account:", error);
-      // Continue since we already updated the users array
-    }
-    
-    console.log(`Successfully created and saved virtual account for user ${userId}`);
-    
-    return accountData;
+    return {
+      accountNumber: result.responseBody.accounts[0].accountNumber,
+      bankName: result.responseBody.accounts[0].bankName,
+      accountName: result.responseBody.accountName,
+      accountReference: result.responseBody.accountReference,
+      accounts: result.responseBody.accounts
+    };
   } catch (error) {
     console.error('Error creating user reserved account:', error);
     throw error;

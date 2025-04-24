@@ -55,48 +55,6 @@ serve(async (req) => {
           if (!body.currency) {
             body.currency = "NGN";
           }
-
-          // Ensure email is set
-          if (!body.email) {
-            console.error("Email is required for virtual account creation");
-            return new Response(
-              JSON.stringify({ 
-                status: "error", 
-                message: "Email is required for virtual account creation" 
-              }), 
-              { 
-                status: 400, 
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-              }
-            );
-          }
-
-          // Check for BVN when creating permanent account
-          if (body.is_permanent === true && !body.bvn) {
-            console.error("BVN is required for permanent virtual accounts");
-            return new Response(
-              JSON.stringify({ 
-                status: "error", 
-                message: "BVN is required for permanent virtual accounts" 
-              }), 
-              { 
-                status: 400, 
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-              }
-            );
-          }
-
-          // Log the BVN status
-          if (body.bvn) {
-            console.log("BVN provided:", body.bvn.substring(0, 4) + "****");
-          } else {
-            console.log("No BVN provided in the request");
-          }
-          
-          console.log("Final create virtual account payload:", JSON.stringify({
-            ...body,
-            bvn: body.bvn ? "****" : undefined // Mask BVN in logs
-          }));
         }
         break;
         
@@ -135,23 +93,10 @@ serve(async (req) => {
       console.log(`Flutterwave API response for ${path}: Success`);
       console.log(`Response status: ${response.status}`);
       console.log(`Response message: ${data.message || 'No message'}`);
-      
-      if (path === 'create-virtual-account') {
-        // Log the created account details
-        if (data.data) {
-          console.log(`Created account number: ${data.data.account_number || 'Not provided'}`);
-          console.log(`Bank name: ${data.data.bank_name || 'Not provided'}`);
-          console.log(`Reference: ${data.data.flw_ref || 'Not provided'}`);
-        }
-      }
     } else {
       console.error(`Flutterwave API error for ${path}:`, data);
       console.error(`Response status: ${response.status}`);
       console.error(`Error message: ${data.message || 'No error message'}`);
-      
-      if (data.data) {
-        console.error("Error details:", JSON.stringify(data.data));
-      }
     }
     
     // Return the response with CORS headers

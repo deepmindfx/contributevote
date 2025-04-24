@@ -1,208 +1,199 @@
 
 import React from "react";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Check, AlertCircle } from "lucide-react";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 interface SettingsStepProps {
   formData: {
-    name: string;
-    description: string;
-    targetAmount: number;
-    category: string;
-    frequency: "daily" | "weekly" | "monthly" | "one-time";
-    contributionAmount: number;
-    startDate: string;
-    endDate: string;
     votingThreshold: number;
-    privacy: "public" | "private";
-    memberRoles: "equal" | "weighted";
+    privacy: 'public' | 'private';
+    memberRoles: 'equal' | 'weighted';
+    bvn: string;
     notifyContributions: boolean;
     notifyVotes: boolean;
     notifyUpdates: boolean;
-    bvn: string;
-    accountReference: string;
   };
   handleChange: (field: string, value: any) => void;
   handleCreateGroup: () => void;
-  goToPreviousStep: () => void;
   isLoading: boolean;
   validationErrors: {
     bvn?: string;
   };
 }
 
-const SettingsStep = ({
-  formData,
-  handleChange,
-  handleCreateGroup,
-  goToPreviousStep,
-  isLoading,
-  validationErrors,
+const SettingsStep = ({ 
+  formData, 
+  handleChange, 
+  handleCreateGroup, 
+  isLoading, 
+  validationErrors 
 }: SettingsStepProps) => {
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold mb-2">Group Settings</h2>
-        <p className="text-muted-foreground">Configure additional settings for your contribution group.</p>
-      </div>
-
-      <div className="space-y-4">
+    <>
+      <CardHeader>
+        <CardTitle>Group Settings</CardTitle>
+        <CardDescription>Configure how your group operates and set up the dedicated account</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="privacy">Privacy Setting</Label>
-          <Select
-            value={formData.privacy}
-            onValueChange={(value) => handleChange("privacy", value)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select privacy setting" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="public">Public (Anyone can find and join)</SelectItem>
-              <SelectItem value="private">Private (By invitation only)</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="memberRoles">Member Roles</Label>
-          <Select
-            value={formData.memberRoles}
-            onValueChange={(value) => handleChange("memberRoles", value)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select member roles" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="equal">Equal (All members have equal rights)</SelectItem>
-              <SelectItem value="weighted">Weighted (Based on contribution amount)</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="votingThreshold">
-            Voting Threshold (%)
-          </Label>
-          <div className="flex items-center gap-2">
-            <Input
-              id="votingThreshold"
-              type="number"
-              min="50"
-              max="100"
-              value={formData.votingThreshold}
-              onChange={(e) => handleChange("votingThreshold", Number(e.target.value))}
-            />
-            <span>{formData.votingThreshold}%</span>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            The percentage of votes needed to approve withdrawals
-          </p>
+          <Label htmlFor="voting-threshold">Voting Threshold (%)</Label>
+          <Input 
+            id="voting-threshold" 
+            type="number" 
+            min="1" 
+            max="100" 
+            defaultValue="70"
+            value={formData.votingThreshold}
+            onChange={(e) => handleChange('votingThreshold', Number(e.target.value))}
+          />
+          <p className="text-sm text-muted-foreground">Percentage of members required to approve withdrawals</p>
         </div>
         
         <div className="space-y-2">
-          <Label htmlFor="bvn" className="flex justify-between">
-            <span>Bank Verification Number (BVN)</span>
-            <span className="text-sm text-green-600">Required</span>
-          </Label>
-          <Input
-            id="bvn"
-            type="text"
-            inputMode="numeric"
-            maxLength={11}
-            value={formData.bvn}
-            onChange={(e) => handleChange("bvn", e.target.value)}
-            className={validationErrors.bvn ? "border-red-500" : ""}
-          />
-          {validationErrors.bvn && (
-            <p className="text-sm font-medium text-red-500 mt-1">
-              {validationErrors.bvn}
+          <Label>Privacy</Label>
+          <RadioGroup 
+            defaultValue={formData.privacy}
+            onValueChange={(value) => handleChange('privacy', value)}
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="public" id="public" />
+              <Label htmlFor="public">Public - Anyone can request to join</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="private" id="private" />
+              <Label htmlFor="private">Private - Invitation only</Label>
+            </div>
+          </RadioGroup>
+        </div>
+        
+        <div className="space-y-2">
+          <Label>Member Roles</Label>
+          <RadioGroup 
+            defaultValue={formData.memberRoles}
+            onValueChange={(value) => handleChange('memberRoles', value)}
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="equal" id="equal" />
+              <Label htmlFor="equal">Equal voting rights for all members</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="weighted" id="weighted" />
+              <Label htmlFor="weighted">Voting power based on contribution amount</Label>
+            </div>
+          </RadioGroup>
+        </div>
+        
+        {/* BVN input section */}
+        <div className="space-y-2 p-4 bg-muted/40 rounded-lg border">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5" />
+            <div>
+              <h3 className="text-sm font-medium">Account Information</h3>
+              <p className="text-sm text-muted-foreground">
+                We need your BVN to create a dedicated account for this group. 
+                This is required by our payment provider for verification purposes.
+              </p>
+            </div>
+          </div>
+          
+          <div className="space-y-2 mt-3">
+            <Label htmlFor="bvn" className="text-sm">Bank Verification Number (BVN)</Label>
+            <Input 
+              id="bvn" 
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={11}
+              placeholder="Enter your 11-digit BVN"
+              value={formData.bvn}
+              onChange={(e) => handleChange('bvn', e.target.value)}
+              className={validationErrors.bvn ? "border-red-500" : ""}
+            />
+            {validationErrors.bvn && (
+              <p className="text-xs text-red-500">{validationErrors.bvn}</p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Your BVN is used only for verification and to create the account. It is not stored after verification.
             </p>
-          )}
-          <p className="text-sm text-muted-foreground">
-            Your BVN is required to create a dedicated account for the group. This information is encrypted and secure.
-          </p>
-        </div>
-
-        <div className="space-y-2 pt-4">
-          <Label>Notifications</Label>
-          
-          <div className="flex items-center justify-between pt-2">
-            <div className="space-y-0.5">
-              <Label htmlFor="notifyContributions" className="text-sm">
-                New Contributions
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                Get notified when someone contributes
-              </p>
-            </div>
-            <Switch
-              id="notifyContributions"
-              checked={formData.notifyContributions}
-              onCheckedChange={(value) => handleChange("notifyContributions", value)}
-            />
-          </div>
-          
-          <div className="flex items-center justify-between pt-2">
-            <div className="space-y-0.5">
-              <Label htmlFor="notifyVotes" className="text-sm">
-                Withdrawal Votes
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                Get notified when a withdrawal vote is needed
-              </p>
-            </div>
-            <Switch
-              id="notifyVotes"
-              checked={formData.notifyVotes}
-              onCheckedChange={(value) => handleChange("notifyVotes", value)}
-            />
-          </div>
-          
-          <div className="flex items-center justify-between pt-2">
-            <div className="space-y-0.5">
-              <Label htmlFor="notifyUpdates" className="text-sm">
-                Group Updates
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                Get notified about group changes and announcements
-              </p>
-            </div>
-            <Switch
-              id="notifyUpdates"
-              checked={formData.notifyUpdates}
-              onCheckedChange={(value) => handleChange("notifyUpdates", value)}
-            />
           </div>
         </div>
-      </div>
-
-      <div className="flex justify-between pt-4">
+        
+        <div className="space-y-2">
+          <Label>Notification Settings</Label>
+          <div className="space-y-2">
+            <div className="flex items-center space-x-2">
+              <Checkbox 
+                id="notify-contributions" 
+                checked={formData.notifyContributions}
+                onCheckedChange={(checked) => handleChange('notifyContributions', checked)}
+              />
+              <label
+                htmlFor="notify-contributions"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Contribution reminders
+              </label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox 
+                id="notify-votes" 
+                checked={formData.notifyVotes}
+                onCheckedChange={(checked) => handleChange('notifyVotes', checked)}
+              />
+              <label
+                htmlFor="notify-votes"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                New withdrawal requests
+              </label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox 
+                id="notify-updates" 
+                checked={formData.notifyUpdates}
+                onCheckedChange={(checked) => handleChange('notifyUpdates', checked)}
+              />
+              <label
+                htmlFor="notify-updates"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Group updates and announcements
+              </label>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+      <CardFooter>
         <Button 
-          type="button" 
-          variant="outline" 
-          onClick={goToPreviousStep}
+          onClick={handleCreateGroup} 
+          className="w-full"
           disabled={isLoading}
         >
-          Back
+          {isLoading ? (
+            <div className="flex items-center">
+              <div className="animate-spin mr-2 h-4 w-4 border-t-2 border-b-2 border-current rounded-full"></div>
+              Creating Group...
+            </div>
+          ) : (
+            <div className="flex items-center">
+              <Check className="mr-2 h-4 w-4" />
+              Create Group
+            </div>
+          )}
         </Button>
-        <Button 
-          onClick={handleCreateGroup}
-          disabled={isLoading || !!validationErrors.bvn}
-          className="ml-2"
-        >
-          {isLoading ? "Creating Group..." : "Create Group"}
-        </Button>
-      </div>
-    </div>
+      </CardFooter>
+    </>
   );
 };
 
