@@ -28,6 +28,27 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
+  // Reset state when provider mounts
+  useEffect(() => {
+    const initUserData = () => {
+      const currentUser = getCurrentUser();
+      if (currentUser && currentUser.id) {
+        setUser(currentUser);
+        setUsers(getUsers());
+        setIsAuthenticated(true);
+        setIsAdmin(currentUser?.role === 'admin');
+      } else {
+        // Ensure clean state for new users
+        setUser({} as User);
+        setUsers([]);
+        setIsAuthenticated(false);
+        setIsAdmin(false);
+      }
+    };
+
+    initUserData();
+  }, []);
+
   // Effect for dark mode
   useEffect(() => {
     if (user?.preferences?.darkMode) {
@@ -39,23 +60,28 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   const refreshUserData = () => {
     const currentUser = getCurrentUser();
-    setUser(currentUser);
-    setUsers(getUsers());
     
-    // Check if user is authenticated
-    const isUserAuthenticated = !!currentUser && !!currentUser.id;
-    setIsAuthenticated(isUserAuthenticated);
-    
-    if (isUserAuthenticated) {
+    if (currentUser && currentUser.id) {
+      setUser(currentUser);
+      setUsers(getUsers());
+      setIsAuthenticated(true); 
       setIsAdmin(currentUser?.role === 'admin');
     } else {
+      // Clear data if no user is found
+      setUser({} as User);
+      setUsers([]);
+      setIsAuthenticated(false);
       setIsAdmin(false);
     }
   };
 
   const logout = () => {
     logoutUser();
-    refreshUserData();
+    // Explicitly clear state
+    setUser({} as User);
+    setUsers([]);
+    setIsAuthenticated(false);
+    setIsAdmin(false);
     toast.success("You have been logged out successfully");
   };
   

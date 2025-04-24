@@ -1,8 +1,8 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Clipboard, RefreshCw, Plus, ArrowRight, Building } from "lucide-react";
+import { Clipboard, RefreshCw, Plus, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { useApp } from "@/contexts/AppContext";
 import { 
@@ -37,6 +37,7 @@ const ReservedAccount = () => {
   const [accountDetails, setAccountDetails] = useState<ReservedAccountData | null>(null);
   const [showFullDetails, setShowFullDetails] = useState(false);
   const [showBvnForm, setShowBvnForm] = useState(false);
+  const [isOperationInProgress, setIsOperationInProgress] = useState(false);
   
   // Initialize the form with explicit type
   const form = useForm<BvnFormData>({
@@ -46,20 +47,30 @@ const ReservedAccount = () => {
     },
   });
   
-  useEffect(() => {
-    // Check if user already has a reserved account
-    if (user?.reservedAccount) {
-      setAccountDetails(user.reservedAccount);
-      
-      // If account details exist but the accountNumber or bankName is undefined, refresh account details
-      if (!user.reservedAccount.accountNumber || !user.reservedAccount.bankName) {
-        handleRefresh();
+  // Use useCallback to prevent unnecessary re-renders
+  const fetchAccountDetails = useCallback(async () => {
+    if (!user?.id) return;
+    
+    try {
+      // If user has reservedAccount, use that
+      if (user.reservedAccount) {
+        setAccountDetails(user.reservedAccount);
       }
+    } catch (error) {
+      console.error("Error setting account details:", error);
     }
   }, [user]);
   
+  useEffect(() => {
+    fetchAccountDetails();
+  }, [fetchAccountDetails]);
+  
   const handleCreateAccount = async (values?: BvnFormData) => {
+    if (isOperationInProgress) return; // Prevent multiple simultaneous operations
+    
     setIsLoading(true);
+    setIsOperationInProgress(true);
+    
     try {
       if (!user || !user.id) {
         toast.error("User information not available. Please log in again.");
@@ -69,6 +80,7 @@ const ReservedAccount = () => {
       if (!values) {
         setShowBvnForm(true);
         setIsLoading(false);
+        setIsOperationInProgress(false);
         return;
       }
       
@@ -77,36 +89,62 @@ const ReservedAccount = () => {
       
       console.log("Creating account with BVN:", values.bvn ? "****" : "Not provided");
       const result = await createUserReservedAccount(user.id, "bvn", values.bvn);
+      
       if (result) {
         console.log("Reserved account created:", result);
         setAccountDetails(result);
-        refreshData();
         
-        // Also fetch transactions after creating account
-        if (result.accountReference) {
-          try {
-            await getReservedAccountTransactions(result.accountReference);
-            refreshData();
-          } catch (error) {
-            console.error("Error fetching transactions after account creation:", error);
+        // Delay refresh to allow state updates to complete
+        setTimeout(() => {
+          refreshData();
+          
+          // Also fetch transactions after creating account
+          if (result.accountReference) {
+            getReservedAccountTransactions(result.accountReference)
+              .catch(error => console.error("Error fetching transactions after account creation:", error));
           }
-        }
-        
-        toast.success("Virtual account created successfully");
+          
+          toast.success("Virtual account created successfully");
+        }, 100);
       }
     } catch (error) {
       console.error("Error creating reserved account:", error);
       toast.error(error instanceof Error ? error.message : "Failed to create reserved account. Please try again.");
     } finally {
       setIsLoading(false);
+      setTimeout(() => setIsOperationInProgress(false), 500); // Prevent rapid successive operations
     }
   };
   
   const handleRefresh = async () => {
+    if (isOperationInProgress) return; // Prevent multiple simultaneous operations
+    
     setIsLoading(true);
+    setIsOperationInProgress(true);
+    
     try {
       if (!user || !user.id) {
         toast.error("User information not available. Please log in again.");
+        return;
+      }
+      
+      // Only proceed if we already have account details
+      if (!accountDetails && !user.reservedAccount) {
+        toast.error("No account details to refresh. Please create an account first.");
+        setIsLoading(false);
+        setIsOperationInProgress(false);
+        return;
+      }
+      
+      // Use existing account reference if available
+      const accountReference = 
+        (accountDetails && accountDetails.accountReference) || 
+        (user.reservedAccount && user.reservedAccount.accountReference);
+      
+      if (!accountReference) {
+        toast.error("Account reference not found. Please create a new account.");
+        setIsLoading(false);
+        setIsOperationInProgress(false);
         return;
       }
       
@@ -119,23 +157,27 @@ const ReservedAccount = () => {
       
       if (response.requestSuccessful) {
         // This data will already be in the right format for accountDetails
-        setAccountDetails({
+        const newAccountDetails = {
           accountNumber: response.responseBody.accounts[0].accountNumber,
           bankName: response.responseBody.accounts[0].bankName,
           accountName: response.responseBody.accountName,
           accountReference: response.responseBody.accountReference,
           accounts: response.responseBody.accounts
-        });
+        };
         
-        // Fetch transactions when refreshing account details
-        try {
-          await getReservedAccountTransactions(response.responseBody.accountReference);
-        } catch (error) {
-          console.error("Error fetching transactions after refresh:", error);
-        }
+        setAccountDetails(newAccountDetails);
         
-        refreshData();
-        toast.success("Account details refreshed");
+        // Delay other operations to allow state updates to complete
+        setTimeout(() => {
+          // Fetch transactions when refreshing account details
+          if (response.responseBody.accountReference) {
+            getReservedAccountTransactions(response.responseBody.accountReference)
+              .catch(error => console.error("Error fetching transactions after refresh:", error));
+          }
+          
+          refreshData();
+          toast.success("Account details refreshed");
+        }, 100);
       } else {
         toast.error(response.responseMessage || "Failed to refresh account details");
       }
@@ -144,6 +186,7 @@ const ReservedAccount = () => {
       toast.error("Failed to refresh account details. Please try again.");
     } finally {
       setIsLoading(false);
+      setTimeout(() => setIsOperationInProgress(false), 500); // Prevent rapid successive operations
     }
   };
   
@@ -182,13 +225,22 @@ const ReservedAccount = () => {
               <Button 
                 onClick={() => handleCreateAccount()} 
                 className="flex items-center gap-2"
+                disabled={isOperationInProgress}
               >
-                <Plus size={16} />
-                Create Flutterwave Virtual Account
+                {isOperationInProgress ? (
+                  <>Processing...</>
+                ) : (
+                  <>
+                    <Plus size={16} />
+                    Create Flutterwave Virtual Account
+                  </>
+                )}
               </Button>
               
               {/* BVN Input Dialog */}
-              <Dialog open={showBvnForm} onOpenChange={setShowBvnForm}>
+              <Dialog open={showBvnForm} onOpenChange={(open) => {
+                if (!isOperationInProgress) setShowBvnForm(open);
+              }}>
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Provide BVN</DialogTitle>
@@ -220,10 +272,18 @@ const ReservedAccount = () => {
                       />
                       
                       <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setShowBvnForm(false)}>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          onClick={() => !isOperationInProgress && setShowBvnForm(false)}
+                          disabled={isOperationInProgress}
+                        >
                           Cancel
                         </Button>
-                        <Button type="submit" disabled={isLoading}>
+                        <Button 
+                          type="submit" 
+                          disabled={isLoading || isOperationInProgress}
+                        >
                           {isLoading ? "Processing..." : "Create Account"}
                         </Button>
                       </DialogFooter>
@@ -252,7 +312,7 @@ const ReservedAccount = () => {
           variant="ghost" 
           size="icon" 
           onClick={handleRefresh} 
-          disabled={isLoading}
+          disabled={isLoading || isOperationInProgress}
           className="h-8 w-8"
         >
           <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
@@ -274,8 +334,9 @@ const ReservedAccount = () => {
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  onClick={() => copyToClipboard(accountDetails.accountNumber, "Account number")}
+                  onClick={() => copyToClipboard(accountDetails.accountNumber || '', "Account number")}
                   className="h-6 px-2"
+                  disabled={!accountDetails.accountNumber}
                 >
                   <Clipboard size={14} />
                 </Button>
@@ -293,8 +354,9 @@ const ReservedAccount = () => {
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  onClick={() => copyToClipboard(accountDetails.bankName, "Bank name")}
+                  onClick={() => copyToClipboard(accountDetails.bankName || '', "Bank name")}
                   className="h-6 px-2"
+                  disabled={!accountDetails.bankName}
                 >
                   <Clipboard size={14} />
                 </Button>
@@ -319,7 +381,8 @@ const ReservedAccount = () => {
                   variant="outline" 
                   size="sm" 
                   className="flex-1 mt-2" 
-                  onClick={() => setShowFullDetails(true)}
+                  onClick={() => !isOperationInProgress && setShowFullDetails(true)}
+                  disabled={isOperationInProgress}
                 >
                   Show All Bank Accounts
                   <ArrowRight size={14} className="ml-2" />
@@ -327,7 +390,12 @@ const ReservedAccount = () => {
               )}
             </div>
             
-            <Dialog open={showFullDetails} onOpenChange={setShowFullDetails}>
+            <Dialog 
+              open={showFullDetails} 
+              onOpenChange={(open) => {
+                if (!isOperationInProgress) setShowFullDetails(open);
+              }}
+            >
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>All Virtual Accounts</DialogTitle>
@@ -359,7 +427,12 @@ const ReservedAccount = () => {
                   ))}
                 </div>
                 <DialogFooter>
-                  <Button onClick={() => setShowFullDetails(false)}>Close</Button>
+                  <Button 
+                    onClick={() => setShowFullDetails(false)}
+                    disabled={isOperationInProgress}
+                  >
+                    Close
+                  </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
