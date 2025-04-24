@@ -1,4 +1,3 @@
-
 import {
   createVirtualAccount,
   createGroupVirtualAccount
@@ -112,14 +111,26 @@ export const createUserReservedAccount = async (userId: string, idType: string, 
       throw new Error('User not found');
     }
     
-    console.log(`Creating virtual account for user ${userId} with ${idType}: ${idNumber}`);
+    console.log(`Creating virtual account for user ${userId} with ${idType}: ${idNumber ? "****" : "Not provided"}`);
+    
+    if (idType !== 'bvn') {
+      throw new Error('BVN is required for creating virtual accounts');
+    }
+
+    if (!idNumber) {
+      throw new Error('BVN number is required');
+    }
+
+    if (idNumber.length !== 11 || !/^\d+$/.test(idNumber)) {
+      throw new Error('BVN must be 11 digits');
+    }
     
     // Create virtual account with Flutterwave
     const result = await createVirtualAccount({
       email: user.email,
       name: user.name || `${user.firstName} ${user.lastName}`,
       isPermanent: true,
-      bvn: idType === 'bvn' ? idNumber : undefined,
+      bvn: idNumber,
       narration: `Please make a bank transfer to ${user.name || `${user.firstName} ${user.lastName}`}`
     });
     

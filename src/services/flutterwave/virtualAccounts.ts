@@ -25,11 +25,14 @@ interface AccountCreationParams {
 
 export const createVirtualAccount = async (params: AccountCreationParams) => {
   try {
-    console.log("Creating virtual account with params:", params);
+    console.log("Creating virtual account with params:", {
+      ...params,
+      bvn: params.bvn ? "****" : undefined // Mask BVN in logs
+    });
     
     // For real API call, we need to ensure BVN is provided for permanent accounts
     if (params.isPermanent && !params.bvn) {
-      console.log("No BVN provided for permanent account - this might not work with the Flutterwave API");
+      console.log("No BVN provided for permanent account - this might cause issues with the Flutterwave API");
     }
     
     // Generate a unique reference
@@ -46,7 +49,10 @@ export const createVirtualAccount = async (params: AccountCreationParams) => {
       ...(params.amount && { amount: params.amount })
     };
     
-    console.log("Sending payload to Flutterwave through edge function:", payload);
+    console.log("Sending payload to Flutterwave through edge function:", {
+      ...payload,
+      bvn: payload.bvn ? "****" : undefined // Mask BVN in logs
+    });
     
     // Make the API request through our edge function
     const response = await fetch(getEdgeFunctionUrl('create-virtual-account'), {
@@ -99,7 +105,7 @@ export const createGroupVirtualAccount = async (params: AccountCreationParams) =
       };
     }
 
-    console.log("Creating group virtual account with BVN:", params.bvn);
+    console.log("Creating group virtual account with BVN:", params.bvn ? "****" : "Not provided");
     
     // Create permanent account for groups
     return await createVirtualAccount({

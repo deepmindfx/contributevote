@@ -11,7 +11,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
 interface SettingsStepProps {
   formData: {
@@ -34,6 +33,7 @@ interface SettingsStepProps {
   };
   handleChange: (field: string, value: any) => void;
   handleCreateGroup: () => void;
+  goToPreviousStep: () => void;
   isLoading: boolean;
   validationErrors: {
     bvn?: string;
@@ -44,6 +44,7 @@ const SettingsStep = ({
   formData,
   handleChange,
   handleCreateGroup,
+  goToPreviousStep,
   isLoading,
   validationErrors,
 }: SettingsStepProps) => {
@@ -184,11 +185,19 @@ const SettingsStep = ({
         </div>
       </div>
 
-      <div className="flex justify-end pt-4">
+      <div className="flex justify-between pt-4">
+        <Button 
+          type="button" 
+          variant="outline" 
+          onClick={goToPreviousStep}
+          disabled={isLoading}
+        >
+          Back
+        </Button>
         <Button 
           onClick={handleCreateGroup}
           disabled={isLoading || !!validationErrors.bvn}
-          className="w-full md:w-auto"
+          className="ml-2"
         >
           {isLoading ? "Creating Group..." : "Create Group"}
         </Button>
