@@ -1,10 +1,11 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { createContributionGroupAccount } from "@/services/walletIntegration";
 import { useApp } from "@/contexts/AppContext";
+import { useUser } from "@/contexts/UserContext";
 
 // Import Step Components
 import DetailsStep from "./DetailsStep";
@@ -19,7 +20,8 @@ const GroupForm = () => {
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { createNewContribution, user } = useApp();
+  const { createNewContribution } = useApp();
+  const { user } = useUser(); // Get user from UserContext instead of AppContext
   
   // Form state
   const [formData, setFormData] = useState({
@@ -45,6 +47,14 @@ const GroupForm = () => {
   const [validationErrors, setValidationErrors] = useState<{
     bvn?: string;
   }>({});
+
+  // Ensure we have a user
+  useEffect(() => {
+    if (!user || !user.id) {
+      toast.error("User session not found. Please login again.");
+      navigate("/auth");
+    }
+  }, [user, navigate]);
 
   const handleChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -115,28 +125,43 @@ const GroupForm = () => {
     if (!validateStep(step)) {
       return;
     }
+
+    if (!user || !user.id || !user.email) {
+      toast.error("User information is missing. Please login again.");
+      navigate("/auth");
+      return;
+    }
     
     setIsLoading(true);
     
     try {
       // Create a unique account reference for this group
-      const accountRef = `GROUP_${user?.id}_${Date.now()}`;
+      const accountRef = `GROUP_${user.id}_${Date.now()}`;
+      
+      // Validate BVN again
+      if (!formData.bvn || formData.bvn.length !== 11 || !/^\d+$/.test(formData.bvn)) {
+        toast.error("Valid BVN is required for creating a group account");
+        setIsLoading(false);
+        return;
+      }
       
       // Create a virtual account for the group using Flutterwave
       const accountParams = {
-        email: user?.email || '',
+        email: user.email,
         name: formData.name,
-        bvn: formData.bvn // Now ensuring BVN is passed to the API
+        bvn: formData.bvn
       };
       
-      console.log("Creating contribution group account:", {
-        ...accountParams,
+      console.log("Creating contribution group account with params:", {
+        email: accountParams.email,
+        name: accountParams.name,
         bvn: "****" // Mask BVN in logs
       });
       
       const accountResponse = await createContributionGroupAccount(accountParams);
       
       if (!accountResponse.requestSuccessful) {
+        console.error("Failed to create account:", accountResponse.responseMessage);
         toast.error(accountResponse.responseMessage || "Failed to create account for the group");
         setIsLoading(false);
         return;
@@ -144,6 +169,13 @@ const GroupForm = () => {
       
       // Extract account details from response
       const accountDetails = accountResponse.responseBody;
+      if (!accountDetails) {
+        console.error("No account details returned");
+        toast.error("Failed to create account: No account details returned");
+        setIsLoading(false);
+        return;
+      }
+      
       console.log("Account creation successful:", accountDetails);
       
       // Prepare contribution data with account details
@@ -159,19 +191,19 @@ const GroupForm = () => {
         votingThreshold: formData.votingThreshold,
         privacy: formData.privacy,
         memberRoles: formData.memberRoles,
-        creatorId: user?.id || '',
+        creatorId: user.id,
         visibility: formData.privacy === 'public' ? 'public' as const : 'private' as const,
         status: 'active' as const,
         deadline: formData.endDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
         accountNumber: accountDetails.accounts[0].accountNumber,
         bankName: accountDetails.accounts[0].bankName,
         accountName: formData.name,
-        accountReference: accountRef,
+        accountReference: accountDetails.accountReference || accountRef,
         accountDetails: accountDetails
       };
       
       // Create contribution
-      createNewContribution(contributionData);
+      await createNewContribution(contributionData);
       
       toast.success("Group created successfully with dedicated account");
       

@@ -32,7 +32,8 @@ export const createVirtualAccount = async (params: AccountCreationParams) => {
     
     // For real API call, we need to ensure BVN is provided for permanent accounts
     if (params.isPermanent && !params.bvn) {
-      console.log("No BVN provided for permanent account - this might cause issues with the Flutterwave API");
+      console.error("No BVN provided for permanent account - this will cause issues with the Flutterwave API");
+      throw new Error("BVN is required for permanent virtual accounts");
     }
     
     // Generate a unique reference
@@ -67,6 +68,11 @@ export const createVirtualAccount = async (params: AccountCreationParams) => {
 
     if (!response.ok) {
       throw new Error(data.message || 'Failed to create virtual account');
+    }
+
+    if (!data.data || !data.data.account_number) {
+      console.error("Invalid response from Flutterwave API:", data);
+      throw new Error("Invalid response from Flutterwave API");
     }
 
     // If successful, format the response to match expected format
