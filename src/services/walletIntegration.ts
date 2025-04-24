@@ -1,4 +1,3 @@
-
 import {
   createVirtualAccount,
   createGroupVirtualAccount
@@ -35,7 +34,7 @@ export interface VirtualAccountResponse {
     }>;
     accountReference: string;
     accountName: string;
-  } | null;
+  };
 }
 
 export const getReservedAccountTransactions = async (accountReference: string) => {
@@ -109,7 +108,6 @@ export const createUserReservedAccount = async (userId: string, idType: string, 
     const user = users.find((u: any) => u.id === userId);
     
     if (!user) {
-      console.error(`User not found with ID: ${userId}`);
       throw new Error('User not found');
     }
     
@@ -137,7 +135,6 @@ export const createUserReservedAccount = async (userId: string, idType: string, 
     });
     
     if (!result.requestSuccessful) {
-      console.error('Failed to create virtual account:', result.responseMessage);
       throw new Error(result.responseMessage || 'Failed to create virtual account');
     }
     
@@ -145,11 +142,11 @@ export const createUserReservedAccount = async (userId: string, idType: string, 
     
     // Create account data structure
     const accountData = {
-      accountNumber: result.responseBody?.accounts[0].accountNumber,
-      bankName: result.responseBody?.accounts[0].bankName,
-      accountName: result.responseBody?.accountName,
-      accountReference: result.responseBody?.accountReference,
-      accounts: result.responseBody?.accounts
+      accountNumber: result.responseBody.accounts[0].accountNumber,
+      bankName: result.responseBody.accounts[0].bankName,
+      accountName: result.responseBody.accountName,
+      accountReference: result.responseBody.accountReference,
+      accounts: result.responseBody.accounts
     };
     
     // Update user with reserved account details
@@ -170,7 +167,7 @@ export const createUserReservedAccount = async (userId: string, idType: string, 
     const currentUserStr = localStorage.getItem('currentUser');
     if (currentUserStr) {
       const currentUser = JSON.parse(currentUserStr);
-      if (currentUser && currentUser.id === userId) {
+      if (currentUser.id === userId) {
         currentUser.reservedAccount = accountData;
         localStorage.setItem('currentUser', JSON.stringify(currentUser));
       }
@@ -178,10 +175,7 @@ export const createUserReservedAccount = async (userId: string, idType: string, 
     
     // Update user in the profiles table to ensure persistence
     try {
-      updateUser({ 
-        id: userId, 
-        reservedAccount: accountData 
-      });
+      updateUser(userId, { reservedAccount: accountData });
     } catch (error) {
       console.error("Failed to update user profile with reserved account:", error);
       // Continue since we already updated the users array

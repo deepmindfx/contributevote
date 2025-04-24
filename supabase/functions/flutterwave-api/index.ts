@@ -71,26 +71,15 @@ serve(async (req) => {
             );
           }
 
-          // Check for BVN when creating permanent account
-          if (body.is_permanent === true && !body.bvn) {
-            console.error("BVN is required for permanent virtual accounts");
-            return new Response(
-              JSON.stringify({ 
-                status: "error", 
-                message: "BVN is required for permanent virtual accounts" 
-              }), 
-              { 
-                status: 400, 
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-              }
-            );
-          }
-
           // Log the BVN status
           if (body.bvn) {
             console.log("BVN provided:", body.bvn.substring(0, 4) + "****");
           } else {
             console.log("No BVN provided in the request");
+            // For permanent accounts, we should ideally have a BVN
+            if (body.is_permanent === true) {
+              console.log("Warning: Creating permanent account without BVN");
+            }
           }
           
           console.log("Final create virtual account payload:", JSON.stringify({

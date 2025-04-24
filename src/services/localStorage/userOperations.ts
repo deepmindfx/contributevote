@@ -1,4 +1,3 @@
-
 import { v4 as uuidv4 } from 'uuid';
 import { User } from './types';
 import { getBaseUsers, getBaseCurrentUser } from './storageUtils';
@@ -9,12 +8,14 @@ export const getUsers = (): User[] => {
   return getBaseUsers();
 };
 
-export const createUser = (user: Omit<User, 'id' | 'walletBalance' | 'role' | 'verified'>): User => {
+export const createUser = (user: Omit<User, 'id' | 'walletBalance' | 'role' | 'accountNumber' | 'accountName' | 'verified'>): User => {
   const users = getBaseUsers();
   const newUser: User = {
     id: uuidv4(),
     walletBalance: 0,
     role: 'user',
+    accountNumber: `20${Math.floor(100000000 + Math.random() * 900000000)}`,
+    accountName: user.name,
     verified: false,
     ...user,
   };
@@ -56,7 +57,7 @@ export const updateUserById = (id: string, userData: Partial<User>) => {
 };
 
 export const pauseUser = (userId: string) => {
-  updateUserById(userId, { status: 'paused', role: 'user' });
+  updateUserById(userId, { status: 'paused', role: 'paused' });
 };
 
 export const activateUser = (userId: string) => {
@@ -76,10 +77,6 @@ export const depositToUser = (userId: string, amount: number) => {
       type: 'deposit',
       amount,
       description: `Admin deposit`,
-      status: 'completed',
-      referenceId: `DEP-${Date.now()}`,
-      paymentMethod: 'admin',
-      updatedAt: new Date().toISOString(),
     });
   }
 };
@@ -92,6 +89,6 @@ export const getUserByEmail = (email: string): User | null => {
 
 export const getUserByPhone = (phone: string): User | null => {
   const users = getBaseUsers();
-  const foundUser = users.find(user => user.phone === phone);
+  const foundUser = users.find(user => user.phone === phone || user.phoneNumber === phone);
   return foundUser || null;
 };
