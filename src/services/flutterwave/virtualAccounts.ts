@@ -2,7 +2,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { getEdgeFunctionUrl, getHeaders } from './config';
 
-interface VirtualAccountParams {
+export interface VirtualAccountParams {
   email: string;
   firstname: string;
   lastname: string;
@@ -12,7 +12,7 @@ interface VirtualAccountParams {
   narration?: string;
 }
 
-interface VirtualAccountResponse {
+export interface VirtualAccountResponse {
   status: string;
   message: string;
   data: {
@@ -31,14 +31,20 @@ export const createVirtualAccount = async (params: VirtualAccountParams) => {
   try {
     // Log params (masking sensitive data)
     console.log("Creating virtual account with params:", {
-      email: params.email,
-      firstname: params.firstname,
-      lastname: params.lastname,
+      ...params,
       bvn: params.bvn ? "****" : undefined,
       phonenumber: params.phonenumber ? "****" : undefined,
-      is_permanent: params.is_permanent,
-      narration: params.narration
     });
+    
+    if (!params.email || !params.firstname || !params.lastname) {
+      throw new Error("Email, firstname and lastname are required");
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(params.email)) {
+      throw new Error("Invalid email format");
+    }
     
     // Generate a unique reference
     const txRef = `VA_${uuidv4()}`;

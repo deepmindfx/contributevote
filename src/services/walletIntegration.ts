@@ -1,3 +1,4 @@
+
 import {
   createVirtualAccount,
   createGroupVirtualAccount
@@ -27,14 +28,7 @@ export interface ReservedAccountData {
 export interface VirtualAccountResponse {
   requestSuccessful: boolean;
   responseMessage: string;
-  responseBody: {
-    accounts: Array<{
-      accountNumber: string;
-      bankName: string;
-    }>;
-    accountReference: string;
-    accountName: string;
-  };
+  responseBody: ReservedAccountData | null;
 }
 
 export const getReservedAccountTransactions = async (accountReference: string) => {
@@ -109,17 +103,7 @@ export const createUserReservedAccount = async (userId: string, idType: string, 
     }
 
     // Get current user
-    const currentUser = getCurrentUser();
-    let user = null;
-    
-    // If current user matches requested userId, use it
-    if (currentUser && currentUser.id === userId) {
-      user = currentUser;
-    } else {
-      const usersStr = localStorage.getItem('users');
-      const users = usersStr ? JSON.parse(usersStr) : [];
-      user = users.find((u: any) => u.id === userId);
-    }
+    const user = getCurrentUser();
     
     if (!user) {
       throw new Error('User not found');
@@ -142,11 +126,11 @@ export const createUserReservedAccount = async (userId: string, idType: string, 
     // Create virtual account with Flutterwave
     const result = await createVirtualAccount({
       email: user.email,
-      firstname: user.firstName || user.name?.split(' ')[0] || '',
-      lastname: user.lastName || user.name?.split(' ').slice(1).join(' ') || '',
+      firstname: user.firstName,
+      lastname: user.lastName,
       is_permanent: true,
       bvn: idNumber,
-      narration: `Virtual Account for ${user.firstName || ''} ${user.lastName || ''}`
+      narration: `Virtual Account for ${user.firstName} ${user.lastName}`
     });
     
     if (!result.requestSuccessful) {
@@ -154,34 +138,13 @@ export const createUserReservedAccount = async (userId: string, idType: string, 
     }
     
     // Create account data structure
-    const accountData = {
-      accountNumber: result.responseBody.accounts[0].accountNumber,
-      bankName: result.responseBody.accounts[0].bankName,
-      accountName: result.responseBody.accountName,
-      accountReference: result.responseBody.accountReference,
-      accounts: result.responseBody.accounts
-    };
+    const accountData = result.responseBody;
     
     // Update user in local storage
-    const usersStr = localStorage.getItem('users');
-    const users = usersStr ? JSON.parse(usersStr) : [];
-    const updatedUsers = users.map((u: any) => {
-      if (u.id === userId) {
-        return {
-          ...u,
-          reservedAccount: accountData
-        };
-      }
-      return u;
+    updateUser(user.id, {
+      ...user,
+      reservedAccount: accountData
     });
-    
-    localStorage.setItem('users', JSON.stringify(updatedUsers));
-    
-    // Update current user if applicable
-    if (currentUser && currentUser.id === userId) {
-      currentUser.reservedAccount = accountData;
-      localStorage.setItem('currentUser', JSON.stringify(currentUser));
-    }
     
     return accountData;
   } catch (error) {

@@ -1,6 +1,7 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const FLUTTERWAVE_SECRET_KEY = Deno.env.get('FLUTTERWAVE_SECRET_KEY') || 'FLWSECK-85d93895f84a5bd92b7fbad3e211fd76-1965a626b3cvt-X';
+const FLUTTERWAVE_SECRET_KEY = Deno.env.get('FLUTTERWAVE_SECRET_KEY');
 const FLUTTERWAVE_BASE_URL = 'https://api.flutterwave.com/v3';
 
 const corsHeaders = {
@@ -34,6 +35,11 @@ serve(async (req) => {
       }));
     }
     
+    // Validate Flutterwave secret key
+    if (!FLUTTERWAVE_SECRET_KEY) {
+      throw new Error("Flutterwave secret key not configured");
+    }
+    
     switch (path) {
       case 'create-virtual-account':
         endpoint = '/virtual-account-numbers';
@@ -43,6 +49,16 @@ serve(async (req) => {
           return new Response(JSON.stringify({
             status: "error",
             message: "Email is required"
+          }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        if (!body?.firstname || !body?.lastname) {
+          return new Response(JSON.stringify({
+            status: "error",
+            message: "First name and last name are required"
           }), {
             status: 400,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -72,11 +88,6 @@ serve(async (req) => {
       case 'virtual-account-transactions':
         endpoint = '/virtual-account-numbers/transactions';
         method = 'GET';
-        break;
-        
-      case 'initiate-payment':
-        endpoint = '/payments';
-        method = 'POST';
         break;
         
       default:
