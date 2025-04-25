@@ -2,60 +2,64 @@
 import { v4 as uuidv4 } from 'uuid';
 import { getEdgeFunctionUrl, getHeaders } from './config';
 
+interface VirtualAccountParams {
+  email: string;
+  firstname: string;
+  lastname: string;
+  bvn?: string;
+  phonenumber?: string;
+  is_permanent?: boolean;
+  narration?: string;
+}
+
 interface VirtualAccountResponse {
   status: string;
   message: string;
   data: {
     account_number: string;
     bank_name: string;
-    note: string;
-    flw_ref: string;
     order_ref: string;
+    frequency: number;
+    created_at: string;
+    expiry_date: string;
+    note: string;
+    amount: number;
   };
 }
 
-interface AccountCreationParams {
-  email: string;
-  name: string;
-  bvn?: string;
-  amount?: number;
-  isPermanent?: boolean;
-  narration?: string;
-}
-
-export const createVirtualAccount = async (params: AccountCreationParams) => {
+export const createVirtualAccount = async (params: VirtualAccountParams) => {
   try {
+    // Log params (masking sensitive data)
     console.log("Creating virtual account with params:", {
       email: params.email,
-      name: params.name,
-      bvn: params.bvn ? "****" : undefined, // Mask BVN in logs
-      isPermanent: params.isPermanent,
+      firstname: params.firstname,
+      lastname: params.lastname,
+      bvn: params.bvn ? "****" : undefined,
+      phonenumber: params.phonenumber ? "****" : undefined,
+      is_permanent: params.is_permanent,
       narration: params.narration
     });
-    
-    // For real API call, we need to ensure BVN is provided for permanent accounts
-    if (params.isPermanent && !params.bvn) {
-      console.log("No BVN provided for permanent account - this might cause issues with the Flutterwave API");
-    }
     
     // Generate a unique reference
     const txRef = `VA_${uuidv4()}`;
     
-    // Create the request payload
+    // Create the request payload according to Flutterwave docs
     const payload = {
       email: params.email,
-      is_permanent: params.isPermanent === undefined ? true : params.isPermanent,
+      is_permanent: params.is_permanent === undefined ? true : params.is_permanent,
       bvn: params.bvn,
       tx_ref: txRef,
-      narration: params.narration || `Please make a bank transfer to ${params.name}`,
-      currency: "NGN",
-      ...(params.amount && { amount: params.amount })
+      firstname: params.firstname,
+      lastname: params.lastname,
+      phonenumber: params.phonenumber,
+      narration: params.narration || `Virtual Account for ${params.firstname} ${params.lastname}`
     };
     
-    console.log("Sending payload to Flutterwave through edge function:", {
+    console.log("Sending payload to Flutterwave:", {
       ...payload,
-      email: payload.email, // Show full email for debugging
-      bvn: payload.bvn ? "****" : undefined // Mask BVN in logs
+      email: payload.email,
+      bvn: payload.bvn ? "****" : undefined,
+      phonenumber: payload.phonenumber ? "****" : undefined
     });
     
     // Make the API request through our edge function
@@ -65,7 +69,6 @@ export const createVirtualAccount = async (params: AccountCreationParams) => {
       body: JSON.stringify(payload)
     });
 
-    // Get the response as JSON
     const data = await response.json();
     console.log("Edge function response:", data);
 
@@ -74,22 +77,20 @@ export const createVirtualAccount = async (params: AccountCreationParams) => {
       throw new Error(data.message || 'Failed to create virtual account');
     }
 
-    // If successful, format the response to match expected format
     return {
       requestSuccessful: true,
-      responseMessage: data.message || "Virtual account created successfully",
+      responseMessage: "Virtual account created successfully",
       responseBody: {
         accounts: [{
           accountNumber: data.data?.account_number,
           bankName: data.data?.bank_name
         }],
-        accountReference: data.data?.flw_ref,
-        accountName: params.name
+        accountReference: data.data?.order_ref,
+        accountName: `${params.firstname} ${params.lastname}`
       }
     };
   } catch (error) {
     console.error("Error creating virtual account:", error);
-    
     return {
       requestSuccessful: false,
       responseMessage: error instanceof Error ? error.message : "Failed to create virtual account",
@@ -98,9 +99,8 @@ export const createVirtualAccount = async (params: AccountCreationParams) => {
   }
 };
 
-export const createGroupVirtualAccount = async (params: AccountCreationParams) => {
+export const createGroupVirtualAccount = async (params: VirtualAccountParams) => {
   try {
-    // Make sure BVN is included for permanent group accounts
     if (!params.bvn) {
       console.error("BVN is required for creating group virtual accounts");
       return {
@@ -110,14 +110,13 @@ export const createGroupVirtualAccount = async (params: AccountCreationParams) =
       };
     }
 
-    console.log("Creating group virtual account with BVN:", params.bvn ? "****" : "Not provided");
-    
-    // Create permanent account for groups
-    return await createVirtualAccount({
+    const result = await createVirtualAccount({
       ...params,
-      isPermanent: true,
-      narration: `Please make a bank transfer to ${params.name} Contribution Group`
+      is_permanent: true,
+      narration: params.narration || `Group Account for ${params.firstname} ${params.lastname}`
     });
+
+    return result;
   } catch (error) {
     console.error("Error creating group virtual account:", error);
     return {

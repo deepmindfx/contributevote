@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const FLUTTERWAVE_SECRET_KEY = Deno.env.get('FLUTTERWAVE_SECRET_KEY') || 'FLWSECK-85d93895f84a5bd92b7fbad3e211fd76-1965a626b3cvt-X';
@@ -10,7 +9,6 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -27,85 +25,47 @@ serve(async (req) => {
     let method = 'GET';
     let body = null;
     
-    // Extract the request body if present
     if (req.method === 'POST' || req.method === 'PUT') {
       body = await req.json();
       console.log(`Request body for ${path}:`, JSON.stringify({
         ...body,
-        bvn: body?.bvn ? '****' : undefined
+        bvn: body?.bvn ? '****' : undefined,
+        phonenumber: body?.phonenumber ? '****' : undefined
       }));
     }
     
-    // Determine the endpoint and HTTP method based on the path
     switch (path) {
       case 'create-virtual-account':
         endpoint = '/virtual-account-numbers';
         method = 'POST';
         
-        // Fix - Add required fields if not present
-        if (body) {
-          // Ensure is_permanent is properly set (default to true)
-          if (body.is_permanent === undefined) {
-            body.is_permanent = true;
-          }
-          
-          // Ensure tx_ref is set if not already
-          if (!body.tx_ref) {
-            body.tx_ref = `VA_${Date.now()}_${Math.floor(Math.random() * 1000000)}`;
-          }
-          
-          // Make sure currency is set
-          if (!body.currency) {
-            body.currency = "NGN";
-          }
+        if (!body?.email) {
+          return new Response(JSON.stringify({
+            status: "error",
+            message: "Email is required"
+          }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
 
-          // Ensure email is set and valid
-          if (!body.email) {
-            console.error("Email is required for virtual account creation");
-            return new Response(
-              JSON.stringify({ 
-                status: "error", 
-                message: "Email is required for virtual account creation" 
-              }), 
-              { 
-                status: 400, 
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-              }
-            );
-          }
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(body.email)) {
+          return new Response(JSON.stringify({
+            status: "error",
+            message: "Invalid email format"
+          }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
 
-          // Check email format
-          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-          if (!emailRegex.test(body.email)) {
-            console.error("Invalid email format provided:", body.email);
-            return new Response(
-              JSON.stringify({ 
-                status: "error", 
-                message: "Invalid email format provided" 
-              }), 
-              { 
-                status: 400, 
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-              }
-            );
-          }
+        if (body.is_permanent === true && !body.bvn) {
+          console.warn("Creating permanent account without BVN");
+        }
 
-          // Log the BVN status
-          if (body.bvn) {
-            console.log("BVN provided:", body.bvn.substring(0, 4) + "****");
-          } else {
-            console.log("No BVN provided in the request");
-            // For permanent accounts, we should ideally have a BVN
-            if (body.is_permanent === true) {
-              console.log("Warning: Creating permanent account without BVN");
-            }
-          }
-          
-          console.log("Final create virtual account payload:", JSON.stringify({
-            ...body,
-            email: body.email, // Show email for debugging
-            bvn: body.bvn ? "****" : undefined // Mask BVN in logs
-          }));
+        if (!body.tx_ref) {
+          body.tx_ref = `VA_${Date.now()}_${Math.floor(Math.random() * 1000000)}`;
         }
         break;
         
@@ -123,10 +83,8 @@ serve(async (req) => {
         throw new Error(`Unknown endpoint: ${path}`);
     }
     
-    console.log(`Proxying request to Flutterwave: ${FLUTTERWAVE_BASE_URL}${endpoint}`);
-    console.log(`Method: ${method}`);
+    console.log(`Making request to Flutterwave: ${FLUTTERWAVE_BASE_URL}${endpoint}`);
     
-    // Make the request to Flutterwave API
     const response = await fetch(`${FLUTTERWAVE_BASE_URL}${endpoint}`, {
       method: method,
       headers: {
@@ -136,34 +94,24 @@ serve(async (req) => {
       body: body ? JSON.stringify(body) : undefined,
     });
     
-    // Get the response data
     const data = await response.json();
     
-    // Log success or error for debugging
     if (response.ok) {
       console.log(`Flutterwave API response for ${path}: Success`);
       console.log(`Response status: ${response.status}`);
       console.log(`Response message: ${data.message || 'No message'}`);
       
-      if (path === 'create-virtual-account') {
-        // Log the created account details
-        if (data.data) {
-          console.log(`Created account number: ${data.data.account_number || 'Not provided'}`);
-          console.log(`Bank name: ${data.data.bank_name || 'Not provided'}`);
-          console.log(`Reference: ${data.data.flw_ref || 'Not provided'}`);
-        }
+      if (path === 'create-virtual-account' && data.data) {
+        console.log(`Created account number: ${data.data.account_number || 'Not provided'}`);
+        console.log(`Bank name: ${data.data.bank_name || 'Not provided'}`);
+        console.log(`Reference: ${data.data.order_ref || 'Not provided'}`);
       }
     } else {
       console.error(`Flutterwave API error for ${path}:`, data);
       console.error(`Response status: ${response.status}`);
       console.error(`Error message: ${data.message || 'No error message'}`);
-      
-      if (data.data) {
-        console.error("Error details:", JSON.stringify(data.data));
-      }
     }
     
-    // Return the response with CORS headers
     return new Response(JSON.stringify(data), {
       status: response.status,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -172,10 +120,9 @@ serve(async (req) => {
   } catch (error) {
     console.error(`Error in flutterwave-api function:`, error);
     
-    // Return the error response with CORS headers
-    return new Response(JSON.stringify({ 
-      success: false, 
-      message: error instanceof Error ? error.message : 'An error occurred while processing your request'
+    return new Response(JSON.stringify({
+      success: false,
+      message: error instanceof Error ? error.message : 'An error occurred'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
