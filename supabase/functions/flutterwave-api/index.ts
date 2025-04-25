@@ -30,7 +30,10 @@ serve(async (req) => {
     // Extract the request body if present
     if (req.method === 'POST' || req.method === 'PUT') {
       body = await req.json();
-      console.log(`Request body for ${path}:`, JSON.stringify(body));
+      console.log(`Request body for ${path}:`, JSON.stringify({
+        ...body,
+        bvn: body?.bvn ? '****' : undefined
+      }));
     }
     
     // Determine the endpoint and HTTP method based on the path
@@ -56,13 +59,29 @@ serve(async (req) => {
             body.currency = "NGN";
           }
 
-          // Ensure email is set
+          // Ensure email is set and valid
           if (!body.email) {
             console.error("Email is required for virtual account creation");
             return new Response(
               JSON.stringify({ 
                 status: "error", 
                 message: "Email is required for virtual account creation" 
+              }), 
+              { 
+                status: 400, 
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+              }
+            );
+          }
+
+          // Check email format
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(body.email)) {
+            console.error("Invalid email format provided:", body.email);
+            return new Response(
+              JSON.stringify({ 
+                status: "error", 
+                message: "Invalid email format provided" 
               }), 
               { 
                 status: 400, 
@@ -84,6 +103,7 @@ serve(async (req) => {
           
           console.log("Final create virtual account payload:", JSON.stringify({
             ...body,
+            email: body.email, // Show email for debugging
             bvn: body.bvn ? "****" : undefined // Mask BVN in logs
           }));
         }
@@ -155,7 +175,7 @@ serve(async (req) => {
     // Return the error response with CORS headers
     return new Response(JSON.stringify({ 
       success: false, 
-      message: error.message || 'An error occurred while processing your request'
+      message: error instanceof Error ? error.message : 'An error occurred while processing your request'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

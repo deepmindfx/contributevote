@@ -1,4 +1,3 @@
-
 import {
   createVirtualAccount,
   createGroupVirtualAccount
@@ -103,23 +102,36 @@ export const createPaymentInvoice = async (data: {
 
 export const createUserReservedAccount = async (userId: string, idType: string, idNumber: string) => {
   try {
-    // FIX: Use getCurrentUser() to get current user if userId matches, or find in users array
-    let user;
-    const currentUser = getCurrentUser();
+    console.log("Creating reserved account for user ID:", userId);
     
+    // First check if we have the user ID
+    if (!userId) {
+      console.error("User ID is required but was not provided");
+      throw new Error("User ID is required");
+    }
+
+    // Get current logged in user first
+    const currentUser = getCurrentUser();
+    let user = null;
+    
+    // If current user matches requested userId, use it
     if (currentUser && currentUser.id === userId) {
+      console.log("Using current logged in user");
       user = currentUser;
     } else {
-      // Get all users data
+      // Otherwise fetch from users array
+      console.log("Current user doesn't match, looking in users array");
       const usersStr = localStorage.getItem('users');
       const users = usersStr ? JSON.parse(usersStr) : [];
       user = users.find((u: any) => u.id === userId);
     }
     
     if (!user) {
-      console.error(`User with ID ${userId} not found`);
+      console.error(`User with ID ${userId} not found in current user or users array`);
       throw new Error('User not found');
     }
+    
+    console.log(`Found user for virtual account: ${user.name || user.email}`);
     
     console.log(`Creating virtual account for user ${userId} with ${idType}: ${idNumber ? "****" : "Not provided"}`);
     
@@ -138,10 +150,10 @@ export const createUserReservedAccount = async (userId: string, idType: string, 
     // Create virtual account with Flutterwave
     const result = await createVirtualAccount({
       email: user.email,
-      name: user.name || `${user.firstName} ${user.lastName}`,
+      name: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email.split('@')[0],
       isPermanent: true,
       bvn: idNumber,
-      narration: `Please make a bank transfer to ${user.name || `${user.firstName} ${user.lastName}`}`
+      narration: `Please make a bank transfer to ${user.name || user.email}`
     });
     
     if (!result.requestSuccessful) {
@@ -159,11 +171,14 @@ export const createUserReservedAccount = async (userId: string, idType: string, 
       accounts: result.responseBody.accounts
     };
     
-    // Update user with reserved account details
+    console.log("Reserved account data:", accountData);
+    
+    // Update user in local storage users array
     const usersStr = localStorage.getItem('users');
     const users = usersStr ? JSON.parse(usersStr) : [];
     const updatedUsers = users.map((u: any) => {
       if (u.id === userId) {
+        console.log(`Updating user ${u.id} with reserved account`);
         return {
           ...u,
           reservedAccount: accountData
@@ -177,12 +192,14 @@ export const createUserReservedAccount = async (userId: string, idType: string, 
     
     // Also update the current user if this is for the current user
     if (currentUser && currentUser.id === userId) {
+      console.log("Also updating current user with reserved account");
       currentUser.reservedAccount = accountData;
       localStorage.setItem('currentUser', JSON.stringify(currentUser));
     }
     
     // Update user in the profiles table to ensure persistence
     try {
+      console.log("Updating user profile with reserved account");
       updateUser({ reservedAccount: accountData });
     } catch (error) {
       console.error("Failed to update user profile with reserved account:", error);

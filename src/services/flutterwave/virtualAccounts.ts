@@ -26,8 +26,11 @@ interface AccountCreationParams {
 export const createVirtualAccount = async (params: AccountCreationParams) => {
   try {
     console.log("Creating virtual account with params:", {
-      ...params,
-      bvn: params.bvn ? "****" : undefined // Mask BVN in logs
+      email: params.email,
+      name: params.name,
+      bvn: params.bvn ? "****" : undefined, // Mask BVN in logs
+      isPermanent: params.isPermanent,
+      narration: params.narration
     });
     
     // For real API call, we need to ensure BVN is provided for permanent accounts
@@ -51,6 +54,7 @@ export const createVirtualAccount = async (params: AccountCreationParams) => {
     
     console.log("Sending payload to Flutterwave through edge function:", {
       ...payload,
+      email: payload.email, // Show full email for debugging
       bvn: payload.bvn ? "****" : undefined // Mask BVN in logs
     });
     
@@ -66,6 +70,7 @@ export const createVirtualAccount = async (params: AccountCreationParams) => {
     console.log("Edge function response:", data);
 
     if (!response.ok) {
+      console.error("API Error Response:", data);
       throw new Error(data.message || 'Failed to create virtual account');
     }
 
@@ -75,10 +80,10 @@ export const createVirtualAccount = async (params: AccountCreationParams) => {
       responseMessage: data.message || "Virtual account created successfully",
       responseBody: {
         accounts: [{
-          accountNumber: data.data.account_number,
-          bankName: data.data.bank_name
+          accountNumber: data.data?.account_number,
+          bankName: data.data?.bank_name
         }],
-        accountReference: data.data.flw_ref,
+        accountReference: data.data?.flw_ref,
         accountName: params.name
       }
     };

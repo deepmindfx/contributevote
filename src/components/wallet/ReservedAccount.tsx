@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -76,6 +75,8 @@ const ReservedAccount = () => {
       setShowBvnForm(false);
       
       console.log("Creating account with BVN:", values.bvn ? "****" : "Not provided");
+      console.log("User ID:", user.id);
+      
       const result = await createUserReservedAccount(user.id, "bvn", values.bvn);
       if (result) {
         console.log("Reserved account created:", result);
