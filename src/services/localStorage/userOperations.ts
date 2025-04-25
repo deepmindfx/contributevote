@@ -1,3 +1,4 @@
+
 import { v4 as uuidv4 } from 'uuid';
 import { User } from './types';
 import { getBaseUsers, getBaseCurrentUser } from './storageUtils';
@@ -22,6 +23,10 @@ export const createUser = (user: Omit<User, 'id' | 'walletBalance' | 'role' | 'a
   users.push(newUser);
   localStorage.setItem('users', JSON.stringify(users));
   return newUser;
+};
+
+export const getCurrentUser = (): User | null => {
+  return getBaseCurrentUser();
 };
 
 export const setCurrentUser = (user: User) => {
@@ -91,4 +96,9 @@ export const getUserByPhone = (phone: string): User | null => {
   const users = getBaseUsers();
   const foundUser = users.find(user => user.phone === phone || user.phoneNumber === phone);
   return foundUser || null;
+};
+
+// Add function to verify a user with OTP
+export const verifyUserWithOTP = (userId: string) => {
+  updateUserById(userId, { verified: true });
 };

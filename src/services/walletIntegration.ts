@@ -1,10 +1,11 @@
+
 import {
   createVirtualAccount,
   createGroupVirtualAccount
 } from './flutterwave/virtualAccounts';
 import { v4 as uuidv4 } from 'uuid';
 import { Transaction } from './localStorage/types';
-import { updateUser } from './localStorage';
+import { updateUser, getCurrentUser } from './localStorage';
 
 // Re-export virtual account functions
 export {
@@ -102,12 +103,21 @@ export const createPaymentInvoice = async (data: {
 
 export const createUserReservedAccount = async (userId: string, idType: string, idNumber: string) => {
   try {
-    // Get user data
-    const usersStr = localStorage.getItem('users');
-    const users = usersStr ? JSON.parse(usersStr) : [];
-    const user = users.find((u: any) => u.id === userId);
+    // FIX: Use getCurrentUser() to get current user if userId matches, or find in users array
+    let user;
+    const currentUser = getCurrentUser();
+    
+    if (currentUser && currentUser.id === userId) {
+      user = currentUser;
+    } else {
+      // Get all users data
+      const usersStr = localStorage.getItem('users');
+      const users = usersStr ? JSON.parse(usersStr) : [];
+      user = users.find((u: any) => u.id === userId);
+    }
     
     if (!user) {
+      console.error(`User with ID ${userId} not found`);
       throw new Error('User not found');
     }
     
@@ -150,6 +160,8 @@ export const createUserReservedAccount = async (userId: string, idType: string, 
     };
     
     // Update user with reserved account details
+    const usersStr = localStorage.getItem('users');
+    const users = usersStr ? JSON.parse(usersStr) : [];
     const updatedUsers = users.map((u: any) => {
       if (u.id === userId) {
         return {
@@ -164,18 +176,14 @@ export const createUserReservedAccount = async (userId: string, idType: string, 
     localStorage.setItem('users', JSON.stringify(updatedUsers));
     
     // Also update the current user if this is for the current user
-    const currentUserStr = localStorage.getItem('currentUser');
-    if (currentUserStr) {
-      const currentUser = JSON.parse(currentUserStr);
-      if (currentUser.id === userId) {
-        currentUser.reservedAccount = accountData;
-        localStorage.setItem('currentUser', JSON.stringify(currentUser));
-      }
+    if (currentUser && currentUser.id === userId) {
+      currentUser.reservedAccount = accountData;
+      localStorage.setItem('currentUser', JSON.stringify(currentUser));
     }
     
     // Update user in the profiles table to ensure persistence
     try {
-      updateUser(userId, { reservedAccount: accountData });
+      updateUser({ reservedAccount: accountData });
     } catch (error) {
       console.error("Failed to update user profile with reserved account:", error);
       // Continue since we already updated the users array
