@@ -5,7 +5,7 @@ import {
 } from './flutterwave/virtualAccounts';
 import { v4 as uuidv4 } from 'uuid';
 import { Transaction } from './localStorage/types';
-import { updateUser, getCurrentUser } from './localStorage';
+import { updateUser } from './localStorage';
 
 // Re-export virtual account functions
 export {
@@ -28,7 +28,14 @@ export interface ReservedAccountData {
 export interface VirtualAccountResponse {
   requestSuccessful: boolean;
   responseMessage: string;
-  responseBody: ReservedAccountData | null;
+  responseBody: {
+    accounts: Array<{
+      accountNumber: string;
+      bankName: string;
+    }>;
+    accountReference: string;
+    accountName: string;
+  };
 }
 
 export const getReservedAccountTransactions = async (accountReference: string) => {
@@ -96,55 +103,74 @@ export const createPaymentInvoice = async (data: {
 
 export const createUserReservedAccount = async (userId: string, idType: string, idNumber: string) => {
   try {
-    console.log("Creating reserved account for user ID:", userId);
-    
-    if (!userId) {
-      throw new Error("User ID is required");
-    }
-
-    // Get current user
-    const user = getCurrentUser();
+    // Get user data
+    const usersStr = localStorage.getItem('users');
+    const users = usersStr ? JSON.parse(usersStr) : [];
+    const user = users.find((u: any) => u.id === userId);
     
     if (!user) {
       throw new Error('User not found');
     }
-
-    console.log(`Found user for virtual account: ${user.firstName} ${user.lastName}`);
     
-    if (idType !== 'bvn') {
-      throw new Error('BVN is required for creating virtual accounts');
-    }
-
-    if (!idNumber) {
-      throw new Error('BVN number is required');
-    }
-
-    if (idNumber.length !== 11 || !/^\d+$/.test(idNumber)) {
-      throw new Error('BVN must be 11 digits');
-    }
+    console.log(`Creating virtual account for user ${userId} with ${idType}: ${idNumber}`);
     
     // Create virtual account with Flutterwave
     const result = await createVirtualAccount({
       email: user.email,
-      firstname: user.firstName,
-      lastname: user.lastName,
-      is_permanent: true,
-      bvn: idNumber,
-      narration: `Virtual Account for ${user.firstName} ${user.lastName}`
+      name: user.name || `${user.firstName} ${user.lastName}`,
+      isPermanent: true,
+      bvn: idType === 'bvn' ? idNumber : undefined,
+      narration: `Please make a bank transfer to ${user.name || `${user.firstName} ${user.lastName}`}`
     });
     
     if (!result.requestSuccessful) {
       throw new Error(result.responseMessage || 'Failed to create virtual account');
     }
     
-    // Create account data structure
-    const accountData = result.responseBody;
+    console.log("Virtual account API response:", result);
     
-    // Update user in local storage
-    updateUser(user.id, {
-      ...user,
-      reservedAccount: accountData
+    // Create account data structure
+    const accountData = {
+      accountNumber: result.responseBody.accounts[0].accountNumber,
+      bankName: result.responseBody.accounts[0].bankName,
+      accountName: result.responseBody.accountName,
+      accountReference: result.responseBody.accountReference,
+      accounts: result.responseBody.accounts
+    };
+    
+    // Update user with reserved account details
+    const updatedUsers = users.map((u: any) => {
+      if (u.id === userId) {
+        return {
+          ...u,
+          reservedAccount: accountData
+        };
+      }
+      return u;
     });
+    
+    // Save updated users to localStorage
+    localStorage.setItem('users', JSON.stringify(updatedUsers));
+    
+    // Also update the current user if this is for the current user
+    const currentUserStr = localStorage.getItem('currentUser');
+    if (currentUserStr) {
+      const currentUser = JSON.parse(currentUserStr);
+      if (currentUser.id === userId) {
+        currentUser.reservedAccount = accountData;
+        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+      }
+    }
+    
+    // Update user in the profiles table to ensure persistence
+    try {
+      updateUser(userId, { reservedAccount: accountData });
+    } catch (error) {
+      console.error("Failed to update user profile with reserved account:", error);
+      // Continue since we already updated the users array
+    }
+    
+    console.log(`Successfully created and saved virtual account for user ${userId}`);
     
     return accountData;
   } catch (error) {

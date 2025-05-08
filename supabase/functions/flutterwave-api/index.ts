@@ -1,7 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const FLUTTERWAVE_SECRET_KEY = Deno.env.get('FLUTTERWAVE_SECRET_KEY');
+const FLUTTERWAVE_SECRET_KEY = Deno.env.get('FLUTTERWAVE_SECRET_KEY') || 'FLWSECK-85d93895f84a5bd92b7fbad3e211fd76-1965a626b3cvt-X';
 const FLUTTERWAVE_BASE_URL = 'https://api.flutterwave.com/v3';
 
 const corsHeaders = {
@@ -10,6 +10,7 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -26,62 +27,36 @@ serve(async (req) => {
     let method = 'GET';
     let body = null;
     
+    // Extract the request body if present
     if (req.method === 'POST' || req.method === 'PUT') {
       body = await req.json();
-      console.log(`Request body for ${path}:`, JSON.stringify({
-        ...body,
-        bvn: body?.bvn ? '****' : undefined,
-        phonenumber: body?.phonenumber ? '****' : undefined
-      }));
+      console.log(`Request body for ${path}:`, JSON.stringify(body));
     }
     
-    // Validate Flutterwave secret key
-    if (!FLUTTERWAVE_SECRET_KEY) {
-      throw new Error("Flutterwave secret key not configured");
-    }
-    
+    // Determine the endpoint and HTTP method based on the path
     switch (path) {
       case 'create-virtual-account':
         endpoint = '/virtual-account-numbers';
         method = 'POST';
         
-        if (!body?.email) {
-          return new Response(JSON.stringify({
-            status: "error",
-            message: "Email is required"
-          }), {
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          });
-        }
-
-        if (!body?.firstname || !body?.lastname) {
-          return new Response(JSON.stringify({
-            status: "error",
-            message: "First name and last name are required"
-          }), {
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          });
-        }
-
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(body.email)) {
-          return new Response(JSON.stringify({
-            status: "error",
-            message: "Invalid email format"
-          }), {
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          });
-        }
-
-        if (body.is_permanent === true && !body.bvn) {
-          console.warn("Creating permanent account without BVN");
-        }
-
-        if (!body.tx_ref) {
-          body.tx_ref = `VA_${Date.now()}_${Math.floor(Math.random() * 1000000)}`;
+        // Fix - Add required fields if not present
+        if (body) {
+          // Ensure is_permanent is properly set (default to true)
+          if (body.is_permanent === undefined) {
+            body.is_permanent = true;
+          }
+          
+          // Ensure tx_ref is set if not already
+          if (!body.tx_ref) {
+            body.tx_ref = `VA_${Date.now()}_${Math.floor(Math.random() * 1000000)}`;
+          }
+          
+          // Make sure currency is set
+          if (!body.currency) {
+            body.currency = "NGN";
+          }
+          
+          console.log("Final create virtual account payload:", JSON.stringify(body));
         }
         break;
         
@@ -90,12 +65,19 @@ serve(async (req) => {
         method = 'GET';
         break;
         
+      case 'initiate-payment':
+        endpoint = '/payments';
+        method = 'POST';
+        break;
+        
       default:
         throw new Error(`Unknown endpoint: ${path}`);
     }
     
-    console.log(`Making request to Flutterwave: ${FLUTTERWAVE_BASE_URL}${endpoint}`);
+    console.log(`Proxying request to Flutterwave: ${FLUTTERWAVE_BASE_URL}${endpoint}`);
+    console.log(`Method: ${method}`);
     
+    // Make the request to Flutterwave API
     const response = await fetch(`${FLUTTERWAVE_BASE_URL}${endpoint}`, {
       method: method,
       headers: {
@@ -105,24 +87,23 @@ serve(async (req) => {
       body: body ? JSON.stringify(body) : undefined,
     });
     
+    // Get the response data
     const data = await response.json();
     
+    // Log success or error for debugging
     if (response.ok) {
       console.log(`Flutterwave API response for ${path}: Success`);
       console.log(`Response status: ${response.status}`);
       console.log(`Response message: ${data.message || 'No message'}`);
-      
-      if (path === 'create-virtual-account' && data.data) {
-        console.log(`Created account number: ${data.data.account_number || 'Not provided'}`);
-        console.log(`Bank name: ${data.data.bank_name || 'Not provided'}`);
-        console.log(`Reference: ${data.data.order_ref || 'Not provided'}`);
-      }
+      console.log(`Response data:`, JSON.stringify(data));
     } else {
       console.error(`Flutterwave API error for ${path}:`, data);
       console.error(`Response status: ${response.status}`);
       console.error(`Error message: ${data.message || 'No error message'}`);
+      console.error(`Error details:`, JSON.stringify(data));
     }
     
+    // Return the response with CORS headers
     return new Response(JSON.stringify(data), {
       status: response.status,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -131,9 +112,10 @@ serve(async (req) => {
   } catch (error) {
     console.error(`Error in flutterwave-api function:`, error);
     
-    return new Response(JSON.stringify({
-      success: false,
-      message: error instanceof Error ? error.message : 'An error occurred'
+    // Return the error response with CORS headers
+    return new Response(JSON.stringify({ 
+      success: false, 
+      message: error.message || 'An error occurred while processing your request'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

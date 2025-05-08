@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,14 +12,14 @@ import {
   getReservedAccountTransactions
 } from "@/services/walletIntegration";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormDescription, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-// Form schema for validation - Only BVN is required now
+// Form schema for validation - Modified to only use BVN
 const bvnFormSchema = z.object({
   bvn: z.string()
     .length(11, "BVN must be exactly 11 digits")
@@ -74,9 +75,7 @@ const ReservedAccount = () => {
       // Close the BVN form dialog after submission
       setShowBvnForm(false);
       
-      console.log("Creating account with BVN:", values.bvn ? "****" : "Not provided");
-      console.log("User ID:", user.id);
-      
+      console.log("Creating account with BVN:", values.bvn);
       const result = await createUserReservedAccount(user.id, "bvn", values.bvn);
       if (result) {
         console.log("Reserved account created:", result);
@@ -97,7 +96,7 @@ const ReservedAccount = () => {
       }
     } catch (error) {
       console.error("Error creating reserved account:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to create reserved account. Please try again.");
+      toast.error("Failed to create reserved account. Please try again.");
     } finally {
       setIsLoading(false);
     }

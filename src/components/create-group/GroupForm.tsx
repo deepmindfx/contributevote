@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { createContributionGroupAccount } from "@/services/walletIntegration";
+import { createContributionGroupAccount } from "@/services/monnifyApi";
 import { useApp } from "@/contexts/AppContext";
 
 // Import Step Components
@@ -124,16 +124,16 @@ const GroupForm = () => {
       
       // Create a virtual account for the group using Flutterwave
       const accountParams = {
-        email: user?.email || '',
-        name: formData.name,
-        bvn: formData.bvn // Now ensuring BVN is passed to the API
+        accountReference: accountRef,
+        accountName: formData.name,
+        currencyCode: "NGN",
+        contractCode: "465595618981", // This might need to be updated with your actual contract code
+        customerEmail: user?.email || '',
+        customerName: formData.name,
+        customerBvn: formData.bvn
       };
       
-      console.log("Creating contribution group account:", {
-        ...accountParams,
-        bvn: "****" // Mask BVN in logs
-      });
-      
+      console.log("Creating contribution group account:", accountParams);
       const accountResponse = await createContributionGroupAccount(accountParams);
       
       if (!accountResponse.requestSuccessful) {
@@ -211,7 +211,7 @@ const GroupForm = () => {
             formData={formData} 
             handleChange={handleChange} 
             handleCreateGroup={handleCreateGroup} 
-            goToPreviousStep={goToPreviousStep}
+            goToPreviousStep={goToPreviousStep} 
             isLoading={isLoading}
             validationErrors={validationErrors}
           />
