@@ -86,7 +86,7 @@ const AppRoutes = () => {
         />
         
         <Route
-          path="/groups"
+          path="/all-groups"
           element={
             <PrivateRoute>
               <AllGroups />

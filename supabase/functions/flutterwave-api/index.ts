@@ -41,6 +41,13 @@ serve(async (req) => {
         
         // Fix - Add required fields if not present
         if (body) {
+          // Add firstname and lastname fields from name if not present
+          if (!body.firstname || !body.lastname) {
+            const nameParts = body.name ? body.name.split(' ') : ['User', ''];
+            body.firstname = body.firstname || nameParts[0] || 'User';
+            body.lastname = body.lastname || nameParts.slice(1).join(' ') || 'Account';
+          }
+          
           // Ensure is_permanent is properly set (default to true)
           if (body.is_permanent === undefined) {
             body.is_permanent = true;

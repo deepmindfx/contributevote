@@ -1,16 +1,17 @@
 
 import {
   createVirtualAccount,
-  createGroupVirtualAccount
+  createGroupVirtualAccount,
+  VirtualAccountParams
 } from './flutterwave/virtualAccounts';
 import { v4 as uuidv4 } from 'uuid';
 import { Transaction } from './localStorage/types';
 import { updateUser } from './localStorage';
 
 // Re-export virtual account functions
-export {
+export { 
   createVirtualAccount as getUserReservedAccount,
-  createGroupVirtualAccount as createContributionGroupAccount,
+  createGroupVirtualAccount as createContributionGroupAccount
 };
 
 // Add type exports
@@ -112,15 +113,23 @@ export const createUserReservedAccount = async (userId: string, idType: string, 
       throw new Error('User not found');
     }
     
-    console.log(`Creating virtual account for user ${userId} with ${idType}: ${idNumber}`);
+    console.log(`Creating virtual account for user ${userId} with ${idType}: ${idNumber ? "****" + idNumber.slice(-4) : "none"}`);
+    
+    // Extract first and last name
+    const fullName = user.name || `${user.firstName} ${user.lastName}` || 'User';
+    const nameParts = fullName.split(' ');
+    const firstname = nameParts[0] || 'User';
+    const lastname = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Account';
     
     // Create virtual account with Flutterwave
     const result = await createVirtualAccount({
       email: user.email,
-      name: user.name || `${user.firstName} ${user.lastName}`,
+      firstname: firstname, 
+      lastname: lastname,
       isPermanent: true,
       bvn: idType === 'bvn' ? idNumber : undefined,
-      narration: `Please make a bank transfer to ${user.name || `${user.firstName} ${user.lastName}`}`
+      narration: `Please make a bank transfer to ${fullName}`,
+      phonenumber: user.phone || user.phoneNumber
     });
     
     if (!result.requestSuccessful) {
@@ -164,7 +173,7 @@ export const createUserReservedAccount = async (userId: string, idType: string, 
     
     // Update user in the profiles table to ensure persistence
     try {
-      updateUser(userId, { reservedAccount: accountData });
+      updateUser({ reservedAccount: accountData });
     } catch (error) {
       console.error("Failed to update user profile with reserved account:", error);
       // Continue since we already updated the users array

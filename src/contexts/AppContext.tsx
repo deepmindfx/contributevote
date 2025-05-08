@@ -5,13 +5,17 @@ import { useUser } from './UserContext';
 import { useContribution } from './ContributionContext';
 import { toast } from 'sonner';
 import { type Transaction } from '@/services/localStorage/types';
+import { 
+  voteOnWithdrawalRequest, 
+  pingGroupMembersForVote 
+} from '@/services/localStorage/withdrawalOperations';
 
 interface AppContextType {
   isReady: boolean;
   isLoading: boolean;
   user: any;
   contributions: any[];
-  transactions: any[];
+  transactions: Transaction[];
   withdrawalRequests: any[];
   stats: any;
   refreshData: () => void;
@@ -22,6 +26,8 @@ interface AppContextType {
   shareToContacts: (contributionId: string, recipients: string[]) => void;
   getReceipt: (transactionId: string) => any;
   isGroupCreator: (contributionId: string) => boolean;
+  vote: (requestId: string, value: 'approve' | 'reject') => void;
+  pingMembersForVote: (requestId: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -84,6 +90,47 @@ export function AppProvider({ children }: AppProviderProps) {
     }
   };
 
+  // Added vote function to handle voting on withdrawal requests
+  const vote = (requestId: string, value: 'approve' | 'reject') => {
+    try {
+      if (!userDetails || !userDetails.id) {
+        toast.error("You must be logged in to vote");
+        return;
+      }
+      
+      const result = voteOnWithdrawalRequest(requestId, userDetails.id, value);
+      if (result) {
+        toast.success(`You voted to ${value} this withdrawal request`);
+        refreshData();
+      } else {
+        toast.error("Failed to submit your vote");
+      }
+    } catch (error) {
+      console.error("Error voting on withdrawal request:", error);
+      toast.error("Failed to submit your vote");
+    }
+  };
+
+  // Added function to ping group members about voting
+  const pingMembersForVote = (requestId: string) => {
+    try {
+      if (!userDetails || !userDetails.id) {
+        toast.error("You must be logged in to send reminders");
+        return;
+      }
+      
+      const result = pingGroupMembersForVote(requestId, userDetails.id);
+      if (result) {
+        toast.success("Reminder sent to all group members");
+      } else {
+        toast.error("Failed to send reminders");
+      }
+    } catch (error) {
+      console.error("Error sending vote reminders:", error);
+      toast.error("Failed to send reminders");
+    }
+  };
+
   // Combine user details from auth and user contexts
   const combinedUser = {
     ...authUser,
@@ -106,7 +153,9 @@ export function AppProvider({ children }: AppProviderProps) {
       getShareLink,
       shareToContacts,
       getReceipt,
-      isGroupCreator
+      isGroupCreator,
+      vote,
+      pingMembersForVote
     }}>
       {children}
     </AppContext.Provider>

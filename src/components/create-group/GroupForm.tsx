@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -122,15 +121,18 @@ const GroupForm = () => {
       // Create a unique account reference for this group
       const accountRef = `GROUP_${user?.id}_${Date.now()}`;
       
+      // Get name parts for the API
+      const nameParts = formData.name.split(' ');
+      const firstname = nameParts[0] || 'Group';
+      const lastname = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Account';
+      
       // Create a virtual account for the group using Flutterwave
       const accountParams = {
-        accountReference: accountRef,
-        accountName: formData.name,
-        currencyCode: "NGN",
-        contractCode: "465595618981", // This might need to be updated with your actual contract code
-        customerEmail: user?.email || '',
-        customerName: formData.name,
-        customerBvn: formData.bvn
+        email: user?.email || '',
+        firstname: firstname,
+        lastname: lastname,
+        bvn: formData.bvn,
+        isPermanent: true
       };
       
       console.log("Creating contribution group account:", accountParams);

@@ -14,18 +14,23 @@ interface VirtualAccountResponse {
   };
 }
 
-interface AccountCreationParams {
+export interface VirtualAccountParams {
   email: string;
-  name: string;
+  firstname: string;
+  lastname: string;
   bvn?: string;
   amount?: number;
   isPermanent?: boolean;
   narration?: string;
+  phonenumber?: string;
 }
 
-export const createVirtualAccount = async (params: AccountCreationParams) => {
+export const createVirtualAccount = async (params: VirtualAccountParams) => {
   try {
-    console.log("Creating virtual account with params:", params);
+    console.log("Creating virtual account with params:", {
+      ...params,
+      bvn: params.bvn ? "****" + params.bvn.slice(-4) : undefined // Mask BVN for logs
+    });
     
     // For real API call, we need to ensure BVN is provided for permanent accounts
     if (params.isPermanent && !params.bvn) {
@@ -41,12 +46,18 @@ export const createVirtualAccount = async (params: AccountCreationParams) => {
       is_permanent: params.isPermanent === undefined ? true : params.isPermanent,
       bvn: params.bvn,
       tx_ref: txRef,
-      narration: params.narration || `Please make a bank transfer to ${params.name}`,
+      firstname: params.firstname,
+      lastname: params.lastname,
+      phonenumber: params.phonenumber,
+      narration: params.narration || `Please make a bank transfer to ${params.firstname} ${params.lastname}`,
       currency: "NGN",
       ...(params.amount && { amount: params.amount })
     };
     
-    console.log("Sending payload to Flutterwave through edge function:", payload);
+    console.log("Sending payload to Flutterwave through edge function:", {
+      ...payload,
+      bvn: payload.bvn ? "****" + payload.bvn.slice(-4) : undefined // Mask BVN for logs
+    });
     
     // Make the API request through our edge function
     const response = await fetch(getEdgeFunctionUrl('create-virtual-account'), {
@@ -73,7 +84,7 @@ export const createVirtualAccount = async (params: AccountCreationParams) => {
           bankName: data.data.bank_name
         }],
         accountReference: data.data.flw_ref,
-        accountName: params.name
+        accountName: `${params.firstname} ${params.lastname}`
       }
     };
   } catch (error) {
@@ -87,7 +98,7 @@ export const createVirtualAccount = async (params: AccountCreationParams) => {
   }
 };
 
-export const createGroupVirtualAccount = async (params: AccountCreationParams) => {
+export const createGroupVirtualAccount = async (params: VirtualAccountParams) => {
   try {
     // Make sure BVN is included for permanent group accounts
     if (!params.bvn) {
@@ -99,13 +110,13 @@ export const createGroupVirtualAccount = async (params: AccountCreationParams) =
       };
     }
 
-    console.log("Creating group virtual account with BVN:", params.bvn);
+    console.log("Creating group virtual account with BVN:", params.bvn ? "****" + params.bvn.slice(-4) : "none");
     
     // Create permanent account for groups
     return await createVirtualAccount({
       ...params,
       isPermanent: true,
-      narration: `Please make a bank transfer to ${params.name} Contribution Group`
+      narration: `Please make a bank transfer to ${params.firstname} ${params.lastname} Contribution Group`
     });
   } catch (error) {
     console.error("Error creating group virtual account:", error);

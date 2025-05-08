@@ -9,7 +9,8 @@ import {
   getUserReservedAccount, 
   createUserReservedAccount, 
   ReservedAccountData,
-  getReservedAccountTransactions
+  getReservedAccountTransactions,
+  VirtualAccountParams
 } from "@/services/walletIntegration";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -110,10 +111,17 @@ const ReservedAccount = () => {
         return;
       }
       
+      // Extract first and last name for the API call
+      const fullName = user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User';
+      const nameParts = fullName.split(' ');
+      const firstname = nameParts[0] || 'User';
+      const lastname = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Account';
+      
       // Get a response with the correct format
       const response = await getUserReservedAccount({
         email: user.email,
-        name: user.name || `${user.firstName} ${user.lastName}`,
+        firstname: firstname,
+        lastname: lastname,
         isPermanent: true
       });
       
