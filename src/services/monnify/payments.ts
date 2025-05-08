@@ -1,0 +1,130 @@
+
+import { BASE_URL, CONTRACT_CODE } from './config';
+import { getAuthToken } from './auth';
+import { toast } from 'sonner';
+
+/**
+ * Create a Monnify invoice
+ * @param data Invoice creation data
+ * @returns Response with invoice details
+ */
+export const createInvoice = async (data: any) => {
+  try {
+    console.log("Creating invoice with data:", data);
+    
+    // Initialize request body
+    const requestBody: any = {
+      amount: data.amount,
+      customerName: data.customerName,
+      customerEmail: data.customerEmail,
+      paymentDescription: data.description || "Payment",
+      paymentReference: `PAY-${Date.now()}-${Math.floor(Math.random() * 1000000)}`,
+      paymentMethods: ["CARD", "ACCOUNT_TRANSFER"],
+      currencyCode: "NGN",
+      contractCode: CONTRACT_CODE,
+      redirectUrl: window.location.origin,
+    };
+    
+    // Add expiry date if provided (should be in format: yyyy-MM-dd HH:mm:ss)
+    if (data.expiryDate) {
+      requestBody.expiryDate = data.expiryDate;
+    }
+    
+    // If contributionId is provided and has an account reference, setup split configuration
+    if (data.contributionAccountReference) {
+      // Instead of trying to direct the payment to a sub-account,
+      // we'll just use the standard payment flow and record the contribution
+      // This is a workaround for the "Unknown sub account code" error
+      console.log("Not adding split configuration due to known API limitations");
+      
+      // Add metadata for tracking
+      requestBody.metadata = {
+        contributionId: data.contributionId,
+        contributionName: data.contributionName,
+        anonymous: data.anonymous || false
+      };
+    }
+    
+    // Get authentication token
+    const token = await getAuthToken();
+    if (!token) {
+      console.error("Failed to authenticate with payment provider");
+      return { success: false, message: "Failed to authenticate with payment provider" };
+    }
+    
+    // Use the correct endpoint for invoice creation
+    const response = await fetch(`${BASE_URL}/api/v1/merchant/transactions/init-transaction`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(requestBody)
+    });
+    
+    const responseData = await response.json();
+    
+    if (!response.ok) {
+      console.error("Failed to create invoice:", responseData);
+      throw new Error(responseData.responseMessage || `Failed to create invoice: ${response.status}`);
+    }
+    
+    // Check if request was successful
+    if (!responseData.requestSuccessful) {
+      console.error("Invoice creation failed with error:", responseData);
+      throw new Error(responseData.responseMessage || "Failed to create invoice");
+    }
+    
+    console.log("Invoice created successfully:", responseData);
+    return responseData.responseBody;
+  } catch (error) {
+    console.error("Error creating invoice:", error);
+    throw error;
+  }
+};
+
+/**
+ * Charge a Monnify card token
+ * @param data Card token charging data
+ * @returns Response with payment details
+ */
+export const chargeCardToken = async (data: any) => {
+  try {
+    console.log("Charging card token with data:", data);
+    
+    // Get authentication token
+    const token = await getAuthToken();
+    if (!token) {
+      console.error("Failed to authenticate with payment provider");
+      throw new Error("Failed to authenticate with payment provider");
+    }
+    
+    const response = await fetch(`${BASE_URL}/api/v1/merchant/cards/charge`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    });
+    
+    const responseData = await response.json();
+    
+    if (!response.ok) {
+      console.error("Failed to charge card token:", responseData);
+      throw new Error(responseData.responseMessage || `Failed to charge card token: ${response.status}`);
+    }
+    
+    // Check if request was successful
+    if (!responseData.requestSuccessful) {
+      console.error("Card token charging failed with error:", responseData);
+      throw new Error(responseData.responseMessage || "Failed to charge card token");
+    }
+    
+    console.log("Card token charged successfully:", responseData);
+    return responseData.responseBody;
+  } catch (error) {
+    console.error("Error charging card token:", error);
+    throw error;
+  }
+};

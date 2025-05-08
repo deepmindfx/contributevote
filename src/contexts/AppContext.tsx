@@ -1,171 +1,159 @@
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { useAuth } from './AuthContext';
+import { createContext, useContext, useEffect, ReactNode } from 'react';
 import { useUser } from './UserContext';
-import { useContribution } from './ContributionContext';
-import { toast } from 'sonner';
-import { type Transaction } from '@/services/localStorage/types';
-import { 
-  voteOnWithdrawalRequest, 
-  pingGroupMembersForVote 
-} from '@/services/localStorage/withdrawalOperations';
+import { useContribution } from './ContributionContext'; 
+import { useAdmin } from './AdminContext';
+import { initializeLocalStorage } from '@/services/localStorage';
+import { ensureAccountNumberDisplay } from '@/localStorage';
 
+// Create a backward compatibility context
 interface AppContextType {
-  isReady: boolean;
-  isLoading: boolean;
   user: any;
+  users: any[];
   contributions: any[];
-  transactions: Transaction[];
   withdrawalRequests: any[];
+  transactions: any[];
   stats: any;
   refreshData: () => void;
   createNewContribution: (contribution: any) => void;
   contribute: (contributionId: string, amount: number, anonymous?: boolean) => void;
-  contributeViaAccountNumber: (accountNumber: string, amount: number, contributorInfo: any, anonymous?: boolean) => void;
+  contributeViaAccountNumber: (accountNumber: string, amount: number, contributorInfo: { name: string, email?: string, phone?: string }, anonymous?: boolean) => void;
+  requestWithdrawal: (request: any) => void;
+  vote: (requestId: string, vote: 'approve' | 'reject') => void;
   getShareLink: (contributionId: string) => string;
+  updateProfile: (userData: any) => void;
+  updateUserAsAdmin: (userId: string, userData: any) => void;
+  depositToUserAsAdmin: (userId: string, amount: number) => void;
+  pauseUserAsAdmin: (userId: string) => void;
+  activateUserAsAdmin: (userId: string) => void;
+  isAdmin: boolean;
+  isAuthenticated: boolean;
   shareToContacts: (contributionId: string, recipients: string[]) => void;
-  getReceipt: (transactionId: string) => any;
-  isGroupCreator: (contributionId: string) => boolean;
-  vote: (requestId: string, value: 'approve' | 'reject') => void;
+  logout: () => void;
+  getUserByEmail: (email: string) => any | null;
+  getUserByPhone: (phone: string) => any | null;
   pingMembersForVote: (requestId: string) => void;
+  getReceipt: (transactionId: string) => any;
+  verifyUser: (userId: string) => void;
+  isGroupCreator: (contributionId: string) => boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-interface AppProviderProps {
-  children: ReactNode;
-}
+// This is our backward compatibility provider
+export function AppProvider({ children }: { children: ReactNode }) {
+  const { 
+    user, 
+    users, 
+    isAdmin, 
+    isAuthenticated, 
+    refreshUserData,
+    updateProfile,
+    updateUserAsAdmin,
+    depositToUserAsAdmin,
+    pauseUserAsAdmin,
+    activateUserAsAdmin,
+    getUserByEmail,
+    getUserByPhone,
+    verifyUser,
+    logout
+  } = useUser();
 
-export function AppProvider({ children }: AppProviderProps) {
-  const { user: authUser, isAuthenticated } = useAuth();
-  const { user: userDetails, refreshUserData } = useUser();
   const {
     contributions,
-    transactions,
     withdrawalRequests,
+    transactions,
     stats,
     refreshContributionData,
-    isGroupCreator,
     createNewContribution,
     contribute,
     contributeViaAccountNumber,
+    requestWithdrawal,
+    vote,
     getShareLink,
     shareToContacts,
+    pingMembersForVote,
     getReceipt,
+    isGroupCreator
   } = useContribution();
 
-  const [isReady, setIsReady] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Initialize and set up
   useEffect(() => {
-    if (isAuthenticated) {
-      refreshData();
-    }
-    
-    // Mark as ready after initial loading
-    setTimeout(() => {
-      setIsReady(true);
-      setIsLoading(false);
-    }, 1000);
-  }, [isAuthenticated]);
-
-  // Refresh all data from various contexts
-  const refreshData = () => {
-    setIsLoading(true);
-    
+    // Initialize local storage when the app first loads
     try {
-      // Refresh user data first
+      initializeLocalStorage();
+      refreshData();
+      
+      // Add this call to ensure account numbers are displayed
+      ensureAccountNumberDisplay();
+    } catch (error) {
+      console.error("Error in initial load:", error);
+    }
+  }, []);
+
+  // Combine all refresh functions
+  const refreshData = () => {
+    // Make sure localStorage is initialized before refreshing data
+    try {
+      initializeLocalStorage();
       refreshUserData();
       
-      // Then refresh contribution data which might depend on user data
-      refreshContributionData();
-      
-      console.log("App data refreshed");
-    } catch (error) {
-      console.error("Error refreshing app data:", error);
-      toast.error("Failed to refresh data");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Added vote function to handle voting on withdrawal requests
-  const vote = (requestId: string, value: 'approve' | 'reject') => {
-    try {
-      if (!userDetails || !userDetails.id) {
-        toast.error("You must be logged in to vote");
-        return;
+      // Only refresh contribution data if user is authenticated
+      if (isAuthenticated && user?.id) {
+        refreshContributionData();
       }
       
-      const result = voteOnWithdrawalRequest(requestId, userDetails.id, value);
-      if (result) {
-        toast.success(`You voted to ${value} this withdrawal request`);
-        refreshData();
-      } else {
-        toast.error("Failed to submit your vote");
-      }
-    } catch (error) {
-      console.error("Error voting on withdrawal request:", error);
-      toast.error("Failed to submit your vote");
-    }
-  };
-
-  // Added function to ping group members about voting
-  const pingMembersForVote = (requestId: string) => {
-    try {
-      if (!userDetails || !userDetails.id) {
-        toast.error("You must be logged in to send reminders");
-        return;
+      // Ensure account numbers are displayed for contributions
+      try {
+        ensureAccountNumberDisplay();
+      } catch (error) {
+        console.info("Non-critical error in ensureAccountNumberDisplay:", error);
       }
       
-      const result = pingGroupMembersForVote(requestId, userDetails.id);
-      if (result) {
-        toast.success("Reminder sent to all group members");
-      } else {
-        toast.error("Failed to send reminders");
-      }
     } catch (error) {
-      console.error("Error sending vote reminders:", error);
-      toast.error("Failed to send reminders");
+      console.error("Error in refreshData:", error);
     }
-  };
-
-  // Combine user details from auth and user contexts
-  const combinedUser = {
-    ...authUser,
-    ...userDetails
   };
 
   return (
     <AppContext.Provider value={{
-      isReady,
-      isLoading,
-      user: combinedUser,
+      user,
+      users,
       contributions,
-      transactions,
       withdrawalRequests,
+      transactions,
       stats,
       refreshData,
       createNewContribution,
       contribute,
       contributeViaAccountNumber,
-      getShareLink,
-      shareToContacts,
-      getReceipt,
-      isGroupCreator,
+      requestWithdrawal,
       vote,
-      pingMembersForVote
+      getShareLink,
+      updateProfile,
+      updateUserAsAdmin,
+      depositToUserAsAdmin,
+      pauseUserAsAdmin,
+      activateUserAsAdmin,
+      isAdmin,
+      isAuthenticated,
+      shareToContacts,
+      logout,
+      getUserByEmail,
+      getUserByPhone,
+      pingMembersForVote,
+      getReceipt,
+      verifyUser,
+      isGroupCreator,
     }}>
       {children}
     </AppContext.Provider>
   );
 }
 
-export const useApp = () => {
+export function useApp() {
   const context = useContext(AppContext);
   if (context === undefined) {
     throw new Error('useApp must be used within an AppProvider');
   }
   return context;
-};
+}

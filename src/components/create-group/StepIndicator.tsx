@@ -3,10 +3,9 @@ import React from "react";
 
 interface StepIndicatorProps {
   currentStep: number;
-  totalSteps: number;
 }
 
-const StepIndicator = ({ currentStep, totalSteps }: StepIndicatorProps) => {
+const StepIndicator = ({ currentStep }: StepIndicatorProps) => {
   return (
     <div className="relative mb-8">
       <div className="flex justify-between items-center relative z-10">

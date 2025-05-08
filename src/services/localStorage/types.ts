@@ -1,34 +1,33 @@
 
+// Define all types here to avoid circular dependencies
 export interface User {
   id: string;
-  firstName: string;
-  lastName: string;
+  name: string;
   email: string;
-  phone: string;
-  role: 'user' | 'admin';
-  status: 'active' | 'paused' | 'pending';
-  createdAt: string;
-  updatedAt: string;
+  password?: string;
   walletBalance: number;
-  preferences: {
+  preferences?: {
     darkMode: boolean;
-    anonymousContributions?: boolean;
+    anonymousContributions: boolean;
+    notificationsEnabled?: boolean;
   };
-  reservedAccount?: ReservedAccountData;
-  otp?: string;
-  isVerified?: boolean;
-  name?: string; // Added for compatibility
-}
-
-export interface ReservedAccountData {
-  accountNumber: string;
-  bankName: string;
-  accountName: string;
-  accountReference: string;
-  accounts?: {
-    accountNumber: string;
-    bankName: string;
-  }[];
+  role: 'user' | 'admin' | 'paused';
+  accountNumber?: string;
+  accountName?: string;
+  verified: boolean;
+  reservedAccount?: any;
+  invoices?: any[];
+  cardTokens?: any[];
+  notifications?: any[];
+  phone?: string;
+  phoneNumber?: string;
+  firstName?: string;
+  lastName?: string;
+  username?: string;
+  profileImage?: string;
+  status?: string;
+  createdAt?: string;
+  pin?: string;
 }
 
 export interface Contribution {
@@ -37,95 +36,77 @@ export interface Contribution {
   description: string;
   targetAmount: number;
   currentAmount: number;
-  category: 'personal' | 'business' | 'family' | 'event' | 'education' | 'other';
-  frequency: 'daily' | 'weekly' | 'monthly' | 'one-time';
+  category: "personal" | "family" | "community" | "business" | "event" | "education" | "other";
+  frequency: "daily" | "weekly" | "monthly" | "one-time";
   contributionAmount: number;
   startDate: string;
   endDate?: string;
-  votingThreshold: number;
-  privacy: 'public' | 'private';
-  memberRoles: 'equal' | 'weighted';
+  deadline?: string;
   creatorId: string;
-  visibility: 'public' | 'private' | 'invite-only';
-  status: 'active' | 'completed' | 'expired';
-  deadline: string;
-  accountNumber: string;
-  bankName: string;
-  accountName: string;
-  accountReference: string;
-  accountDetails: any;
-  contributors?: { [userId: string]: number };
-  members?: string[];
+  members: string[];
+  contributors: any[];
+  createdAt: string;
+  status?: "active" | "completed" | "expired";
+  visibility?: "public" | "private" | "invite-only";
+  privacy?: string;
+  memberRoles?: string;
+  votingThreshold?: number;
+  accountNumber?: string;
+  accountName?: string;
+  bankName?: string;
+  accountReference?: string;
+  accountDetails?: any;
+}
+
+export interface Transaction {
+  id: string;
+  type: "deposit" | "withdrawal" | "transfer" | "payment" | "vote";
+  amount: number;
+  narration?: string;
+  status?: "pending" | "successful" | "failed" | "completed";
+  reference?: string;
+  userId: string;
+  toUserId?: string;
+  contributionId?: string;
+  createdAt: string;
+  paymentMethod?: string;
+  metadata?: any;
+  metaData?: any;
+  description?: string;
+  anonymous?: boolean;
 }
 
 export interface WithdrawalRequest {
   id: string;
   contributionId: string;
   amount: number;
-  purpose: string;
+  reason: string;
   status: 'pending' | 'approved' | 'rejected' | 'expired';
-  requestedBy: string;
   votes: {
-    [userId: string]: 'approve' | 'reject';
-  };
+    userId: string;
+    vote: 'approve' | 'reject';
+  }[];
   createdAt: string;
-  deadline?: string;
+  deadline: string;
+  beneficiary: string;
+  accountNumber: string;
+  bankName: string;
+  purpose: string;
 }
 
-export interface Transaction {
-  id: string;
-  userId: string;
-  amount: number;
-  type: 'contribution' | 'withdrawal' | 'deposit' | 'transfer' | 'payment' | 'vote';
-  status: 'pending' | 'completed' | 'failed' | 'successful';
-  description: string;
-  referenceId: string;
-  reference?: string; // Added for backward compatibility
-  contributionId?: string;
-  paymentMethod: string;
-  isAnonymous?: boolean;
-  anonymous?: boolean; // Added for backward compatibility
-  updatedAt: string;
-  createdAt?: string; // Added for backward compatibility
-  metaData?: TransactionMetaData;
-  userDetails?: {
-    name: string;
-    email: string;
-  };
-  accountReference?: string;
-}
-
-export interface TransactionMetaData {
-  contributionName?: string;
-  bankName?: string;
-  accountNumber?: string;
-  contributorName?: string;
-  withdrawalPurpose?: string;
-  paymentReference?: string;
-  senderName?: string;
-  senderBank?: string;
-  transactionReference?: string;
-  accountReference?: string;
-  customerName?: string; // Added for compatibility
-}
-
-// Added for backward compatibility
 export interface Notification {
   id: string;
   userId: string;
-  title: string;
   message: string;
-  type: string;
-  isRead: boolean;
+  type: 'info' | 'warning' | 'error' | 'success';
+  read: boolean;
   createdAt: string;
-  link?: string;
+  relatedId?: string;
 }
 
-// Added for backward compatibility
 export interface Stats {
   totalUsers: number;
   totalContributions: number;
-  totalTransactions: number;
   totalWithdrawals: number;
-  totalDeposits: number;
+  totalAmountContributed: number;
 }

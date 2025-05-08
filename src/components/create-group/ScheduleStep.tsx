@@ -21,10 +21,9 @@ interface ScheduleStepProps {
   };
   handleChange: (field: string, value: any) => void;
   goToNextStep: () => void;
-  goToPreviousStep: () => void;
 }
 
-const ScheduleStep = ({ formData, handleChange, goToNextStep, goToPreviousStep }: ScheduleStepProps) => {
+const ScheduleStep = ({ formData, handleChange, goToNextStep }: ScheduleStepProps) => {
   return (
     <>
       <CardHeader>
@@ -94,11 +93,8 @@ const ScheduleStep = ({ formData, handleChange, goToNextStep, goToPreviousStep }
           <p className="text-sm text-muted-foreground">Leave empty for ongoing contributions</p>
         </div>
       </CardContent>
-      <CardFooter className="flex justify-between">
-        <Button variant="outline" onClick={goToPreviousStep}>
-          Back
-        </Button>
-        <Button onClick={goToNextStep}>
+      <CardFooter>
+        <Button onClick={goToNextStep} className="w-full">
           Continue
         </Button>
       </CardFooter>

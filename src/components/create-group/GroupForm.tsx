@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -119,27 +120,24 @@ const GroupForm = () => {
     
     try {
       // Create a unique account reference for this group
-      const accountRef = `GROUP_${user?.id}_${Date.now()}`;
+      const accountRef = `GROUP_${user.id}_${Date.now()}`;
       
-      // Get name parts for the API
-      const nameParts = formData.name.split(' ');
-      const firstname = nameParts[0] || 'Group';
-      const lastname = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Account';
-      
-      // Create a virtual account for the group using Flutterwave
-      const accountParams = {
-        email: user?.email || '',
-        firstname: firstname,
-        lastname: lastname,
-        bvn: formData.bvn,
-        isPermanent: true
+      // Create a virtual account for the group first
+      const accountData = {
+        accountReference: accountRef,
+        accountName: formData.name, // Use the group name directly
+        currencyCode: "NGN",
+        contractCode: "465595618981", // Use the updated contract code
+        customerEmail: user.email,
+        customerName: formData.name,  // Use the group name for customer name too
+        customerBvn: formData.bvn
       };
       
-      console.log("Creating contribution group account:", accountParams);
-      const accountResponse = await createContributionGroupAccount(accountParams);
+      console.log("Creating contribution group account:", accountData);
+      const accountResponse = await createContributionGroupAccount(accountData);
       
       if (!accountResponse.requestSuccessful) {
-        toast.error(accountResponse.responseMessage || "Failed to create account for the group");
+        toast.error(accountResponse.message || "Failed to create account for the group");
         setIsLoading(false);
         return;
       }
@@ -153,7 +151,7 @@ const GroupForm = () => {
         name: formData.name,
         description: formData.description,
         targetAmount: Number(formData.targetAmount),
-        category: formData.category as "personal" | "business" | "family" | "event" | "education" | "other",
+        category: formData.category as "personal" | "business" | "family" | "event" | "education" | "other", 
         frequency: formData.frequency,
         contributionAmount: Number(formData.contributionAmount),
         startDate: formData.startDate,
@@ -161,15 +159,17 @@ const GroupForm = () => {
         votingThreshold: formData.votingThreshold,
         privacy: formData.privacy,
         memberRoles: formData.memberRoles,
-        creatorId: user?.id || '',
-        visibility: formData.privacy === 'public' ? 'public' as const : 'private' as const,
-        status: 'active' as const,
+        creatorId: user.id,
+        // Setting required properties to meet the type requirements
+        visibility: formData.privacy === 'public' ? 'public' as VisibilityType : 'private' as VisibilityType,
+        status: 'active' as 'active' | 'completed' | 'expired',
         deadline: formData.endDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+        // Add account details
         accountNumber: accountDetails.accounts[0].accountNumber,
         bankName: accountDetails.accounts[0].bankName,
-        accountName: formData.name,
-        accountReference: accountRef,
-        accountDetails: accountDetails
+        accountName: formData.name, // Use group name as account name
+        accountReference: accountRef, // Save the account reference for future API calls
+        accountDetails: accountDetails,
       };
       
       // Create contribution
@@ -225,7 +225,7 @@ const GroupForm = () => {
 
   return (
     <Card className="shadow-none border-0 p-6">
-      <StepIndicator currentStep={step} totalSteps={3} />
+      <StepIndicator current={step} totalSteps={3} />
       {renderStep()}
     </Card>
   );
