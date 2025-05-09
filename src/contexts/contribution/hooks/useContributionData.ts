@@ -37,39 +37,49 @@ export const useContributionData = (user: any, isAuthenticated: boolean) => {
   }, [isAuthenticated, user?.id]);
 
   const refreshContributionData = () => {
-    if (isAuthenticated && user?.id) {
-      try {
-        // Record refresh time
-        setLastRefreshTime(Date.now());
-        
-        // Only get contributions for this user if authenticated
-        setContributions(getUserContributions(user.id));
-        setWithdrawalRequests(getWithdrawalRequests());
-        setTransactions(getTransactions());
-        setStats(getStatistics());
-      } catch (error) {
-        console.error("Error refreshing contribution data:", error);
-      }
+    if (!isAuthenticated || !user?.id) {
+      // Don't attempt to refresh if not authenticated or no user ID
+      return;
+    }
+    
+    try {
+      // Record refresh time
+      setLastRefreshTime(Date.now());
+      
+      // Only get contributions for this user if authenticated
+      const userContributions = getUserContributions(user.id);
+      setContributions(userContributions);
+      
+      const allWithdrawalRequests = getWithdrawalRequests();
+      setWithdrawalRequests(allWithdrawalRequests);
+      
+      const allTransactions = getTransactions();
+      setTransactions(allTransactions);
+      
+      const statistics = getStatistics();
+      setStats(statistics);
+    } catch (error) {
+      console.error("Error refreshing contribution data:", error);
     }
   };
 
   const checkExpiredRequests = () => {
+    if (!isAuthenticated || !user?.id) return;
+    
     try {
-      if (isAuthenticated && user?.id) {
-        updateWithdrawalRequestsStatus();
-        refreshContributionData();
-      }
+      updateWithdrawalRequestsStatus();
+      refreshContributionData();
     } catch (error) {
       console.error("Error checking expired requests:", error);
     }
   };
 
   const isGroupCreator = (contributionId: string): boolean => {
+    if (!isAuthenticated || !user?.id) return false;
+    
     try {
-      if (!isAuthenticated || !user?.id) return false;
-      
       const contribution = contributions.find((c: any) => c.id === contributionId);
-      return !!(contribution && contribution.creatorId === user?.id);
+      return !!(contribution && contribution.creatorId === user.id);
     } catch (error) {
       console.error("Error checking if user is group creator:", error);
       return false;

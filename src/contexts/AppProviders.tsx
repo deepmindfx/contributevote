@@ -1,11 +1,11 @@
 
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 import { UserProvider } from './UserContext';
 import { ContributionProvider } from './ContributionContext';
 import { AdminProvider } from './AdminContext';
 import { AppProvider } from './AppContext';
 import { ensureAccountNumberDisplay } from '@/localStorage';
-import { useEffect } from 'react';
+import { initializeLocalStorage } from '@/services/localStorage';
 
 interface AppProvidersProps {
   children: ReactNode;
@@ -14,11 +14,18 @@ interface AppProvidersProps {
 export function AppProviders({ children }: AppProvidersProps) {
   // Initialize localStorage and ensure account numbers on app start
   useEffect(() => {
-    // Make sure account numbers are displayed
-    ensureAccountNumberDisplay();
-    
-    // Debug - log contributions to see account numbers
-    console.log("Initialized app providers");
+    try {
+      // Initialize local storage
+      initializeLocalStorage();
+      
+      // Make sure account numbers are displayed
+      ensureAccountNumberDisplay();
+      
+      // Debug - log contributions to see account numbers
+      console.log("Initialized app providers");
+    } catch (error) {
+      console.error("Error initializing app providers:", error);
+    }
   }, []);
 
   return (

@@ -7,14 +7,34 @@ import { useState, useEffect } from "react";
 const MobileNav = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { withdrawalRequests, user } = useApp();
+  
+  // Set safe defaults in case context isn't available
+  const [pendingVotes, setPendingVotes] = useState<any[]>([]);
   const [showBackButton, setShowBackButton] = useState(false);
   
-  // Check if there are any pending votes for the current user
-  const pendingVotes = user?.id ? withdrawalRequests.filter(request => 
-    request.status === 'pending' && 
-    !request.votes.some(vote => vote.userId === user?.id)
-  ) : [];
+  // Use try-catch to handle potential context errors
+  let withdrawalRequests: any[] = [];
+  let user: any = null;
+  
+  try {
+    const appContext = useApp();
+    withdrawalRequests = appContext.withdrawalRequests || [];
+    user = appContext.user || {};
+    
+    // Check for pending votes for the current user
+    useEffect(() => {
+      if (!user?.id) return;
+      
+      const userPendingVotes = withdrawalRequests.filter(request => 
+        request.status === 'pending' && 
+        !request.votes.some(vote => vote.userId === user?.id)
+      );
+      
+      setPendingVotes(userPendingVotes);
+    }, [withdrawalRequests, user]);
+  } catch (error) {
+    console.error("Error accessing AppContext in MobileNav:", error);
+  }
 
   // Determine if back button should be shown based on current route
   useEffect(() => {
