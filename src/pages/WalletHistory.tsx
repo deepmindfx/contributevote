@@ -274,7 +274,7 @@ const WalletHistory = () => {
                               transaction.status === 'pending' ? 'outline' :
                               transaction.status === 'completed' ? 'default' : 'destructive'
                             }>
-                              {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+                              {transaction.status ? transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1) : 'Unknown'}
                             </Badge>
                           </div>
                         </div>
@@ -427,17 +427,17 @@ const WalletHistory = () => {
               <div className="space-y-3">
                 <div className="flex justify-between py-2 border-b">
                   <span className="text-muted-foreground">Status</span>
-                  <span className="font-medium capitalize">{selectedTransaction.status}</span>
+                  <span className="font-medium capitalize">{selectedTransaction.status || 'Unknown'}</span>
                 </div>
                 
                 <div className="flex justify-between py-2 border-b">
                   <span className="text-muted-foreground">Type</span>
-                  <span className="font-medium capitalize">{selectedTransaction.type}</span>
+                  <span className="font-medium capitalize">{selectedTransaction.type || 'Unknown'}</span>
                 </div>
                 
                 <div className="flex justify-between py-2 border-b">
                   <span className="text-muted-foreground">Transaction ID</span>
-                  <span className="font-medium">{selectedTransaction.id.slice(0, 8)}</span>
+                  <span className="font-medium">{selectedTransaction.id ? selectedTransaction.id.slice(0, 8) : 'N/A'}</span>
                 </div>
                 
                 {selectedTransaction.type === 'deposit' && (
