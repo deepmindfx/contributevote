@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   getUserContributions,
   getWithdrawalRequests,
@@ -14,21 +14,29 @@ export const useContributionData = (user: any, isAuthenticated: boolean) => {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [stats, setStats] = useState<any>({});
   const [lastRefreshTime, setLastRefreshTime] = useState<number>(0);
+  const currentUserId = useRef<string | null>(null);
 
   // Effect to periodically check for new transactions from Monnify
   useEffect(() => {
     if (isAuthenticated && user?.id) {
+      // Only proceed if user ID has changed or this is the first load
+      if (currentUserId.current !== user.id) {
+        currentUserId.current = user.id;
+        // Initial load
+        refreshContributionData();
+      }
+      
       // Set up polling for new transactions (every 30 seconds)
       const intervalId = setInterval(() => {
-        refreshContributionData();
+        if (user?.id === currentUserId.current) { // Only refresh if user hasn't changed
+          refreshContributionData();
+        }
       }, 30000);
-      
-      // Initial load
-      refreshContributionData();
       
       return () => clearInterval(intervalId);
     } else {
       // Reset data if not authenticated
+      currentUserId.current = null;
       setContributions([]);
       setWithdrawalRequests([]);
       setTransactions([]);
@@ -37,7 +45,7 @@ export const useContributionData = (user: any, isAuthenticated: boolean) => {
   }, [isAuthenticated, user?.id]);
 
   const refreshContributionData = () => {
-    if (isAuthenticated && user?.id) {
+    if (isAuthenticated && user?.id && user?.id === currentUserId.current) {
       try {
         // Record refresh time
         setLastRefreshTime(Date.now());
@@ -55,7 +63,7 @@ export const useContributionData = (user: any, isAuthenticated: boolean) => {
 
   const checkExpiredRequests = () => {
     try {
-      if (isAuthenticated && user?.id) {
+      if (isAuthenticated && user?.id && user?.id === currentUserId.current) {
         updateWithdrawalRequestsStatus();
         refreshContributionData();
       }

@@ -11,12 +11,27 @@ import { Users, Calendar, ArrowRight } from "lucide-react";
 const GroupsList = () => {
   const navigate = useNavigate();
   const {
-    contributions
+    contributions,
+    user,
+    isAuthenticated
   } = useApp();
   
   const getRecentGroups = () => {
+    if (!isAuthenticated || !user?.id) {
+      return [];
+    }
+    
+    // Filter contributions to make sure we only get this user's contributions
+    const userContributions = contributions.filter(contribution => {
+      // Check if user is a member or creator of the contribution
+      const isCreator = contribution.creatorId === user.id;
+      const isMember = Array.isArray(contribution.members) && 
+                       contribution.members.some(member => member.id === user.id);
+      return isCreator || isMember;
+    });
+    
     // Sort contributions by creation date (newest first)
-    const sortedContributions = [...contributions].sort((a, b) => {
+    const sortedContributions = [...userContributions].sort((a, b) => {
       const dateA = new Date(a.createdAt).getTime();
       const dateB = new Date(b.createdAt).getTime();
       return dateB - dateA; // Sort in descending order (newest first)
@@ -57,6 +72,16 @@ const GroupsList = () => {
       return "Invalid date";
     }
   };
+  
+  if (!isAuthenticated) {
+    return (
+      <Card>
+        <CardContent className="text-center py-6">
+          <p className="text-muted-foreground">Please log in to view your groups</p>
+        </CardContent>
+      </Card>
+    );
+  }
   
   return (
     <Card>

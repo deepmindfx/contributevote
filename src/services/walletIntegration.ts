@@ -1,295 +1,238 @@
-
-// Wallet Integration Service
-// This file coordinates interactions with external payment services
 import { toast } from "sonner";
-import * as monnifyApi from "./monnifyApi";
-import { 
-  addTransaction, 
-  getCurrentUser, 
-  updateUserById,
-  updateUser,
-  updateUserBalance,
-} from "./localStorage";
-import { ReservedAccountData, InvoiceData } from "./wallet/types";
+import { Transaction } from "@/services/localStorage/types";
+import { getCurrentUser, getTransactions } from "@/services/localStorage";
 
-// Interface for payment invoice creation
-export interface PaymentInvoiceParams {
+// Let's create a proper interface for transaction filters
+interface TransactionFilter {
+  userId?: string;
+  contributionId?: string;
+  type?: string;
+  status?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  limit?: number;
+  offset?: number;
+}
+
+/**
+ * Get transactions with optional filtering
+ */
+export const getWalletTransactions = (filters?: TransactionFilter): Transaction[] => {
+  try {
+    // Get transactions from localStorage
+    const transactionsString = localStorage.getItem('transactions');
+    if (!transactionsString) return [];
+    
+    const transactions: Transaction[] = JSON.parse(transactionsString);
+    
+    // Apply filters if provided
+    if (!filters) return transactions;
+    
+    return transactions.filter(transaction => {
+      // Filter by userId if provided
+      if (filters.userId && transaction.userId !== filters.userId) return false;
+      
+      // Filter by contributionId if provided
+      if (filters.contributionId && transaction.contributionId !== filters.contributionId) return false;
+      
+      // Filter by type if provided
+      if (filters.type && transaction.type !== filters.type) return false;
+      
+      // Filter by status if provided
+      if (filters.status && transaction.status !== filters.status) return false;
+      
+      // Filter by date range if provided
+      if (filters.dateFrom || filters.dateTo) {
+        const transactionDate = new Date(transaction.createdAt);
+        
+        if (filters.dateFrom && transactionDate < new Date(filters.dateFrom)) return false;
+        if (filters.dateTo && transactionDate > new Date(filters.dateTo)) return false;
+      }
+      
+      return true;
+    });
+  } catch (error) {
+    console.error("Error getting wallet transactions:", error);
+    return [];
+  }
+};
+
+// Safe type for transaction types
+type TransactionType = "deposit" | "withdrawal" | "transfer" | "payment" | "vote";
+
+/**
+ * Process a wallet transaction
+ * This is a placeholder for future implementation that might involve APIs
+ */
+export const processTransaction = (transaction: Partial<Transaction>): Promise<Transaction> => {
+  return new Promise((resolve, reject) => {
+    try {
+      // Here we would typically call an API to process the transaction
+      // For now we'll just simulate a successful transaction
+      
+      const completedTransaction: Transaction = {
+        id: `tx_${Date.now()}`,
+        userId: transaction.userId || '',
+        contributionId: transaction.contributionId || '',
+        type: (transaction.type as TransactionType) || 'deposit',
+        amount: transaction.amount || 0,
+        status: 'completed',
+        description: transaction.description || '',
+        paymentMethod: transaction.paymentMethod || 'wallet',
+        referenceId: transaction.referenceId || `ref_${Date.now()}`,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        metaData: transaction.metaData || {}
+      };
+      
+      // Add the transaction to localStorage
+      addWalletTransaction(completedTransaction);
+      
+      resolve(completedTransaction);
+    } catch (error) {
+      console.error("Error processing transaction:", error);
+      reject(error);
+    }
+  });
+};
+
+/**
+ * Add a transaction to localStorage
+ */
+export const addWalletTransaction = (transaction: Transaction): void => {
+  try {
+    const transactionsString = localStorage.getItem('transactions');
+    const transactions = transactionsString ? JSON.parse(transactionsString) : [];
+    
+    // Add the transaction
+    transactions.push(transaction);
+    
+    // Save back to localStorage
+    localStorage.setItem('transactions', JSON.stringify(transactions));
+  } catch (error) {
+    console.error("Error adding wallet transaction:", error);
+    toast.error("Failed to record transaction");
+  }
+};
+
+interface PaymentInvoiceRequest {
   amount: number;
   description: string;
   customerEmail: string;
   customerName: string;
   userId: string;
-  contributionId?: string;
+}
+
+interface PaymentInvoiceResponse {
+  checkoutUrl: string;
+  paymentReference: string;
 }
 
 /**
- * Creates a reserved account for a user
+ * Create a payment invoice using a mock API
  */
-export const createUserReservedAccount = async (
-  userId: string, 
-  idType?: string, 
-  idNumber?: string
-): Promise<ReservedAccountData | null> => {
-  try {
-    // Get current user data
-    const currentUser = getCurrentUser();
-    const user = currentUser.id === userId ? currentUser : null;
-    
-    if (!user) {
-      toast.error("User not found");
-      return null;
-    }
-    
-    // Check if user already has a reserved account
-    if (user.reservedAccount) {
-      toast.info("User already has a reserved account");
-      return user.reservedAccount;
-    }
-    
-    // Validate ID information
-    if (!idType || !idNumber) {
-      toast.error("BVN or NIN is required to create a virtual account");
-      return null;
-    }
-    
-    // Create a unique account reference
-    const accountReference = `COLL_${userId}_${Date.now()}`;
-    
-    // Create the API request object
-    const requestBody: any = {
-      accountReference,
-      accountName: user.name || `${user.firstName} ${user.lastName}`,
-      customerEmail: user.email,
-      customerName: user.name || `${user.firstName} ${user.lastName}`,
-      currencyCode: "NGN",
-      contractCode: "465595618981",
-      getAllAvailableBanks: true
-    };
-    
-    if (idType === "bvn") {
-      requestBody.bvn = idNumber;
-    } else if (idType === "nin") {
-      requestBody.nin = idNumber;
-    }
-    
-    const result = await monnifyApi.createReservedAccount(requestBody);
-    
-    if (!result || !result.responseBody) {
-      if (result && !result.success) {
-        toast.error(result.message || "Failed to create reserved account");
-      } else {
-        toast.error("Failed to create reserved account");
-      }
-      return null;
-    }
-    
-    const responseBody = result.responseBody;
-    const reservedAccount: ReservedAccountData = {
-      accountReference: responseBody.accountReference,
-      accountName: responseBody.accountName,
-      accountNumber: responseBody.accounts?.[0]?.accountNumber || "",
-      bankName: responseBody.accounts?.[0]?.bankName || "",
-      bankCode: responseBody.accounts?.[0]?.bankCode || "",
-      reservationReference: responseBody.reservationReference,
-      status: responseBody.status,
-      createdOn: responseBody.createdOn,
-      accounts: responseBody.accounts?.map(acc => ({
-        bankCode: acc.bankCode,
-        bankName: acc.bankName,
-        accountNumber: acc.accountNumber
-      }))
-    };
-    
-    // Update user with reserved account data
-    if (userId === currentUser.id) {
-      updateUser({ ...currentUser, reservedAccount });
-    } else {
-      updateUserById(userId, { reservedAccount });
-    }
-    
-    toast.success("Reserved account created successfully");
-    return reservedAccount;
-  } catch (error) {
-    console.error("Error creating reserved account:", error);
-    toast.error("Failed to create reserved account. Please try again.");
-    return null;
-  }
+export const createPaymentInvoice = async (invoiceData: PaymentInvoiceRequest): Promise<PaymentInvoiceResponse | null> => {
+  return new Promise((resolve) => {
+    // Simulate API call delay
+    setTimeout(() => {
+      // Generate a mock payment reference
+      const paymentReference = `INV_${Date.now()}`;
+      
+      // Generate a mock checkout URL
+      const checkoutUrl = `https://example.com/checkout/${paymentReference}`;
+      
+      // Resolve with the mock data
+      resolve({
+        checkoutUrl,
+        paymentReference
+      });
+    }, 500);
+  });
 };
 
 /**
- * Retrieves user's reserved account details
+ * Get reserved account transactions from a mock API
  */
-export const getUserReservedAccount = async (userId: string): Promise<ReservedAccountData | null> => {
-  try {
-    const currentUser = getCurrentUser();
-    const user = currentUser.id === userId ? currentUser : null;
-    
-    if (!user) {
-      toast.error("User not found");
-      return null;
-    }
-    
-    if (!user.reservedAccount?.accountReference) {
-      toast.info("User doesn't have a reserved account");
-      return null;
-    }
-    
-    const result = await monnifyApi.getReservedAccountDetails(user.reservedAccount.accountReference);
-    
-    if (!result?.responseBody) {
-      toast.error("Failed to get reserved account details");
-      return user.reservedAccount;
-    }
-    
-    const responseBody = result.responseBody;
-    const reservedAccount: ReservedAccountData = {
-      accountReference: responseBody.accountReference,
-      accountName: responseBody.accountName,
-      accountNumber: responseBody.accounts?.[0]?.accountNumber || "",
-      bankName: responseBody.accounts?.[0]?.bankName || "",
-      bankCode: responseBody.accounts?.[0]?.bankCode || "",
-      reservationReference: responseBody.reservationReference,
-      status: responseBody.status,
-      createdOn: responseBody.createdOn,
-      accounts: responseBody.accounts?.map(acc => ({
-        bankCode: acc.bankCode,
-        bankName: acc.bankName,
-        accountNumber: acc.accountNumber
-      }))
-    };
-    
-    if (userId === currentUser.id) {
-      updateUser({ ...currentUser, reservedAccount });
-    } else {
-      updateUserById(userId, { reservedAccount });
-    }
-    
-    return reservedAccount;
-  } catch (error) {
-    console.error("Error getting reserved account:", error);
-    toast.error("Failed to get reserved account details. Please try again.");
-    
-    const currentUser = getCurrentUser();
-    return currentUser.id === userId ? currentUser.reservedAccount : null;
-  }
-};
-
-/**
- * Fetch transactions for a reserved account
- */
-export const getReservedAccountTransactions = async (accountReference: string): Promise<any[] | null> => {
-  try {
-    const result = await monnifyApi.getReservedAccountTransactions(accountReference);
-    
-    if (!result || !result.responseBody) {
-      return [];
-    }
-    
-    // Update user wallet balance based on transactions
-    const currentUser = getCurrentUser();
-    const transactions = result.responseBody.content || [];
-    
-    // Process each transaction and update local records
-    transactions.forEach(transaction => {
-      if (transaction.paymentReference && !transactionExists(transaction.paymentReference)) {
-        // Add transaction to local storage
-        const newTransaction = {
-          userId: currentUser.id,
-          contributionId: "",
-          type: "deposit",
-          amount: transaction.amount,
-          status: "completed",
-          description: `Deposit via bank transfer (${transaction.bankName || 'Bank'})`,
-          referenceId: transaction.paymentReference,
-          paymentMethod: "bank_transfer",
-          updatedAt: new Date().toISOString(),
+export const getReservedAccountTransactions = async (accountReference: string): Promise<Transaction[]> => {
+  return new Promise((resolve) => {
+    // Simulate API call delay
+    setTimeout(() => {
+      // Generate mock transactions
+      const mockTransactions: Transaction[] = [
+        {
+          id: `TXN_${Date.now() + 1}`,
+          userId: 'user123',
+          contributionId: '',
+          type: 'deposit',
+          amount: 5000,
+          status: 'completed',
+          description: 'Wallet deposit',
+          paymentMethod: 'bank_transfer',
+          referenceId: `REF_${Date.now() + 1}`,
+          createdAt: new Date(Date.now() - 86400000).toISOString(), // Yesterday
+          updatedAt: new Date(Date.now() - 86400000).toISOString(),
           metaData: {
-            senderName: transaction.senderName || transaction.paymentDescription || "Bank Transfer",
-            bankName: transaction.bankName || "",
-            narration: transaction.narration || transaction.paymentDescription || "",
-            transactionReference: transaction.transactionReference || "",
-            paymentReference: transaction.paymentReference || "",
+            accountReference: accountReference,
+            senderName: 'John Doe',
+            senderBank: 'Mock Bank'
           }
-        };
-        
-        addTransaction(newTransaction);
-        
-        // Update user's wallet balance
-        updateUserBalance(currentUser.id, currentUser.walletBalance + transaction.amount);
-      }
+        },
+        {
+          id: `TXN_${Date.now() + 2}`,
+          userId: 'user123',
+          contributionId: '',
+          type: 'withdrawal',
+          amount: 2000,
+          status: 'completed',
+          description: 'Wallet withdrawal',
+          paymentMethod: 'bank_transfer',
+          referenceId: `REF_${Date.now() + 2}`,
+          createdAt: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
+          updatedAt: new Date(Date.now() - 172800000).toISOString(),
+          metaData: {
+            accountReference: accountReference,
+            receiverName: 'John Doe',
+            receiverBank: 'Mock Bank'
+          }
+        }
+      ];
+      
+      // Resolve with the mock transactions
+      resolve(mockTransactions);
+    }, 500);
+  });
+};
+
+/**
+ * Sync reserved account transactions with local storage
+ */
+export const syncReservedAccountTransactions = async (userId: string): Promise<boolean> => {
+  try {
+    const user = getCurrentUser();
+    if (!user || !user.id || !user.reservedAccount) {
+      return false;
+    }
+
+    // Don't try to access user.transactions which doesn't exist
+    // Instead, get transactions directly from localStorage
+    const existingTransactions = getTransactions().filter(t => t.userId === userId);
+    
+    // Fetch transactions from the mock API
+    const newTransactions = await getReservedAccountTransactions(user.reservedAccount.accountReference);
+    
+    // Filter out transactions that already exist in local storage
+    const transactionsToAdd = newTransactions.filter(newTx => {
+      return !existingTransactions.some(existingTx => existingTx.id === newTx.id);
     });
     
-    return transactions;
+    // Add the new transactions to local storage
+    transactionsToAdd.forEach(transaction => {
+      addWalletTransaction(transaction);
+    });
+    
+    return true;
   } catch (error) {
-    console.error("Error fetching transactions:", error);
-    toast.error("Failed to fetch transactions. Please try again.");
-    return null;
-  }
-};
-
-/**
- * Check if a transaction already exists in local storage
- */
-const transactionExists = (referenceId: string): boolean => {
-  try {
-    const currentUser = getCurrentUser();
-    const transactions = currentUser.transactions || [];
-    return transactions.some(t => t.referenceId === referenceId);
-  } catch (error) {
+    console.error("Error syncing reserved account transactions:", error);
     return false;
-  }
-};
-
-/**
- * Create a payment invoice for a user
- */
-export const createPaymentInvoice = async (params: PaymentInvoiceParams): Promise<InvoiceData | null> => {
-  try {
-    const { amount, description, customerEmail, customerName, userId, contributionId } = params;
-    
-    if (!amount || amount <= 0 || !customerEmail || !customerName) {
-      toast.error("Invalid payment parameters");
-      return null;
-    }
-    
-    const requestBody = {
-      amount,
-      customerName,
-      customerEmail,
-      paymentReference: `INV_${userId}_${Date.now()}`,
-      paymentDescription: description || "Payment via card",
-      currencyCode: "NGN",
-      contractCode: "465595618981",
-      redirectUrl: window.location.origin + "/dashboard"
-    };
-    
-    const result = await monnifyApi.createInvoice(requestBody);
-    
-    if (!result || !result.responseBody) {
-      toast.error("Failed to create payment invoice");
-      return null;
-    }
-    
-    const invoice: InvoiceData = {
-      invoiceReference: result.responseBody.invoiceReference,
-      description: result.responseBody.paymentDescription,
-      amount: result.responseBody.amount,
-      currencyCode: result.responseBody.currencyCode,
-      status: result.responseBody.invoiceStatus,
-      customerEmail: result.responseBody.customerEmail,
-      customerName: result.responseBody.customerName,
-      expiryDate: result.responseBody.expiryDate,
-      redirectUrl: result.responseBody.redirectUrl,
-      checkoutUrl: result.responseBody.checkoutUrl,
-      createdOn: result.responseBody.createdOn,
-      createdAt: new Date().toISOString(),
-      contributionId: contributionId || ""
-    };
-    
-    return invoice;
-  } catch (error) {
-    console.error("Error creating payment invoice:", error);
-    toast.error("Failed to create payment invoice. Please try again.");
-    return null;
   }
 };

@@ -1,154 +1,110 @@
+import axios from 'axios';
+import { toast } from 'sonner';
+import { v4 as uuidv4 } from 'uuid';
+import { addWalletTransaction } from '@/services/wallet/transactions';
+import { createTransaction } from '@/services/localStorage';
 
-import { createPaymentInvoice } from "@/services/walletIntegration";
-import { contributeToGroup } from "@/services/localStorage";
-import { createTransaction } from "@/services/localStorage/transactionOperations";
-import { toast } from "sonner";
-
-interface MonnifyPaymentProps {
-  amount: number;
-  user: {
-    id: string;
-    name: string;
-    email: string;
-  };
-  contribution?: {
-    id: string;
-    name: string;
-    accountReference?: string;
-  };
-  anonymous?: boolean;
-  onSuccess?: (response: any) => void;
-  onClose?: () => void;
-}
-
-export const payWithMonnify = async ({
-  amount,
-  user,
-  contribution,
-  anonymous = false,
-  onSuccess,
-  onClose
-}: MonnifyPaymentProps) => {
+// Function to initialize a Monnify payment
+export const initializeMonnifyPayment = async (paymentDetails: any) => {
   try {
-    // Create payload with appropriate references
-    let payload: any = {
-      amount: amount,
-      customerName: user.name,
-      customerEmail: user.email,
-      userId: user.id,
-      description: contribution 
-        ? `Contribution to ${contribution.name}` 
-        : "Wallet top-up",
-    };
+    const response = await axios.post('/api/monnify/initialize', paymentDetails);
+    return response.data;
+  } catch (error) {
+    console.error("Error initializing Monnify payment:", error);
+    toast.error("Failed to initialize payment");
+    return null;
+  }
+};
+
+// Function to verify a Monnify transaction
+export const verifyMonnifyTransaction = async (transactionReference: string) => {
+  try {
+    const response = await axios.get(`/api/monnify/verify?transactionReference=${transactionReference}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error verifying Monnify transaction:", error);
+    toast.error("Failed to verify transaction");
+    return null;
+  }
+};
+
+// Function to handle Monnify payment callback
+export const processPaymentCallback = (invoiceData: any, onSuccess: () => void, onError: () => void) => {
+  try {
+    // Use reference instead of paymentReference
+    const paymentReference = invoiceData.reference || invoiceData.paymentReference;
     
-    // If contribution details are provided, include them in the payload
-    if (contribution && contribution.id) {
-      payload.contributionId = contribution.id;
-      payload.contributionName = contribution.name;
-      payload.anonymous = anonymous;
-      
-      // Include contribution account reference if available
-      if (contribution.accountReference) {
-        payload.contributionAccountReference = contribution.accountReference;
-        console.log("Using contribution account reference:", contribution.accountReference);
-      }
+    if (!paymentReference) {
+      console.error("No payment reference found in invoice data", invoiceData);
+      onError();
+      return;
     }
     
-    // Add expiryDate formatted as yyyy-MM-dd HH:mm:ss (24 hours from now)
-    const expiryDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    const formattedExpiryDate = expiryDate.toISOString().replace('T', ' ').substring(0, 19);
-    payload.expiryDate = formattedExpiryDate;
+    // Extract relevant data from the invoice
+    const {
+      amountPaid,
+      customer: {
+        email: customerEmail,
+        name: customerName
+      },
+      paymentStatus,
+      paymentMethod,
+      transactionReference,
+      invoiceReference
+    } = invoiceData;
     
-    console.log("Creating payment with payload:", payload);
-    
-    try {
-      // Create the payment invoice
-      const result = await createPaymentInvoice(payload);
-      
-      if (!result || !result.checkoutUrl) {
-        console.error("Failed to create payment invoice:", result);
-        toast.error("Failed to create payment invoice. Please try again.");
-        if (onClose) onClose();
-        return null;
-      }
-      
-      // Create a local transaction record to track the payment
-      const transactionId = `PAY-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
-      if (contribution && contribution.id) {
-        createTransaction({
-          userId: user.id,
-          type: "payment",
-          amount: amount,
-          contributionId: contribution.id,
-          description: `Card payment for ${contribution.name}`,
-          status: "pending",
-          anonymous: anonymous || false,
-          reference: result.paymentReference || transactionId,
-          metaData: {
-            paymentReference: result.paymentReference,
-            invoiceReference: result.invoiceReference,
-            contributionId: contribution.id,
-            contributionName: contribution.name
-          }
-        });
-      }
-      
-      // For debugging purposes
-      console.log("Payment invoice created:", result);
-      
-      // Open the checkout URL in a new window
-      const checkoutWindow = window.open(result.checkoutUrl, "_blank");
-      
-      // Set up a polling mechanism to check for payment completion
-      const checkPaymentStatus = setInterval(() => {
-        if (checkoutWindow && checkoutWindow.closed) {
-          clearInterval(checkPaymentStatus);
-          
-          // If window closed, check for successful payment and update wallet
-          // This would typically be done by a webhook in production, but we simulate it here
-          setTimeout(() => {
-            console.log("Simulating payment verification after checkout window closed");
-            // If this was a contribution, update the contribution amount
-            if (contribution && contribution.id) {
-              // Try to contribute to the group using the reference from Monnify
-              if (result.paymentReference) {
-                try {
-                  contributeToGroup(contribution.id, amount, anonymous, {
-                    reference: result.paymentReference,
-                    status: "completed",
-                    method: "card"
-                  });
-                  toast.success(`Successfully contributed ₦${amount.toLocaleString()} to ${contribution.name}`);
-                } catch (err) {
-                  console.error("Error contributing to group after payment:", err);
-                }
-              }
-            }
-          }, 2000);
-          
-          // Call the onClose callback when the window is closed
-          if (onClose) {
-            onClose();
-          }
+    // Check if payment was successful
+    if (paymentStatus === 'PAID') {
+      // Create a transaction object
+      const transaction = {
+        id: uuidv4(),
+        userId: invoiceData.customer.userId, // Assuming userId is passed in customer object
+        contributionId: invoiceData.customer.contributionId || '', // Assuming contributionId is passed in customer object
+        type: 'deposit',
+        amount: amountPaid,
+        status: 'completed',
+        description: `Payment via Monnify - Invoice ${invoiceReference}`,
+        paymentMethod: paymentMethod,
+        referenceId: transactionReference,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        metaData: {
+          customerEmail,
+          customerName,
+          transactionReference,
+          invoiceReference
         }
-      }, 1000);
+      };
       
-      // Return the result for further processing if needed
-      if (onSuccess) {
-        onSuccess(result);
-      }
+      // Add the transaction to localStorage
+      addWalletTransaction(transaction);
       
-      return result;
-    } catch (error) {
-      console.error("Error creating payment invoice:", error);
-      toast.error("Failed to create payment invoice. Please try again.");
-      if (onClose) onClose();
-      return null;
+      // Also create a transaction record in localStorage
+      createTransaction({
+        userId: invoiceData.customer.userId,
+        type: 'deposit',
+        amount: amountPaid,
+        description: `Payment via Monnify - Invoice ${invoiceReference}`,
+        paymentMethod: paymentMethod,
+        referenceId: transactionReference,
+      });
+      
+      // Log success
+      console.log("Payment processed successfully for reference:", paymentReference);
+      toast.success("Payment successful!");
+      
+      // Call onSuccess callback
+      onSuccess();
+    } else {
+      // Log failure
+      console.error("Payment failed for reference:", paymentReference);
+      toast.error("Payment failed. Please try again.");
+      
+      // Call onError callback
+      onError();
     }
   } catch (error) {
-    console.error("Error in payWithMonnify:", error);
-    toast.error("Payment processing failed. Please try again.");
-    if (onClose) onClose();
-    return null;
+    console.error("Error processing payment callback:", error);
+    onError();
   }
 };

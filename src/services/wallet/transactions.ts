@@ -57,6 +57,9 @@ export const getWalletTransactions = (filters?: TransactionFilter): Transaction[
   }
 };
 
+// Safe type for transaction types
+type TransactionType = "deposit" | "withdrawal" | "transfer" | "payment" | "vote";
+
 /**
  * Process a wallet transaction
  * This is a placeholder for future implementation that might involve APIs
@@ -71,12 +74,12 @@ export const processTransaction = (transaction: Partial<Transaction>): Promise<T
         id: `tx_${Date.now()}`,
         userId: transaction.userId || '',
         contributionId: transaction.contributionId || '',
-        type: transaction.type || 'unknown',
+        type: (transaction.type as TransactionType) || 'deposit',
         amount: transaction.amount || 0,
         status: 'completed',
         description: transaction.description || '',
         paymentMethod: transaction.paymentMethod || 'wallet',
-        referenceId: transaction.referenceId || `ref_${Date.now()}`,
+        referenceId: transaction.reference || `ref_${Date.now()}`,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         metaData: transaction.metaData || {}

@@ -1,5 +1,5 @@
 
-import { createContext, useContext, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useEffect, ReactNode, useRef } from 'react';
 import { useUser } from './UserContext';
 import { useContribution } from './ContributionContext'; 
 import { useAdmin } from './AdminContext';
@@ -77,28 +77,42 @@ export function AppProvider({ children }: { children: ReactNode }) {
     isGroupCreator
   } = useContribution();
 
+  const initialized = useRef(false);
+  const currentUserId = useRef<string | null>(null);
+
   useEffect(() => {
     // Initialize local storage when the app first loads
     try {
-      initializeLocalStorage();
-      refreshData();
+      if (!initialized.current) {
+        initializeLocalStorage();
+        ensureAccountNumberDisplay();
+        initialized.current = true;
+      }
       
-      // Add this call to ensure account numbers are displayed
-      ensureAccountNumberDisplay();
+      // If user changes, refresh data
+      if (isAuthenticated && user?.id && user.id !== currentUserId.current) {
+        currentUserId.current = user.id;
+        refreshData();
+      } else if (!isAuthenticated) {
+        currentUserId.current = null;
+      }
     } catch (error) {
       console.error("Error in initial load:", error);
     }
-  }, []);
+  }, [isAuthenticated, user?.id]);
 
   // Combine all refresh functions
   const refreshData = () => {
     // Make sure localStorage is initialized before refreshing data
     try {
-      initializeLocalStorage();
+      if (!initialized.current) {
+        initializeLocalStorage();
+        initialized.current = true;
+      }
       refreshUserData();
       
       // Only refresh contribution data if user is authenticated
-      if (isAuthenticated && user?.id) {
+      if (isAuthenticated && user?.id && user.id === currentUserId.current) {
         refreshContributionData();
       }
       
