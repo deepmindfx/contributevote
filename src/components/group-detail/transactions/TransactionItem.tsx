@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowDown, ArrowUp, HelpCircle, Receipt, CreditCard, Banknote } from "lucide-react";
 import { Transaction } from "@/services/localStorage";
-import { format, isValid } from "date-fns";
+import { format, isValid, parseISO } from "date-fns";
 
 interface TransactionItemProps {
   transaction: Transaction;
@@ -16,11 +16,17 @@ const TransactionItem = ({ transaction, onViewReceipt }: TransactionItemProps) =
     if (!dateString) return "Unknown date";
     
     try {
-      const date = new Date(dateString);
-      if (!isValid(date)) {
-        return "Invalid date";
+      // First try with parseISO which is more reliable for ISO strings
+      const parsedDate = parseISO(dateString);
+      if (!isValid(parsedDate)) {
+        // If parseISO fails, try with regular Date constructor
+        const fallbackDate = new Date(dateString);
+        if (!isValid(fallbackDate)) {
+          return "Invalid date";
+        }
+        return format(fallbackDate, 'MMMM d, yyyy h:mm a');
       }
-      return format(date, 'MMMM d, yyyy h:mm a');
+      return format(parsedDate, 'MMMM d, yyyy h:mm a');
     } catch (error) {
       console.error("Error formatting date:", error, dateString);
       return "Invalid date";

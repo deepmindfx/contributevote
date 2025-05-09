@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useNavigate } from "react-router-dom";
 import { Transaction } from "@/services/localStorage/types";
-import { format } from "date-fns";
+import { format, isValid, parseISO } from "date-fns";
 
 interface TransactionHistoryProps {
   walletTransactions: Transaction[];
@@ -30,11 +30,45 @@ const TransactionHistory = ({
   const navigate = useNavigate();
   
   const formatDate = (dateString: string) => {
-    return format(new Date(dateString), 'MMM d, yyyy');
+    if (!dateString) return "Unknown date";
+    
+    try {
+      // First try with parseISO which is more reliable for ISO strings
+      const parsedDate = parseISO(dateString);
+      if (!isValid(parsedDate)) {
+        // If parseISO fails, try with regular Date constructor
+        const fallbackDate = new Date(dateString);
+        if (!isValid(fallbackDate)) {
+          return "Invalid date";
+        }
+        return format(fallbackDate, 'MMM d, yyyy');
+      }
+      return format(parsedDate, 'MMM d, yyyy');
+    } catch (error) {
+      console.error("Error formatting date:", error, dateString);
+      return "Invalid date";
+    }
   };
   
   const formatDateTime = (dateString: string) => {
-    return format(new Date(dateString), 'MMM d, yyyy h:mm a');
+    if (!dateString) return "Unknown date";
+    
+    try {
+      // First try with parseISO which is more reliable for ISO strings
+      const parsedDate = parseISO(dateString);
+      if (!isValid(parsedDate)) {
+        // If parseISO fails, try with regular Date constructor
+        const fallbackDate = new Date(dateString);
+        if (!isValid(fallbackDate)) {
+          return "Invalid date";
+        }
+        return format(fallbackDate, 'MMM d, yyyy h:mm a');
+      }
+      return format(parsedDate, 'MMM d, yyyy h:mm a');
+    } catch (error) {
+      console.error("Error formatting date:", error, dateString);
+      return "Invalid date";
+    }
   };
   
   // Find sender name if available
@@ -147,7 +181,7 @@ const TransactionHistory = ({
                 
                 <div className="flex justify-between py-2 border-b">
                   <span className="text-muted-foreground">Transaction ID</span>
-                  <span className="font-medium">{selectedTransaction.id.slice(0, 8)}</span>
+                  <span className="font-medium">{selectedTransaction.id ? selectedTransaction.id.slice(0, 8) : "N/A"}</span>
                 </div>
                 
                 {selectedTransaction.type === 'deposit' && (

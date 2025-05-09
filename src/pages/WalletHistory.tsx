@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, ArrowDown, ArrowUp, HelpCircle, Wallet, Building, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useApp } from "@/contexts/AppContext";
-import { format } from "date-fns";
+import { format, isValid, parseISO } from "date-fns";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getReservedAccountTransactions } from "@/services/walletIntegration";
@@ -83,10 +83,32 @@ const WalletHistory = () => {
   const filteredTransactions = transactions
     .filter(t => t.userId === user?.id) // Only show current user's transactions
     .filter(t => filter === "all" || t.type === filter)
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    .sort((a, b) => {
+      const dateA = new Date(a.createdAt).getTime();
+      const dateB = new Date(b.createdAt).getTime();
+      return isNaN(dateB) || isNaN(dateA) ? 0 : dateB - dateA;
+    });
   
-  const formatDate = (dateString: string) => {
-    return format(new Date(dateString), 'MMM d, yyyy h:mm a');
+  // Improved formatDate function with proper error handling
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "Unknown date";
+    
+    try {
+      // First try with parseISO which is more reliable for ISO strings
+      const parsedDate = parseISO(dateString);
+      if (!isValid(parsedDate)) {
+        // If parseISO fails, try with regular Date constructor
+        const fallbackDate = new Date(dateString);
+        if (!isValid(fallbackDate)) {
+          return "Invalid date";
+        }
+        return format(fallbackDate, 'MMM d, yyyy h:mm a');
+      }
+      return format(parsedDate, 'MMM d, yyyy h:mm a');
+    } catch (error) {
+      console.error("Error formatting date:", error, dateString);
+      return "Invalid date";
+    }
   };
   
   // Convert NGN to USD (simplified conversion rate)
