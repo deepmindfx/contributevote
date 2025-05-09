@@ -8,11 +8,11 @@ import { useApp } from "@/contexts/AppContext";
 import { 
   getUserReservedAccount, 
   createUserReservedAccount, 
-  ReservedAccountData,
-  getReservedAccountTransactions
+  getReservedAccountTransactions 
 } from "@/services/walletIntegration";
+import { ReservedAccountData } from "@/services/wallet/types";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormDescription, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";

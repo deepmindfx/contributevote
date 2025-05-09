@@ -7,8 +7,7 @@ import WalletHeader from "./WalletHeader";
 import WalletActions from "./WalletActions";
 import TransactionHistory from "./TransactionHistory";
 import { updateUserBalance } from "@/services/localStorage";
-import { getReservedAccountTransactions } from "@/services/walletIntegration";
-import { createPaymentInvoice } from "@/services/walletIntegration";
+import { getReservedAccountTransactions, createPaymentInvoice } from "@/services/walletIntegration";
 import { toast } from "sonner";
 
 const WalletCard = () => {
