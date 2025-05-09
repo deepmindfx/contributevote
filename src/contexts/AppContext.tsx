@@ -38,7 +38,8 @@ interface AppContextType {
   isGroupCreator: (contributionId: string) => boolean;
 }
 
-const AppContext = createContext<AppContextType | undefined>(undefined);
+// Export the context so it can be imported directly
+export const AppContext = createContext<AppContextType | undefined>(undefined);
 
 // This is our backward compatibility provider
 export function AppProvider({ children }: { children: ReactNode }) {

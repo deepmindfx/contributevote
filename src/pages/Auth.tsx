@@ -2,10 +2,9 @@
 import AuthForm from "@/components/auth/AuthForm";
 import Header from "@/components/layout/Header";
 import { useEffect, useState } from "react";
-import { AppContext } from "@/contexts/AppContext";
+import { AppContext, useApp } from "@/contexts/AppContext";
 import { useUser } from "@/contexts/UserContext";
 import { useContribution } from "@/contexts/ContributionContext";
-import { useAdmin } from "@/contexts/AdminContext";
 import { ensureAccountNumberDisplay } from "@/localStorage";
 import { initializeLocalStorage } from "@/services/localStorage";
 
