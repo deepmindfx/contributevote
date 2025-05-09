@@ -51,8 +51,9 @@ const WalletHistory = () => {
         setIsLoading(true);
         try {
           const result = await getReservedAccountTransactions(user.reservedAccount.accountReference);
-          if (result && result.responseBody && result.responseBody.content) {
-            setApiTransactions(result.responseBody.content);
+          if (result) {
+            // If result is an array, use it directly
+            setApiTransactions(Array.isArray(result) ? result : []);
             // After fetching transactions, refresh app data to update balances
             refreshData();
           } else {

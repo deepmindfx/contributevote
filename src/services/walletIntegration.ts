@@ -8,7 +8,7 @@ import {
   getCurrentUser, 
   updateUserById,
   updateUser,
-  updateUserWalletById,
+  updateUserBalance,
 } from "./localStorage";
 import { ReservedAccountData, InvoiceData } from "./wallet/types";
 
@@ -215,7 +215,7 @@ export const getReservedAccountTransactions = async (accountReference: string): 
         addTransaction(newTransaction);
         
         // Update user's wallet balance
-        updateUserWalletById(currentUser.id, currentUser.walletBalance + transaction.amount);
+        updateUserBalance(currentUser.id, currentUser.walletBalance + transaction.amount);
       }
     });
     

@@ -1,90 +1,113 @@
 
-import { v4 as uuidv4 } from "uuid";
 import { toast } from "sonner";
-import { getCurrentUser, updateUser, updateUserById, addTransaction } from "../localStorage";
+import { Transaction } from "@/services/localStorage/types";
 
-export const processReservedAccountTransaction = async (data: {
-  transactionReference: string;
-  paymentReference: string;
-  amountPaid: number;
-  totalPayable: number;
-  settlementAmount: number;
-  paidOn: string;
-  paymentStatus: string;
-  paymentDescription: string;
-  metaData?: {
-    contributionId?: string;
-    userId?: string;
-  };
-  accountDetails: {
-    accountName: string;
-    accountNumber: string;
-    bankCode: string;
-    bankName: string;
-  };
-}) => {
+// Let's create a proper interface for transaction filters
+interface TransactionFilter {
+  userId?: string;
+  contributionId?: string;
+  type?: string;
+  status?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  limit?: number;
+  offset?: number;
+}
+
+/**
+ * Get transactions with optional filtering
+ */
+export const getWalletTransactions = (filters?: TransactionFilter): Transaction[] => {
   try {
-    const {
-      transactionReference,
-      paymentReference,
-      amountPaid,
-      paymentStatus,
-      paymentDescription,
-      metaData,
-      accountDetails,
-      paidOn
-    } = data;
+    // Get transactions from localStorage
+    const transactionsString = localStorage.getItem('transactions');
+    if (!transactionsString) return [];
     
-    const currentUser = getCurrentUser();
-    const userId = metaData?.userId || currentUser.id;
+    const transactions: Transaction[] = JSON.parse(transactionsString);
     
-    const existingTransactions = await getTransactions();
-    const existingTransaction = existingTransactions.find(t => 
-      t.id === transactionReference || 
-      (t.metaData && t.metaData.paymentReference === paymentReference)
-    );
+    // Apply filters if provided
+    if (!filters) return transactions;
     
-    if (existingTransaction) {
-      return existingTransaction;
-    }
-    
-    const transaction = {
-      id: transactionReference || uuidv4(),
-      userId,
-      type: "deposit" as "deposit" | "withdrawal" | "transfer" | "vote",
-      amount: amountPaid,
-      contributionId: metaData?.contributionId || "",
-      description: paymentDescription || "Bank transfer to virtual account",
-      status: paymentStatus === "PAID" ? "completed" as "completed" | "pending" | "failed" : "pending" as "completed" | "pending" | "failed",
-      createdAt: new Date(paidOn || Date.now()).toISOString(),
-      metaData: {
-        paymentReference,
-        bankName: accountDetails?.bankName || '',
-        accountNumber: accountDetails?.accountNumber || ''
+    return transactions.filter(transaction => {
+      // Filter by userId if provided
+      if (filters.userId && transaction.userId !== filters.userId) return false;
+      
+      // Filter by contributionId if provided
+      if (filters.contributionId && transaction.contributionId !== filters.contributionId) return false;
+      
+      // Filter by type if provided
+      if (filters.type && transaction.type !== filters.type) return false;
+      
+      // Filter by status if provided
+      if (filters.status && transaction.status !== filters.status) return false;
+      
+      // Filter by date range if provided
+      if (filters.dateFrom || filters.dateTo) {
+        const transactionDate = new Date(transaction.createdAt);
+        
+        if (filters.dateFrom && transactionDate < new Date(filters.dateFrom)) return false;
+        if (filters.dateTo && transactionDate > new Date(filters.dateTo)) return false;
       }
-    };
-    
-    addTransaction(transaction);
-    
-    if (paymentStatus === "PAID") {
-      if (userId === currentUser.id) {
-        const updatedBalance = (currentUser.walletBalance || 0) + amountPaid;
-        updateUser({
-          ...currentUser,
-          walletBalance: updatedBalance
-        });
-        toast.success(`Wallet funded with ₦${amountPaid.toLocaleString()}`);
-      } else {
-        updateUserById(userId, {
-          walletBalance: (currentUser.walletBalance || 0) + amountPaid
-        });
-      }
-    }
-    
-    return transaction;
+      
+      return true;
+    });
   } catch (error) {
-    console.error("Error processing transaction:", error);
-    toast.error("Failed to process transaction. Please try again.");
-    return null;
+    console.error("Error getting wallet transactions:", error);
+    return [];
+  }
+};
+
+/**
+ * Process a wallet transaction
+ * This is a placeholder for future implementation that might involve APIs
+ */
+export const processTransaction = (transaction: Partial<Transaction>): Promise<Transaction> => {
+  return new Promise((resolve, reject) => {
+    try {
+      // Here we would typically call an API to process the transaction
+      // For now we'll just simulate a successful transaction
+      
+      const completedTransaction: Transaction = {
+        id: `tx_${Date.now()}`,
+        userId: transaction.userId || '',
+        contributionId: transaction.contributionId || '',
+        type: transaction.type || 'unknown',
+        amount: transaction.amount || 0,
+        status: 'completed',
+        description: transaction.description || '',
+        paymentMethod: transaction.paymentMethod || 'wallet',
+        referenceId: transaction.referenceId || `ref_${Date.now()}`,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        metaData: transaction.metaData || {}
+      };
+      
+      // Add the transaction to localStorage
+      addWalletTransaction(completedTransaction);
+      
+      resolve(completedTransaction);
+    } catch (error) {
+      console.error("Error processing transaction:", error);
+      reject(error);
+    }
+  });
+};
+
+/**
+ * Add a transaction to localStorage
+ */
+export const addWalletTransaction = (transaction: Transaction): void => {
+  try {
+    const transactionsString = localStorage.getItem('transactions');
+    const transactions = transactionsString ? JSON.parse(transactionsString) : [];
+    
+    // Add the transaction
+    transactions.push(transaction);
+    
+    // Save back to localStorage
+    localStorage.setItem('transactions', JSON.stringify(transactions));
+  } catch (error) {
+    console.error("Error adding wallet transaction:", error);
+    toast.error("Failed to record transaction");
   }
 };
