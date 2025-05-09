@@ -16,7 +16,7 @@ export const useContributionData = (user: any, isAuthenticated: boolean) => {
   const [lastRefreshTime, setLastRefreshTime] = useState<number>(0);
   const currentUserId = useRef<string | null>(null);
 
-  // Effect to periodically check for new transactions from Monnify
+  // Effect to load data once upon authentication
   useEffect(() => {
     if (isAuthenticated && user?.id) {
       // Only proceed if user ID has changed or this is the first load
@@ -25,15 +25,6 @@ export const useContributionData = (user: any, isAuthenticated: boolean) => {
         // Initial load
         refreshContributionData();
       }
-      
-      // Set up polling for new transactions (every 30 seconds)
-      const intervalId = setInterval(() => {
-        if (user?.id === currentUserId.current) { // Only refresh if user hasn't changed
-          refreshContributionData();
-        }
-      }, 30000);
-      
-      return () => clearInterval(intervalId);
     } else {
       // Reset data if not authenticated
       currentUserId.current = null;
@@ -41,6 +32,20 @@ export const useContributionData = (user: any, isAuthenticated: boolean) => {
       setWithdrawalRequests([]);
       setTransactions([]);
       setStats({});
+    }
+  }, [isAuthenticated, user?.id]);
+
+  // Separate effect for polling that doesn't depend on user ID changes
+  useEffect(() => {
+    if (isAuthenticated && user?.id) {
+      // Only set up polling if authenticated
+      const intervalId = setInterval(() => {
+        if (user?.id === currentUserId.current) { // Only refresh if user hasn't changed
+          refreshContributionData();
+        }
+      }, 30000); // Poll every 30 seconds
+      
+      return () => clearInterval(intervalId);
     }
   }, [isAuthenticated, user?.id]);
 

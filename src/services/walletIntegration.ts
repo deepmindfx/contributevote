@@ -1,3 +1,4 @@
+
 import { toast } from "sonner";
 import { Transaction } from "@/services/localStorage/types";
 import { getCurrentUser, getTransactions } from "@/services/localStorage";
@@ -79,7 +80,7 @@ export const processTransaction = (transaction: Partial<Transaction>): Promise<T
         status: 'completed',
         description: transaction.description || '',
         paymentMethod: transaction.paymentMethod || 'wallet',
-        referenceId: transaction.referenceId || `ref_${Date.now()}`,
+        reference: transaction.reference || `ref_${Date.now()}`,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         metaData: transaction.metaData || {}
@@ -168,7 +169,7 @@ export const getReservedAccountTransactions = async (accountReference: string): 
           status: 'completed',
           description: 'Wallet deposit',
           paymentMethod: 'bank_transfer',
-          referenceId: `REF_${Date.now() + 1}`,
+          reference: `REF_${Date.now() + 1}`,
           createdAt: new Date(Date.now() - 86400000).toISOString(), // Yesterday
           updatedAt: new Date(Date.now() - 86400000).toISOString(),
           metaData: {
@@ -186,7 +187,7 @@ export const getReservedAccountTransactions = async (accountReference: string): 
           status: 'completed',
           description: 'Wallet withdrawal',
           paymentMethod: 'bank_transfer',
-          referenceId: `REF_${Date.now() + 2}`,
+          reference: `REF_${Date.now() + 2}`,
           createdAt: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
           updatedAt: new Date(Date.now() - 172800000).toISOString(),
           metaData: {
@@ -235,4 +236,17 @@ export const syncReservedAccountTransactions = async (userId: string): Promise<b
     console.error("Error syncing reserved account transactions:", error);
     return false;
   }
+};
+
+// Export functions for ReservedAccount.tsx
+export const getUserReservedAccount = (userId: string) => {
+  const user = getCurrentUser();
+  if (!user || !user.reservedAccount) return null;
+  return user.reservedAccount;
+};
+
+export const createUserReservedAccount = (userData: any) => {
+  // Implement the function - this is a placeholder
+  console.log("Creating reserved account for user:", userData);
+  return Promise.resolve({ success: true });
 };

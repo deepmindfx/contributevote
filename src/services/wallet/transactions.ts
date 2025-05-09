@@ -79,7 +79,7 @@ export const processTransaction = (transaction: Partial<Transaction>): Promise<T
         status: 'completed',
         description: transaction.description || '',
         paymentMethod: transaction.paymentMethod || 'wallet',
-        referenceId: transaction.reference || `ref_${Date.now()}`,
+        reference: transaction.reference || `ref_${Date.now()}`,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         metaData: transaction.metaData || {}
