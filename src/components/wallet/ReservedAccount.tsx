@@ -1,192 +1,404 @@
 
-import React, { useState, useEffect } from "react";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Clipboard, Copy, RefreshCw } from "lucide-react";
+import { Clipboard, RefreshCw, Plus, ArrowRight, Building } from "lucide-react";
 import { toast } from "sonner";
 import { useApp } from "@/contexts/AppContext";
-import { getUserReservedAccount, createUserReservedAccount } from "@/services/walletIntegration";
+import { 
+  getUserReservedAccount, 
+  createUserReservedAccount, 
+  getReservedAccountTransactions 
+} from "@/services/walletIntegration";
+import { ReservedAccountData } from "@/services/wallet/types";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Form, FormField, FormItem, FormLabel, FormControl, FormDescription, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 
-interface ReservedAccountProps {
-  userId: string;
+// Form schema for validation
+const idFormSchema = z.object({
+  idType: z.enum(["bvn", "nin"], {
+    required_error: "Please select an ID type",
+  }),
+  idNumber: z.string()
+    .min(10, "ID number must be at least 10 digits")
+    .max(11, "ID number cannot exceed 11 digits")
+    .regex(/^\d+$/, "ID number must contain only digits"),
+});
+
+// Define the interface for the form data
+interface IdFormData {
+  idType: "bvn" | "nin";
+  idNumber: string;
 }
 
-const ReservedAccount = ({ userId }: ReservedAccountProps) => {
+const ReservedAccount = () => {
   const { user, refreshData } = useApp();
-  const [reservedAccount, setReservedAccount] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
-
+  const [accountDetails, setAccountDetails] = useState<ReservedAccountData | null>(null);
+  const [showFullDetails, setShowFullDetails] = useState(false);
+  const [showIdForm, setShowIdForm] = useState(false);
+  
+  // Initialize the form with explicit type
+  const form = useForm<IdFormData>({
+    resolver: zodResolver(idFormSchema),
+    defaultValues: {
+      idType: "bvn",
+      idNumber: "",
+    },
+  });
+  
   useEffect(() => {
-    if (userId) {
-      fetchReservedAccount();
+    // Check if user already has a reserved account
+    if (user?.reservedAccount) {
+      setAccountDetails(user.reservedAccount);
+      
+      // If account details exist but the accountNumber or bankName is undefined, refresh account details
+      if (!user.reservedAccount.accountNumber || !user.reservedAccount.bankName) {
+        handleRefresh();
+      }
     }
-  }, [userId]);
-
-  const fetchReservedAccount = async () => {
+  }, [user]);
+  
+  const handleCreateAccount = async (values?: IdFormData) => {
     setIsLoading(true);
     try {
-      const accountData = getUserReservedAccount(userId);
-      setReservedAccount(accountData);
+      if (!user || !user.id) {
+        toast.error("User information not available. Please log in again.");
+        return;
+      }
+      
+      if (!values) {
+        setShowIdForm(true);
+        setIsLoading(false);
+        return;
+      }
+      
+      // Close the ID form dialog after submission
+      setShowIdForm(false);
+      
+      const result = await createUserReservedAccount(user.id, values.idType, values.idNumber);
+      if (result) {
+        console.log("Reserved account created:", result);
+        setAccountDetails(result);
+        refreshData();
+        
+        // Also fetch transactions after creating account
+        if (result.accountReference) {
+          try {
+            await getReservedAccountTransactions(result.accountReference);
+            refreshData();
+          } catch (error) {
+            console.error("Error fetching transactions after account creation:", error);
+            // Continue even if this fails
+          }
+        }
+        
+        toast.success("Virtual account created successfully");
+      }
     } catch (error) {
-      console.error("Error fetching reserved account:", error);
-      toast.error("Could not fetch account details");
+      console.error("Error creating reserved account:", error);
+      toast.error("Failed to create reserved account. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
-
-  const createAccount = async () => {
-    if (!user) {
-      toast.error("You need to be logged in to create an account");
-      return;
-    }
-    
-    setIsCreating(true);
+  
+  const handleRefresh = async () => {
+    setIsLoading(true);
     try {
-      // Call API to create a reserved account
-      await createUserReservedAccount({
-        userId: user.id,
-        customerEmail: user.email,
-        customerName: user.name || `${user.firstName} ${user.lastName}`.trim(),
-        bvn: "22222222222" // Mock BVN for testing (in real app, would be from user input)
-      });
+      if (!user || !user.id) {
+        toast.error("User information not available. Please log in again.");
+        return;
+      }
       
-      // Refresh data to get the new account
-      await refreshData();
-      toast.success("Virtual account created successfully!");
-      fetchReservedAccount();
+      const result = await getUserReservedAccount(user.id);
+      if (result) {
+        console.log("Retrieved account details:", result);
+        setAccountDetails(result);
+        
+        // Fetch transactions when refreshing account details
+        if (result.accountReference) {
+          try {
+            await getReservedAccountTransactions(result.accountReference);
+          } catch (error) {
+            console.error("Error fetching transactions after refresh:", error);
+            // Continue even if this fails
+          }
+        }
+        
+        refreshData();
+        toast.success("Account details refreshed");
+      }
     } catch (error) {
-      console.error("Error creating reserved account:", error);
-      toast.error("Could not create virtual account");
+      console.error("Error refreshing reserved account:", error);
+      toast.error("Failed to refresh account details. Please try again.");
     } finally {
-      setIsCreating(false);
+      setIsLoading(false);
     }
   };
   
   const copyToClipboard = (text: string, label: string) => {
-    try {
-      navigator.clipboard.writeText(text);
-      toast.success(`${label} copied to clipboard!`);
-    } catch (error) {
-      console.error("Error copying to clipboard:", error);
-      toast.error("Failed to copy to clipboard");
-    }
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} copied to clipboard`);
   };
   
-  if (isLoading) {
-    return (
-      <Card className="relative overflow-hidden">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <div className="h-5 w-32 bg-gray-300 animate-pulse rounded"></div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <div className="h-4 w-20 bg-gray-300 animate-pulse rounded"></div>
-            <div className="h-8 w-full bg-gray-300 animate-pulse rounded"></div>
-          </div>
-          <div className="space-y-2">
-            <div className="h-4 w-24 bg-gray-300 animate-pulse rounded"></div>
-            <div className="h-8 w-full bg-gray-300 animate-pulse rounded"></div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  const onSubmitIdForm = (values: IdFormData) => {
+    handleCreateAccount(values);
+  };
   
-  if (!reservedAccount) {
+  if (!accountDetails) {
     return (
       <Card>
         <CardHeader>
           <CardTitle>Virtual Account</CardTitle>
+          <CardDescription>
+            Create a dedicated virtual account for easy deposits
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground mb-4">
-            You don't have a virtual account yet. Create one to receive payments directly to your wallet.
-          </p>
-          <Button 
-            onClick={createAccount} 
-            disabled={isCreating}
-            className="w-full"
-          >
-            {isCreating ? (
-              <>
-                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                Creating Account...
-              </>
-            ) : (
-              <>
-                <Clipboard className="mr-2 h-4 w-4" />
+        <CardContent className="flex flex-col items-center justify-center py-8">
+          {isLoading ? (
+            <div className="space-y-3 w-full">
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-10 w-32 mx-auto" />
+            </div>
+          ) : (
+            <>
+              <div className="text-center mb-6">
+                <p className="text-muted-foreground mb-3">
+                  You don't have a virtual account yet. Create one to easily fund your wallet from any bank.
+                </p>
+              </div>
+              <Button 
+                onClick={() => handleCreateAccount()} 
+                className="flex items-center gap-2"
+              >
+                <Plus size={16} />
                 Create Virtual Account
-              </>
-            )}
-          </Button>
+              </Button>
+              
+              {/* BVN/NIN Input Dialog */}
+              <Dialog open={showIdForm} onOpenChange={setShowIdForm}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Provide Identification</DialogTitle>
+                    <DialogDescription>
+                      We need your BVN or NIN to create your virtual account. This information is required by financial regulations.
+                    </DialogDescription>
+                  </DialogHeader>
+                  
+                  <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmitIdForm)} className="space-y-4">
+                      <FormField
+                        control={form.control}
+                        name="idType"
+                        render={({ field }) => (
+                          <FormItem className="space-y-3">
+                            <FormLabel>ID Type</FormLabel>
+                            <RadioGroup 
+                              onValueChange={field.onChange} 
+                              defaultValue={field.value}
+                              className="flex flex-col space-y-1"
+                            >
+                              <FormItem className="flex items-center space-x-3 space-y-0">
+                                <FormControl>
+                                  <RadioGroupItem value="bvn" />
+                                </FormControl>
+                                <FormLabel className="font-normal">
+                                  Bank Verification Number (BVN)
+                                </FormLabel>
+                              </FormItem>
+                              <FormItem className="flex items-center space-x-3 space-y-0">
+                                <FormControl>
+                                  <RadioGroupItem value="nin" />
+                                </FormControl>
+                                <FormLabel className="font-normal">
+                                  National Identification Number (NIN)
+                                </FormLabel>
+                              </FormItem>
+                            </RadioGroup>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="idNumber"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>ID Number</FormLabel>
+                            <FormControl>
+                              <Input 
+                                placeholder={field.value === "bvn" ? "Enter your 11-digit BVN" : "Enter your NIN"}
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              Your information is encrypted and secure.
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setShowIdForm(false)}>
+                          Cancel
+                        </Button>
+                        <Button type="submit" disabled={isLoading}>
+                          {isLoading ? "Processing..." : "Create Account"}
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  </Form>
+                </DialogContent>
+              </Dialog>
+            </>
+          )}
         </CardContent>
       </Card>
     );
   }
   
+  // Display account details
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <span>Virtual Account</span>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={fetchReservedAccount}
-            disabled={isLoading}
-          >
-            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-            <span className="sr-only">Refresh</span>
-          </Button>
-        </CardTitle>
+      <CardHeader className="flex flex-row items-start justify-between pb-2">
+        <div>
+          <CardTitle>Virtual Account</CardTitle>
+          <CardDescription>
+            Fund your wallet directly from any bank
+          </CardDescription>
+        </div>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={handleRefresh} 
+          disabled={isLoading}
+          className="h-8 w-8"
+        >
+          <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
+        </Button>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div>
-          <p className="text-sm text-muted-foreground mb-1">Account Number</p>
-          <div className="flex items-center justify-between bg-muted p-3 rounded-md">
-            <span className="font-mono text-lg">{reservedAccount.accountNumber}</span>
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => copyToClipboard(reservedAccount.accountNumber, "Account number")}
-            >
-              <Copy className="h-4 w-4" />
-              <span className="sr-only">Copy account number</span>
-            </Button>
+      <CardContent>
+        {isLoading ? (
+          <div className="space-y-3">
+            <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-6 w-36" />
+            <Skeleton className="h-10 w-full" />
           </div>
-        </div>
-        
-        <div>
-          <p className="text-sm text-muted-foreground mb-1">Bank Name</p>
-          <div className="flex items-center justify-between bg-muted p-3 rounded-md">
-            <span>{reservedAccount.bankName}</span>
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => copyToClipboard(reservedAccount.bankName, "Bank name")}
-            >
-              <Copy className="h-4 w-4" />
-              <span className="sr-only">Copy bank name</span>
-            </Button>
+        ) : (
+          <div className="space-y-4">
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-sm font-medium text-muted-foreground">Account Number</label>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => copyToClipboard(accountDetails.accountNumber, "Account number")}
+                  className="h-6 px-2"
+                >
+                  <Clipboard size={14} />
+                </Button>
+              </div>
+              <div className="font-mono text-xl bg-muted/50 rounded-md py-2 px-3 flex items-center justify-between">
+                {accountDetails.accountNumber || (accountDetails.accounts && accountDetails.accounts.length > 0 
+                  ? accountDetails.accounts[0].accountNumber 
+                  : "Pending...")}
+              </div>
+            </div>
+            
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-sm font-medium text-muted-foreground">Bank Name</label>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => copyToClipboard(accountDetails.bankName, "Bank name")}
+                  className="h-6 px-2"
+                >
+                  <Clipboard size={14} />
+                </Button>
+              </div>
+              <div className="font-medium text-lg bg-muted/50 rounded-md py-2 px-3">
+                {accountDetails.bankName || (accountDetails.accounts && accountDetails.accounts.length > 0 
+                  ? accountDetails.accounts[0].bankName 
+                  : "Pending...")}
+              </div>
+            </div>
+            
+            <div className="pt-1">
+              <label className="text-sm font-medium text-muted-foreground block mb-1">Account Name</label>
+              <div className="font-medium text-lg">
+                {accountDetails.accountName || "Pending..."}
+              </div>
+            </div>
+            
+            <div className="flex gap-2">
+              {!showFullDetails && accountDetails.accounts && accountDetails.accounts.length > 1 && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex-1 mt-2" 
+                  onClick={() => setShowFullDetails(true)}
+                >
+                  Show All Bank Accounts
+                  <ArrowRight size={14} className="ml-2" />
+                </Button>
+              )}
+            </div>
+            
+            <Dialog open={showFullDetails} onOpenChange={setShowFullDetails}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>All Virtual Accounts</DialogTitle>
+                  <DialogDescription>
+                    Your reserved account is available across multiple banks
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4 max-h-[400px] overflow-y-auto">
+                  {accountDetails.accounts?.map((account, index) => (
+                    <div key={index} className="border rounded-lg p-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium text-muted-foreground">Account Number</span>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => copyToClipboard(account.accountNumber, "Account number")}
+                          className="h-6 px-2"
+                        >
+                          <Clipboard size={14} />
+                        </Button>
+                      </div>
+                      <div className="font-mono text-lg">{account.accountNumber}</div>
+                      
+                      <div className="mt-2">
+                        <span className="text-sm font-medium text-muted-foreground">Bank</span>
+                        <div>{account.bankName}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <DialogFooter>
+                  <Button onClick={() => setShowFullDetails(false)}>Close</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            
+            <p className="text-sm text-muted-foreground mt-2">
+              Transfer to this account from any bank and your wallet will be credited automatically.
+            </p>
           </div>
-        </div>
-        
-        <div>
-          <p className="text-sm text-muted-foreground mb-1">Account Name</p>
-          <div className="bg-muted p-3 rounded-md">
-            <span>{reservedAccount.accountName}</span>
-          </div>
-        </div>
+        )}
       </CardContent>
-      <CardFooter>
-        <p className="text-xs text-muted-foreground">
-          Use this account number to make transfers to your wallet. Funds will reflect in your wallet balance.
-        </p>
-      </CardFooter>
     </Card>
   );
 };

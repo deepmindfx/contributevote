@@ -1,53 +1,116 @@
+
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Home, Wallet, VoteIcon, Users, Settings, ArrowLeft } from "lucide-react";
+import { useApp } from "@/contexts/AppContext";
 import { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { Home, PlusCircle, Users, Wallet } from "lucide-react";
 
 const MobileNav = () => {
   const location = useLocation();
-  const [isScrolled, setIsScrolled] = useState(false);
+  const navigate = useNavigate();
+  const { withdrawalRequests, user } = useApp();
+  const [showBackButton, setShowBackButton] = useState(false);
   
-  useEffect(() => {
-    const handleScroll = () => {
-      const headerElement = document.querySelector('header');
-      const scrollY = window.scrollY;
-      
-      // Use optional chaining and type assertions to safely access offsetHeight
-      const headerHeight = headerElement ? (headerElement as HTMLElement).offsetHeight : 0;
-      
-      if (scrollY > headerHeight) {
-        setIsScrolled(true);
-      } else {
-        setIsScrolled(false);
-      }
-    };
+  // Check if there are any pending votes for the current user
+  const pendingVotes = user?.id ? withdrawalRequests.filter(request => 
+    request.status === 'pending' && 
+    !request.votes.some(vote => vote.userId === user?.id)
+  ) : [];
 
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  // Determine if back button should be shown based on current route
+  useEffect(() => {
+    setShowBackButton(location.pathname === '/settings' || location.pathname === '/profile');
+  }, [location.pathname]);
+
+  // Handle back button click
+  const handleBackClick = () => {
+    navigate(-1);
+  };
+
+  // Fix for mobile nav disappearing - force a repaint on route change
+  useEffect(() => {
+    const nav = document.querySelector('.mobile-nav');
+    if (nav) {
+      // Force a repaint by getting offsetHeight
+      nav.offsetHeight;
+    }
+  }, [location.pathname]);
 
   return (
-    <nav className={`fixed bottom-0 left-0 w-full bg-white border-t dark:bg-gray-900 dark:border-gray-800 z-50 ${isScrolled ? 'border-opacity-0' : ''}`}>
-      <div className="container max-w-5xl mx-auto px-4">
-        <div className="grid grid-cols-4 gap-4 py-2">
-          <Link to="/dashboard" className="flex flex-col items-center justify-center hover:text-[#2DAE75] dark:hover:text-[#2DAE75]">
-            <Home className={`h-5 w-5 ${location.pathname === '/dashboard' ? 'text-[#2DAE75]' : 'text-gray-500 dark:text-gray-400'}`} />
-            <span className="text-xs">Home</span>
+    <div className="fixed bottom-0 left-0 right-0 bg-background border-t z-50 md:hidden mobile-nav">
+      {showBackButton ? (
+        <div className="flex items-center justify-between p-4">
+          <button
+            onClick={handleBackClick}
+            className="flex items-center text-muted-foreground"
+          >
+            <ArrowLeft className="h-5 w-5 mr-2" />
+            <span>Back</span>
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center justify-around">
+          <Link 
+            to="/dashboard" 
+            className={`flex flex-col items-center py-3 px-2 ${
+              location.pathname === "/dashboard" ? "text-[#2DAE75]" : "text-muted-foreground"
+            }`}
+            aria-label="Home"
+          >
+            <Home className="h-5 w-5" />
+            <span className="text-xs mt-1">Home</span>
           </Link>
-          <Link to="/create-group" className="flex flex-col items-center justify-center hover:text-[#2DAE75] dark:hover:text-[#2DAE75]">
-            <PlusCircle className={`h-5 w-5 ${location.pathname === '/create-group' ? 'text-[#2DAE75]' : 'text-gray-500 dark:text-gray-400'}`} />
-            <span className="text-xs">Group</span>
+          
+          <Link 
+            to="/wallet-history" 
+            className={`flex flex-col items-center py-3 px-2 ${
+              location.pathname === "/wallet-history" ? "text-[#2DAE75]" : "text-muted-foreground"
+            }`}
+            aria-label="Wallet"
+          >
+            <Wallet className="h-5 w-5" />
+            <span className="text-xs mt-1">Wallet</span>
           </Link>
-          <Link to="/all-groups" className="flex flex-col items-center justify-center hover:text-[#2DAE75] dark:hover:text-[#2DAE75]">
-            <Users className={`h-5 w-5 ${location.pathname === '/all-groups' ? 'text-[#2DAE75]' : 'text-gray-500 dark:text-gray-400'}`} />
-            <span className="text-xs">Groups</span>
+          
+          <Link 
+            to="/votes" 
+            className={`flex flex-col items-center py-3 px-2 relative ${
+              location.pathname === "/votes" ? "text-[#2DAE75]" : "text-muted-foreground"
+            }`}
+            aria-label="Votes"
+          >
+            <VoteIcon className="h-5 w-5" />
+            {pendingVotes.length > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
+                {pendingVotes.length > 9 ? '9+' : pendingVotes.length}
+              </span>
+            )}
+            <span className="text-xs mt-1">Votes</span>
           </Link>
-          <Link to="/wallet-history" className="flex flex-col items-center justify-center hover:text-[#2DAE75] dark:hover:text-[#2DAE75]">
-            <Wallet className={`h-5 w-5 ${location.pathname === '/wallet-history' ? 'text-[#2DAE75]' : 'text-gray-500 dark:text-gray-400'}`} />
-            <span className="text-xs">Wallet</span>
+          
+          <Link 
+            to="/all-groups" 
+            className={`flex flex-col items-center py-3 px-2 ${
+              location.pathname === "/all-groups" ? "text-[#2DAE75]" : "text-muted-foreground"
+            }`}
+            aria-label="Groups"
+          >
+            <Users className="h-5 w-5" />
+            <span className="text-xs mt-1">Groups</span>
+          </Link>
+          
+          <Link 
+            to="/settings" 
+            className={`flex flex-col items-center py-3 px-2 ${
+              location.pathname === "/settings" ? "text-[#2DAE75]" : "text-muted-foreground"
+            }`}
+            aria-label="Settings"
+          >
+            <Settings className="h-5 w-5" />
+            <span className="text-xs mt-1">Settings</span>
           </Link>
         </div>
-      </div>
-    </nav>
+      )}
+    </div>
   );
 };
 
