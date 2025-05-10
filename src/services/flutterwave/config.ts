@@ -1,8 +1,10 @@
 // Base configuration for Flutterwave API
 const isProduction = import.meta.env.PROD;
 
-// Use proxy in both development and production to handle CORS
-export const BASE_URL = '/api/flutterwave';
+// Use our backend proxy in both environments to handle CORS
+export const BASE_URL = isProduction 
+  ? 'https://collectipay.com.ng/api/flutterwave'  // Production proxy URL
+  : '/api/flutterwave';                           // Development proxy URL
 
 // Use environment variables for API keys
 export const SECRET_KEY = isProduction

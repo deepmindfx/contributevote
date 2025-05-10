@@ -43,8 +43,7 @@ export const createVirtualAccount = async (data: VirtualAccountParams) => {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${SECRET_KEY}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify(requestBody)
     });
@@ -67,12 +66,21 @@ export const createVirtualAccount = async (data: VirtualAccountParams) => {
       });
       return {
         success: false,
-        message: "Invalid response format from Flutterwave",
+        message: "Invalid response format from server",
         debug: {
           status: response.status,
           statusText: response.statusText,
           responseText: responseText.substring(0, 200) + '...'
         }
+      };
+    }
+    
+    // Handle proxy response format
+    if (responseData.error) {
+      console.error("Proxy error response:", responseData);
+      return {
+        success: false,
+        message: responseData.error || "Failed to create virtual account"
       };
     }
     
@@ -98,13 +106,6 @@ export const createVirtualAccount = async (data: VirtualAccountParams) => {
         };
       }
       
-      if (response.status === 0) {
-        return {
-          success: false,
-          message: "Network error: Unable to connect to Flutterwave API. Please check your internet connection."
-        };
-      }
-      
       return { 
         success: false, 
         message: responseData.message || `Failed to create virtual account: ${response.status}`
@@ -127,7 +128,7 @@ export const createVirtualAccount = async (data: VirtualAccountParams) => {
     if (error instanceof TypeError && error.message === 'Failed to fetch') {
       return {
         success: false,
-        message: "Network error: Unable to connect to Flutterwave API"
+        message: "Network error: Unable to connect to server"
       };
     }
     
