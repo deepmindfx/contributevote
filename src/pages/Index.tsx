@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Link } from "react-router-dom";
@@ -46,6 +45,9 @@ const Index = () => {
             <p className="text-lg text-muted-foreground max-w-2xl">
               Create contribution groups where funds can only be withdrawn with member approval. 
               Perfect for thrift savings, event funding, and community projects.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Developed by Traceroot Technology Solutions
             </p>
             <div className="flex flex-col sm:flex-row gap-4 pt-4">
               <Button size="lg" asChild className="animate-slide-up animation-delay-200">
@@ -167,6 +169,8 @@ const Index = () => {
           </div>
           <div className="mt-8 text-center text-muted-foreground text-sm">
             © {new Date().getFullYear()} CollectiPay. All rights reserved.
+            <br />
+            Developed by Traceroot Technology Solutions
           </div>
         </div>
       </footer>
