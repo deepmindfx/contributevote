@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
 
