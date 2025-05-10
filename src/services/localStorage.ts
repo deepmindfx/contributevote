@@ -1,3 +1,4 @@
+
 // Import from types first to avoid circular dependencies
 import { User, Transaction, Contribution, WithdrawalRequest, Notification, Stats } from './localStorage/types';
 
@@ -67,18 +68,3 @@ export {
 
 // Re-export the interfaces
 export type { User, Transaction, Contribution, WithdrawalRequest, Notification, Stats };
-
-/**
- * Get user by email
- * @param email User's email address
- * @returns User object or null if not found
- */
-export const getUserByEmail = (email: string) => {
-  try {
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    return users.find((user: any) => user.email === email) || null;
-  } catch (error) {
-    console.error('Error getting user by email:', error);
-    return null;
-  }
-};
