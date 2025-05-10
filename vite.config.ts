@@ -8,6 +8,17 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    proxy: {
+      '/api/flutterwave': {
+        target: 'https://api.flutterwave.com/v3',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/flutterwave/, ''),
+        secure: false,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+        },
+      },
+    },
   },
   plugins: [
     react(),

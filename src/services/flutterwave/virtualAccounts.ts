@@ -28,20 +28,36 @@ export const createVirtualAccount = async (data: VirtualAccountParams) => {
       bvn: data.bvn
     };
     
-    console.log("Sending account creation request...");
+    console.log("Request body:", requestBody);
+    console.log("Using API URL:", `${BASE_URL}/virtual-account-numbers`);
+    
     const response = await fetch(`${BASE_URL}/virtual-account-numbers`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${SECRET_KEY}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization'
       },
+      mode: 'cors',
+      credentials: 'omit',
       body: JSON.stringify(requestBody)
     });
     
+    console.log("Response status:", response.status);
+    console.log("Response headers:", Object.fromEntries(response.headers.entries()));
+    
     const responseData = await response.json();
+    console.log("Response data:", responseData);
     
     if (!response.ok) {
-      console.error("Virtual account creation failed:", responseData);
+      console.error("Virtual account creation failed:", {
+        status: response.status,
+        statusText: response.statusText,
+        data: responseData
+      });
       return { 
         success: false, 
         message: responseData.message || `Failed to create virtual account: ${response.status}`
@@ -49,7 +65,11 @@ export const createVirtualAccount = async (data: VirtualAccountParams) => {
     }
     
     if (responseData.status !== 'success') {
-      console.error("Virtual account creation failed with error:", responseData);
+      console.error("Virtual account creation failed with error:", {
+        status: responseData.status,
+        message: responseData.message,
+        data: responseData
+      });
       return { 
         success: false, 
         message: responseData.message || "Failed to create virtual account" 
@@ -62,7 +82,73 @@ export const createVirtualAccount = async (data: VirtualAccountParams) => {
       responseBody: responseData.data
     };
   } catch (error) {
-    console.error("Error creating virtual account:", error);
-    return { success: false, message: "Unable to connect to payment provider" };
+    console.error("Error creating virtual account:", {
+      error,
+      message: error instanceof Error ? error.message : "Unknown error",
+      stack: error instanceof Error ? error.stack : undefined
+    });
+
+    // Handle specific network errors
+    if (error instanceof TypeError && error.message === 'Failed to fetch') {
+      return {
+        success: false,
+        message: "Network error: Unable to connect to Flutterwave. Please check your internet connection."
+      };
+    }
+
+    return { 
+      success: false, 
+      message: error instanceof Error ? error.message : "Unable to connect to payment provider" 
+    };
+  }
+};
+
+/**
+ * Verify a virtual account transaction
+ * @param transactionId The Flutterwave transaction reference
+ * @returns Transaction details if successful
+ */
+export const verifyTransaction = async (transactionId: string) => {
+  try {
+    console.log("Verifying transaction:", transactionId);
+    
+    const response = await fetch(`${BASE_URL}/transactions/${transactionId}/verify`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${SECRET_KEY}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    });
+    
+    const responseData = await response.json();
+    console.log("Verification response:", responseData);
+    
+    if (!response.ok) {
+      console.error("Transaction verification failed:", responseData);
+      return {
+        success: false,
+        message: responseData.message || "Failed to verify transaction"
+      };
+    }
+    
+    if (responseData.status !== 'success') {
+      console.error("Transaction verification failed:", responseData);
+      return {
+        success: false,
+        message: responseData.message || "Transaction verification failed"
+      };
+    }
+    
+    return {
+      success: true,
+      responseBody: responseData.data
+    };
+  } catch (error) {
+    console.error("Error verifying transaction:", error);
+    return {
+      success: false,
+      message: "Failed to verify transaction"
+    };
   }
 }; 
