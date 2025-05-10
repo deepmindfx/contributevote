@@ -1,18 +1,10 @@
-
 export interface ReservedAccountData {
-  accountReference: string;
-  accountName: string;
   accountNumber: string;
   bankName: string;
-  bankCode: string;
-  reservationReference: string;
-  status: string;
-  createdOn: string;
-  accounts?: Array<{
-    bankCode: string;
-    bankName: string;
-    accountNumber: string;
-  }>;
+  accountName: string;
+  flwRef: string;
+  orderRef: string;
+  createdAt: string;
 }
 
 export interface CardTokenData {

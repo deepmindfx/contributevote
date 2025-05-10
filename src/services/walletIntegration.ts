@@ -1,8 +1,7 @@
-
 // Wallet Integration Service
 // This file coordinates interactions with external payment services
 import { toast } from "sonner";
-import * as monnifyApi from "./monnifyApi";
+import * as flutterwaveApi from "./flutterwaveApi";
 import { 
   addTransaction, 
   getCurrentUser, 
@@ -23,7 +22,7 @@ export interface PaymentInvoiceParams {
 }
 
 /**
- * Creates a reserved account for a user
+ * Creates a virtual account for a user
  */
 export const createUserReservedAccount = async (
   userId: string, 
@@ -48,70 +47,62 @@ export const createUserReservedAccount = async (
     
     // Validate ID information
     if (!idType || !idNumber) {
-      toast.error("BVN or NIN is required to create a virtual account");
+      toast.error("BVN is required to create a virtual account");
       return null;
     }
     
-    // Create a unique account reference
-    const accountReference = `COLL_${userId}_${Date.now()}`;
-    
-    // Create the API request object
-    const requestBody: any = {
-      accountReference,
-      accountName: user.name || `${user.firstName} ${user.lastName}`,
-      customerEmail: user.email,
-      customerName: user.name || `${user.firstName} ${user.lastName}`,
-      currencyCode: "NGN",
-      contractCode: "465595618981",
-      getAllAvailableBanks: true
-    };
-    
-    if (idType === "bvn") {
-      requestBody.bvn = idNumber;
-    } else if (idType === "nin") {
-      requestBody.nin = idNumber;
+    if (idType !== "bvn") {
+      toast.error("Only BVN is supported for virtual account creation");
+      return null;
     }
     
-    const result = await monnifyApi.createReservedAccount(requestBody);
+    // Create a unique transaction reference
+    const txRef = `COLL_${userId}_${Date.now()}`;
+    
+    // Create the API request object
+    const requestBody = {
+      email: user.email,
+      tx_ref: txRef,
+      bvn: idNumber,
+      narration: `Virtual account for ${user.name || `${user.firstName} ${user.lastName}`}`
+    };
+    
+    const result = await flutterwaveApi.createVirtualAccount(requestBody);
     
     if (!result || !result.responseBody) {
       if (result && !result.success) {
-        toast.error(result.message || "Failed to create reserved account");
+        toast.error(result.message || "Failed to create virtual account");
       } else {
-        toast.error("Failed to create reserved account");
+        toast.error("Failed to create virtual account");
       }
       return null;
     }
     
     const responseBody = result.responseBody;
+    
+    // Create the reserved account data object
     const reservedAccount: ReservedAccountData = {
-      accountReference: responseBody.accountReference,
-      accountName: responseBody.accountName,
-      accountNumber: responseBody.accounts?.[0]?.accountNumber || "",
-      bankName: responseBody.accounts?.[0]?.bankName || "",
-      bankCode: responseBody.accounts?.[0]?.bankCode || "",
-      reservationReference: responseBody.reservationReference,
-      status: responseBody.status,
-      createdOn: responseBody.createdOn,
-      accounts: responseBody.accounts?.map(acc => ({
-        bankCode: acc.bankCode,
-        bankName: acc.bankName,
-        accountNumber: acc.accountNumber
-      }))
+      accountNumber: responseBody.account_number,
+      bankName: responseBody.bank_name,
+      accountName: user.name || `${user.firstName} ${user.lastName}`,
+      flwRef: responseBody.flw_ref,
+      orderRef: responseBody.order_ref,
+      createdAt: new Date().toISOString()
     };
     
-    // Update user with reserved account data
-    if (userId === currentUser.id) {
-      updateUser({ ...currentUser, reservedAccount });
-    } else {
-      updateUserById(userId, { reservedAccount });
-    }
+    // Update user with the new reserved account
+    const updatedUser = {
+      ...user,
+      reservedAccount
+    };
     
-    toast.success("Reserved account created successfully");
+    updateUser(updatedUser);
+    
+    toast.success("Virtual account created successfully");
     return reservedAccount;
   } catch (error) {
-    console.error("Error creating reserved account:", error);
-    toast.error("Failed to create reserved account. Please try again.");
+    console.error("Error creating virtual account:", error);
+    toast.error("Failed to create virtual account. Please try again.");
     return null;
   }
 };
@@ -134,7 +125,7 @@ export const getUserReservedAccount = async (userId: string): Promise<ReservedAc
       return null;
     }
     
-    const result = await monnifyApi.getReservedAccountDetails(user.reservedAccount.accountReference);
+    const result = await flutterwaveApi.getReservedAccountDetails(user.reservedAccount.accountReference);
     
     if (!result?.responseBody) {
       toast.error("Failed to get reserved account details");
@@ -179,7 +170,7 @@ export const getUserReservedAccount = async (userId: string): Promise<ReservedAc
  */
 export const getReservedAccountTransactions = async (accountReference: string): Promise<any[] | null> => {
   try {
-    const result = await monnifyApi.getReservedAccountTransactions(accountReference);
+    const result = await flutterwaveApi.getReservedAccountTransactions(accountReference);
     
     if (!result || !result.responseBody) {
       return [];
@@ -263,7 +254,7 @@ export const createPaymentInvoice = async (params: PaymentInvoiceParams): Promis
       redirectUrl: window.location.origin + "/dashboard"
     };
     
-    const result = await monnifyApi.createInvoice(requestBody);
+    const result = await flutterwaveApi.createInvoice(requestBody);
     
     if (!result || !result.responseBody) {
       toast.error("Failed to create payment invoice");
