@@ -10,6 +10,6 @@
 
 [[redirects]]
   from = "/api/webhooks/flutterwave"
-  to = "/.netlify/functions/webhooks-flutterwave.cjs"
+  to = "/.netlify/functions/webhooks-flutterwave"
   status = 200
   force = true 

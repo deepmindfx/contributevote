@@ -1,5 +1,4 @@
 const crypto = require('crypto');
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
 exports.handler = async function(event, context) {
   // Only allow POST requests
@@ -43,59 +42,11 @@ exports.handler = async function(event, context) {
       };
     }
 
-    // Process successful charge completion
-    if (webhookData.event === 'charge.completed' && webhookData.data?.status === 'successful') {
-      const { tx_ref, amount } = webhookData.data;
-      
-      // Extract contribution ID from tx_ref
-      // Format: COLL_<contributionId>_<timestamp>
-      const [prefix, contributionId, timestamp] = tx_ref.split('_');
-      
-      if (prefix !== 'COLL' || !contributionId) {
-        console.error('Invalid transaction reference format:', tx_ref);
-        return {
-          statusCode: 400,
-          body: JSON.stringify({ success: false, message: 'Invalid transaction reference format' })
-        };
-      }
-
-      // Call the client-side endpoint to update localStorage
-      const clientEndpoint = process.env.CLIENT_ENDPOINT || 'http://localhost:3000/api/webhook';
-      const response = await fetch(clientEndpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.CLIENT_SECRET}`
-        },
-        body: JSON.stringify({
-          type: 'payment_success',
-          data: {
-            tx_ref,
-            amount,
-            contributionId,
-            timestamp: new Date().toISOString()
-          }
-        })
-      });
-
-      if (!response.ok) {
-        console.error('Failed to update client:', await response.text());
-        return {
-          statusCode: 500,
-          body: JSON.stringify({ success: false, message: 'Failed to update client' })
-        };
-      }
-
-      console.log('Successfully processed payment:', {
-        contributionId,
-        amount,
-        tx_ref
-      });
-    }
-
+    // TODO: Implement your webhook processing logic here
+    // For now, just acknowledge receipt
     return {
       statusCode: 200,
-      body: JSON.stringify({ success: true, message: 'Webhook processed successfully' })
+      body: JSON.stringify({ success: true, message: 'Webhook received' })
     };
   } catch (error) {
     console.error('Error processing webhook:', error);
