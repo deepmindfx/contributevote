@@ -16,32 +16,40 @@ interface VirtualAccountParams {
  */
 export const createVirtualAccount = async (data: VirtualAccountParams) => {
   try {
-    console.log("Creating virtual account with data:", data);
+    console.log("Creating virtual account with data:", {
+      ...data,
+      bvn: '****' + data.bvn.slice(-4) // Mask BVN for security
+    });
     
     const requestBody = {
       email: data.email,
-      currency: "NGN",
-      amount: data.amount || 0,
-      tx_ref: data.tx_ref,
       is_permanent: true,
-      narration: data.narration || "Please make a bank transfer",
-      bvn: data.bvn
+      bvn: data.bvn,
+      tx_ref: data.tx_ref,
+      narration: data.narration || `Virtual account for ${data.email}`,
+      currency: "NGN",
+      amount: data.amount || 0
     };
     
-    console.log("Request body:", requestBody);
-    console.log("Using API URL:", `${BASE_URL}/virtual-account-numbers`);
+    console.log("Request URL:", `${BASE_URL}/virtual-account-numbers`);
+    console.log("Request headers:", {
+      'Authorization': 'Bearer ****' + SECRET_KEY.slice(-10),
+      'Content-Type': 'application/json'
+    });
     
     const response = await fetch(`${BASE_URL}/virtual-account-numbers`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${SECRET_KEY}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify(requestBody)
     });
     
-    // Log the raw response for debugging
+    console.log("Response status:", response.status);
+    console.log("Response headers:", Object.fromEntries(response.headers.entries()));
+    
+    // Log raw response for debugging
     const responseText = await response.text();
     console.log("Raw response:", responseText);
     
@@ -49,62 +57,67 @@ export const createVirtualAccount = async (data: VirtualAccountParams) => {
     try {
       responseData = JSON.parse(responseText);
     } catch (parseError) {
-      console.error("Failed to parse response as JSON:", parseError);
+      console.error("Failed to parse response:", {
+        error: parseError,
+        responseText: responseText.substring(0, 200) + '...' // Log first 200 chars
+      });
       return {
         success: false,
-        message: "Invalid response from payment provider"
+        message: "Invalid response format from Flutterwave"
       };
     }
     
-    console.log("Response data:", responseData);
-    
-    if (!response.ok) {
-      console.error("Virtual account creation failed:", {
+    if (!response.ok || responseData.status === 'error') {
+      console.error("API error response:", {
         status: response.status,
         statusText: response.statusText,
         data: responseData
       });
+      
+      // Handle specific error cases
+      if (response.status === 401) {
+        return {
+          success: false,
+          message: "Invalid API key or authentication failed"
+        };
+      }
+      
+      if (response.status === 400) {
+        return {
+          success: false,
+          message: responseData.message || "Invalid request parameters"
+        };
+      }
+      
       return { 
         success: false, 
         message: responseData.message || `Failed to create virtual account: ${response.status}`
       };
     }
     
-    if (responseData.status !== 'success') {
-      console.error("Virtual account creation failed with error:", {
-        status: responseData.status,
-        message: responseData.message,
-        data: responseData
-      });
-      return { 
-        success: false, 
-        message: responseData.message || "Failed to create virtual account" 
-      };
-    }
-    
-    console.log("Account creation successful:", responseData);
+    console.log("Success response:", responseData);
     return {
       success: true,
       responseBody: responseData.data
     };
+    
   } catch (error) {
     console.error("Error creating virtual account:", {
       error,
       message: error instanceof Error ? error.message : "Unknown error",
       stack: error instanceof Error ? error.stack : undefined
     });
-
-    // Handle specific network errors
+    
     if (error instanceof TypeError && error.message === 'Failed to fetch') {
       return {
         success: false,
-        message: "Network error: Unable to connect to Flutterwave. Please check your internet connection."
+        message: "Network error: Unable to connect to Flutterwave API"
       };
     }
-
+    
     return { 
       success: false, 
-      message: error instanceof Error ? error.message : "Unable to connect to payment provider" 
+      message: "Failed to create virtual account. Please try again."
     };
   }
 };
