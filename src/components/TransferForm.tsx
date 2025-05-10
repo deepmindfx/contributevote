@@ -33,9 +33,13 @@ export default function TransferForm() {
   useEffect(() => {
     const fetchBanks = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/banks');
+        const response = await fetch('https://corsproxy.io/?https://api.flutterwave.com/v3/banks/NG', {
+          headers: {
+            Authorization: `Bearer ${import.meta.env.VITE_FLUTTERWAVE_SECRET_KEY}`,
+          },
+        });
         const data = await response.json();
-        setBanks(data.data);
+        setBanks(data.data || data.data?.data || []);
       } catch (error) {
         toast.error('Failed to fetch banks');
       } finally {
