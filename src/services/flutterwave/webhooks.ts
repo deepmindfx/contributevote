@@ -2,7 +2,8 @@ import { toast } from 'sonner';
 import { 
   addTransaction, 
   getCurrentUser, 
-  updateUserBalance 
+  updateUserBalance,
+  getUserByEmail
 } from '../localStorage';
 
 interface WebhookData {
@@ -22,6 +23,8 @@ interface WebhookData {
       email: string;
     };
     narration?: string;
+    account_id?: number;
+    account_number?: string;
   };
   'event.type': string;
 }
@@ -46,10 +49,16 @@ export const handleWebhook = async (webhookData: WebhookData) => {
     }
 
     const { data } = webhookData;
-    const currentUser = getCurrentUser();
+    
+    // Find user by email from the webhook data
+    const user = getUserByEmail(data.customer.email);
+    if (!user) {
+      console.error('User not found for email:', data.customer.email);
+      return;
+    }
 
     // Check if transaction already exists
-    const existingTransaction = currentUser.transactions?.find(
+    const existingTransaction = user.transactions?.find(
       t => t.referenceId === data.flw_ref
     );
 
@@ -60,7 +69,7 @@ export const handleWebhook = async (webhookData: WebhookData) => {
 
     // Create new transaction record
     const newTransaction = {
-      userId: currentUser.id,
+      userId: user.id,
       contributionId: '', // Empty for direct wallet funding
       type: 'deposit',
       amount: data.amount,
@@ -75,6 +84,8 @@ export const handleWebhook = async (webhookData: WebhookData) => {
         narration: data.narration || '',
         transactionReference: data.tx_ref,
         paymentReference: data.flw_ref,
+        accountNumber: data.account_number || '',
+        accountId: data.account_id?.toString() || ''
       }
     };
 
@@ -82,18 +93,35 @@ export const handleWebhook = async (webhookData: WebhookData) => {
     addTransaction(newTransaction);
 
     // Update user's wallet balance
-    const newBalance = currentUser.walletBalance + data.amount;
-    updateUserBalance(currentUser.id, newBalance);
+    const newBalance = (user.walletBalance || 0) + data.amount;
+    updateUserBalance(user.id, newBalance);
 
     console.log('Successfully processed webhook:', {
+      userId: user.id,
       transactionId: data.flw_ref,
       amount: data.amount,
-      newBalance
+      newBalance,
+      email: data.customer.email
     });
 
+    // Send notification to user
     toast.success(`Successfully credited ${data.amount} to your wallet`);
+    
+    return {
+      success: true,
+      message: 'Webhook processed successfully',
+      data: {
+        userId: user.id,
+        amount: data.amount,
+        newBalance
+      }
+    };
   } catch (error) {
     console.error('Error processing webhook:', error);
-    toast.error('Error processing payment. Please contact support.');
+    return {
+      success: false,
+      message: 'Error processing payment',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
   }
 }; 

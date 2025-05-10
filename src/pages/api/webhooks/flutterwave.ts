@@ -9,6 +9,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
+    console.log('Received webhook request:', {
+      headers: req.headers,
+      body: req.body
+    });
+
     // Verify webhook signature
     const signature = req.headers['verif-hash'];
     if (!signature) {
@@ -28,11 +33,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Process the webhook
-    await handleWebhook(req.body);
+    const result = await handleWebhook(req.body);
+    
+    if (!result.success) {
+      console.error('Webhook processing failed:', result);
+      return res.status(500).json(result);
+    }
 
-    return res.status(200).json({ message: 'Webhook processed successfully' });
+    console.log('Webhook processed successfully:', result);
+    return res.status(200).json(result);
   } catch (error) {
     console.error('Error processing webhook:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    return res.status(500).json({ 
+      success: false,
+      message: 'Internal server error',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 } 
