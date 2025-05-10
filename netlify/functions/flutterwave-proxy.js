@@ -19,6 +19,14 @@ exports.handler = async function(event, context) {
     // Get the secret key from environment variables
     const secretKey = process.env.FLW_SECRET_KEY_PROD;
     
+    // Add debug logging
+    console.log('Environment variables:', {
+      hasSecretKey: !!secretKey,
+      secretKeyLength: secretKey ? secretKey.length : 0,
+      path,
+      method: event.httpMethod
+    });
+    
     if (!secretKey) {
       return {
         statusCode: 500,
