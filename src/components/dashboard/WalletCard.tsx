@@ -13,6 +13,7 @@ import { format } from "date-fns";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { createPaymentInvoice, getReservedAccountTransactions } from "@/services/walletIntegration";
+import WalletActions from "@/components/dashboard/WalletActions";
 
 const WalletCard = () => {
   const navigate = useNavigate();
@@ -239,260 +240,22 @@ const WalletCard = () => {
       
       <CardContent className="p-0">
         {!showHistory ? (
-          <div className="bg-white dark:bg-black/40 rounded-t-3xl -mt-3 overflow-hidden">
-            <div className="grid grid-cols-4 gap-1 pt-2 px-4">
-              <Dialog open={isDepositOpen} onOpenChange={setIsDepositOpen}>
-                <DialogTrigger asChild>
-                  <div className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors">
-                    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-[#2DAE75] mb-1">
-                      <PlusCircle size={20} />
-                    </div>
-                    <span className="text-xs">Top Up</span>
-                  </div>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>Deposit Funds</DialogTitle>
-                    <DialogDescription>
-                      Add money to your wallet. Choose your preferred method.
-                    </DialogDescription>
-                  </DialogHeader>
-                  
-                  <Tabs value={depositMethod} onValueChange={(value) => setDepositMethod(value as "manual" | "card" | "bank")}>
-                    <TabsList className="grid grid-cols-3 mb-4">
-                      <TabsTrigger value="manual">
-                        <Wallet className="h-4 w-4 mr-2" />
-                        Manual
-                      </TabsTrigger>
-                      <TabsTrigger value="card">
-                        <CreditCard className="h-4 w-4 mr-2" />
-                        Card
-                      </TabsTrigger>
-                      <TabsTrigger value="bank">
-                        <Building className="h-4 w-4 mr-2" />
-                        Bank
-                      </TabsTrigger>
-                    </TabsList>
-                    
-                    <TabsContent value="manual" className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="deposit-amount">Amount ({currencyType})</Label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-2.5 text-muted-foreground">
-                            {currencyType === "NGN" ? "₦" : "$"}
-                          </span>
-                          <Input id="deposit-amount" type="number" className="pl-8" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} />
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          Use this option for demo purposes only. In a real app, this would be replaced by actual payment methods.
-                        </p>
-                      </div>
-                    </TabsContent>
-                    
-                    <TabsContent value="card" className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="card-deposit-amount">Amount ({currencyType})</Label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-2.5 text-muted-foreground">
-                            {currencyType === "NGN" ? "₦" : "$"}
-                          </span>
-                          <Input id="card-deposit-amount" type="number" className="pl-8" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} />
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          You'll be redirected to a secure payment page to complete your transaction.
-                        </p>
-                      </div>
-                    </TabsContent>
-                    
-                    <TabsContent value="bank" className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="bank-deposit-amount">Amount ({currencyType})</Label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-2.5 text-muted-foreground">
-                            {currencyType === "NGN" ? "₦" : "$"}
-                          </span>
-                          <Input id="bank-deposit-amount" type="number" className="pl-8" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} />
-                        </div>
-                        
-                        {user?.reservedAccount ? (
-                          <div className="p-3 bg-muted/50 rounded-md text-sm">
-                            <p className="font-medium">Your Virtual Account:</p>
-                            <p className="mt-1">{user.reservedAccount.bankName}</p>
-                            <p className="font-mono">{user.reservedAccount.accountNumber}</p>
-                            <p className="text-xs text-muted-foreground mt-2">
-                              Transfer the amount to this account and your wallet will be credited automatically.
-                            </p>
-                          </div>
-                        ) : (
-                          <p className="text-sm text-muted-foreground">
-                            You need to set up a virtual account first. This will require your BVN or NIN for verification.
-                          </p>
-                        )}
-                      </div>
-                    </TabsContent>
-                  </Tabs>
-                  
-                  <DialogFooter className="flex space-x-2">
-                    <Button 
-                      variant="outline" 
-                      className="flex-1" 
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setIsDepositOpen(false);
-                      }}
-                      type="button"
-                    >
-                      Cancel
-                    </Button>
-                    <Button 
-                      className="flex-1" 
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        
-                        if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
-                          toast.error("Please enter a valid amount");
-                          return;
-                        }
-                        
-                        setIsProcessingDeposit(true);
-                        
-                        try {
-                          if (depositMethod === "manual") {
-                            // Original manual deposit logic
-                            updateUserBalance(user.id, user.walletBalance + Number(amount));
-                            refreshData();
-                            toast.success(`Successfully deposited ${currencyType === "NGN" ? "₦" : "$"}${Number(amount).toLocaleString()}`);
-                          } 
-                          else if (depositMethod === "card") {
-                            // Create an invoice for card payment
-                            createPaymentInvoice({
-                              amount: Number(amount),
-                              description: "Wallet top-up via card",
-                              customerEmail: user.email,
-                              customerName: user.name || `${user.firstName} ${user.lastName}`,
-                              userId: user.id
-                            }).then(result => {
-                              if (result && result.checkoutUrl) {
-                                // Open the checkout URL in a new tab
-                                window.open(result.checkoutUrl, "_blank");
-                                toast.success("Payment page opened. Complete your payment to fund your wallet.");
-                              } else {
-                                toast.error("Failed to create payment invoice");
-                              }
-                            });
-                          } 
-                          else if (depositMethod === "bank") {
-                            // For bank transfer, direct to dashboard to see account details
-                            if (user.reservedAccount) {
-                              toast.success("Use your virtual account details to make a bank transfer");
-                            } else {
-                              toast.info("You need to set up a virtual account first");
-                              navigate("/dashboard");
-                            }
-                          }
-                        } catch (error) {
-                          console.error("Error processing deposit:", error);
-                          toast.error("Failed to process deposit. Please try again.");
-                        } finally {
-                          setIsProcessingDeposit(false);
-                          setAmount("");
-                          setIsDepositOpen(false);
-                        }
-                      }}
-                      disabled={isProcessingDeposit}
-                      type="button"
-                    >
-                      {isProcessingDeposit ? "Processing..." : "Deposit"}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-              
-              <Dialog open={isWithdrawOpen} onOpenChange={setIsWithdrawOpen}>
-                <DialogTrigger asChild>
-                  <div className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors">
-                    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-[#2DAE75] mb-1">
-                      <SendHorizontal size={20} />
-                    </div>
-                    <span className="text-xs">Send</span>
-                  </div>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Withdraw Funds</DialogTitle>
-                    <DialogDescription>
-                      Withdraw money from your wallet. Enter the amount you want to withdraw.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="withdraw-amount">Amount ({currencyType})</Label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-2.5 text-muted-foreground">
-                          {currencyType === "NGN" ? "₦" : "$"}
-                        </span>
-                        <Input id="withdraw-amount" type="number" className="pl-8" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} />
-                      </div>
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button 
-                      variant="outline" 
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setIsWithdrawOpen(false);
-                      }}
-                      type="button"
-                    >
-                      Cancel
-                    </Button>
-                    <Button 
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        
-                        if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
-                          toast.error("Please enter a valid amount");
-                          return;
-                        }
-                        if (Number(amount) > user.walletBalance) {
-                          toast.error("Insufficient funds in your wallet");
-                          return;
-                        }
-                        updateUserBalance(user.id, user.walletBalance - Number(amount));
-                        refreshData();
-                        setAmount("");
-                        setIsWithdrawOpen(false);
-                        toast.success(`Successfully withdrew ${currencyType === "NGN" ? "₦" : "$"}${Number(amount).toLocaleString()}`);
-                      }}
-                      type="button"
-                    >
-                      Withdraw
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-              
-              <div className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors">
-                <Link to="/create-group" className="flex flex-col items-center">
-                  <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-[#2DAE75] mb-1">
-                    <UserPlus size={20} />
-                  </div>
-                  <span className="text-xs">Group</span>
-                </Link>
-              </div>
-              
-              <div className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors" onClick={() => setShowHistory(true)}>
-                <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-[#2DAE75] mb-1">
-                  <Clock size={20} />
-                </div>
-                <span className="text-xs">History</span>
-              </div>
-            </div>
-          </div>
+          <WalletActions 
+            setIsDepositOpen={setIsDepositOpen}
+            isDepositOpen={isDepositOpen}
+            setIsWithdrawOpen={setIsWithdrawOpen}
+            isWithdrawOpen={isWithdrawOpen}
+            amount={amount}
+            setAmount={setAmount}
+            handleDeposit={handleDeposit}
+            handleWithdraw={handleWithdraw}
+            depositMethod={depositMethod}
+            setDepositMethod={setDepositMethod}
+            isProcessingDeposit={isProcessingDeposit}
+            currencyType={currencyType}
+            user={user}
+            setShowHistory={setShowHistory}
+          />
         ) : (
           <div className="bg-white dark:bg-black/40 rounded-t-3xl -mt-3 p-4">
             <div className="flex justify-between items-center mb-4">
