@@ -1,4 +1,4 @@
-import { BASE_URL } from './config';
+import { BASE_URL, SECRET_KEY } from './config';
 import { toast } from 'sonner';
 
 interface VirtualAccountParams {

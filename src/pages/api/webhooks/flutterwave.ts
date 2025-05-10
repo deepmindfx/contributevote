@@ -1,13 +1,9 @@
-import type { Request, Response } from 'express';
+import { NextApiRequest, NextApiResponse } from 'next';
 import { handleWebhook } from '../../../services/flutterwave/webhooks';
-// import { SECRET_KEY } from '../../../services/flutterwave/config'; // Remove this import
+import { SECRET_KEY } from '../../../services/flutterwave/config';
 import crypto from 'crypto';
 
-// Define the secret key here for server-side use only
-const SECRET_KEY = process.env.FLW_SECRET_HASH || 'mySuperSecretHash2024!';
-
-// Express middleware handler for the webhook endpoint
-export async function flutterwaveWebhookHandler(req: Request, res: Response) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ 
       success: false,
@@ -21,27 +17,29 @@ export async function flutterwaveWebhookHandler(req: Request, res: Response) {
       body: req.body
     });
 
-    // --- Signature verification temporarily disabled for testing ---
-    // const signature = req.headers['verif-hash'];
-    // if (!signature) {
-    //   console.error('No signature found in webhook');
-    //   return res.status(401).json({ 
-    //     success: false,
-    //     message: 'Unauthorized - No signature' 
-    //   });
-    // }
-    // const hash = crypto
-    //   .createHmac('sha512', SECRET_KEY)
-    //   .update(JSON.stringify(req.body))
-    //   .digest('hex');
-    // if (hash !== signature) {
-    //   console.error('Invalid webhook signature');
-    //   return res.status(401).json({ 
-    //     success: false,
-    //     message: 'Unauthorized - Invalid signature' 
-    //   });
-    // }
-    // --- End of temporary disable ---
+    // Verify webhook signature
+    const signature = req.headers['verif-hash'];
+    if (!signature) {
+      console.error('No signature found in webhook');
+      return res.status(401).json({ 
+        success: false,
+        message: 'Unauthorized - No signature' 
+      });
+    }
+
+    // Verify the signature
+    const hash = crypto
+      .createHmac('sha512', SECRET_KEY)
+      .update(JSON.stringify(req.body))
+      .digest('hex');
+
+    if (hash !== signature) {
+      console.error('Invalid webhook signature');
+      return res.status(401).json({ 
+        success: false,
+        message: 'Unauthorized - Invalid signature' 
+      });
+    }
 
     // Process the webhook
     const result = await handleWebhook(req.body);
@@ -61,8 +59,4 @@ export async function flutterwaveWebhookHandler(req: Request, res: Response) {
       error: error instanceof Error ? error.message : 'Unknown error'
     });
   }
-}
-
-// To use this handler, import and use it in your Express app:
-// import { flutterwaveWebhookHandler } from './pages/api/webhooks/flutterwave';
-// app.post('/api/webhooks/flutterwave', flutterwaveWebhookHandler); 
+} 

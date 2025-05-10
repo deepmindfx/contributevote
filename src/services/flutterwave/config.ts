@@ -1,17 +1,17 @@
 // Base configuration for Flutterwave API
 export const BASE_URL = 'http://localhost:8082/api/flutterwave';  // Local proxy URL
-// Do NOT export secret keys or use process.env here; only use secrets in server-side code (API routes)
+export const SECRET_KEY = process.env.FLW_SECRET_HASH || 'mySuperSecretHash2024!';
 export const PUBLIC_KEY = 'FLWPUBK-c8219c2937991e7d7db1652def38e630-X';
 export const ENCRYPTION_KEY = '85d93895f84a288eebd6f33c';
 
-// Validate API credentials (only for public keys)
-if (!PUBLIC_KEY || !ENCRYPTION_KEY) {
+// Validate API credentials
+if (!SECRET_KEY || !PUBLIC_KEY || !ENCRYPTION_KEY) {
   console.error('Flutterwave API credentials are not properly configured');
   throw new Error('Flutterwave API credentials are missing');
 }
 
-// Validate API key format (only for public keys)
-if (!PUBLIC_KEY.startsWith('FLWPUBK-')) {
+// Validate API key format
+if (!SECRET_KEY.startsWith('FLWSECK-') || !PUBLIC_KEY.startsWith('FLWPUBK-')) {
   console.error('Invalid Flutterwave API key format');
   throw new Error('Invalid Flutterwave API key format');
 }
@@ -19,6 +19,7 @@ if (!PUBLIC_KEY.startsWith('FLWPUBK-')) {
 // Log configuration (without sensitive data)
 console.log('Flutterwave API Configuration:', {
   baseUrl: BASE_URL,
+  hasSecretKey: !!SECRET_KEY,
   hasPublicKey: !!PUBLIC_KEY,
   hasEncryptionKey: !!ENCRYPTION_KEY
 }); 
