@@ -6,4 +6,10 @@
   from = "/api/flutterwave/*"
   to = "/.netlify/functions/flutterwave-proxy/:splat"
   status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/webhooks/flutterwave"
+  to = "/.netlify/functions/webhooks-flutterwave"
+  status = 200
   force = true 
