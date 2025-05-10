@@ -1,12 +1,19 @@
 const crypto = require('crypto');
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+const fetch = require('node-fetch');
 
 exports.handler = async function(event, context) {
+  console.log('Webhook received:', {
+    method: event.httpMethod,
+    headers: event.headers,
+    body: event.body
+  });
+
   // Only allow POST requests
   if (event.httpMethod !== 'POST') {
+    console.log('Invalid method:', event.httpMethod);
     return {
       statusCode: 405,
-      body: JSON.stringify({ success: false, message: 'Method not allowed' })
+      body: JSON.stringify({ error: 'Method not allowed' })
     };
   }
 
@@ -21,16 +28,27 @@ exports.handler = async function(event, context) {
       };
     }
 
-    // Parse the webhook data
-    const webhookData = JSON.parse(event.body);
+    // Parse the request body
+    const payload = JSON.parse(event.body);
+    console.log('Parsed payload:', payload);
 
-    // Log the incoming webhook (without sensitive data)
-    console.log('Received webhook:', {
-      event: webhookData.event,
-      tx_ref: webhookData.data?.tx_ref,
-      amount: webhookData.data?.amount,
-      currency: webhookData.data?.currency,
-      status: webhookData.data?.status
+    // Verify the event type
+    if (payload.event !== 'charge.completed') {
+      console.log('Ignoring non-charge.completed event:', payload.event);
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ message: 'Event ignored' })
+      };
+    }
+
+    // Extract transaction details
+    const transaction = payload.data;
+    console.log('Transaction details:', {
+      id: transaction.id,
+      amount: transaction.amount,
+      currency: transaction.currency,
+      status: transaction.status,
+      customer: transaction.customer
     });
 
     // Verify webhook signature (replace with your actual secret hash)
@@ -44,8 +62,8 @@ exports.handler = async function(event, context) {
     }
 
     // Process successful charge completion
-    if (webhookData.event === 'charge.completed' && webhookData.data?.status === 'successful') {
-      const { tx_ref, amount } = webhookData.data;
+    if (payload.event === 'charge.completed' && payload.data?.status === 'successful') {
+      const { tx_ref, amount } = payload.data;
       
       // Extract contribution ID from tx_ref
       // Format: COLL_<contributionId>_<timestamp>
@@ -93,15 +111,29 @@ exports.handler = async function(event, context) {
       });
     }
 
-    return {
+    // Store transaction in localStorage (this will be handled by the client)
+    const response = {
       statusCode: 200,
-      body: JSON.stringify({ success: true, message: 'Webhook processed successfully' })
+      body: JSON.stringify({
+        message: 'Webhook processed successfully',
+        transaction: {
+          id: transaction.id,
+          amount: transaction.amount,
+          currency: transaction.currency,
+          status: transaction.status,
+          customer: transaction.customer
+        }
+      })
     };
+
+    console.log('Sending response:', response);
+    return response;
+
   } catch (error) {
     console.error('Error processing webhook:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ success: false, message: 'Internal server error', error: error.message })
+      body: JSON.stringify({ error: 'Internal server error' })
     };
   }
 }; 
