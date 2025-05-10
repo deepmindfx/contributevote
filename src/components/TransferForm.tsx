@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
-import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/router';
+import { useNavigate } from 'react-router-dom';
+import { useApp } from '@/contexts/AppContext';
 
 interface Bank {
   code: string;
@@ -18,8 +18,8 @@ interface TransferFormData {
 }
 
 export default function TransferForm() {
-  const { data: session } = useSession();
-  const router = useRouter();
+  const { user } = useApp();
+  const navigate = useNavigate();
   const [banks, setBanks] = useState<Bank[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingBanks, setIsLoadingBanks] = useState(true);
@@ -67,7 +67,7 @@ export default function TransferForm() {
       }
 
       toast.success('Transfer initiated successfully');
-      router.push('/dashboard');
+      navigate('/dashboard');
     } catch (error: any) {
       toast.error(error.message || 'Failed to initiate transfer');
     } finally {
