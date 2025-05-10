@@ -1,4 +1,3 @@
-
 import { Link } from "react-router-dom";
 import { Clock, PlusCircle, SendHorizontal, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CreditCard, Wallet, Building } from "lucide-react";
 import { User } from "@/services/localStorage/types";
+import TransferForm from "@/components/TransferForm";
 
 interface WalletActionsProps {
   setIsDepositOpen: (value: boolean) => void;
@@ -54,7 +54,7 @@ const WalletActions = ({
               <span className="text-xs">Top Up</span>
             </div>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent>
             <DialogHeader>
               <DialogTitle>Deposit Funds</DialogTitle>
               <DialogDescription>
@@ -172,58 +172,30 @@ const WalletActions = ({
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Withdraw Funds</DialogTitle>
+              <DialogTitle>Send Money</DialogTitle>
               <DialogDescription>
-                Withdraw money from your wallet. Enter the amount you want to withdraw.
+                Transfer money to any Nigerian bank account.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="withdraw-amount">Amount ({currencyType})</Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-2.5 text-muted-foreground">
-                    {currencyType === "NGN" ? "₦" : "$"}
-                  </span>
-                  <Input id="withdraw-amount" type="number" className="pl-8" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} />
-                </div>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button 
-                variant="outline" 
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setIsWithdrawOpen(false);
-                }}
-                type="button"
-              >
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleWithdraw}
-                type="button"
-              >
-                Withdraw
-              </Button>
-            </DialogFooter>
+            <TransferForm />
           </DialogContent>
         </Dialog>
         
-        <div className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors">
-          <Link to="/create-group" className="flex flex-col items-center">
-            <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-[#2DAE75] mb-1">
-              <UserPlus size={20} />
-            </div>
-            <span className="text-xs">Group</span>
-          </Link>
-        </div>
-        
-        <div className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors" onClick={() => setShowHistory(true)}>
+        <div 
+          className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors"
+          onClick={() => setShowHistory(true)}
+        >
           <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-[#2DAE75] mb-1">
             <Clock size={20} />
           </div>
           <span className="text-xs">History</span>
+        </div>
+
+        <div className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors">
+          <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-[#2DAE75] mb-1">
+            <UserPlus size={20} />
+          </div>
+          <span className="text-xs">Invite</span>
         </div>
       </div>
     </div>
