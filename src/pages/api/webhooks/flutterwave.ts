@@ -1,4 +1,4 @@
-import { NextApiRequest, NextApiResponse } from 'next';
+import type { Request, Response } from 'express';
 import { handleWebhook } from '../../../services/flutterwave/webhooks';
 // import { SECRET_KEY } from '../../../services/flutterwave/config'; // Remove this import
 import crypto from 'crypto';
@@ -6,7 +6,8 @@ import crypto from 'crypto';
 // Define the secret key here for server-side use only
 const SECRET_KEY = process.env.FLW_SECRET_HASH || 'mySuperSecretHash2024!';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+// Express middleware handler for the webhook endpoint
+export async function flutterwaveWebhookHandler(req: Request, res: Response) {
   if (req.method !== 'POST') {
     return res.status(405).json({ 
       success: false,
@@ -60,4 +61,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       error: error instanceof Error ? error.message : 'Unknown error'
     });
   }
-} 
+}
+
+// To use this handler, import and use it in your Express app:
+// import { flutterwaveWebhookHandler } from './pages/api/webhooks/flutterwave';
+// app.post('/api/webhooks/flutterwave', flutterwaveWebhookHandler); 
