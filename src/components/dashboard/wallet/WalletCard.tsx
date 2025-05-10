@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
@@ -69,59 +68,26 @@ const WalletCard = () => {
     });
   };
   
-  const handleDeposit = async (e: React.MouseEvent<Element, MouseEvent>) => {
-    // Prevent event bubbling
+  const handleDeposit = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       toast.error("Please enter a valid amount");
       return;
     }
-    
+
     setIsProcessingDeposit(true);
-    
     try {
-      if (depositMethod === "manual") {
-        // Original manual deposit logic
-        updateUserBalance(user.id, user.walletBalance + Number(amount));
-        refreshData();
-        toast.success(`Successfully deposited ${currencyType === "NGN" ? "₦" : "$"}${Number(amount).toLocaleString()}`);
-      } 
-      else if (depositMethod === "card") {
-        // Create an invoice for card payment
-        const result = await createPaymentInvoice({
-          amount: Number(amount),
-          description: "Wallet top-up via card",
-          customerEmail: user.email,
-          customerName: user.name || `${user.firstName} ${user.lastName}`,
-          userId: user.id
-        });
-        
-        if (result && result.checkoutUrl) {
-          // Open the checkout URL in a new tab
-          window.open(result.checkoutUrl, "_blank");
-          toast.success("Payment page opened. Complete your payment to fund your wallet.");
-        } else {
-          toast.error("Failed to create payment invoice");
-        }
-      } 
-      else if (depositMethod === "bank") {
-        // For bank transfer, direct to dashboard to see account details
-        if (user.reservedAccount) {
-          toast.success("Use your virtual account details to make a bank transfer");
-        } else {
-          toast.info("You need to set up a virtual account first");
-          navigate("/dashboard");
-        }
-      }
+      // Your deposit logic here
+      await updateUserBalance(Number(amount));
+      await refreshData();
+      setIsDepositOpen(false);
+      toast.success("Deposit successful");
     } catch (error) {
-      console.error("Error processing deposit:", error);
-      toast.error("Failed to process deposit. Please try again.");
+      toast.error("Failed to process deposit");
     } finally {
       setIsProcessingDeposit(false);
-      setAmount("");
-      setIsDepositOpen(false);
     }
   };
   
@@ -146,7 +112,7 @@ const WalletCard = () => {
   };
   
   const toggleBalance = () => {
-    setShowBalance(!showBalance);
+    setShowBalance(prev => !prev);
   };
 
   // Convert NGN to USD (simplified conversion rate)
@@ -156,13 +122,11 @@ const WalletCard = () => {
 
   // Format the balance based on selected currency
   const getFormattedBalance = () => {
-    const balance = user?.walletBalance || 0;
-    if (currencyType === "NGN") {
-      return `₦${balance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-    } else {
-      const usdBalance = convertToUSD(balance);
-      return `$${usdBalance.toFixed(2)}`;
-    }
+    if (!user?.wallet) return "0.00";
+    const balance = user.wallet.balance;
+    return currencyType === "NGN" 
+      ? `₦${balance.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      : `$${(balance / 1000).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
   
   // View transaction details
@@ -191,7 +155,7 @@ const WalletCard = () => {
             amount={amount}
             setAmount={setAmount}
             handleDeposit={handleDeposit}
-            handleWithdraw={handleWithdraw}
+            handleWithdraw={() => {}} // Empty function since we're using TransferForm
             depositMethod={depositMethod}
             setDepositMethod={setDepositMethod}
             isProcessingDeposit={isProcessingDeposit}
@@ -205,7 +169,7 @@ const WalletCard = () => {
             viewTransactionDetails={viewTransactionDetails}
             setShowHistory={setShowHistory}
             currencyType={currencyType}
-            convertToUSD={convertToUSD}
+            convertToUSD={(amount) => amount / 1000}
             selectedTransaction={selectedTransaction}
             isTransactionDetailsOpen={isTransactionDetailsOpen}
             setIsTransactionDetailsOpen={setIsTransactionDetailsOpen}
