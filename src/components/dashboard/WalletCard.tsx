@@ -13,7 +13,7 @@ import { format } from "date-fns";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { createPaymentInvoice, getReservedAccountTransactions } from "@/services/walletIntegration";
-import WalletActions from "@/components/dashboard/WalletActions";
+import WalletActions from "@/components/dashboard/wallet/WalletActions";
 
 const WalletCard = () => {
   const navigate = useNavigate();
