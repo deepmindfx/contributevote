@@ -1,0 +1,19 @@
+model Transfer {
+  id              String    @id @default(cuid())
+  userId          String
+  amount          Float
+  currency        String
+  status          String    @default("PENDING") // PENDING, COMPLETED, FAILED
+  reference       String    @unique
+  recipientAccount String
+  recipientBank   String
+  recipientName   String
+  narration       String?
+  metadata        Json?
+  createdAt       DateTime  @default(now())
+  completedAt     DateTime?
+  user            User      @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([reference])
+} 
