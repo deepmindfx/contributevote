@@ -5,10 +5,20 @@ import {
   updateUserBalance,
   getUserByEmail
 } from '../localStorage';
-import { verifyTransaction } from './virtualAccounts';
+import { verifyTransaction } from './transactions';
 
-interface WebhookData {
-  event: string;
+// Webhook event types
+export type WebhookEvent = 
+  | 'charge.completed'
+  | 'charge.failed'
+  | 'transfer.completed'
+  | 'transfer.failed'
+  | 'subscription.cancelled'
+  | 'refund.completed';
+
+// Webhook payload interface
+export interface WebhookData {
+  event: WebhookEvent;
   data: {
     id: number;
     tx_ref: string;
@@ -22,37 +32,44 @@ interface WebhookData {
       id: number;
       name: string;
       email: string;
+      phone_number: string | null;
+      created_at: string;
     };
-    narration?: string;
-    account_id?: number;
-    account_number?: string;
+    card?: {
+      first_6digits: string;
+      last_4digits: string;
+      issuer: string;
+      country: string;
+      type: string;
+      expiry: string;
+    };
   };
-  'event.type': string;
 }
 
 /**
- * Handle incoming webhook from Flutterwave
- * @param webhookData The webhook payload from Flutterwave
+ * Verify webhook signature
+ * @param payload The webhook payload
+ * @param signature The signature from the verif-hash header
+ * @returns boolean indicating if signature is valid
  */
-export const handleWebhook = async (webhookData: WebhookData) => {
+export const verifyWebhookSignature = (payload: any, signature: string): boolean => {
+  const secretHash = import.meta.env.VITE_FLW_SECRET_HASH;
+  if (!secretHash) {
+    console.error('Flutterwave webhook secret hash not configured');
+    return false;
+  }
+  return signature === secretHash;
+};
+
+/**
+ * Process a successful payment
+ * @param data The payment data from the webhook
+ */
+const processSuccessfulPayment = async (data: WebhookData['data']) => {
   try {
-    console.log('Received webhook:', webhookData);
-
-    // Only process successful bank transfers
-    if (
-      webhookData.event !== 'charge.completed' ||
-      webhookData['event.type'] !== 'BANK_TRANSFER_TRANSACTION' ||
-      webhookData.data.status !== 'successful' ||
-      webhookData.data.payment_type !== 'bank_transfer'
-    ) {
-      console.log('Ignoring non-relevant webhook event');
-      return { success: true, message: 'Event ignored' };
-    }
-
-    const { data } = webhookData;
-    
     // Verify the transaction with Flutterwave
     const verificationResult = await verifyTransaction(data.tx_ref);
+    
     if (!verificationResult.success) {
       console.error('Transaction verification failed:', verificationResult);
       return {
@@ -78,8 +95,8 @@ export const handleWebhook = async (webhookData: WebhookData) => {
         error: 'Amount or currency mismatch'
       };
     }
-    
-    // Find user by email from the webhook data
+
+    // Find user by email
     const user = getUserByEmail(data.customer.email);
     if (!user) {
       console.error('User not found for email:', data.customer.email);
@@ -90,74 +107,105 @@ export const handleWebhook = async (webhookData: WebhookData) => {
       };
     }
 
-    // Check if transaction already exists
-    const existingTransaction = user.transactions?.find(
-      t => t.referenceId === data.flw_ref
-    );
-
-    if (existingTransaction) {
-      console.log('Transaction already processed:', data.flw_ref);
+    // Update user's balance
+    const updateResult = updateUserBalance(user.id, data.amount);
+    if (!updateResult.success) {
+      console.error('Failed to update user balance:', updateResult);
       return {
-        success: true,
-        message: 'Transaction already processed',
-        data: existingTransaction
+        success: false,
+        message: 'Failed to update user balance',
+        error: updateResult.message
       };
     }
 
-    // Create new transaction record
-    const newTransaction = {
-      userId: user.id,
-      contributionId: '', // Empty for direct wallet funding
-      type: 'deposit',
-      amount: data.amount,
-      status: 'completed',
-      description: data.narration || 'Bank transfer to virtual account',
-      referenceId: data.flw_ref,
-      paymentMethod: 'bank_transfer',
-      updatedAt: new Date().toISOString(),
-      metaData: {
-        senderName: data.customer.name,
-        bankName: 'Bank Transfer',
-        narration: data.narration || '',
-        transactionReference: data.tx_ref,
-        paymentReference: data.flw_ref,
-        accountNumber: data.account_number || '',
-        accountId: data.account_id?.toString() || ''
-      }
-    };
+    // Show success notification
+    toast.success(`Payment of ${data.amount} ${data.currency} received successfully`);
 
-    // Add transaction to history
-    addTransaction(newTransaction);
-
-    // Update user's wallet balance
-    const newBalance = (user.walletBalance || 0) + data.amount;
-    updateUserBalance(user.id, newBalance);
-
-    console.log('Successfully processed webhook:', {
-      userId: user.id,
-      transactionId: data.flw_ref,
-      amount: data.amount,
-      newBalance,
-      email: data.customer.email
-    });
-
-    // Send notification to user
-    toast.success(`Successfully credited ${data.amount} to your wallet`);
-    
     return {
       success: true,
-      message: 'Webhook processed successfully',
-      data: {
-        userId: user.id,
-        amount: data.amount,
-        newBalance
-      }
+      message: 'Payment processed successfully'
     };
   } catch (error) {
-    console.error('Error processing webhook:', error);
+    console.error('Error processing payment:', error);
     return {
       success: false,
       message: 'Error processing payment',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+};
+
+/**
+ * Handle incoming webhook from Flutterwave
+ * @param webhookData The webhook payload from Flutterwave
+ * @param signature The signature from the verif-hash header
+ */
+export const handleWebhook = async (webhookData: WebhookData, signature: string) => {
+  try {
+    console.log('Received webhook:', webhookData);
+
+    // Verify webhook signature
+    if (!verifyWebhookSignature(webhookData, signature)) {
+      console.error('Invalid webhook signature');
+      return {
+        success: false,
+        message: 'Invalid webhook signature'
+      };
+    }
+
+    // Handle different event types
+    switch (webhookData.event) {
+      case 'charge.completed':
+        return await processSuccessfulPayment(webhookData.data);
+      
+      case 'charge.failed':
+        console.log('Payment failed:', webhookData.data);
+        toast.error('Payment failed. Please try again.');
+        return {
+          success: true,
+          message: 'Payment failure logged'
+        };
+
+      case 'transfer.completed':
+        console.log('Transfer completed:', webhookData.data);
+        return {
+          success: true,
+          message: 'Transfer completed'
+        };
+
+      case 'transfer.failed':
+        console.log('Transfer failed:', webhookData.data);
+        return {
+          success: true,
+          message: 'Transfer failure logged'
+        };
+
+      case 'subscription.cancelled':
+        console.log('Subscription cancelled:', webhookData.data);
+        return {
+          success: true,
+          message: 'Subscription cancellation logged'
+        };
+
+      case 'refund.completed':
+        console.log('Refund completed:', webhookData.data);
+        return {
+          success: true,
+          message: 'Refund completed'
+        };
+
+      default:
+        console.log('Unhandled webhook event:', webhookData.event);
+        return {
+          success: true,
+          message: 'Unhandled event type'
+        };
+    }
+  } catch (error) {
+    console.error('Error handling webhook:', error);
+    return {
+      success: false,
+      message: 'Error processing webhook',
       error: error instanceof Error ? error.message : 'Unknown error'
     };
   }
