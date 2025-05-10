@@ -1,7 +1,10 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { handleWebhook } from '../../../services/flutterwave/webhooks';
-import { SECRET_KEY } from '../../../services/flutterwave/config';
+// import { SECRET_KEY } from '../../../services/flutterwave/config'; // Remove this import
 import crypto from 'crypto';
+
+// Define the secret key here for server-side use only
+const SECRET_KEY = process.env.FLW_SECRET_HASH || 'mySuperSecretHash2024!';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
