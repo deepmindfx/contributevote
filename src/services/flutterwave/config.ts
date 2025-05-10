@@ -1,9 +1,8 @@
 // Base configuration for Flutterwave API
 const isProduction = import.meta.env.PROD;
 
-export const BASE_URL = isProduction 
-  ? 'https://api.flutterwave.com/v3'  // Production URL
-  : '/api/flutterwave';               // Development URL (using Vite proxy)
+// Use proxy in both development and production to handle CORS
+export const BASE_URL = '/api/flutterwave';
 
 // Use environment variables for API keys
 export const SECRET_KEY = isProduction

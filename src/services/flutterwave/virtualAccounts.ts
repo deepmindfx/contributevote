@@ -43,7 +43,8 @@ export const createVirtualAccount = async (data: VirtualAccountParams) => {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${SECRET_KEY}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
       },
       body: JSON.stringify(requestBody)
     });
@@ -94,6 +95,13 @@ export const createVirtualAccount = async (data: VirtualAccountParams) => {
         return {
           success: false,
           message: responseData.message || "Invalid request parameters"
+        };
+      }
+      
+      if (response.status === 0) {
+        return {
+          success: false,
+          message: "Network error: Unable to connect to Flutterwave API. Please check your internet connection."
         };
       }
       

@@ -15,8 +15,9 @@ export default defineConfig(({ mode }) => ({
         rewrite: (path) => path.replace(/^\/api\/flutterwave/, ''),
         secure: true,
         headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
+          'Access-Control-Allow-Headers': 'X-Requested-With, content-type, Authorization'
         },
         configure: (proxy, _options) => {
           proxy.on('error', (err, _req, _res) => {
