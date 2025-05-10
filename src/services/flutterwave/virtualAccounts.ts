@@ -36,20 +36,26 @@ export const createVirtualAccount = async (data: VirtualAccountParams) => {
       headers: {
         'Authorization': `Bearer ${SECRET_KEY}`,
         'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+        'Accept': 'application/json'
       },
-      mode: 'cors',
-      credentials: 'omit',
       body: JSON.stringify(requestBody)
     });
     
-    console.log("Response status:", response.status);
-    console.log("Response headers:", Object.fromEntries(response.headers.entries()));
+    // Log the raw response for debugging
+    const responseText = await response.text();
+    console.log("Raw response:", responseText);
     
-    const responseData = await response.json();
+    let responseData;
+    try {
+      responseData = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error("Failed to parse response as JSON:", parseError);
+      return {
+        success: false,
+        message: "Invalid response from payment provider"
+      };
+    }
+    
     console.log("Response data:", responseData);
     
     if (!response.ok) {

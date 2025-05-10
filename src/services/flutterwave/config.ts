@@ -14,4 +14,12 @@ if (!SECRET_KEY || !PUBLIC_KEY || !ENCRYPTION_KEY) {
 if (!SECRET_KEY.startsWith('FLWSECK-') || !PUBLIC_KEY.startsWith('FLWPUBK-')) {
   console.error('Invalid Flutterwave API key format');
   throw new Error('Invalid Flutterwave API key format');
-} 
+}
+
+// Log configuration (without sensitive data)
+console.log('Flutterwave API Configuration:', {
+  baseUrl: BASE_URL,
+  hasSecretKey: !!SECRET_KEY,
+  hasPublicKey: !!PUBLIC_KEY,
+  hasEncryptionKey: !!ENCRYPTION_KEY
+}); 
