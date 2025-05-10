@@ -31,11 +31,13 @@ export const createVirtualAccount = async (data: VirtualAccountParams) => {
       amount: data.amount || 0
     };
     
+    console.log("Environment:", import.meta.env.PROD ? "Production" : "Development");
     console.log("Request URL:", `${BASE_URL}/virtual-account-numbers`);
     console.log("Request headers:", {
       'Authorization': 'Bearer ****' + SECRET_KEY.slice(-10),
       'Content-Type': 'application/json'
     });
+    console.log("Request body:", JSON.stringify(requestBody, null, 2));
     
     const response = await fetch(`${BASE_URL}/virtual-account-numbers`, {
       method: 'POST',
@@ -47,6 +49,7 @@ export const createVirtualAccount = async (data: VirtualAccountParams) => {
     });
     
     console.log("Response status:", response.status);
+    console.log("Response status text:", response.statusText);
     console.log("Response headers:", Object.fromEntries(response.headers.entries()));
     
     // Log raw response for debugging
@@ -63,7 +66,12 @@ export const createVirtualAccount = async (data: VirtualAccountParams) => {
       });
       return {
         success: false,
-        message: "Invalid response format from Flutterwave"
+        message: "Invalid response format from Flutterwave",
+        debug: {
+          status: response.status,
+          statusText: response.statusText,
+          responseText: responseText.substring(0, 200) + '...'
+        }
       };
     }
     

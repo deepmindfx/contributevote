@@ -1,8 +1,22 @@
 // Base configuration for Flutterwave API
-export const BASE_URL = '/api/flutterwave';
-export const SECRET_KEY = 'FLWSECK-85d93895f84a5bd92b7fbad3e211fd76-1965a626b3cvt-X';
-export const PUBLIC_KEY = 'FLWPUBK-c8219c2937991e7d7db1652def38e630-X';
-export const ENCRYPTION_KEY = '85d93895f84a288eebd6f33c';
+const isProduction = import.meta.env.PROD;
+
+export const BASE_URL = isProduction 
+  ? 'https://api.flutterwave.com/v3'  // Production URL
+  : '/api/flutterwave';               // Development URL (using Vite proxy)
+
+// Use environment variables for API keys
+export const SECRET_KEY = isProduction
+  ? import.meta.env.VITE_FLW_SECRET_KEY_PROD
+  : import.meta.env.VITE_FLW_SECRET_KEY_TEST;
+
+export const PUBLIC_KEY = isProduction
+  ? import.meta.env.VITE_FLW_PUBLIC_KEY_PROD
+  : import.meta.env.VITE_FLW_PUBLIC_KEY_TEST;
+
+export const ENCRYPTION_KEY = isProduction
+  ? import.meta.env.VITE_FLW_ENCRYPTION_KEY_PROD
+  : import.meta.env.VITE_FLW_ENCRYPTION_KEY_TEST;
 
 // Validate API credentials
 if (!SECRET_KEY || !PUBLIC_KEY || !ENCRYPTION_KEY) {
@@ -18,6 +32,7 @@ if (!SECRET_KEY.startsWith('FLWSECK-') || !PUBLIC_KEY.startsWith('FLWPUBK-')) {
 
 // Log configuration (without sensitive data)
 console.log('Flutterwave API Configuration:', {
+  environment: isProduction ? 'Production' : 'Development',
   baseUrl: BASE_URL,
   hasSecretKey: !!SECRET_KEY,
   hasPublicKey: !!PUBLIC_KEY,
