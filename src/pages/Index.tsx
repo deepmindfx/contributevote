@@ -46,9 +46,11 @@ const Index = () => {
               Create contribution groups where funds can only be withdrawn with member approval. 
               Perfect for thrift savings, event funding, and community projects.
             </p>
-            <p className="text-sm text-muted-foreground">
-              Developed by Traceroot Technology Solutions
-            </p>
+            <div className="bg-primary/10 px-6 py-3 rounded-lg animate-pulse hover:animate-none transition-all duration-300 hover:bg-primary/20">
+              <p className="text-sm font-medium text-primary">
+                Developed by Traceroot Technology Solutions
+              </p>
+            </div>
             <div className="flex flex-col sm:flex-row gap-4 pt-4">
               <Button size="lg" asChild className="animate-slide-up animation-delay-200">
                 <Link to="/auth">Get Started</Link>
@@ -170,7 +172,11 @@ const Index = () => {
           <div className="mt-8 text-center text-muted-foreground text-sm">
             © {new Date().getFullYear()} CollectiPay. All rights reserved.
             <br />
-            Developed by Traceroot Technology Solutions
+            <div className="mt-2 inline-block bg-primary/10 px-4 py-2 rounded-lg animate-pulse hover:animate-none transition-all duration-300 hover:bg-primary/20">
+              <span className="text-primary font-medium">
+                Developed by Traceroot Technology Solutions
+              </span>
+            </div>
           </div>
         </div>
       </footer>
