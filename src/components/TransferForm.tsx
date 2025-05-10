@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
@@ -21,31 +21,29 @@ export default function TransferForm() {
   const { user } = useApp();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
-  // Mocked list of popular Nigerian banks
-  const banks: Bank[] = [
-    { code: '044', name: 'Access Bank' },
-    { code: '063', name: 'Access Bank (Diamond)' },
-    { code: '050', name: 'Ecobank Nigeria' },
-    { code: '070', name: 'Fidelity Bank' },
-    { code: '011', name: 'First Bank of Nigeria' },
-    { code: '214', name: 'First City Monument Bank (FCMB)' },
-    { code: '058', name: 'Guaranty Trust Bank (GTB)' },
-    { code: '030', name: 'Heritage Bank' },
-    { code: '082', name: 'Keystone Bank' },
-    { code: '221', name: 'Stanbic IBTC Bank' },
-    { code: '232', name: 'Sterling Bank' },
-    { code: '032', name: 'Union Bank of Nigeria' },
-    { code: '033', name: 'United Bank for Africa (UBA)' },
-    { code: '215', name: 'Unity Bank' },
-    { code: '035', name: 'Wema Bank' },
-    { code: '057', name: 'Zenith Bank' },
-  ];
+  const [banks, setBanks] = useState<Bank[]>([]);
+  const [isLoadingBanks, setIsLoadingBanks] = useState(true);
 
   const {
     register,
     handleSubmit,
     formState: { errors }
   } = useForm<TransferFormData>();
+
+  useEffect(() => {
+    const fetchBanks = async () => {
+      try {
+        const response = await fetch('http://localhost:5000/api/banks');
+        const data = await response.json();
+        setBanks(data.data);
+      } catch (error) {
+        toast.error('Failed to fetch banks');
+      } finally {
+        setIsLoadingBanks(false);
+      }
+    };
+    fetchBanks();
+  }, []);
 
   const onSubmit = async (data: TransferFormData) => {
     setIsLoading(true);
@@ -178,10 +176,10 @@ export default function TransferForm() {
       <div>
         <button
           type="submit"
-          disabled={isLoading}
+          disabled={isLoading || isLoadingBanks}
           className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#2DAE75] hover:bg-[#249e69] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2DAE75] disabled:opacity-50 transition-colors"
         >
-          {isLoading ? 'Processing...' : 'Send Money'}
+          {isLoading ? 'Processing...' : isLoadingBanks ? 'Loading banks...' : 'Send Money'}
         </button>
       </div>
     </form>
