@@ -5,7 +5,10 @@ import crypto from 'crypto';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' });
+    return res.status(405).json({ 
+      success: false,
+      message: 'Method not allowed' 
+    });
   }
 
   try {
@@ -18,7 +21,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const signature = req.headers['verif-hash'];
     if (!signature) {
       console.error('No signature found in webhook');
-      return res.status(401).json({ message: 'Unauthorized' });
+      return res.status(401).json({ 
+        success: false,
+        message: 'Unauthorized - No signature' 
+      });
     }
 
     // Verify the signature
@@ -29,7 +35,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (hash !== signature) {
       console.error('Invalid webhook signature');
-      return res.status(401).json({ message: 'Invalid signature' });
+      return res.status(401).json({ 
+        success: false,
+        message: 'Unauthorized - Invalid signature' 
+      });
     }
 
     // Process the webhook

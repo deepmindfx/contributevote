@@ -5,6 +5,7 @@ import {
   updateUserBalance,
   getUserByEmail
 } from '../localStorage';
+import { verifyTransaction } from './virtualAccounts';
 
 interface WebhookData {
   event: string;
@@ -45,16 +46,48 @@ export const handleWebhook = async (webhookData: WebhookData) => {
       webhookData.data.payment_type !== 'bank_transfer'
     ) {
       console.log('Ignoring non-relevant webhook event');
-      return;
+      return { success: true, message: 'Event ignored' };
     }
 
     const { data } = webhookData;
+    
+    // Verify the transaction with Flutterwave
+    const verificationResult = await verifyTransaction(data.tx_ref);
+    if (!verificationResult.success) {
+      console.error('Transaction verification failed:', verificationResult);
+      return {
+        success: false,
+        message: 'Transaction verification failed',
+        error: verificationResult.message
+      };
+    }
+
+    // Verify transaction details match
+    if (
+      verificationResult.data.status !== 'successful' ||
+      verificationResult.data.amount !== data.amount ||
+      verificationResult.data.currency !== data.currency
+    ) {
+      console.error('Transaction details mismatch:', {
+        expected: verificationResult.data,
+        received: data
+      });
+      return {
+        success: false,
+        message: 'Transaction details mismatch',
+        error: 'Amount or currency mismatch'
+      };
+    }
     
     // Find user by email from the webhook data
     const user = getUserByEmail(data.customer.email);
     if (!user) {
       console.error('User not found for email:', data.customer.email);
-      return;
+      return {
+        success: false,
+        message: 'User not found',
+        error: `No user found with email ${data.customer.email}`
+      };
     }
 
     // Check if transaction already exists
@@ -64,7 +97,11 @@ export const handleWebhook = async (webhookData: WebhookData) => {
 
     if (existingTransaction) {
       console.log('Transaction already processed:', data.flw_ref);
-      return;
+      return {
+        success: true,
+        message: 'Transaction already processed',
+        data: existingTransaction
+      };
     }
 
     // Create new transaction record
