@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/contexts/AppContext';
-import { ChevronDown, Info, ArrowLeft } from 'lucide-react';
+import { ChevronDown, User, Info, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface Bank {
@@ -91,18 +91,16 @@ export default function TransferForm() {
         <h1 className="text-lg font-semibold flex-1 text-center pr-8">Transfer to Bank Account</h1>
       </div>
       
-      <div className="flex-1 p-4 overflow-auto max-w-xl mx-auto w-full">
-        {/* Account Limit Alert */}
+      <div className="flex-1 p-4 overflow-auto">
+        {/* Daily Transaction Limit Alert */}
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6 flex items-center">
-          <Info className="h-5 w-5 text-amber-500 mr-2 flex-shrink-0" />
-          <span className="text-sm text-amber-800">
-            Daily Transaction Limit: ₦500,000.00. This is the maximum amount you can transfer in a day.
-          </span>
+          <Info className="h-5 w-5 text-amber-500 mr-2" />
+          <span className="text-sm text-amber-800">Daily Transaction Limit: ₦1,000,000.00</span>
         </div>
         
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-700">Bank</label>
+            <label className="text-sm font-medium text-gray-700">To:</label>
             <div className="relative">
               <select
                 {...register('bankCode', { required: 'Bank is required' })}
@@ -142,6 +140,14 @@ export default function TransferForm() {
             )}
           </div>
 
+          <Button
+            type="button"
+            variant="outline"
+            className="flex items-center justify-center gap-2 w-auto text-sm py-1.5 px-3 border-gray-300"
+          >
+            <User className="h-4 w-4" /> Select from Beneficiary
+          </Button>
+
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-gray-700">Amount (₦)</label>
             <div className="relative">
@@ -153,10 +159,6 @@ export default function TransferForm() {
                   min: {
                     value: 100,
                     message: 'Minimum amount is ₦100'
-                  },
-                  max: {
-                    value: 500000,
-                    message: 'Maximum amount is ₦500,000'
                   }
                 })}
                 className="w-full p-3 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2DAE75] focus:border-transparent"
