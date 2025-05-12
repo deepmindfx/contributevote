@@ -69,7 +69,25 @@ app.post('/api/transfer', async (req, res) => {
 
     // Validate required fields
     if (!amount || !accountNumber || !bankCode || !beneficiaryName || !currency) {
-      return res.status(400).json({ message: 'Missing required fields' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'Missing required fields' 
+      });
+    }
+
+    // Validate amount
+    if (amount < 100) {
+      return res.status(400).json({
+        success: false,
+        message: 'Minimum transfer amount is ₦100'
+      });
+    }
+
+    if (amount > 500000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Maximum transfer amount is ₦500,000'
+      });
     }
 
     // Generate unique reference
@@ -88,6 +106,8 @@ app.post('/api/transfer', async (req, res) => {
       beneficiary_name: beneficiaryName
     };
 
+    console.log('Initiating transfer with payload:', transferPayload);
+
     // Initiate transfer with Flutterwave
     const response = await axios.post('https://api.flutterwave.com/v3/transfers', transferPayload, {
       headers: {
@@ -95,6 +115,8 @@ app.post('/api/transfer', async (req, res) => {
         'Content-Type': 'application/json'
       }
     });
+
+    console.log('Flutterwave transfer response:', response.data);
 
     if (response.data.status !== 'success') {
       throw new Error(response.data.message || 'Transfer failed');
@@ -106,7 +128,8 @@ app.post('/api/transfer', async (req, res) => {
       message: 'Transfer initiated successfully',
       data: {
         reference: reference,
-        status: 'PENDING'
+        status: 'PENDING',
+        transferId: response.data.data.id
       }
     });
 

@@ -22,7 +22,7 @@ interface TransferFormData {
 }
 
 export default function TransferForm() {
-  const { user } = useApp();
+  const { user, refreshData } = useApp();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [banks, setBanks] = useState<Bank[]>([]);
@@ -147,6 +147,15 @@ export default function TransferForm() {
 
     setIsLoading(true);
     try {
+      // First validate the account again before transfer
+      const validateResponse = await fetch(`/api/resolve-account?bankCode=${transferData.bankCode}&accountNumber=${transferData.accountNumber}`);
+      const validateData = await validateResponse.json();
+      
+      if (!validateData.success) {
+        throw new Error('Failed to validate account details');
+      }
+
+      // Proceed with transfer
       const response = await fetch('/api/transfer', {
         method: 'POST',
         headers: {
@@ -154,19 +163,29 @@ export default function TransferForm() {
         },
         body: JSON.stringify({
           ...transferData,
-          currency: 'NGN'
+          currency: 'NGN',
+          beneficiaryName: validateData.data.account_name // Use the validated name
         }),
       });
 
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.message);
+        throw new Error(result.message || 'Transfer failed');
       }
 
-      toast.success('Transfer completed successfully');
-      navigate('/dashboard');
+      if (result.success) {
+        toast.success('Transfer initiated successfully');
+        // Refresh user data to update balance
+        if (typeof refreshData === 'function') {
+          refreshData();
+        }
+        navigate('/dashboard');
+      } else {
+        throw new Error(result.message || 'Transfer failed');
+      }
     } catch (error: any) {
+      console.error('Transfer error:', error);
       toast.error(error.message || 'Failed to complete transfer');
     } finally {
       setIsLoading(false);
