@@ -1,8 +1,9 @@
+
 import { v4 as uuidv4 } from 'uuid';
 import { Transaction } from './types';
 import { addTransaction } from '@/localStorage'; // Import from original localStorage.ts
 
-export const getTransactions = (): any[] => {
+export const getTransactions = (): Transaction[] => {
   try {
     const transactionsString = localStorage.getItem('transactions');
     return transactionsString ? JSON.parse(transactionsString) : [];
@@ -12,7 +13,7 @@ export const getTransactions = (): any[] => {
   }
 };
 
-export const createTransaction = (transaction: any): void => {
+export const createTransaction = (transaction: Omit<Transaction, 'id' | 'createdAt'>): void => {
   try {
     const transactions = getTransactions();
     
@@ -30,7 +31,7 @@ export const createTransaction = (transaction: any): void => {
       }
     }
     
-    const newTransaction = {
+    const newTransaction: Transaction = {
       id: uuidv4(),
       createdAt: new Date().toISOString(),
       ...transaction,
@@ -44,15 +45,8 @@ export const createTransaction = (transaction: any): void => {
       return;
     }
     
-    // Log transaction for debugging
-    console.log("New transaction to be saved:", newTransaction);
-    
-    // Add the transaction to the array
     transactions.push(newTransaction);
-    
-    // Save back to localStorage
     localStorage.setItem('transactions', JSON.stringify(transactions));
-    console.log("Updated transactions in localStorage:", transactions);
     
     // Now we also call our local addTransaction to keep things in sync
     // This is for backward compatibility

@@ -1,4 +1,3 @@
-
 # Transaction Flow
 
 This document outlines the transaction flow in the ContributeVote application, with a focus on bank transfers and transaction history.

@@ -1,5 +1,5 @@
-
 import { useState, useEffect } from 'react';
+import { formatCurrency } from '@/lib/utils';
 import { ArrowLeft, Download, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
@@ -36,10 +36,6 @@ export default function TransactionHistory() {
     loadTransactions();
   }, []);
 
-  const formatCurrency = (amount: number): string => {
-    return `₦${amount.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  };
-
   const generateReceipt = async (transaction: Transaction) => {
     setIsGeneratingReceipt(true);
     try {
@@ -67,14 +63,11 @@ export default function TransactionHistory() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'SUCCESSFUL':
-      case 'completed':
         return 'bg-green-100 text-green-800';
       case 'FAILED':
-      case 'failed':
         return 'bg-red-100 text-red-800';
       case 'NEW':
       case 'PENDING':
-      case 'pending':
         return 'bg-yellow-100 text-yellow-800';
       default:
         return 'bg-gray-100 text-gray-800';
@@ -233,4 +226,4 @@ export default function TransactionHistory() {
       </div>
     </div>
   );
-}
+} 

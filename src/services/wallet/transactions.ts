@@ -17,13 +17,13 @@ interface TransactionFilter {
 /**
  * Get transactions with optional filtering
  */
-export const getWalletTransactions = (filters?: TransactionFilter): any[] => {
+export const getWalletTransactions = (filters?: TransactionFilter): Transaction[] => {
   try {
     // Get transactions from localStorage
     const transactionsString = localStorage.getItem('transactions');
     if (!transactionsString) return [];
     
-    const transactions: any[] = JSON.parse(transactionsString);
+    const transactions: Transaction[] = JSON.parse(transactionsString);
     
     // Apply filters if provided
     if (!filters) return transactions;
@@ -61,22 +61,22 @@ export const getWalletTransactions = (filters?: TransactionFilter): any[] => {
  * Process a wallet transaction
  * This is a placeholder for future implementation that might involve APIs
  */
-export const processTransaction = (transaction: Partial<any>): Promise<any> => {
+export const processTransaction = (transaction: Partial<Transaction>): Promise<Transaction> => {
   return new Promise((resolve, reject) => {
     try {
       // Here we would typically call an API to process the transaction
       // For now we'll just simulate a successful transaction
       
-      const completedTransaction: any = {
+      const completedTransaction: Transaction = {
         id: `tx_${Date.now()}`,
         userId: transaction.userId || '',
         contributionId: transaction.contributionId || '',
-        type: transaction.type || 'deposit',
+        type: transaction.type || 'unknown',
         amount: transaction.amount || 0,
         status: 'completed',
         description: transaction.description || '',
         paymentMethod: transaction.paymentMethod || 'wallet',
-        reference: transaction.reference || `ref_${Date.now()}`,
+        referenceId: transaction.referenceId || `ref_${Date.now()}`,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         metaData: transaction.metaData || {}
@@ -96,7 +96,7 @@ export const processTransaction = (transaction: Partial<any>): Promise<any> => {
 /**
  * Add a transaction to localStorage
  */
-export const addWalletTransaction = (transaction: any): void => {
+export const addWalletTransaction = (transaction: Transaction): void => {
   try {
     const transactionsString = localStorage.getItem('transactions');
     const transactions = transactionsString ? JSON.parse(transactionsString) : [];
