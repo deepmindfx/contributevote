@@ -1,6 +1,6 @@
 
 import { Link } from "react-router-dom";
-import { Clock, PlusCircle, SendHorizontal } from "lucide-react";
+import { Clock, PlusCircle, SendHorizontal, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -175,15 +175,15 @@ const WalletActions = ({
           <span className="text-xs">Send</span>
         </div>
         
-        {/* History button */}
+        {/* Create Group button - Added back */}
         <div 
           className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors"
-          onClick={() => setShowHistory(true)}
+          onClick={() => navigate("/create-group")}
         >
           <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-[#2DAE75] mb-1">
-            <Clock size={20} />
+            <UserPlus size={20} />
           </div>
-          <span className="text-xs">History</span>
+          <span className="text-xs">Create Group</span>
         </div>
       </div>
     </div>
