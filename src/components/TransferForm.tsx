@@ -1,8 +1,11 @@
+
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/contexts/AppContext';
+import { ChevronDown, User, Info, ArrowLeft } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface Bank {
   code: string;
@@ -75,113 +78,149 @@ export default function TransferForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 bg-white rounded-2xl shadow-lg p-6 border border-green-100">
-      <div>
-        <label className="block text-sm font-medium text-[#2DAE75] mb-1">
-          Amount (₦)
-        </label>
-        <div className="mt-1 relative rounded-md shadow-sm">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <span className="text-[#2DAE75] sm:text-sm font-bold">₦</span>
-          </div>
-          <input
-            type="number"
-            step="0.01"
-            {...register('amount', {
-              required: 'Amount is required',
-              min: {
-                value: 100,
-                message: 'Minimum amount is ₦100'
-              }
-            })}
-            className="block w-full pl-7 pr-12 rounded-md border border-green-200 focus:border-[#2DAE75] focus:ring-[#2DAE75] sm:text-sm bg-green-50 text-green-900 placeholder:text-green-400"
-            placeholder="0.00"
-          />
+    <div className="flex flex-col h-full bg-background">
+      <div className="flex items-center p-4 border-b">
+        <Button 
+          variant="ghost" 
+          size="icon"
+          onClick={() => navigate(-1)}
+          className="mr-2"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <h1 className="text-lg font-semibold flex-1 text-center pr-8">Transfer to Other Banks</h1>
+      </div>
+      
+      <div className="flex-1 p-4 overflow-auto">
+        {/* Daily Transaction Limit Alert */}
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6 flex items-center">
+          <Info className="h-5 w-5 text-amber-500 mr-2" />
+          <span className="text-sm text-amber-800">Daily Transaction Limit: ₦1,000,000.00</span>
         </div>
-        {errors.amount && (
-          <p className="mt-2 text-sm text-red-600">{errors.amount.message}</p>
-        )}
-      </div>
+        
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-gray-700">From:</label>
+            <div className="relative">
+              <select
+                className="w-full p-3 pr-10 border border-gray-300 rounded-lg appearance-none bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2DAE75] focus:border-transparent"
+                defaultValue=""
+              >
+                <option value="" disabled>Select account to debit</option>
+                <option value="wallet">My Wallet (₦{user?.walletBalance?.toLocaleString()})</option>
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-5 w-5" />
+            </div>
+          </div>
 
-      <div>
-        <label className="block text-sm font-medium text-[#2DAE75] mb-1">
-          Bank
-        </label>
-        <select
-          {...register('bankCode', { required: 'Bank is required' })}
-          className="mt-1 block w-full rounded-md border border-green-200 shadow-sm focus:border-[#2DAE75] focus:ring-[#2DAE75] sm:text-sm bg-green-50 text-green-900"
-        >
-          <option value="">Select a bank</option>
-          {banks.map((bank) => (
-            <option key={bank.code} value={bank.code}>
-              {bank.name}
-            </option>
-          ))}
-        </select>
-        {errors.bankCode && (
-          <p className="mt-2 text-sm text-red-600">{errors.bankCode.message}</p>
-        )}
-      </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-gray-700">To:</label>
+            <div className="relative">
+              <select
+                {...register('bankCode', { required: 'Bank is required' })}
+                className="w-full p-3 pr-10 border border-gray-300 rounded-lg appearance-none bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2DAE75] focus:border-transparent"
+                defaultValue=""
+              >
+                <option value="" disabled>Select bank</option>
+                {banks.map((bank) => (
+                  <option key={bank.code} value={bank.code}>
+                    {bank.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-5 w-5" />
+            </div>
+            {errors.bankCode && (
+              <p className="text-sm text-red-600 mt-1">{errors.bankCode.message}</p>
+            )}
+          </div>
 
-      <div>
-        <label className="block text-sm font-medium text-[#2DAE75] mb-1">
-          Account Number
-        </label>
-        <input
-          type="text"
-          {...register('accountNumber', {
-            required: 'Account number is required',
-            pattern: {
-              value: /^\d{10}$/,
-              message: 'Account number must be 10 digits'
-            }
-          })}
-          className="mt-1 block w-full rounded-md border border-green-200 shadow-sm focus:border-[#2DAE75] focus:ring-[#2DAE75] sm:text-sm bg-green-50 text-green-900 placeholder:text-green-400"
-          placeholder="Enter account number"
-        />
-        {errors.accountNumber && (
-          <p className="mt-2 text-sm text-red-600">{errors.accountNumber.message}</p>
-        )}
-      </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-gray-700">Destination Account</label>
+            <input
+              type="text"
+              {...register('accountNumber', {
+                required: 'Account number is required',
+                pattern: {
+                  value: /^\d{10}$/,
+                  message: 'Account number must be 10 digits'
+                }
+              })}
+              className="w-full p-3 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2DAE75] focus:border-transparent"
+              placeholder="0123456789"
+            />
+            {errors.accountNumber && (
+              <p className="text-sm text-red-600 mt-1">{errors.accountNumber.message}</p>
+            )}
+          </div>
 
-      <div>
-        <label className="block text-sm font-medium text-[#2DAE75] mb-1">
-          Beneficiary Name
-        </label>
-        <input
-          type="text"
-          {...register('beneficiaryName', {
-            required: 'Beneficiary name is required'
-          })}
-          className="mt-1 block w-full rounded-md border border-green-200 shadow-sm focus:border-[#2DAE75] focus:ring-[#2DAE75] sm:text-sm bg-green-50 text-green-900 placeholder:text-green-400"
-          placeholder="Enter beneficiary name"
-        />
-        {errors.beneficiaryName && (
-          <p className="mt-2 text-sm text-red-600">{errors.beneficiaryName.message}</p>
-        )}
-      </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="flex items-center justify-center gap-2 w-auto text-sm py-1.5 px-3 border-gray-300"
+          >
+            <User className="h-4 w-4" /> Select from Beneficiary
+          </Button>
 
-      <div>
-        <label className="block text-sm font-medium text-[#2DAE75] mb-1">
-          Narration (Optional)
-        </label>
-        <input
-          type="text"
-          {...register('narration')}
-          className="mt-1 block w-full rounded-md border border-green-200 shadow-sm focus:border-[#2DAE75] focus:ring-[#2DAE75] sm:text-sm bg-green-50 text-green-900 placeholder:text-green-400"
-          placeholder="Enter transfer narration"
-        />
-      </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-gray-700">Amount (₦)</label>
+            <div className="relative">
+              <input
+                type="number"
+                step="0.01"
+                {...register('amount', {
+                  required: 'Amount is required',
+                  min: {
+                    value: 100,
+                    message: 'Minimum amount is ₦100'
+                  }
+                })}
+                className="w-full p-3 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2DAE75] focus:border-transparent"
+                placeholder="0.00"
+              />
+            </div>
+            {errors.amount && (
+              <p className="text-sm text-red-600 mt-1">{errors.amount.message}</p>
+            )}
+          </div>
 
-      <div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-gray-700">Beneficiary Name</label>
+            <input
+              type="text"
+              {...register('beneficiaryName', {
+                required: 'Beneficiary name is required'
+              })}
+              className="w-full p-3 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2DAE75] focus:border-transparent"
+              placeholder="Enter beneficiary name"
+            />
+            {errors.beneficiaryName && (
+              <p className="text-sm text-red-600 mt-1">{errors.beneficiaryName.message}</p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-gray-700">Narration</label>
+            <input
+              type="text"
+              {...register('narration')}
+              className="w-full p-3 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2DAE75] focus:border-transparent"
+              placeholder="Enter transfer narration"
+            />
+          </div>
+        </form>
+      </div>
+      
+      <div className="p-4 border-t bg-gray-50">
         <button
-          type="submit"
+          type="button"
+          onClick={handleSubmit(onSubmit)}
           disabled={isLoading || isLoadingBanks}
-          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#2DAE75] hover:bg-[#249e69] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2DAE75] disabled:opacity-50 transition-colors"
+          className="w-full py-3 px-4 rounded-lg shadow-sm text-white font-medium bg-amber-500 hover:bg-amber-600 disabled:opacity-50 transition-colors"
         >
-          {isLoading ? 'Processing...' : isLoadingBanks ? 'Loading banks...' : 'Send Money'}
+          {isLoading ? 'Processing...' : isLoadingBanks ? 'Loading banks...' : 'Continue'}
         </button>
       </div>
-    </form>
+    </div>
   );
-} 
+}
