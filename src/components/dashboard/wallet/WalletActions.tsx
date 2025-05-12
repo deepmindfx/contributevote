@@ -1,3 +1,4 @@
+
 import { Link } from "react-router-dom";
 import { Clock, PlusCircle, SendHorizontal, UserPlus, ArrowUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -7,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CreditCard, Wallet, Building } from "lucide-react";
 import { User } from "@/services/localStorage/types";
-import TransferForm from "@/components/TransferForm";
+import { useNavigate } from "react-router-dom";
 
 interface WalletActionsProps {
   setIsDepositOpen: (value: boolean) => void;
@@ -42,6 +43,8 @@ const WalletActions = ({
   user,
   setShowHistory
 }: WalletActionsProps) => {
+  const navigate = useNavigate();
+  
   return (
     <div className="bg-white dark:bg-black/40 rounded-t-3xl -mt-3 overflow-hidden">
       <div className="grid grid-cols-5 gap-1 pt-2 px-4">
@@ -210,25 +213,16 @@ const WalletActions = ({
           </DialogContent>
         </Dialog>
 
-        <Dialog>
-          <DialogTrigger asChild>
-            <div className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors">
-              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-[#2DAE75] mb-1">
-                <SendHorizontal size={20} />
-              </div>
-              <span className="text-xs">Send</span>
-            </div>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Send Money</DialogTitle>
-              <DialogDescription>
-                Transfer money to any Nigerian bank account.
-              </DialogDescription>
-            </DialogHeader>
-            <TransferForm />
-          </DialogContent>
-        </Dialog>
+        {/* Updated Send button to navigate to transfer page */}
+        <div 
+          className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors"
+          onClick={() => navigate("/transfer")}
+        >
+          <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-[#2DAE75] mb-1">
+            <SendHorizontal size={20} />
+          </div>
+          <span className="text-xs">Send</span>
+        </div>
         
         <div 
           className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors"

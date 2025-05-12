@@ -88,7 +88,7 @@ export default function TransferForm() {
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <h1 className="text-lg font-semibold flex-1 text-center pr-8">Transfer to Other Banks</h1>
+        <h1 className="text-lg font-semibold flex-1 text-center pr-8">Transfer to Bank Account</h1>
       </div>
       
       <div className="flex-1 p-4 overflow-auto">
@@ -99,20 +99,6 @@ export default function TransferForm() {
         </div>
         
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-700">From:</label>
-            <div className="relative">
-              <select
-                className="w-full p-3 pr-10 border border-gray-300 rounded-lg appearance-none bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2DAE75] focus:border-transparent"
-                defaultValue=""
-              >
-                <option value="" disabled>Select account to debit</option>
-                <option value="wallet">My Wallet (₦{user?.walletBalance?.toLocaleString()})</option>
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-5 w-5" />
-            </div>
-          </div>
-
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-gray-700">To:</label>
             <div className="relative">
@@ -136,7 +122,7 @@ export default function TransferForm() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-700">Destination Account</label>
+            <label className="text-sm font-medium text-gray-700">Account Number</label>
             <input
               type="text"
               {...register('accountNumber', {
@@ -208,18 +194,17 @@ export default function TransferForm() {
               placeholder="Enter transfer narration"
             />
           </div>
+          
+          <div className="pt-4">
+            <button
+              type="submit"
+              disabled={isLoading || isLoadingBanks}
+              className="w-full py-3 px-4 rounded-lg shadow-sm text-white font-medium bg-[#2DAE75] hover:bg-[#249e69] disabled:opacity-50 transition-colors"
+            >
+              {isLoading ? 'Processing...' : isLoadingBanks ? 'Loading banks...' : 'Continue'}
+            </button>
+          </div>
         </form>
-      </div>
-      
-      <div className="p-4 border-t bg-gray-50">
-        <button
-          type="button"
-          onClick={handleSubmit(onSubmit)}
-          disabled={isLoading || isLoadingBanks}
-          className="w-full py-3 px-4 rounded-lg shadow-sm text-white font-medium bg-amber-500 hover:bg-amber-600 disabled:opacity-50 transition-colors"
-        >
-          {isLoading ? 'Processing...' : isLoadingBanks ? 'Loading banks...' : 'Continue'}
-        </button>
       </div>
     </div>
   );
