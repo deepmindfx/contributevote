@@ -1,12 +1,12 @@
-
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/contexts/AppContext';
-import { ChevronDown, Info, ArrowLeft, Lock } from 'lucide-react';
+import { ChevronDown, Info, ArrowLeft, Lock, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
+import { Input } from '@/components/ui/input';
 
 interface Bank {
   code: string;
@@ -26,21 +26,26 @@ export default function TransferForm() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [banks, setBanks] = useState<Bank[]>([]);
+  const [filteredBanks, setFilteredBanks] = useState<Bank[]>([]);
   const [isLoadingBanks, setIsLoadingBanks] = useState(true);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [transferData, setTransferData] = useState<TransferFormData | null>(null);
   const [bankName, setBankName] = useState<string>('');
   const [transactionPin, setTransactionPin] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showBankList, setShowBankList] = useState(false);
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-    watch
+    watch,
+    setValue
   } = useForm<TransferFormData>();
 
   const watchAmount = watch('amount', 0);
   const watchBankCode = watch('bankCode', '');
+  const watchAccountNumber = watch('accountNumber', '');
 
   useEffect(() => {
     const fetchBanks = async () => {
@@ -48,6 +53,7 @@ export default function TransferForm() {
         const response = await fetch('/api/banks');
         const data = await response.json();
         setBanks(data.data);
+        setFilteredBanks(data.data);
       } catch (error) {
         toast.error('Failed to fetch banks');
       } finally {
@@ -58,6 +64,17 @@ export default function TransferForm() {
   }, []);
 
   useEffect(() => {
+    if (searchQuery) {
+      const filtered = banks.filter(bank => 
+        bank.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setFilteredBanks(filtered);
+    } else {
+      setFilteredBanks(banks);
+    }
+  }, [searchQuery, banks]);
+
+  useEffect(() => {
     if (watchBankCode && banks.length > 0) {
       const selectedBank = banks.find(bank => bank.code === watchBankCode);
       if (selectedBank) {
@@ -66,16 +83,49 @@ export default function TransferForm() {
     }
   }, [watchBankCode, banks]);
 
+  // Update the beneficiary name effect
+  useEffect(() => {
+    const fetchBeneficiaryName = async () => {
+      if (watchBankCode && watchAccountNumber && watchAccountNumber.length === 10) {
+        try {
+          const response = await fetch(`/api/resolve-account?bankCode=${watchBankCode}&accountNumber=${watchAccountNumber}`);
+          const data = await response.json();
+          if (data.success && data.data.account_name) {
+            setValue('beneficiaryName', data.data.account_name);
+          }
+        } catch (error) {
+          console.error('Failed to fetch beneficiary name:', error);
+        }
+      }
+    };
+    fetchBeneficiaryName();
+  }, [watchBankCode, watchAccountNumber, setValue]);
+
+  // Add click outside handler for bank dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const bankDropdown = document.getElementById('bank-dropdown');
+      const bankInput = document.getElementById('bank-input');
+      if (bankDropdown && bankInput && !bankDropdown.contains(event.target as Node) && !bankInput.contains(event.target as Node)) {
+        setShowBankList(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   const handleContinue = (data: TransferFormData) => {
     // Check if user has set a PIN
-    if (!user?.transactionPin) {
-      // Instead of redirecting immediately, we'll show the confirmation page
-      // with a message to set the PIN
-      setTransferData(data);
-      setShowConfirmation(true);
+    if (!user?.pin) {
+      toast.error('Please set your transaction PIN in settings first');
+      navigate('/settings');
       return;
     }
     
+    // Set the transfer data and show confirmation
     setTransferData(data);
     setShowConfirmation(true);
   };
@@ -88,15 +138,8 @@ export default function TransferForm() {
   const handleConfirmTransfer = async () => {
     if (!transferData) return;
 
-    // Check if user has set a PIN
-    if (!user?.transactionPin) {
-      toast.error('Please set your transaction PIN in settings first');
-      navigate('/settings');
-      return;
-    }
-
     // Validate PIN
-    if (transactionPin !== user.transactionPin) {
+    if (transactionPin !== user?.pin) {
       toast.error('Invalid transaction PIN');
       setTransactionPin('');
       return;
@@ -220,12 +263,6 @@ export default function TransferForm() {
                 )}
               />
             </div>
-            
-            {!user?.transactionPin && (
-              <p className="text-amber-500 text-sm mt-2 text-center">
-                You haven't set up a transaction PIN yet. You'll be redirected to settings after clicking Confirm.
-              </p>
-            )}
           </div>
           
           <div className="mt-auto space-y-4">
@@ -277,19 +314,43 @@ export default function TransferForm() {
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-gray-700">Select Bank</label>
               <div className="relative">
-                <select
-                  {...register('bankCode', { required: 'Bank is required' })}
-                  className="w-full p-3 pr-10 border border-gray-300 rounded-lg appearance-none bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2DAE75] focus:border-transparent"
-                  defaultValue=""
-                >
-                  <option value="" disabled>Select bank</option>
-                  {banks.map((bank) => (
-                    <option key={bank.code} value={bank.code}>
-                      {bank.name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-5 w-5" />
+                <div className="relative">
+                  <Input
+                    id="bank-input"
+                    type="text"
+                    placeholder="Search banks..."
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setShowBankList(true);
+                    }}
+                    onFocus={() => setShowBankList(true)}
+                    className="w-full p-3 pr-10 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2DAE75] focus:border-transparent"
+                  />
+                  <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-5 w-5" />
+                </div>
+                
+                {showBankList && (
+                  <div 
+                    id="bank-dropdown"
+                    className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto"
+                  >
+                    {filteredBanks.map((bank) => (
+                      <div
+                        key={bank.code}
+                        className="p-2 hover:bg-gray-100 cursor-pointer"
+                        onClick={() => {
+                          setValue('bankCode', bank.code);
+                          setBankName(bank.name);
+                          setShowBankList(false);
+                          setSearchQuery(bank.name);
+                        }}
+                      >
+                        {bank.name}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               {errors.bankCode && (
                 <p className="text-sm text-red-600 mt-1">{errors.bankCode.message}</p>
@@ -348,8 +409,9 @@ export default function TransferForm() {
                 {...register('beneficiaryName', {
                   required: 'Beneficiary name is required'
                 })}
-                className="w-full p-3 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2DAE75] focus:border-transparent"
-                placeholder="Enter beneficiary name"
+                readOnly
+                className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2DAE75] focus:border-transparent"
+                placeholder="Will be auto-filled"
               />
               {errors.beneficiaryName && (
                 <p className="text-sm text-red-600 mt-1">{errors.beneficiaryName.message}</p>
