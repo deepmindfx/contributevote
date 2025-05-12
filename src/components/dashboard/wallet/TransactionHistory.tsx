@@ -1,5 +1,4 @@
-
-import { ArrowDown, ExternalLink } from "lucide-react";
+import { ArrowDown, ExternalLink, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useNavigate } from "react-router-dom";
@@ -75,6 +74,8 @@ const TransactionHistory = ({
   const getSenderName = (transaction: Transaction) => {
     if (transaction.type === 'deposit') {
       return transaction.metaData?.senderName || "Bank Transfer";
+    } else if (transaction.type === 'transfer') {
+      return transaction.recipientName || "Recipient";
     } else {
       return "Wallet Withdrawal";
     }
@@ -82,7 +83,52 @@ const TransactionHistory = ({
   
   // Get sender bank if available
   const getSenderBank = (transaction: Transaction) => {
+    if (transaction.type === 'transfer') {
+      return transaction.bankName || "";
+    }
     return transaction.metaData?.bankName || transaction.metaData?.senderBank || "";
+  };
+  
+  // Get transaction icon based on type
+  const getTransactionIcon = (type: string) => {
+    switch (type) {
+      case 'deposit':
+        return <ArrowDown size={18} />;
+      case 'withdrawal':
+        return <ArrowDown size={18} className="transform rotate-180" />;
+      case 'transfer':
+        return <ArrowRight size={18} />;
+      default:
+        return <ArrowDown size={18} />;
+    }
+  };
+  
+  // Get transaction icon color based on type
+  const getTransactionIconColor = (type: string) => {
+    switch (type) {
+      case 'deposit':
+        return 'bg-green-100 text-[#2DAE75]';
+      case 'withdrawal':
+        return 'bg-amber-100 text-amber-600';
+      case 'transfer':
+        return 'bg-blue-100 text-blue-600';
+      default:
+        return 'bg-gray-100 text-gray-600';
+    }
+  };
+  
+  // Get transaction title based on type
+  const getTransactionTitle = (type: string) => {
+    switch (type) {
+      case 'deposit':
+        return 'Money In';
+      case 'withdrawal':
+        return 'Money Out';
+      case 'transfer':
+        return 'Transfer';
+      default:
+        return type;
+    }
   };
   
   return (
@@ -103,19 +149,21 @@ const TransactionHistory = ({
               onClick={() => viewTransactionDetails(transaction)}
             >
               <div className="flex items-center">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center
-                  ${transaction.type === 'deposit' ? 'bg-green-100 text-[#2DAE75]' : transaction.type === 'withdrawal' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
-                  {transaction.type === 'deposit' ? <ArrowDown size={18} /> : <ArrowDown size={18} className="transform rotate-180" />}
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${getTransactionIconColor(transaction.type)}`}>
+                  {getTransactionIcon(transaction.type)}
                 </div>
                 <div className="ml-3">
                   <p className="font-medium text-sm">
-                    {transaction.type === 'deposit' ? 'Money In' : 'Money Out'}
+                    {getTransactionTitle(transaction.type)}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {transaction.metaData?.senderName || getSenderBank(transaction) ? 
-                      `From: ${transaction.metaData?.senderName || ""} ${getSenderBank(transaction) ? `(${getSenderBank(transaction)})` : ""}` : 
+                    {transaction.type === 'transfer' ? (
+                      `To: ${transaction.recipientName} (${transaction.recipientAccount})`
+                    ) : transaction.metaData?.senderName || getSenderBank(transaction) ? (
+                      `From: ${transaction.metaData?.senderName || ""} ${getSenderBank(transaction) ? `(${getSenderBank(transaction)})` : ""}`
+                    ) : (
                       formatDate(transaction.createdAt)
-                    }
+                    )}
                   </p>
                 </div>
               </div>
@@ -152,9 +200,8 @@ const TransactionHistory = ({
           {selectedTransaction && (
             <div className="space-y-4 py-4">
               <div className="flex justify-center mb-4">
-                <div className={`w-16 h-16 rounded-full flex items-center justify-center
-                  ${selectedTransaction.type === 'deposit' ? 'bg-green-100 text-[#2DAE75]' : 'bg-amber-100 text-amber-600'}`}>
-                  {selectedTransaction.type === 'deposit' ? <ArrowDown size={24} /> : <ArrowDown size={24} className="transform rotate-180" />}
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center ${getTransactionIconColor(selectedTransaction.type)}`}>
+                  {getTransactionIcon(selectedTransaction.type)}
                 </div>
               </div>
               
@@ -184,7 +231,34 @@ const TransactionHistory = ({
                   <span className="font-medium">{selectedTransaction.id ? selectedTransaction.id.slice(0, 8) : "N/A"}</span>
                 </div>
                 
-                {selectedTransaction.type === 'deposit' && (
+                {selectedTransaction.type === 'transfer' ? (
+                  <>
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-muted-foreground">Recipient</span>
+                      <span className="font-medium">{selectedTransaction.recipientName}</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-muted-foreground">Account Number</span>
+                      <span className="font-medium">{selectedTransaction.recipientAccount}</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-muted-foreground">Bank</span>
+                      <span className="font-medium">{selectedTransaction.bankName}</span>
+                    </div>
+                    {selectedTransaction.fee > 0 && (
+                      <div className="flex justify-between py-2 border-b">
+                        <span className="text-muted-foreground">Fee</span>
+                        <span className="font-medium">₦{selectedTransaction.fee.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                      </div>
+                    )}
+                    {selectedTransaction.narration && (
+                      <div className="flex justify-between py-2 border-b">
+                        <span className="text-muted-foreground">Narration</span>
+                        <span className="font-medium">{selectedTransaction.narration}</span>
+                      </div>
+                    )}
+                  </>
+                ) : selectedTransaction.type === 'deposit' && (
                   <>
                     {(selectedTransaction.metaData?.senderName || getSenderName(selectedTransaction) !== "Bank Transfer") && (
                       <div className="flex justify-between py-2 border-b">

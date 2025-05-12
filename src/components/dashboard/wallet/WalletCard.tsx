@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
@@ -59,8 +58,10 @@ const WalletCard = () => {
   // Filter only the user's wallet-related transactions
   const walletTransactions = transactions.filter(t => 
     t.userId === user?.id && 
-    (t.contributionId === "" || t.type === "deposit" || t.type === "withdrawal")
+    (t.contributionId === "" || t.type === "deposit" || t.type === "withdrawal" || t.type === "transfer")
   ).slice(0, 5);
+  
+  console.log('Filtered wallet transactions:', walletTransactions);
   
   const refreshBalance = () => {
     setIsLoading(true);
