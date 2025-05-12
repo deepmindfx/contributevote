@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
@@ -80,10 +81,12 @@ const WalletCard = () => {
     setIsProcessingDeposit(true);
     try {
       // Your deposit logic here
-      await updateUserBalance(Number(amount));
-      await refreshData();
-      setIsDepositOpen(false);
-      toast.success("Deposit successful");
+      if (user && user.id) {
+        await updateUserBalance(user.id, Number(amount));
+        await refreshData();
+        setIsDepositOpen(false);
+        toast.success("Deposit successful");
+      }
     } catch (error) {
       toast.error("Failed to process deposit");
     } finally {
@@ -155,7 +158,7 @@ const WalletCard = () => {
             amount={amount}
             setAmount={setAmount}
             handleDeposit={handleDeposit}
-            handleWithdraw={() => {}} // Empty function since we're using TransferForm
+            handleWithdraw={handleWithdraw} 
             depositMethod={depositMethod}
             setDepositMethod={setDepositMethod}
             isProcessingDeposit={isProcessingDeposit}

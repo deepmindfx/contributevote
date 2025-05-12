@@ -67,6 +67,15 @@ export default function TransferForm() {
   }, [watchBankCode, banks]);
 
   const handleContinue = (data: TransferFormData) => {
+    // Check if user has set a PIN
+    if (!user?.transactionPin) {
+      // Instead of redirecting immediately, we'll show the confirmation page
+      // with a message to set the PIN
+      setTransferData(data);
+      setShowConfirmation(true);
+      return;
+    }
+    
     setTransferData(data);
     setShowConfirmation(true);
   };
@@ -125,7 +134,8 @@ export default function TransferForm() {
     return new Intl.NumberFormat('en-NG', {
       style: 'currency',
       currency: 'NGN',
-      minimumFractionDigits: 2
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
     }).format(amount).replace('NGN', '₦');
   };
 
@@ -203,8 +213,8 @@ export default function TransferForm() {
                 onChange={setTransactionPin}
                 render={({ slots }) => (
                   <InputOTPGroup>
-                    {slots.map((slot, index) => (
-                      <InputOTPSlot key={index} {...slot} className="w-14 h-14 text-xl" />
+                    {slots.map((slot, idx) => (
+                      <InputOTPSlot key={idx} {...slot} index={idx} className="w-14 h-14 text-xl" />
                     ))}
                   </InputOTPGroup>
                 )}
@@ -260,7 +270,7 @@ export default function TransferForm() {
           {/* Daily Transaction Limit Alert */}
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6 flex items-center">
             <Info className="h-5 w-5 text-amber-500 mr-2 flex-shrink-0" />
-            <span className="text-sm text-amber-800">Daily transaction limit: ₦500,000.00</span>
+            <span className="text-sm text-amber-800">Account daily transaction limit: ₦500,000.00</span>
           </div>
           
           <form onSubmit={handleSubmit(handleContinue)} className="space-y-5">
