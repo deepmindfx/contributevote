@@ -47,7 +47,7 @@ const WalletActions = ({
   
   return (
     <div className="bg-white dark:bg-black/40 rounded-t-3xl -mt-3 overflow-hidden">
-      <div className="grid grid-cols-3 gap-1 pt-2 px-4">
+      <div className="grid grid-cols-4 gap-1 pt-2 px-4">
         <Dialog open={isDepositOpen} onOpenChange={setIsDepositOpen}>
           <DialogTrigger asChild>
             <div className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors">
@@ -175,7 +175,7 @@ const WalletActions = ({
           <span className="text-xs">Send</span>
         </div>
         
-        {/* Create Group button - Added back */}
+        {/* Create Group button */}
         <div 
           className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors"
           onClick={() => navigate("/create-group")}
@@ -184,6 +184,17 @@ const WalletActions = ({
             <UserPlus size={20} />
           </div>
           <span className="text-xs">Create Group</span>
+        </div>
+        
+        {/* History button */}
+        <div 
+          className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors"
+          onClick={() => setShowHistory(true)}
+        >
+          <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-[#2DAE75] mb-1">
+            <Clock size={20} />
+          </div>
+          <span className="text-xs">History</span>
         </div>
       </div>
     </div>
