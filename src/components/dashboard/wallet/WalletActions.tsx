@@ -1,4 +1,3 @@
-
 import { Link } from "react-router-dom";
 import { Clock, PlusCircle, SendHorizontal, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,7 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CreditCard, Wallet, Building } from "lucide-react";
 import { User } from "@/services/localStorage/types";
 import { useNavigate } from "react-router-dom";
-
 interface WalletActionsProps {
   setIsDepositOpen: (value: boolean) => void;
   isDepositOpen: boolean;
@@ -26,7 +24,6 @@ interface WalletActionsProps {
   user: User | null;
   setShowHistory: (value: boolean) => void;
 }
-
 const WalletActions = ({
   setIsDepositOpen,
   isDepositOpen,
@@ -44,9 +41,7 @@ const WalletActions = ({
   setShowHistory
 }: WalletActionsProps) => {
   const navigate = useNavigate();
-  
-  return (
-    <div className="bg-white dark:bg-black/40 rounded-t-3xl -mt-3 overflow-hidden">
+  return <div className="bg-white dark:bg-black/40 rounded-t-3xl -mt-3 overflow-hidden">
       <div className="grid grid-cols-4 gap-1 pt-2 px-4">
         <Dialog open={isDepositOpen} onOpenChange={setIsDepositOpen}>
           <DialogTrigger asChild>
@@ -65,7 +60,7 @@ const WalletActions = ({
               </DialogDescription>
             </DialogHeader>
             
-            <Tabs value={depositMethod} onValueChange={(value) => setDepositMethod(value as "manual" | "card" | "bank")}>
+            <Tabs value={depositMethod} onValueChange={value => setDepositMethod(value as "manual" | "card" | "bank")}>
               <TabsList className="grid grid-cols-3 mb-4">
                 <TabsTrigger value="manual">
                   <Wallet className="h-4 w-4 mr-2" />
@@ -121,43 +116,29 @@ const WalletActions = ({
                     <Input id="bank-deposit-amount" type="number" className="pl-8" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} />
                   </div>
                   
-                  {user?.reservedAccount ? (
-                    <div className="p-3 bg-muted/50 rounded-md text-sm">
+                  {user?.reservedAccount ? <div className="p-3 bg-muted/50 rounded-md text-sm">
                       <p className="font-medium">Your Virtual Account:</p>
                       <p className="mt-1">{user.reservedAccount.bankName}</p>
                       <p className="font-mono">{user.reservedAccount.accountNumber}</p>
                       <p className="text-xs text-muted-foreground mt-2">
                         Transfer the amount to this account and your wallet will be credited automatically.
                       </p>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
+                    </div> : <p className="text-sm text-muted-foreground">
                       You need to set up a virtual account first. This will require your BVN or NIN for verification.
-                    </p>
-                  )}
+                    </p>}
                 </div>
               </TabsContent>
             </Tabs>
             
             <DialogFooter className="flex space-x-2">
-              <Button 
-                variant="outline" 
-                className="flex-1" 
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setIsDepositOpen(false);
-                }}
-                type="button"
-              >
+              <Button variant="outline" className="flex-1" onClick={e => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsDepositOpen(false);
+            }} type="button">
                 Cancel
               </Button>
-              <Button 
-                className="flex-1" 
-                onClick={handleDeposit} 
-                disabled={isProcessingDeposit}
-                type="button"
-              >
+              <Button className="flex-1" onClick={handleDeposit} disabled={isProcessingDeposit} type="button">
                 {isProcessingDeposit ? "Processing..." : "Deposit"}
               </Button>
             </DialogFooter>
@@ -165,10 +146,7 @@ const WalletActions = ({
         </Dialog>
         
         {/* Send button */}
-        <div 
-          className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors"
-          onClick={() => navigate("/transfer")}
-        >
+        <div className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors" onClick={() => navigate("/transfer")}>
           <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-[#2DAE75] mb-1">
             <SendHorizontal size={20} />
           </div>
@@ -176,29 +154,21 @@ const WalletActions = ({
         </div>
         
         {/* Create Group button */}
-        <div 
-          className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors"
-          onClick={() => navigate("/create-group")}
-        >
+        <div className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors" onClick={() => navigate("/create-group")}>
           <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-[#2DAE75] mb-1">
             <UserPlus size={20} />
           </div>
-          <span className="text-xs">Create Group</span>
+          <span className="text-xs">Group</span>
         </div>
         
         {/* History button */}
-        <div 
-          className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors"
-          onClick={() => setShowHistory(true)}
-        >
+        <div className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors" onClick={() => setShowHistory(true)}>
           <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-[#2DAE75] mb-1">
             <Clock size={20} />
           </div>
           <span className="text-xs">History</span>
         </div>
       </div>
-    </div>
-  );
+    </div>;
 };
-
 export default WalletActions;
