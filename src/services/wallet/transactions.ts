@@ -17,13 +17,13 @@ interface TransactionFilter {
 /**
  * Get transactions with optional filtering
  */
-export const getWalletTransactions = (filters?: TransactionFilter): Transaction[] => {
+export const getWalletTransactions = (filters?: TransactionFilter): any[] => {
   try {
     // Get transactions from localStorage
     const transactionsString = localStorage.getItem('transactions');
     if (!transactionsString) return [];
     
-    const transactions: Transaction[] = JSON.parse(transactionsString);
+    const transactions: any[] = JSON.parse(transactionsString);
     
     // Apply filters if provided
     if (!filters) return transactions;
@@ -61,13 +61,13 @@ export const getWalletTransactions = (filters?: TransactionFilter): Transaction[
  * Process a wallet transaction
  * This is a placeholder for future implementation that might involve APIs
  */
-export const processTransaction = (transaction: Partial<Transaction>): Promise<Transaction> => {
+export const processTransaction = (transaction: Partial<any>): Promise<any> => {
   return new Promise((resolve, reject) => {
     try {
       // Here we would typically call an API to process the transaction
       // For now we'll just simulate a successful transaction
       
-      const completedTransaction: Transaction = {
+      const completedTransaction: any = {
         id: `tx_${Date.now()}`,
         userId: transaction.userId || '',
         contributionId: transaction.contributionId || '',
@@ -96,7 +96,7 @@ export const processTransaction = (transaction: Partial<Transaction>): Promise<T
 /**
  * Add a transaction to localStorage
  */
-export const addWalletTransaction = (transaction: Transaction): void => {
+export const addWalletTransaction = (transaction: any): void => {
   try {
     const transactionsString = localStorage.getItem('transactions');
     const transactions = transactionsString ? JSON.parse(transactionsString) : [];

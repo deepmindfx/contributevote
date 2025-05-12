@@ -25,7 +25,7 @@ export const saveTransferTransaction = (transferData: TransferData): string => {
     const reference = `TRF-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     
     // Create transaction object with required structure
-    const transaction: Omit<Transaction, 'id' | 'createdAt'> = {
+    const transaction: any = {
       reference,
       amount: transferData.amount,
       fee: 20, // Standard fee for transfers

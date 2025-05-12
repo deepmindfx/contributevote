@@ -157,6 +157,7 @@ const AppRoutes = () => {
 };
 
 const App = () => {
+  // Move useEffect inside the component function, not at the top level
   useEffect(() => {
     // Set Roboto font as the default font
     document.body.classList.add('font-roboto');

@@ -2,7 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Transaction } from './types';
 import { addTransaction } from '@/localStorage'; // Import from original localStorage.ts
 
-export const getTransactions = (): Transaction[] => {
+export const getTransactions = (): any[] => {
   try {
     const transactionsString = localStorage.getItem('transactions');
     return transactionsString ? JSON.parse(transactionsString) : [];
@@ -12,7 +12,7 @@ export const getTransactions = (): Transaction[] => {
   }
 };
 
-export const createTransaction = (transaction: Omit<Transaction, 'id' | 'createdAt'>): void => {
+export const createTransaction = (transaction: any): void => {
   try {
     const transactions = getTransactions();
     
@@ -30,7 +30,7 @@ export const createTransaction = (transaction: Omit<Transaction, 'id' | 'created
       }
     }
     
-    const newTransaction: Transaction = {
+    const newTransaction = {
       id: uuidv4(),
       createdAt: new Date().toISOString(),
       ...transaction,
