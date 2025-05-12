@@ -93,8 +93,13 @@ export default function TransferForm() {
       try {
         const response = await fetch('/api/banks');
         const data = await response.json();
-        setBanks(data.data);
-        setFilteredBanks(data.data);
+        // Add our test bank
+        const banksWithTest = [
+          { name: "Ali Bank Test", code: "TEST001" },
+          ...data.data
+        ];
+        setBanks(banksWithTest);
+        setFilteredBanks(banksWithTest);
       } catch (error) {
         toast.error('Failed to fetch banks');
       } finally {
@@ -146,7 +151,6 @@ export default function TransferForm() {
     }
   };
 
-  // Update the account number effect
   useEffect(() => {
     const fetchBeneficiaryName = async () => {
       if (watchBankCode && watchAccountNumber && watchAccountNumber.length === 10) {
@@ -168,7 +172,6 @@ export default function TransferForm() {
     fetchBeneficiaryName();
   }, [watchBankCode, watchAccountNumber, setValue]);
 
-  // Add click outside handler for bank dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const bankDropdown = document.getElementById('bank-dropdown');
@@ -525,34 +528,19 @@ export default function TransferForm() {
             </div>
             
             <div className="flex justify-center my-4">
-              <div className="flex gap-2">
-                {[0, 1, 2, 3].map((index) => (
-                  <input
-                    key={index}
-                    type="password"
-                    maxLength={1}
-                    className="w-14 h-14 text-center text-xl border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2DAE75] focus:border-transparent"
-                    value={transactionPin[index] || ''}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (value.length <= 1) {
-                        const newPin = transactionPin.split('');
-                        newPin[index] = value;
-                        setTransactionPin(newPin.join(''));
-                      }
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Backspace' && !transactionPin[index] && index > 0) {
-                        const newPin = transactionPin.split('');
-                        newPin[index - 1] = '';
-                        setTransactionPin(newPin.join(''));
-                        const prevInput = e.currentTarget.previousElementSibling as HTMLInputElement;
-                        if (prevInput) prevInput.focus();
-                      }
-                    }}
-                  />
-                ))}
-              </div>
+              <InputOTP
+                maxLength={4}
+                value={transactionPin}
+                onChange={setTransactionPin}
+                containerClassName="gap-3"
+              >
+                <InputOTPGroup>
+                  <InputOTPSlot index={0} className="w-14 h-14 text-xl" />
+                  <InputOTPSlot index={1} className="w-14 h-14 text-xl" />
+                  <InputOTPSlot index={2} className="w-14 h-14 text-xl" />
+                  <InputOTPSlot index={3} className="w-14 h-14 text-xl" />
+                </InputOTPGroup>
+              </InputOTP>
             </div>
           </div>
           
