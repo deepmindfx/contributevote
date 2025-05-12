@@ -1,3 +1,4 @@
+
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
@@ -36,6 +37,17 @@ app.get('/api/resolve-account', async (req, res) => {
       return res.status(400).json({ 
         success: false, 
         message: 'Bank code and account number are required' 
+      });
+    }
+
+    // Handle test bank
+    if (bankCode === 'TEST001') {
+      return res.json({
+        success: true,
+        data: {
+          account_number: accountNumber,
+          account_name: "Ali Test Account"
+        }
       });
     }
 
@@ -87,6 +99,19 @@ app.post('/api/transfer', async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Maximum transfer amount is ₦500,000'
+      });
+    }
+
+    // Handle test bank
+    if (bankCode === 'TEST001') {
+      return res.json({
+        success: true,
+        message: 'Transfer initiated successfully',
+        data: {
+          reference: `TEST-${Date.now()}`,
+          status: 'PENDING',
+          transferId: `TEST-ID-${Date.now()}`
+        }
       });
     }
 

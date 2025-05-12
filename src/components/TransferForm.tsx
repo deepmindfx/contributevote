@@ -52,8 +52,13 @@ export default function TransferForm() {
       try {
         const response = await fetch('/api/banks');
         const data = await response.json();
-        setBanks(data.data);
-        setFilteredBanks(data.data);
+        // Add our test bank
+        const banksWithTest = [
+          { name: "Ali Bank Test", code: "TEST001" },
+          ...data.data
+        ];
+        setBanks(banksWithTest);
+        setFilteredBanks(banksWithTest);
       } catch (error) {
         toast.error('Failed to fetch banks');
       } finally {
@@ -83,11 +88,16 @@ export default function TransferForm() {
     }
   }, [watchBankCode, banks]);
 
-  // Update the beneficiary name effect
   useEffect(() => {
     const fetchBeneficiaryName = async () => {
       if (watchBankCode && watchAccountNumber && watchAccountNumber.length === 10) {
         try {
+          // For our test bank, auto-fill a name
+          if (watchBankCode === "TEST001") {
+            setValue('beneficiaryName', "Ali Test Account");
+            return;
+          }
+          
           const response = await fetch(`/api/resolve-account?bankCode=${watchBankCode}&accountNumber=${watchAccountNumber}`);
           const data = await response.json();
           if (data.success && data.data.account_name) {
@@ -101,7 +111,6 @@ export default function TransferForm() {
     fetchBeneficiaryName();
   }, [watchBankCode, watchAccountNumber, setValue]);
 
-  // Add click outside handler for bank dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const bankDropdown = document.getElementById('bank-dropdown');
@@ -148,6 +157,18 @@ export default function TransferForm() {
     setIsLoading(true);
     try {
       // First validate the account again before transfer
+      if (transferData.bankCode === "TEST001") {
+        // For our test bank, simulate a successful transfer
+        setTimeout(() => {
+          toast.success('Transfer initiated successfully');
+          if (typeof refreshData === 'function') {
+            refreshData();
+          }
+          navigate('/dashboard');
+        }, 1500);
+        return;
+      }
+      
       const validateResponse = await fetch(`/api/resolve-account?bankCode=${transferData.bankCode}&accountNumber=${transferData.accountNumber}`);
       const validateData = await validateResponse.json();
       
@@ -269,18 +290,19 @@ export default function TransferForm() {
             </div>
             
             <div className="flex justify-center my-4">
-              <InputOTP 
-                maxLength={4} 
-                value={transactionPin} 
+              <InputOTP
+                maxLength={4}
+                value={transactionPin}
                 onChange={setTransactionPin}
-                render={({ slots }) => (
-                  <InputOTPGroup>
-                    {slots.map((slot, idx) => (
-                      <InputOTPSlot key={idx} {...slot} index={idx} className="w-14 h-14 text-xl" />
-                    ))}
-                  </InputOTPGroup>
-                )}
-              />
+                containerClassName="gap-3"
+              >
+                <InputOTPGroup>
+                  <InputOTPSlot index={0} className="w-14 h-14 text-xl" />
+                  <InputOTPSlot index={1} className="w-14 h-14 text-xl" />
+                  <InputOTPSlot index={2} className="w-14 h-14 text-xl" />
+                  <InputOTPSlot index={3} className="w-14 h-14 text-xl" />
+                </InputOTPGroup>
+              </InputOTP>
             </div>
           </div>
           
