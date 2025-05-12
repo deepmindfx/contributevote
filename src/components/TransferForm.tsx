@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/contexts/AppContext';
-import { ChevronDown, User, Info, ArrowLeft } from 'lucide-react';
+import { ChevronDown, Info, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface Bank {
@@ -91,11 +91,11 @@ export default function TransferForm() {
         <h1 className="text-lg font-semibold flex-1 text-center pr-8">Transfer to Bank Account</h1>
       </div>
       
-      <div className="flex-1 p-4 overflow-auto">
+      <div className="flex-1 p-4 overflow-auto max-w-md mx-auto w-full">
         {/* Daily Transaction Limit Alert */}
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6 flex items-center">
-          <Info className="h-5 w-5 text-amber-500 mr-2" />
-          <span className="text-sm text-amber-800">Daily Transaction Limit: ₦1,000,000.00</span>
+          <Info className="h-5 w-5 text-amber-500 mr-2 flex-shrink-0" />
+          <span className="text-sm text-amber-800">Maximum account transaction limit: ₦500,000.00 daily</span>
         </div>
         
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
@@ -139,14 +139,6 @@ export default function TransferForm() {
               <p className="text-sm text-red-600 mt-1">{errors.accountNumber.message}</p>
             )}
           </div>
-
-          <Button
-            type="button"
-            variant="outline"
-            className="flex items-center justify-center gap-2 w-auto text-sm py-1.5 px-3 border-gray-300"
-          >
-            <User className="h-4 w-4" /> Select from Beneficiary
-          </Button>
 
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-gray-700">Amount (₦)</label>

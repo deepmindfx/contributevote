@@ -47,7 +47,7 @@ const WalletActions = ({
   
   return (
     <div className="bg-white dark:bg-black/40 rounded-t-3xl -mt-3 overflow-hidden">
-      <div className="grid grid-cols-5 gap-1 pt-2 px-4">
+      <div className="grid grid-cols-4 gap-1 pt-2 px-4">
         <Dialog open={isDepositOpen} onOpenChange={setIsDepositOpen}>
           <DialogTrigger asChild>
             <div className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors">
@@ -164,56 +164,7 @@ const WalletActions = ({
           </DialogContent>
         </Dialog>
         
-        <Dialog open={isWithdrawOpen} onOpenChange={setIsWithdrawOpen}>
-          <DialogTrigger asChild>
-            <div className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors">
-              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-[#2DAE75] mb-1">
-                <ArrowUp size={20} />
-              </div>
-              <span className="text-xs">Withdraw</span>
-            </div>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Withdraw Funds</DialogTitle>
-              <DialogDescription>
-                Withdraw money from your wallet. Enter the amount you want to withdraw.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="withdraw-amount">Amount ({currencyType})</Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-2.5 text-muted-foreground">
-                    {currencyType === "NGN" ? "₦" : "$"}
-                  </span>
-                  <Input id="withdraw-amount" type="number" className="pl-8" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} />
-                </div>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button 
-                variant="outline" 
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setIsWithdrawOpen(false);
-                }}
-                type="button"
-              >
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleWithdraw}
-                type="button"
-              >
-                Withdraw
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Updated Send button to navigate to transfer page */}
+        {/* Send button */}
         <div 
           className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors"
           onClick={() => navigate("/transfer")}
@@ -224,6 +175,7 @@ const WalletActions = ({
           <span className="text-xs">Send</span>
         </div>
         
+        {/* History button */}
         <div 
           className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors"
           onClick={() => setShowHistory(true)}
@@ -234,6 +186,7 @@ const WalletActions = ({
           <span className="text-xs">History</span>
         </div>
 
+        {/* Invite button */}
         <div className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors">
           <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-[#2DAE75] mb-1">
             <UserPlus size={20} />
