@@ -1,4 +1,3 @@
-
 # Groups and Payment System Documentation
 
 This document provides a detailed overview of the group contribution system and associated payment flows in our application. It serves as a reference for developers working with these components.
@@ -99,7 +98,7 @@ Group creators can withdraw funds using the withdrawal system:
 
 1. **Group Creation**:
    ```
-   User Input → GroupForm → localStorage (createContribution) → Dashboard Display
+   User Input → GroupForm → Flutterwave Virtual Account Creation → Group Creation → Dashboard Display
    ```
 
 2. **Contribution Flow**:
@@ -125,10 +124,11 @@ The group system integrates with the user wallet system:
 
 ### 2. Payment Gateway Integration
 
-The Monnify payment integration:
-- Configured in `src/utils/monnifyPayment.ts`
+The Flutterwave payment integration:
+- Configured in `src/services/flutterwave/`
 - Uses API keys stored in environment variables
 - Handles callbacks via configured webhook endpoints
+- Provides virtual accounts for both users and groups
 
 ### 3. User Profile Integration
 
@@ -159,9 +159,81 @@ When implementing new features for the groups system, consider these integration
 
 ### 3. Adding Analytics or Reporting
 
-1. Create new components in `src/components/group-detail/`
-2. Use existing transaction and contribution data from local storage
-3. Implement visualization using the Chart component from shadcn/ui
+1. Create new analytics components in `src/components/analytics/`
+2. Implement data collection in relevant operations
+3. Add visualization components for the collected data
+
+## Virtual Account System
+
+The platform uses Flutterwave's virtual account system for both user wallets and group accounts:
+
+### User Virtual Accounts
+- Created when a user first sets up their wallet
+- Requires BVN verification
+- Used for receiving deposits and contributions
+
+### Group Virtual Accounts
+- Created during group creation
+- Requires creator's BVN verification
+- Used for receiving group contributions
+- Managed by the group creator
+
+### Account Management
+- Virtual accounts are permanent
+- Each account has a unique account number
+- Transactions are automatically tracked and reconciled
+- Webhooks handle transaction notifications
+
+## Security Considerations
+
+1. **BVN Verification**
+   - Required for all virtual accounts
+   - Used for identity verification
+   - Stored securely and masked in logs
+
+2. **Transaction Security**
+   - All transactions are logged
+   - Webhook verification for transaction status
+   - Automatic reconciliation of payments
+
+3. **Access Control**
+   - Group creators manage their group accounts
+   - Contributors can only view their own transactions
+   - Withdrawals require group approval
+
+## Error Handling
+
+1. **Account Creation Errors**
+   - Invalid BVN
+   - Duplicate accounts
+   - API failures
+
+2. **Transaction Errors**
+   - Failed payments
+   - Network issues
+   - Invalid amounts
+
+3. **Recovery Procedures**
+   - Automatic retries for failed API calls
+   - Manual intervention for critical errors
+   - Transaction status verification
+
+## Future Improvements
+
+1. **Enhanced Analytics**
+   - Transaction patterns
+   - Group performance metrics
+   - User behavior analysis
+
+2. **Additional Payment Methods**
+   - Card payments
+   - USSD
+   - Mobile money
+
+3. **Automated Reconciliation**
+   - Real-time balance updates
+   - Automated dispute resolution
+   - Enhanced error recovery
 
 ## Best Practices
 

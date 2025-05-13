@@ -187,4 +187,77 @@ export const verifyTransaction = async (transactionId: string) => {
       message: "Failed to verify transaction"
     };
   }
+};
+
+/**
+ * Create a virtual account for a contribution group
+ * @param data Account creation data for the group
+ * @returns Response with account details
+ */
+export const createGroupVirtualAccount = async (data: {
+  email: string;
+  bvn: string;
+  groupName: string;
+  groupId: string;
+}) => {
+  try {
+    console.log("Creating virtual account for group:", {
+      ...data,
+      bvn: '****' + data.bvn.slice(-4) // Mask BVN for security
+    });
+    
+    const requestBody = {
+      email: data.email,
+      is_permanent: true,
+      bvn: data.bvn,
+      tx_ref: `GROUP_${data.groupId}_${Date.now()}`,
+      narration: `Virtual account for ${data.groupName}`,
+      currency: "NGN"
+    };
+    
+    console.log("Request body:", JSON.stringify(requestBody, null, 2));
+    
+    // Use the proxy endpoint instead of direct API call
+    const response = await fetch('/api/flutterwave/virtual-account-numbers', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(requestBody)
+    });
+    
+    const responseText = await response.text();
+    console.log("Raw response:", responseText);
+    
+    let responseData;
+    try {
+      responseData = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error("Failed to parse response:", parseError);
+      return {
+        success: false,
+        message: "Invalid response format from server"
+      };
+    }
+    
+    if (!response.ok || responseData.status === 'error') {
+      console.error("API error response:", responseData);
+      return {
+        success: false,
+        message: responseData.message || "Failed to create virtual account"
+      };
+    }
+    
+    return {
+      success: true,
+      responseBody: responseData.data
+    };
+    
+  } catch (error) {
+    console.error("Error creating group virtual account:", error);
+    return {
+      success: false,
+      message: "Failed to create virtual account. Please try again."
+    };
+  }
 }; 

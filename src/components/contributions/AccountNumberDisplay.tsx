@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Check, Copy } from "lucide-react";
@@ -7,35 +6,22 @@ import { toast } from "sonner";
 interface AccountNumberDisplayProps {
   accountNumber: string;
   accountName: string;
-  bankName?: string; // Make bankName optional
-  monnifyDetails?: any; // Add support for Monnify details
+  bankName?: string;
+  accountDetails?: any; // Flutterwave account details
 }
 
 const AccountNumberDisplay = ({ 
   accountNumber, 
   accountName, 
-  bankName = "CollectiPay Bank", // Default bank name
-  monnifyDetails 
+  bankName,
+  accountDetails 
 }: AccountNumberDisplayProps) => {
   const [showCopiedAccountNumber, setShowCopiedAccountNumber] = useState(false);
   
-  // Determine if we should use Monnify account details
-  const useMonnifyDetails = monnifyDetails && 
-    monnifyDetails.accounts && 
-    monnifyDetails.accounts.length > 0;
-  
-  // Get account details from Monnify or use provided values
-  const displayAccountNumber = useMonnifyDetails 
-    ? monnifyDetails.accounts[0].accountNumber 
-    : accountNumber;
-    
-  const displayAccountName = useMonnifyDetails
-    ? monnifyDetails.accounts[0].accountName || accountName
-    : accountName;
-    
-  const displayBankName = useMonnifyDetails
-    ? monnifyDetails.accounts[0].bankName
-    : bankName;
+  // Get account details from Flutterwave response
+  const displayAccountNumber = accountDetails?.account_number || accountNumber;
+  const displayAccountName = accountDetails?.account_name || accountName;
+  const displayBankName = accountDetails?.bank_name || bankName;
   
   const copyAccountNumber = () => {
     if (!displayAccountNumber) {
@@ -63,7 +49,7 @@ const AccountNumberDisplay = ({
       </div>
       <div className="flex justify-between text-sm">
         <span className="text-muted-foreground">Account No.</span>
-        <span className="font-mono">{displayAccountNumber || "Generating..."}</span>
+        <span className="font-mono">{displayAccountNumber}</span>
       </div>
       <div className="flex justify-between text-sm">
         <span className="text-muted-foreground">Account Name</span>

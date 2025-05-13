@@ -1,9 +1,8 @@
-
 import React, { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { createContributionGroupAccount } from "@/services/monnifyApi";
+import { createGroupVirtualAccount } from "@/services/flutterwave/virtualAccounts";
 import { useApp } from "@/contexts/AppContext";
 
 // Import Step Components
@@ -119,24 +118,18 @@ const GroupForm = () => {
     setIsLoading(true);
     
     try {
-      // Create a unique account reference for this group
-      const accountRef = `GROUP_${user.id}_${Date.now()}`;
-      
       // Create a virtual account for the group first
       const accountData = {
-        accountReference: accountRef,
-        accountName: formData.name, // Use the group name directly
-        currencyCode: "NGN",
-        contractCode: "465595618981", // Use the updated contract code
-        customerEmail: user.email,
-        customerName: formData.name,  // Use the group name for customer name too
-        customerBvn: formData.bvn
+        email: user.email,
+        bvn: formData.bvn,
+        groupName: formData.name,
+        groupId: user.id
       };
       
       console.log("Creating contribution group account:", accountData);
-      const accountResponse = await createContributionGroupAccount(accountData);
+      const accountResponse = await createGroupVirtualAccount(accountData);
       
-      if (!accountResponse.requestSuccessful) {
+      if (!accountResponse.success) {
         toast.error(accountResponse.message || "Failed to create account for the group");
         setIsLoading(false);
         return;
@@ -165,10 +158,10 @@ const GroupForm = () => {
         status: 'active' as 'active' | 'completed' | 'expired',
         deadline: formData.endDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
         // Add account details
-        accountNumber: accountDetails.accounts[0].accountNumber,
-        bankName: accountDetails.accounts[0].bankName,
+        accountNumber: accountDetails.account_number,
+        bankName: accountDetails.bank_name,
         accountName: formData.name, // Use group name as account name
-        accountReference: accountRef, // Save the account reference for future API calls
+        accountReference: accountDetails.flw_ref, // Use Flutterwave reference
         accountDetails: accountDetails,
       };
       
