@@ -50,15 +50,10 @@ const WalletCard = () => {
     }
   };
 
-  // Toggle currency function - make the entire container clickable
-  const toggleCurrency = () => {
-    setCurrencyType(prev => prev === "NGN" ? "USD" : "NGN");
-  };
-
   // Filter only the user's wallet-related transactions
   const walletTransactions = transactions.filter(t => 
     t.userId === user?.id && 
-    (t.contributionId === "" || t.type === "deposit" || t.type === "withdrawal" || t.type === "transfer")
+    (t.contributionId === "" || t.type === "deposit" || t.type === "withdrawal")
   ).slice(0, 5);
   
   console.log('Filtered wallet transactions:', walletTransactions);
@@ -116,7 +111,7 @@ const WalletCard = () => {
   };
   
   const toggleBalance = () => {
-    setShowBalance(prev => !prev);
+    setShowBalance(!showBalance);
   };
 
   // Convert NGN to USD (simplified conversion rate)
@@ -126,11 +121,10 @@ const WalletCard = () => {
 
   // Format the balance based on selected currency
   const getFormattedBalance = () => {
-    if (!user?.wallet) return "0.00";
-    const balance = user.wallet.balance;
+    if (!user) return "₦0.00";
     return currencyType === "NGN" 
-      ? `₦${balance.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-      : `$${(balance / 1000).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      ? `₦${user.walletBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
+      : `$${(user.walletBalance / 1000).toFixed(2)}`;
   };
   
   // View transaction details

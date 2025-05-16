@@ -24,7 +24,7 @@ import {
 import {
   getUserContributions, getContributionById, 
   createContribution, updateContribution, contributeToGroup,
-  contributeByAccountNumber, generateShareLink, getContributions
+  contributeByAccountNumber, generateShareLink, getContributions, saveContributions
 } from './localStorage/contributionOperations';
 import {
   getWithdrawalRequests, createWithdrawalRequest, updateWithdrawalRequest, 
@@ -58,7 +58,7 @@ export {
   getNotifications, addNotification, markNotificationAsRead, markAllNotificationsAsRead,
   getStatistics, generateShareLink, getUserByEmail, getUserByPhone,
   pingGroupMembersForVote, generateContributionReceipt,
-  updateWithdrawalRequestsStatus,
+  updateWithdrawalRequestsStatus, saveContributions,
   // Re-exported from original localStorage.ts
   ensureAccountNumberDisplay, verifyUserWithOTP, validateDate,
   getContributionByAccountNumber, reExportEnsureAccountNumberDisplay,

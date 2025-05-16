@@ -8,8 +8,10 @@ import {
   updateUserById,
   updateUser,
   updateUserBalance,
+  getUsers
 } from "./localStorage";
 import { ReservedAccountData, InvoiceData } from "./wallet/types";
+import { v4 as uuidv4 } from 'uuid';
 
 // Interface for payment invoice creation
 export interface PaymentInvoiceParams {
@@ -166,13 +168,98 @@ export const getUserReservedAccount = async (userId: string): Promise<ReservedAc
 };
 
 /**
+ * Check if a transaction already exists in local storage
+ */
+const transactionExists = (referenceId: string): boolean => {
+  try {
+    // Check in all transactions, not just user transactions
+    const transactionsString = localStorage.getItem('transactions');
+    if (!transactionsString) return false;
+    
+    const transactions = JSON.parse(transactionsString);
+    
+    // Check against multiple possible reference fields
+    return transactions.some((t: any) => 
+      t.referenceId === referenceId || 
+      t.reference === referenceId || 
+      t.id === referenceId ||
+      t.transactionReference === referenceId ||
+      t.tx_ref === referenceId ||
+      (t.metaData && (
+        t.metaData.paymentReference === referenceId || 
+        t.metaData.transactionReference === referenceId ||
+        t.metaData.tx_ref === referenceId
+      ))
+    );
+  } catch (error) {
+    console.error("Error checking if transaction exists:", error);
+    return false;
+  }
+};
+
+/**
  * Fetch transactions for a reserved account
  */
 export const getReservedAccountTransactions = async (accountReference: string): Promise<any[] | null> => {
   try {
-    const result = await flutterwaveApi.getReservedAccountTransactions(accountReference);
+    // First check if the necessary function exists
+    if (!flutterwaveApi.getReservedAccountTransactions) {
+      console.error("getReservedAccountTransactions function not found in flutterwaveApi");
+      return [];
+    }
     
+    // Log the attempt
+    console.log(`Attempting to fetch transactions for account reference: ${accountReference}`);
+    
+    // Try multiple endpoint paths with correct server port
+    let result;
+    try {
+      // Try the full path first
+      result = await flutterwaveApi.getReservedAccountTransactions(accountReference);
+    } catch (error) {
+      console.log("Error with primary endpoint, trying backup endpoint");
+      // If that fails, try direct endpoints with different port configs
+      
+      // Try API proxy path
+      try {
+        const response = await fetch(`/api/flutterwave/reserved-accounts/${accountReference}/transactions`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (response.ok) {
+          result = { 
+            success: true,
+            responseBody: (await response.json()).data
+          };
+          console.log("Successfully fetched from API proxy endpoint");
+        } else {
+          console.log("API proxy endpoint failed, trying secondary endpoint");
+          
+          // Try the short path as a last resort
+          const shortResponse = await fetch(`/reserved-accounts/${accountReference}/transactions`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+          });
+          
+          if (shortResponse.ok) {
+            result = { 
+              success: true,
+              responseBody: (await shortResponse.json()).data
+            };
+            console.log("Successfully fetched from short path endpoint");
+          } else {
+            console.error("All endpoint attempts failed");
+          }
+        }
+      } catch (directError) {
+        console.error("Direct endpoint also failed:", directError);
+      }
+    }
+    
+    // Check if we got any result
     if (!result || !result.responseBody) {
+      console.log("No transactions found or empty response body");
       return [];
     }
     
@@ -180,54 +267,186 @@ export const getReservedAccountTransactions = async (accountReference: string): 
     const currentUser = getCurrentUser();
     const transactions = result.responseBody.content || [];
     
-    // Process each transaction and update local records
-    transactions.forEach(transaction => {
-      if (transaction.paymentReference && !transactionExists(transaction.paymentReference)) {
-        // Add transaction to local storage
-        const newTransaction = {
-          userId: currentUser.id,
-          contributionId: "",
-          type: "deposit",
-          amount: transaction.amount,
-          status: "completed",
-          description: `Deposit via bank transfer (${transaction.bankName || 'Bank'})`,
-          referenceId: transaction.paymentReference,
-          paymentMethod: "bank_transfer",
-          updatedAt: new Date().toISOString(),
-          metaData: {
-            senderName: transaction.senderName || transaction.paymentDescription || "Bank Transfer",
-            bankName: transaction.bankName || "",
-            narration: transaction.narration || transaction.paymentDescription || "",
-            transactionReference: transaction.transactionReference || "",
-            paymentReference: transaction.paymentReference || "",
-          }
-        };
-        
-        addTransaction(newTransaction);
-        
-        // Update user's wallet balance
-        updateUserBalance(currentUser.id, currentUser.walletBalance + transaction.amount);
-      }
-    });
+    console.log(`Processing ${transactions.length} transactions for account reference ${accountReference}`);
     
-    return transactions;
+    // Skip processing if no transactions
+    if (transactions.length === 0) {
+      console.log("No new transactions to process");
+      return [];
+    }
+    
+    // Track if any transactions were added
+    let transactionsAdded = false;
+    
+    // Process each transaction and update local records
+    for (const transaction of transactions) {
+      // Make sure we have a valid reference to check
+      const transactionRef = transaction.paymentReference || 
+                             transaction.transactionReference || 
+                             transaction.tx_ref;
+                             
+      console.log('Checking transaction:', transactionRef, transaction);
+      
+      if (transactionRef && !transactionExists(transactionRef)) {
+        console.log('New transaction found:', transactionRef);
+        transactionsAdded = true;
+        
+        // First check if this is a transfer to a contribution group
+        const contributionsString = localStorage.getItem('contributions');
+        const contributions = contributionsString ? JSON.parse(contributionsString) : [];
+        console.log('Looking for matching contribution by account number');
+        
+        // Try to get account number from various possible fields
+        const accountNumber = transaction.destinationAccountNumber || 
+                              transaction.accountNumber || 
+                              transaction.recipientAccountNumber;
+        
+        console.log('Looking for account number:', accountNumber);
+        
+        // Find if any contribution has this account number
+        const matchingContribution = contributions.find(c => c.accountNumber === accountNumber);
+        
+        if (matchingContribution) {
+          console.log(`Found matching contribution: ${matchingContribution.name} with ID ${matchingContribution.id}`);
+          
+          // This is a transaction for a specific contribution group
+          console.log(`Adding ${transaction.amount} to contribution balance`);
+          
+          // Add contribution to the group
+          matchingContribution.currentAmount += transaction.amount;
+          
+          // Add contributor to the contribution group
+          const date = new Date().toISOString();
+          matchingContribution.contributors.push({
+            name: transaction.senderName || "Bank Transfer",
+            amount: transaction.amount,
+            date,
+            anonymous: false,
+          });
+          
+          // Update contribution in local storage
+          const contributionIndex = contributions.findIndex(c => c.id === matchingContribution.id);
+          if (contributionIndex >= 0) {
+            contributions[contributionIndex] = matchingContribution;
+            localStorage.setItem('contributions', JSON.stringify(contributions));
+            console.log('Updated contribution in localStorage');
+          }
+          
+          // Create a transaction record for the contribution
+          const newTransaction = {
+            id: transactionRef,
+            userId: currentUser.id,
+            contributionId: matchingContribution.id,
+            type: "deposit",
+            amount: transaction.amount,
+            status: "completed",
+            description: `Contribution to ${matchingContribution.name} via bank transfer`,
+            referenceId: transactionRef,
+            paymentMethod: "bank_transfer",
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            metaData: {
+              senderName: transaction.senderName || transaction.paymentDescription || "Bank Transfer",
+              bankName: transaction.bankName || "",
+              narration: transaction.narration || transaction.paymentDescription || "",
+              transactionReference: transaction.transactionReference || "",
+              paymentReference: transaction.paymentReference || "",
+              tx_ref: transaction.tx_ref || ""
+            }
+          };
+          
+          addTransaction(newTransaction);
+          console.log('Added transaction to localStorage');
+          
+          // Notify the creator of the contribution
+          if (matchingContribution.creatorId) {
+            const users = getUsers();
+            const creator = users.find(u => u.id === matchingContribution.creatorId);
+            
+            if (creator) {
+              // Add notification if we have the creator
+              const notifications = creator.notifications || [];
+              notifications.push({
+                id: uuidv4(),
+                userId: creator.id,
+                message: `New contribution of ₦${transaction.amount.toLocaleString()} received for ${matchingContribution.name}`,
+                type: 'success',
+                read: false,
+                createdAt: new Date().toISOString(),
+                relatedId: matchingContribution.id
+              });
+              
+              // Update creator with new notification
+              const userIndex = users.findIndex(u => u.id === creator.id);
+              if (userIndex >= 0) {
+                users[userIndex].notifications = notifications;
+                localStorage.setItem('users', JSON.stringify(users));
+              }
+            }
+          }
+          
+          toast.success(`Contribution of ₦${transaction.amount.toLocaleString()} added to ${matchingContribution.name}`);
+        } else {
+          // Regular wallet deposit
+          console.log('No matching contribution found, treating as regular wallet deposit');
+          
+          const newTransaction = {
+            id: transactionRef,
+            userId: currentUser.id,
+            contributionId: "",
+            type: "deposit",
+            amount: transaction.amount,
+            status: "completed",
+            description: `Deposit via bank transfer (${transaction.bankName || 'Bank'})`,
+            referenceId: transactionRef,
+            paymentMethod: "bank_transfer",
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            metaData: {
+              senderName: transaction.senderName || transaction.paymentDescription || "Bank Transfer",
+              bankName: transaction.bankName || "",
+              narration: transaction.narration || transaction.paymentDescription || "",
+              transactionReference: transaction.transactionReference || "",
+              paymentReference: transaction.paymentReference || "",
+              tx_ref: transaction.tx_ref || ""
+            }
+          };
+          
+          // First, check if the transaction already exists
+          const existingTransactions = localStorage.getItem('transactions');
+          const transactions = existingTransactions ? JSON.parse(existingTransactions) : [];
+          const exists = transactions.some((t: any) => t.id === transactionRef || t.referenceId === transactionRef);
+          
+          if (!exists) {
+            addTransaction(newTransaction);
+            console.log('Added transaction record to localStorage');
+            
+            // Update user's wallet balance
+            const updatedBalance = currentUser.walletBalance + transaction.amount;
+            updateUserBalance(currentUser.id, updatedBalance);
+            console.log(`Updated wallet balance: ${updatedBalance}`);
+            
+            // Show success notification
+            toast.success(`₦${transaction.amount.toLocaleString()} has been deposited to your wallet`);
+          } else {
+            console.log('Transaction already exists, skipping');
+          }
+        }
+      }
+    }
+    
+    // If we added transactions, return them for UI update
+    if (transactionsAdded) {
+      console.log("Transactions processed and added to wallet");
+      return transactions;
+    }
+    
+    // If no new transactions were found
+    return [];
   } catch (error) {
     console.error("Error fetching transactions:", error);
     toast.error("Failed to fetch transactions. Please try again.");
-    return null;
-  }
-};
-
-/**
- * Check if a transaction already exists in local storage
- */
-const transactionExists = (referenceId: string): boolean => {
-  try {
-    const currentUser = getCurrentUser();
-    const transactions = currentUser.transactions || [];
-    return transactions.some(t => t.referenceId === referenceId);
-  } catch (error) {
-    return false;
+    return [];
   }
 };
 

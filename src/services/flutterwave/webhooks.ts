@@ -107,6 +107,32 @@ const processSuccessfulPayment = async (data: WebhookData['data']) => {
       };
     }
 
+    // Create transaction record
+    const newTransaction = {
+      id: data.tx_ref,
+      userId: user.id,
+      contributionId: "",
+      type: "deposit",
+      amount: data.amount,
+      status: "completed",
+      description: `Deposit via ${data.payment_type}`,
+      referenceId: data.tx_ref,
+      paymentMethod: data.payment_type,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      metaData: {
+        senderName: data.customer.name,
+        bankName: data.card?.issuer || "Card Payment",
+        narration: `Payment from ${data.customer.name}`,
+        transactionReference: data.tx_ref,
+        paymentReference: data.tx_ref,
+        tx_ref: data.tx_ref
+      }
+    };
+
+    // Add transaction to localStorage
+    addTransaction(newTransaction);
+
     // Update user's balance
     const updateResult = updateUserBalance(user.id, data.amount);
     if (!updateResult.success) {

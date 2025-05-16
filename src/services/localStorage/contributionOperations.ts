@@ -1,4 +1,3 @@
-
 import { v4 as uuidv4 } from 'uuid';
 import { Contribution } from './types';
 import { getBaseCurrentUser, getBaseContributions, getBaseContributionById } from './storageUtils';
@@ -167,4 +166,13 @@ export const contributeByAccountNumber = (accountNumber: string, amount: number,
 
 export const generateShareLink = (contributionId: string): string => {
   return `${window.location.origin}/contribute/share/${contributionId}`;
+};
+
+// Add this function for directly saving contributions
+export const saveContributions = (contributions: Contribution[]): void => {
+  try {
+    localStorage.setItem('contributions', JSON.stringify(contributions));
+  } catch (error) {
+    console.error("Error saving contributions:", error);
+  }
 };

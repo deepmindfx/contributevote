@@ -1,4 +1,3 @@
-
 import { v4 as uuidv4 } from 'uuid';
 import { Transaction } from './types';
 import { addTransaction } from '@/localStorage'; // Import from original localStorage.ts
@@ -17,18 +16,24 @@ export const createTransaction = (transaction: Omit<Transaction, 'id' | 'created
   try {
     const transactions = getTransactions();
     
-    // Check for duplicate transactions with same amount and reference within last 5 minutes
-    // This helps prevent duplicate transactions from being created
-    if (transaction.reference) {
-      const existingTransaction = transactions.find(t => 
-        t.reference === transaction.reference && 
-        t.amount === transaction.amount
-      );
-      
-      if (existingTransaction) {
-        console.warn("Duplicate transaction detected, skipping:", transaction);
-        return;
-      }
+    // More thorough check for duplicate transactions
+    // Check reference, referenceId, and transaction metadata references
+    const duplicateTransaction = transactions.find(t => 
+      (transaction.reference && (t.reference === transaction.reference || t.referenceId === transaction.reference)) ||
+      (transaction.referenceId && (t.referenceId === transaction.referenceId || t.reference === transaction.referenceId)) ||
+      (transaction.metaData?.paymentReference && (
+        t.metaData?.paymentReference === transaction.metaData.paymentReference ||
+        t.metaData?.transactionReference === transaction.metaData.paymentReference
+      )) ||
+      (transaction.metaData?.transactionReference && (
+        t.metaData?.transactionReference === transaction.metaData.transactionReference ||
+        t.metaData?.paymentReference === transaction.metaData.transactionReference
+      ))
+    );
+    
+    if (duplicateTransaction) {
+      console.warn("Duplicate transaction detected, skipping:", transaction);
+      return;
     }
     
     const newTransaction: Transaction = {

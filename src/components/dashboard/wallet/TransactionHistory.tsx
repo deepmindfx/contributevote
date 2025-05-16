@@ -32,10 +32,8 @@ const TransactionHistory = ({
     if (!dateString) return "Unknown date";
     
     try {
-      // First try with parseISO which is more reliable for ISO strings
       const parsedDate = parseISO(dateString);
       if (!isValid(parsedDate)) {
-        // If parseISO fails, try with regular Date constructor
         const fallbackDate = new Date(dateString);
         if (!isValid(fallbackDate)) {
           return "Invalid date";
@@ -53,10 +51,8 @@ const TransactionHistory = ({
     if (!dateString) return "Unknown date";
     
     try {
-      // First try with parseISO which is more reliable for ISO strings
       const parsedDate = parseISO(dateString);
       if (!isValid(parsedDate)) {
-        // If parseISO fails, try with regular Date constructor
         const fallbackDate = new Date(dateString);
         if (!isValid(fallbackDate)) {
           return "Invalid date";
@@ -70,7 +66,6 @@ const TransactionHistory = ({
     }
   };
   
-  // Find sender name if available
   const getSenderName = (transaction: Transaction) => {
     if (transaction.type === 'deposit') {
       return transaction.metaData?.senderName || "Bank Transfer";
@@ -81,7 +76,6 @@ const TransactionHistory = ({
     }
   };
   
-  // Get sender bank if available
   const getSenderBank = (transaction: Transaction) => {
     if (transaction.type === 'transfer') {
       return transaction.bankName || "";
@@ -89,7 +83,6 @@ const TransactionHistory = ({
     return transaction.metaData?.bankName || transaction.metaData?.senderBank || "";
   };
   
-  // Get transaction icon based on type
   const getTransactionIcon = (type: string) => {
     switch (type) {
       case 'deposit':
@@ -103,7 +96,6 @@ const TransactionHistory = ({
     }
   };
   
-  // Get transaction icon color based on type
   const getTransactionIconColor = (type: string) => {
     switch (type) {
       case 'deposit':
@@ -117,7 +109,6 @@ const TransactionHistory = ({
     }
   };
   
-  // Get transaction title based on type
   const getTransactionTitle = (type: string) => {
     switch (type) {
       case 'deposit':
@@ -167,13 +158,12 @@ const TransactionHistory = ({
                   </p>
                 </div>
               </div>
-              <div className="flex items-center">
-                <div className={`font-semibold ${transaction.type === 'deposit' ? 'text-[#2DAE75]' : 'text-red-500'}`}>
-                  {transaction.type === 'deposit' ? '+' : '-'}
-                  {currencyType === "NGN" ? `₦${transaction.amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : `$${convertToUSD(transaction.amount).toFixed(2)}`}
-                </div>
-                <ExternalLink className="ml-2 h-4 w-4 text-muted-foreground" />
+              
+              <div className={`font-semibold ${transaction.type === 'deposit' ? 'text-[#2DAE75]' : 'text-red-500'}`}>
+                {transaction.type === 'deposit' ? '+' : '-'}
+                {currencyType === "NGN" ? `₦${transaction.amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : `$${convertToUSD(transaction.amount).toFixed(2)}`}
               </div>
+              <ExternalLink className="ml-2 h-4 w-4 text-muted-foreground" />
             </div>
           ))}
         </div>
@@ -187,7 +177,6 @@ const TransactionHistory = ({
         View All Transactions
       </Button>
       
-      {/* Transaction Details Dialog */}
       <Dialog open={isTransactionDetailsOpen} onOpenChange={setIsTransactionDetailsOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -215,7 +204,7 @@ const TransactionHistory = ({
                 </p>
               </div>
               
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <div className="flex justify-between py-2 border-b">
                   <span className="text-muted-foreground">Status</span>
                   <span className="font-medium capitalize">{selectedTransaction.status || "completed"}</span>
@@ -245,20 +234,8 @@ const TransactionHistory = ({
                       <span className="text-muted-foreground">Bank</span>
                       <span className="font-medium">{selectedTransaction.bankName}</span>
                     </div>
-                    {selectedTransaction.fee > 0 && (
-                      <div className="flex justify-between py-2 border-b">
-                        <span className="text-muted-foreground">Fee</span>
-                        <span className="font-medium">₦{selectedTransaction.fee.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-                      </div>
-                    )}
-                    {selectedTransaction.narration && (
-                      <div className="flex justify-between py-2 border-b">
-                        <span className="text-muted-foreground">Narration</span>
-                        <span className="font-medium">{selectedTransaction.narration}</span>
-                      </div>
-                    )}
                   </>
-                ) : selectedTransaction.type === 'deposit' && (
+                ) : (
                   <>
                     {(selectedTransaction.metaData?.senderName || getSenderName(selectedTransaction) !== "Bank Transfer") && (
                       <div className="flex justify-between py-2 border-b">
@@ -292,20 +269,6 @@ const TransactionHistory = ({
               </div>
             </div>
           )}
-          
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setIsTransactionDetailsOpen(false);
-              }}
-              type="button"
-            >
-              Close
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

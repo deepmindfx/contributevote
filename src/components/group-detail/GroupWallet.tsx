@@ -1,9 +1,9 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Contribution } from "@/services/localStorage";
 import { WalletHeader, WalletProgress, WalletDetails, WalletActions } from "./wallet";
 import ContributeDialog from "./dialogs/ContributeDialog";
 import WithdrawalRequestDialog from "./dialogs/WithdrawalRequestDialog";
+import { getReservedAccountTransactions } from "@/services/walletIntegration";
 
 interface GroupWalletProps {
   contribution: Contribution;
@@ -36,8 +36,26 @@ const GroupWallet = ({
 }: GroupWalletProps) => {
   const [contributeDialogOpen, setContributeDialogOpen] = useState(false);
   const [withdrawalDialogOpen, setWithdrawalDialogOpen] = useState(false);
+  const [checkedTransactions, setCheckedTransactions] = useState(false);
   
   const progressPercentage = Math.min(100, Math.round(contribution.currentAmount / contribution.targetAmount * 100));
+  
+  // Check for new transactions only once when the component first mounts
+  useEffect(() => {
+    // Only check once per component lifecycle
+    if (!checkedTransactions && contribution && contribution.accountReference) {
+      setCheckedTransactions(true);
+      console.log("Checking for transactions on mount for:", contribution.accountReference);
+      
+      // Add a slight delay to avoid immediate API call
+      setTimeout(() => {
+        getReservedAccountTransactions(contribution.accountReference)
+          .catch(err => {
+            console.error("Error fetching transactions:", err);
+          });
+      }, 1000);
+    }
+  }, [contribution, checkedTransactions]);
   
   return (
     <div className="glass-card mb-6 animate-slide-up border-2 border-green-100 dark:border-green-900">
