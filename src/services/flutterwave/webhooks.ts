@@ -1,3 +1,4 @@
+
 import { toast } from 'sonner';
 import { 
   addTransaction, 
@@ -67,15 +68,17 @@ export const verifyWebhookSignature = (payload: any, signature: string): boolean
  */
 const processSuccessfulPayment = async (data: WebhookData['data']) => {
   try {
+    console.log('Processing successful payment:', data);
+    
     // Verify the transaction with Flutterwave
     const verificationResult = await verifyTransaction(data.tx_ref);
     
-    if (!verificationResult.success) {
+    if (!verificationResult || !verificationResult.success) {
       console.error('Transaction verification failed:', verificationResult);
       return {
         success: false,
         message: 'Transaction verification failed',
-        error: verificationResult.message
+        error: verificationResult ? verificationResult.message : 'Unknown error'
       };
     }
 
@@ -95,55 +98,72 @@ const processSuccessfulPayment = async (data: WebhookData['data']) => {
         error: 'Amount or currency mismatch'
       };
     }
+    
+    // Extract user ID from the tx_ref
+    // Format is typically "COLL_{userId}_{timestamp}"
+    let userId = '';
+    const txRefParts = data.tx_ref.split('_');
+    if (txRefParts.length >= 2 && txRefParts[0] === 'COLL') {
+      userId = txRefParts[1];
+      console.log('Extracted userId from tx_ref:', userId);
+    }
 
-    // Find user by email
-    const user = getUserByEmail(data.customer.email);
+    // If we couldn't extract the userId from tx_ref, try to find user by email
+    let user;
+    if (userId) {
+      // Get all users and find the one with the matching ID
+      const usersString = localStorage.getItem('users');
+      const users = usersString ? JSON.parse(usersString) : [];
+      user = users.find(u => u.id === userId);
+    }
+    
+    // If still no user, try to find by email as fallback
+    if (!user && data.customer && data.customer.email) {
+      user = getUserByEmail(data.customer.email);
+    }
+    
     if (!user) {
-      console.error('User not found for email:', data.customer.email);
+      console.error('User not found for transaction:', data);
       return {
         success: false,
         message: 'User not found',
-        error: `No user found with email ${data.customer.email}`
+        error: 'No matching user found for this transaction'
       };
     }
 
     // Create transaction record
     const newTransaction = {
-      id: data.tx_ref,
+      id: `tx_${Date.now()}`,
       userId: user.id,
       contributionId: "",
       type: "deposit",
       amount: data.amount,
       status: "completed",
-      description: `Deposit via ${data.payment_type}`,
+      description: `Deposit via ${data.payment_type || 'Flutterwave'}`,
+      paymentMethod: data.payment_type || "card",
       referenceId: data.tx_ref,
-      paymentMethod: data.payment_type,
+      reference: data.tx_ref,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       metaData: {
-        senderName: data.customer.name,
+        senderName: data.customer?.name || "Card Payment",
         bankName: data.card?.issuer || "Card Payment",
-        narration: `Payment from ${data.customer.name}`,
-        transactionReference: data.tx_ref,
+        narration: `Payment from ${data.customer?.name || 'Unknown'}`,
+        transactionReference: data.flw_ref || data.tx_ref,
         paymentReference: data.tx_ref,
         tx_ref: data.tx_ref
       }
     };
 
     // Add transaction to localStorage
+    console.log('Adding transaction to localStorage:', newTransaction);
     addTransaction(newTransaction);
 
     // Update user's balance
-    const updateResult = updateUserBalance(user.id, data.amount);
-    if (!updateResult.success) {
-      console.error('Failed to update user balance:', updateResult);
-      return {
-        success: false,
-        message: 'Failed to update user balance',
-        error: updateResult.message
-      };
-    }
+    console.log('Updating user balance for user ID:', user.id, 'with amount:', data.amount);
+    updateUserBalance(user.id, data.amount);
 
+    console.log('Payment processed successfully');
     // Show success notification
     toast.success(`Payment of ${data.amount} ${data.currency} received successfully`);
 
@@ -235,4 +255,4 @@ export const handleWebhook = async (webhookData: WebhookData, signature: string)
       error: error instanceof Error ? error.message : 'Unknown error'
     };
   }
-}; 
+};

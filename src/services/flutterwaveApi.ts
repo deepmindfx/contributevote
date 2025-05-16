@@ -1,3 +1,4 @@
+
 // Re-export all Flutterwave API functionality from modular files
 
 // Export constants and config
@@ -8,5 +9,7 @@ export {
   createVirtualAccount,
   verifyTransaction,
   getReservedAccountTransactions,
-  createGroupVirtualAccount
+  createGroupVirtualAccount,
+  getReservedAccountDetails,
+  createInvoice
 } from './flutterwave/virtualAccounts'; 

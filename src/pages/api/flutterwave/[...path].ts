@@ -1,3 +1,4 @@
+
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { SECRET_KEY as FLUTTERWAVE_SECRET_KEY } from '@/services/flutterwave/config';
 
@@ -42,6 +43,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
     
+    // Log the response for debugging
+    console.log(`Flutterwave API response status: ${flutterwaveResponse.status}`);
+    
     // Forward the response
     return res.status(flutterwaveResponse.status).json(data);
   } catch (error) {
@@ -51,4 +55,4 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       message: error instanceof Error ? error.message : 'Internal server error'
     });
   }
-} 
+}

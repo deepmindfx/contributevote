@@ -1,3 +1,4 @@
+
 import { NextApiRequest, NextApiResponse } from 'next';
 import { handleWebhook } from '../../../services/flutterwave/webhooks';
 import { WebhookData } from '../../../services/flutterwave/webhooks';
@@ -12,6 +13,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
+    console.log('Webhook received:', JSON.stringify(req.body, null, 2));
+    
     // Get the signature from the header
     const signature = req.headers['verif-hash'] as string;
     if (!signature) {
@@ -26,7 +29,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const webhookData = req.body as WebhookData;
     
     // Log the incoming webhook (without sensitive data)
-    console.log('Received webhook:', {
+    console.log('Processing webhook:', {
       event: webhookData.event,
       tx_ref: webhookData.data.tx_ref,
       amount: webhookData.data.amount,
@@ -36,6 +39,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Process the webhook
     const result = await handleWebhook(webhookData, signature);
+    
+    // For debugging
+    console.log('Webhook processing result:', result);
     
     if (!result.success) {
       console.error('Webhook processing failed:', result);

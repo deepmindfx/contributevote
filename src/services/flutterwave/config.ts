@@ -1,41 +1,6 @@
-// Base configuration for Flutterwave API
-const isProduction = true; // Always use production environment
 
-// Use our backend proxy in both environments to handle CORS
-export const BASE_URL = isProduction 
-  ? 'https://collectipay.com.ng/api/flutterwave'  // Production proxy URL
-  : '/api/flutterwave';
-
-// Use environment variables for API keys
-export const SECRET_KEY = isProduction
-  ? import.meta.env.VITE_FLW_SECRET_KEY_PROD
-  : import.meta.env.VITE_FLW_SECRET_KEY_TEST;
-
-export const PUBLIC_KEY = isProduction
-  ? import.meta.env.VITE_FLW_PUBLIC_KEY_PROD
-  : import.meta.env.VITE_FLW_PUBLIC_KEY_TEST;
-
-export const ENCRYPTION_KEY = isProduction
-  ? import.meta.env.VITE_FLW_ENCRYPTION_KEY_PROD
-  : import.meta.env.VITE_FLW_ENCRYPTION_KEY_TEST;
-
-// Validate API credentials
-if (!SECRET_KEY || !PUBLIC_KEY || !ENCRYPTION_KEY) {
-  console.error('Flutterwave API credentials are not properly configured');
-  throw new Error('Flutterwave API credentials are missing');
-}
-
-// Validate API key format
-if (!SECRET_KEY.startsWith('FLWSECK-') || !PUBLIC_KEY.startsWith('FLWPUBK-')) {
-  console.error('Invalid Flutterwave API key format');
-  throw new Error('Invalid Flutterwave API key format');
-}
-
-// Log configuration (without sensitive data)
-console.log('Flutterwave API Configuration:', {
-  environment: isProduction ? 'Production' : 'Development',
-  baseUrl: BASE_URL,
-  hasSecretKey: !!SECRET_KEY,
-  hasPublicKey: !!PUBLIC_KEY,
-  hasEncryptionKey: !!ENCRYPTION_KEY
-}); 
+// Flutterwave API configuration
+export const BASE_URL = 'https://api.flutterwave.com/v3';
+export const PUBLIC_KEY = import.meta.env.VITE_FLW_PUBLIC_KEY || '';
+export const SECRET_KEY = import.meta.env.VITE_FLW_SECRET_KEY || '';
+export const ENCRYPTION_KEY = import.meta.env.VITE_FLW_ENCRYPTION_KEY || '';
