@@ -53,7 +53,11 @@ export interface WebhookData {
  * @returns boolean indicating if signature is valid
  */
 export const verifyWebhookSignature = (payload: any, signature: string): boolean => {
-  const secretHash = import.meta.env.VITE_FLW_SECRET_HASH;
+  // For Node.js and browser compatibility
+  const secretHash = typeof process !== 'undefined' && process.env.FLUTTERWAVE_SECRET_HASH 
+    ? process.env.FLUTTERWAVE_SECRET_HASH
+    : import.meta?.env?.VITE_FLW_SECRET_HASH || '';
+    
   if (!secretHash) {
     console.error('Flutterwave webhook secret hash not configured');
     return false;

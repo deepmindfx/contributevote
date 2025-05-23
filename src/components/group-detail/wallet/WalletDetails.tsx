@@ -1,4 +1,3 @@
-
 import React from "react";
 import { format, isValid } from "date-fns";
 import { Contribution } from "@/services/localStorage";
@@ -29,7 +28,8 @@ const WalletDetails = ({ contribution }: WalletDetailsProps) => {
         <AccountNumberDisplay 
           accountNumber={contribution.accountNumber || ''} 
           accountName={contribution.name || ''}
-          monnifyDetails={contribution.accountDetails}
+          bankName={contribution.bankName || ''}
+          accountDetails={contribution.accountDetails}
         />
       )}
       

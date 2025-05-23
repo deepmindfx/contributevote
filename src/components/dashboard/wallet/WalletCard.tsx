@@ -139,11 +139,50 @@ const WalletCard = () => {
     setIsTransactionDetailsOpen(true);
   };
 
+  const testChargeCompleted = async () => {
+    try {
+      console.log('Testing charge completed webhook...');
+      const response = await fetch('http://localhost:9000/api/test/simulate-charge-completed', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: 5000,
+          userId: user?.id,
+          tx_ref: `TEST_TX_${Date.now()}`
+        })
+      });
+
+      console.log('Response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
+      }
+
+      try {
+        const data = await response.json();
+        console.log('Test charge completed response:', data);
+        toast.success('Test charge completed successfully');
+        refreshData();
+      } catch (parseError) {
+        console.error('Error parsing JSON response:', parseError);
+        toast.error('Received invalid response from server');
+        throw parseError;
+      }
+    } catch (error) {
+      console.error('Error testing charge completed webhook:', error);
+      toast.error('Failed to test charge completed webhook');
+    }
+  };
+
   return (
     <Card className="overflow-hidden rounded-3xl border-0 shadow-none">
       <WalletHeader 
         currencyType={currencyType}
-        toggleCurrency={toggleCurrency}
+        toggleCurrency={setCurrencyType}
         showBalance={showBalance}
         toggleBalance={toggleBalance}
         getFormattedBalance={getFormattedBalance}
@@ -166,6 +205,7 @@ const WalletCard = () => {
             currencyType={currencyType}
             user={user}
             setShowHistory={setShowHistory}
+            testChargeCompleted={testChargeCompleted}
           />
         ) : (
           <TransactionHistory 

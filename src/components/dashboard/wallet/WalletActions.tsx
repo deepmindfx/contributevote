@@ -23,6 +23,7 @@ interface WalletActionsProps {
   currencyType: "NGN" | "USD";
   user: User | null;
   setShowHistory: (value: boolean) => void;
+  testChargeCompleted: () => Promise<void>;
 }
 const WalletActions = ({
   setIsDepositOpen,
@@ -38,7 +39,8 @@ const WalletActions = ({
   isProcessingDeposit,
   currencyType,
   user,
-  setShowHistory
+  setShowHistory,
+  testChargeCompleted
 }: WalletActionsProps) => {
   const navigate = useNavigate();
   return <div className="bg-white dark:bg-black/40 rounded-t-3xl -mt-3 overflow-hidden">
@@ -168,6 +170,17 @@ const WalletActions = ({
           </div>
           <span className="text-xs">History</span>
         </div>
+      </div>
+
+      {/* Test Webhook Button */}
+      <div className="px-4 py-2">
+        <Button 
+          variant="outline" 
+          className="w-full" 
+          onClick={testChargeCompleted}
+        >
+          Test Webhook
+        </Button>
       </div>
     </div>;
 };
