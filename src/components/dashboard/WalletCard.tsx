@@ -75,88 +75,6 @@ const WalletCard = () => {
     });
   };
   
-  // Function to test real transactions
-  const testRealTransaction = async () => {
-    if (!user?.reservedAccount?.accountReference) {
-      toast.error("You need a virtual account to test transactions");
-      return;
-    }
-    
-    try {
-      // Make an API call to the test endpoint
-      const response = await fetch('/api/test/simulate-bank-transfer', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          amount: 5000, // Fixed amount for testing
-          accountReference: user.reservedAccount.accountReference,
-          accountNumber: user.reservedAccount.accountNumber,
-          senderName: "Real Test Sender",
-          bankName: "Real Test Bank"
-        })
-      });
-      
-      const data = await response.json();
-      
-      if (data.status === 'success') {
-        toast.success("Test transaction initiated. Wait for webhook notification");
-        // The balance will update automatically when the webhook is received
-        // and the transaction is processed
-        
-        // After a short delay, refresh the transactions
-        setTimeout(() => {
-          fetchTransactions();
-        }, 2000);
-      } else {
-        toast.error("Failed to initiate test transaction");
-      }
-    } catch (error) {
-      console.error("Error testing real transaction:", error);
-      toast.error("Failed to test transaction");
-    }
-  };
-
-  // Function to test the charge.completed webhook
-  const testChargeCompleted = async () => {
-    if (!user) {
-      toast.error("User information not available");
-      return;
-    }
-    
-    try {
-      // Make an API call to the test charge.completed endpoint through the proxy
-      const response = await fetch('/api/test/simulate-charge-completed', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          amount: 5000, // Fixed amount for testing
-          userId: user.id,
-          tx_ref: `COLL_${user.id}_${Date.now()}`
-        })
-      });
-      
-      const data = await response.json();
-      
-      if (data.status === 'success') {
-        toast.success("Charge completed webhook initiated. Wait for notification");
-        
-        // After a short delay, refresh the transactions
-        setTimeout(() => {
-          fetchTransactions();
-        }, 2000);
-      } else {
-        toast.error("Failed to initiate charge completed webhook");
-      }
-    } catch (error) {
-      console.error("Error testing charge completed webhook:", error);
-      toast.error("Failed to test charge completed webhook. Check server logs.");
-    }
-  };
-
   const handleDeposit = async (e: React.MouseEvent) => {
     // Prevent event bubbling
     e.preventDefault();
@@ -388,21 +306,9 @@ const WalletCard = () => {
               </div>
             )}
             
-            <div className="flex flex-col space-y-2 mt-4">
-              <Button variant="outline" onClick={() => navigate("/wallet-history")}>
-                View All Transactions
-              </Button>
-              
-              {user?.reservedAccount?.accountReference && (
-                <Button variant="outline" onClick={testRealTransaction} className="mt-2">
-                  Test Real Transfer
-                </Button>
-              )}
-              
-              <Button variant="outline" onClick={testChargeCompleted} className="mt-2">
-                Test Charge Completed
-              </Button>
-            </div>
+            <Button variant="outline" className="w-full mt-4" onClick={() => navigate("/wallet-history")}>
+              View All Transactions
+            </Button>
           </div>
         )}
       </CardContent>

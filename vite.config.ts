@@ -37,15 +37,10 @@ export default defineConfig(({ mode }) => {
           }
         },
         '/api': {
-          target: 'http://localhost:9000',
+          target: 'http://localhost:5000',
           changeOrigin: true,
           secure: false,
         },
-        '/reserved-accounts': {
-          target: 'http://localhost:9000',
-          changeOrigin: true,
-          secure: false,
-        }
       },
     },
     plugins: [

@@ -1,73 +1,73 @@
+import { BASE_URL, SECRET_KEY } from './config';
 
-import { PUBLIC_KEY, SECRET_KEY, BASE_URL } from './config';
+interface TransactionVerificationResponse {
+  success: boolean;
+  message?: string;
+  data?: {
+    id: number;
+    tx_ref: string;
+    flw_ref: string;
+    amount: number;
+    currency: string;
+    status: string;
+    payment_type: string;
+    created_at: string;
+    customer: {
+      id: number;
+      name: string;
+      email: string;
+      phone_number: string | null;
+    };
+  };
+}
 
 /**
  * Verify a transaction with Flutterwave
- * @param txRef The transaction reference
- * @returns Promise<{ success: boolean, data?: any, message?: string }>
+ * @param tx_ref The transaction reference to verify
+ * @returns The verification result
  */
-export const verifyTransaction = async (txRef: string) => {
+export const verifyTransaction = async (tx_ref: string): Promise<TransactionVerificationResponse> => {
   try {
-    console.log(`Verifying transaction with reference: ${txRef}`);
-    
-    // First try to verify using the transaction reference endpoint
-    const response = await fetch(`${BASE_URL}/transactions/verify_by_reference?tx_ref=${txRef}`, {
+    console.log('Verifying transaction:', tx_ref);
+
+    const response = await fetch(`${BASE_URL}/transactions/${tx_ref}/verify`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${SECRET_KEY}`,
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json'
       }
     });
-    
-    const responseData = await response.json();
-    
-    if (response.ok && responseData.status === 'success') {
-      console.log('Transaction verification successful:', responseData);
+
+    if (!response.ok) {
+      console.error('Transaction verification failed:', {
+        status: response.status,
+        statusText: response.statusText
+      });
       return {
-        success: true,
-        data: responseData.data
+        success: false,
+        message: `Verification failed: ${response.statusText}`
       };
     }
-    
-    // If verification failed, log the error
-    console.error('Transaction verification failed:', responseData);
+
+    const data = await response.json();
+
+    if (data.status === 'error') {
+      console.error('API error response:', data);
+      return {
+        success: false,
+        message: data.message || 'Verification failed'
+      };
+    }
+
     return {
-      success: false,
-      message: responseData.message || 'Transaction verification failed',
-      data: responseData
+      success: true,
+      data: data.data
     };
   } catch (error) {
     console.error('Error verifying transaction:', error);
     return {
       success: false,
-      message: error instanceof Error ? error.message : 'Unknown error verifying transaction'
+      message: error instanceof Error ? error.message : 'Unknown error'
     };
   }
-};
-
-/**
- * Create a new transaction (e.g., for tests and simulations)
- */
-export const createTestTransaction = async (data: any) => {
-  try {
-    console.log('Creating test transaction:', data);
-    
-    // Mock transaction logic
-    // In a real implementation, this would interact with the Flutterwave API
-    
-    return {
-      success: true,
-      data: {
-        ...data,
-        id: `test_tx_${Date.now()}`,
-        created_at: new Date().toISOString()
-      }
-    };
-  } catch (error) {
-    console.error('Error creating test transaction:', error);
-    return {
-      success: false,
-      message: error instanceof Error ? error.message : 'Unknown error creating transaction'
-    };
-  }
-};
+}; 

@@ -1,208 +1,263 @@
+import { BASE_URL, SECRET_KEY } from './config';
+import { toast } from 'sonner';
 
-import { PUBLIC_KEY, SECRET_KEY, BASE_URL } from './config';
+interface VirtualAccountParams {
+  email: string;
+  amount?: number;
+  tx_ref: string;
+  bvn: string;
+  narration?: string;
+}
 
 /**
- * Create a virtual account with Flutterwave
- * @param data Request data
+ * Create a virtual account for a customer
+ * @param data Account creation data
+ * @returns Response with account details
  */
-export const createVirtualAccount = async (data: any) => {
+export const createVirtualAccount = async (data: VirtualAccountParams) => {
   try {
+    console.log("Creating virtual account with data:", {
+      ...data,
+      bvn: '****' + data.bvn.slice(-4) // Mask BVN for security
+    });
+    
+    const requestBody = {
+      email: data.email,
+      is_permanent: true,
+      bvn: data.bvn,
+      tx_ref: data.tx_ref,
+      narration: data.narration || `Virtual account for ${data.email}`,
+      currency: "NGN",
+      amount: data.amount || 0
+    };
+    
+    console.log("Environment:", import.meta.env.PROD ? "Production" : "Development");
+    console.log("Request URL:", `${BASE_URL}/virtual-account-numbers`);
+    console.log("Request headers:", {
+      'Authorization': 'Bearer ****' + SECRET_KEY.slice(-10),
+      'Content-Type': 'application/json'
+    });
+    console.log("Request body:", JSON.stringify(requestBody, null, 2));
+    
     const response = await fetch(`${BASE_URL}/virtual-account-numbers`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${SECRET_KEY}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(data)
+      body: JSON.stringify(requestBody)
     });
-
-    const responseData = await response.json();
-
-    if (!response.ok) {
-      console.error('Error creating virtual account:', responseData);
+    
+    console.log("Response status:", response.status);
+    console.log("Response status text:", response.statusText);
+    console.log("Response headers:", Object.fromEntries(response.headers.entries()));
+    
+    // Log raw response for debugging
+    const responseText = await response.text();
+    console.log("Raw response:", responseText);
+    
+    let responseData;
+    try {
+      responseData = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error("Failed to parse response:", {
+        error: parseError,
+        responseText: responseText.substring(0, 200) + '...' // Log first 200 chars
+      });
       return {
         success: false,
-        message: responseData.message || 'Failed to create virtual account',
-        responseBody: null
+        message: "Invalid response format from server",
+        debug: {
+          status: response.status,
+          statusText: response.statusText,
+          responseText: responseText.substring(0, 200) + '...'
+        }
       };
     }
-
+    
+    // Handle proxy response format
+    if (responseData.error) {
+      console.error("Proxy error response:", responseData);
+      return {
+        success: false,
+        message: responseData.error || "Failed to create virtual account"
+      };
+    }
+    
+    if (!response.ok || responseData.status === 'error') {
+      console.error("API error response:", {
+        status: response.status,
+        statusText: response.statusText,
+        data: responseData
+      });
+      
+      // Handle specific error cases
+      if (response.status === 401) {
+        return {
+          success: false,
+          message: "Invalid API key or authentication failed"
+        };
+      }
+      
+      if (response.status === 400) {
+        return {
+          success: false,
+          message: responseData.message || "Invalid request parameters"
+        };
+      }
+      
+      return { 
+        success: false, 
+        message: responseData.message || `Failed to create virtual account: ${response.status}`
+      };
+    }
+    
+    console.log("Success response:", responseData);
     return {
       success: true,
-      message: 'Virtual account created successfully',
       responseBody: responseData.data
     };
+    
   } catch (error) {
-    console.error('Error creating virtual account:', error);
-    return {
-      success: false,
-      message: error instanceof Error ? error.message : 'Unknown error',
-      responseBody: null
+    console.error("Error creating virtual account:", {
+      error,
+      message: error instanceof Error ? error.message : "Unknown error",
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    
+    if (error instanceof TypeError && error.message === 'Failed to fetch') {
+      return {
+        success: false,
+        message: "Network error: Unable to connect to server"
+      };
+    }
+    
+    return { 
+      success: false, 
+      message: "Failed to create virtual account. Please try again."
     };
   }
 };
 
 /**
- * Create a group virtual account with Flutterwave
- * @param data Request data
+ * Verify a virtual account transaction
+ * @param transactionId The Flutterwave transaction reference
+ * @returns Transaction details if successful
  */
-export const createGroupVirtualAccount = async (data: any) => {
+export const verifyTransaction = async (transactionId: string) => {
   try {
-    const response = await fetch(`${BASE_URL}/virtual-account-numbers/bulk`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${SECRET_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(data)
-    });
-
-    const responseData = await response.json();
-
-    if (!response.ok) {
-      console.error('Error creating group virtual account:', responseData);
-      return {
-        success: false,
-        message: responseData.message || 'Failed to create group virtual account',
-        responseBody: null
-      };
-    }
-
-    return {
-      success: true,
-      message: 'Group virtual account created successfully',
-      responseBody: responseData.data
-    };
-  } catch (error) {
-    console.error('Error creating group virtual account:', error);
-    return {
-      success: false,
-      message: error instanceof Error ? error.message : 'Unknown error',
-      responseBody: null
-    };
-  }
-};
-
-/**
- * Get transactions for a reserved account
- * @param accountReference The account reference
- */
-export const getReservedAccountTransactions = async (accountReference: string) => {
-  try {
-    const response = await fetch(`${BASE_URL}/virtual-account-numbers/${accountReference}/transactions`, {
+    console.log("Verifying transaction:", transactionId);
+    
+    const response = await fetch(`${BASE_URL}/transactions/${transactionId}/verify`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${SECRET_KEY}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
       }
     });
-
+    
     const responseData = await response.json();
-
+    console.log("Verification response:", responseData);
+    
     if (!response.ok) {
-      console.error('Error getting reserved account transactions:', responseData);
+      console.error("Transaction verification failed:", responseData);
       return {
         success: false,
-        message: responseData.message || 'Failed to get reserved account transactions',
-        responseBody: null
+        message: responseData.message || "Failed to verify transaction"
       };
     }
-
+    
+    if (responseData.status !== 'success') {
+      console.error("Transaction verification failed:", responseData);
+      return {
+        success: false,
+        message: responseData.message || "Transaction verification failed"
+      };
+    }
+    
     return {
       success: true,
-      message: 'Reserved account transactions retrieved successfully',
       responseBody: responseData.data
     };
   } catch (error) {
-    console.error('Error getting reserved account transactions:', error);
+    console.error("Error verifying transaction:", error);
     return {
       success: false,
-      message: error instanceof Error ? error.message : 'Unknown error',
-      responseBody: null
+      message: "Failed to verify transaction"
     };
   }
 };
 
 /**
- * Get details for a reserved account
- * @param accountReference The account reference
+ * Create a virtual account for a contribution group
+ * @param data Account creation data for the group
+ * @returns Response with account details
  */
-export const getReservedAccountDetails = async (accountReference: string) => {
+export const createGroupVirtualAccount = async (data: {
+  email: string;
+  bvn: string;
+  groupName: string;
+  groupId: string;
+}) => {
   try {
-    const response = await fetch(`${BASE_URL}/virtual-account-numbers/${accountReference}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${SECRET_KEY}`,
-        'Content-Type': 'application/json'
-      }
+    console.log("Creating virtual account for group:", {
+      ...data,
+      bvn: '****' + data.bvn.slice(-4) // Mask BVN for security
     });
-
-    const responseData = await response.json();
-
-    if (!response.ok) {
-      console.error('Error getting reserved account details:', responseData);
-      return {
-        success: false,
-        message: responseData.message || 'Failed to get reserved account details',
-        responseBody: null
-      };
-    }
-
-    return {
-      success: true,
-      message: 'Reserved account details retrieved successfully',
-      responseBody: responseData.data
+    
+    const requestBody = {
+      email: data.email,
+      is_permanent: true,
+      bvn: data.bvn,
+      tx_ref: `GROUP_${data.groupId}_${Date.now()}`,
+      narration: `Virtual account for ${data.groupName}`,
+      currency: "NGN"
     };
-  } catch (error) {
-    console.error('Error getting reserved account details:', error);
-    return {
-      success: false,
-      message: error instanceof Error ? error.message : 'Unknown error',
-      responseBody: null
-    };
-  }
-};
-
-/**
- * Create an invoice for payment
- * @param data The invoice data
- */
-export const createInvoice = async (data: any) => {
-  try {
-    const response = await fetch(`${BASE_URL}/payment-invoices`, {
+    
+    console.log("Request body:", JSON.stringify(requestBody, null, 2));
+    
+    // Use the proxy endpoint instead of direct API call
+    const response = await fetch('/api/flutterwave/virtual-account-numbers', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${SECRET_KEY}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(data)
+      body: JSON.stringify(requestBody)
     });
-
-    const responseData = await response.json();
-
-    if (!response.ok) {
-      console.error('Error creating payment invoice:', responseData);
+    
+    const responseText = await response.text();
+    console.log("Raw response:", responseText);
+    
+    let responseData;
+    try {
+      responseData = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error("Failed to parse response:", parseError);
       return {
         success: false,
-        message: responseData.message || 'Failed to create payment invoice',
-        responseBody: null
+        message: "Invalid response format from server"
       };
     }
-
+    
+    if (!response.ok || responseData.status === 'error') {
+      console.error("API error response:", responseData);
+      return {
+        success: false,
+        message: responseData.message || "Failed to create virtual account"
+      };
+    }
+    
     return {
       success: true,
-      message: 'Payment invoice created successfully',
       responseBody: responseData.data
     };
+    
   } catch (error) {
-    console.error('Error creating payment invoice:', error);
+    console.error("Error creating group virtual account:", error);
     return {
       success: false,
-      message: error instanceof Error ? error.message : 'Unknown error',
-      responseBody: null
+      message: "Failed to create virtual account. Please try again."
     };
   }
-};
-
-// Re-export the verifyTransaction function from transactions.ts
-export { verifyTransaction } from './transactions';
+}; 

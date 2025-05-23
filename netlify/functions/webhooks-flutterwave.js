@@ -1,4 +1,3 @@
-
 const crypto = require('crypto');
 
 exports.handler = async function(event, context) {
@@ -11,8 +10,6 @@ exports.handler = async function(event, context) {
   }
 
   try {
-    console.log('Webhook received at netlify function:', event.body);
-    
     // Get the signature from the header
     const signature = event.headers['verif-hash'] || event.headers['Verif-Hash'];
     if (!signature) {
@@ -27,7 +24,7 @@ exports.handler = async function(event, context) {
     const webhookData = JSON.parse(event.body);
 
     // Log the incoming webhook (without sensitive data)
-    console.log('Processing Flutterwave webhook:', {
+    console.log('Received webhook:', {
       event: webhookData.event,
       tx_ref: webhookData.data?.tx_ref,
       amount: webhookData.data?.amount,
@@ -45,34 +42,11 @@ exports.handler = async function(event, context) {
       };
     }
 
-    // Process the webhook - we need to communicate with the browser to update localStorage
-    // To do this in Netlify Functions, we can use the client-side storage API or broadcast a message
-    
-    // For now, acknowledge receipt of the webhook
-    // The client application should poll for updates regularly
-    
-    // Store the transaction in a temporary storage or database if available
-    // At minimum, log it clearly so we can see what's happening
-    console.log('VALID TRANSACTION RECEIVED:', JSON.stringify({
-      event: webhookData.event,
-      amount: webhookData.data.amount,
-      reference: webhookData.data.tx_ref,
-      status: webhookData.data.status,
-      customer: webhookData.data.customer,
-      time: new Date().toISOString()
-    }));
-
+    // TODO: Implement your webhook processing logic here
+    // For now, just acknowledge receipt
     return {
       statusCode: 200,
-      body: JSON.stringify({ 
-        success: true, 
-        message: 'Webhook received and validated',
-        data: {
-          event: webhookData.event,
-          tx_ref: webhookData.data.tx_ref,
-          amount: webhookData.data.amount
-        }
-      })
+      body: JSON.stringify({ success: true, message: 'Webhook received' })
     };
   } catch (error) {
     console.error('Error processing webhook:', error);
@@ -81,4 +55,4 @@ exports.handler = async function(event, context) {
       body: JSON.stringify({ success: false, message: 'Internal server error', error: error.message })
     };
   }
-};
+}; 
