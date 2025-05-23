@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -8,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-interface MonnifyAmountDialogProps {
+interface PaymentAmountDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onProceed: (amount: number, anonymous: boolean) => void;
@@ -16,13 +15,13 @@ interface MonnifyAmountDialogProps {
   contributionName: string;
 }
 
-const MonnifyAmountDialog = ({
+const PaymentAmountDialog = ({
   open,
   onOpenChange,
   onProceed,
   isProcessing,
   contributionName
-}: MonnifyAmountDialogProps) => {
+}: PaymentAmountDialogProps) => {
   const [amount, setAmount] = useState("");
   const [anonymous, setAnonymous] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +49,7 @@ const MonnifyAmountDialog = ({
             Enter the amount you want to contribute to "{contributionName}".
           </DialogDescription>
         </DialogHeader>
+        
         <div className="space-y-4 py-4">
           {error && (
             <Alert variant="destructive">
@@ -57,37 +57,39 @@ const MonnifyAmountDialog = ({
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
+          
           <div className="space-y-2">
-            <Label htmlFor="monnify-amount">Amount (NGN)</Label>
+            <Label htmlFor="amount">Amount</Label>
             <div className="relative">
               <span className="absolute left-3 top-2.5 text-muted-foreground">₦</span>
-              <Input 
-                id="monnify-amount" 
-                type="number" 
-                className="pl-8" 
-                placeholder="0.00" 
-                value={amount} 
-                onChange={e => {
-                  setAmount(e.target.value);
-                  if (error) setError(null);
-                }} 
+              <Input
+                id="amount"
+                type="number"
+                className="pl-8"
+                placeholder="0.00"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                disabled={isProcessing}
               />
             </div>
           </div>
+          
           <div className="flex items-center space-x-2">
-            <Checkbox 
-              id="anonymous-monnify" 
-              checked={anonymous} 
-              onCheckedChange={checked => setAnonymous(checked as boolean)} 
+            <Checkbox
+              id="anonymous"
+              checked={anonymous}
+              onCheckedChange={(checked) => setAnonymous(checked as boolean)}
+              disabled={isProcessing}
             />
-            <label 
-              htmlFor="anonymous-monnify" 
+            <label
+              htmlFor="anonymous"
               className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
             >
               Contribute anonymously
             </label>
           </div>
         </div>
+        
         <DialogFooter>
           <Button 
             variant="outline" 
@@ -114,4 +116,4 @@ const MonnifyAmountDialog = ({
   );
 };
 
-export default MonnifyAmountDialog;
+export default PaymentAmountDialog; 
