@@ -2,6 +2,7 @@ import React from "react";
 import { format, isValid } from "date-fns";
 import { Contribution } from "@/services/localStorage";
 import AccountNumberDisplay from "@/components/contributions/AccountNumberDisplay";
+import ExportContributions from "../ExportContributions";
 
 interface WalletDetailsProps {
   contribution: Contribution;
@@ -34,7 +35,10 @@ const WalletDetails = ({ contribution }: WalletDetailsProps) => {
       )}
       
       <div className="space-y-2">
-        <span className="text-sm font-medium">Group Details</span>
+        <div className="flex justify-between items-center">
+          <span className="text-sm font-medium">Group Details</span>
+          <ExportContributions contribution={contribution} />
+        </div>
         <div className="flex justify-between text-sm">
           <span className="text-muted-foreground">Frequency</span>
           <span className="capitalize">{contribution?.frequency}</span>
