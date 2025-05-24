@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { toast } from 'sonner';
 import { useApp } from '@/contexts/AppContext';
 import { format } from 'date-fns';
-import { ShareContribution } from '@/components/contributions/ShareContribution';
+import ShareContribution from '@/components/contributions/ShareContribution';
 
 const AccountNumberDisplay = ({ accountNumber, accountName }: { accountNumber: string | undefined, accountName: string }) => {
   const [isCopied, setIsCopied] = useState(false);
