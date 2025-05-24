@@ -1,104 +1,103 @@
+
+import { v4 as uuidv4 } from 'uuid';
 import { Notification } from './types';
-import { getBaseCurrentUser } from './storageUtils';
 
 export const getNotifications = (userId: string): Notification[] => {
   try {
-    const currentUser = getBaseCurrentUser();
-    if (!currentUser || currentUser.id !== userId) return [];
+    if (!userId) return [];
     
-    return currentUser.notifications || [];
+    const notificationsString = localStorage.getItem('notifications');
+    const notifications: Notification[] = notificationsString ? JSON.parse(notificationsString) : [];
+    return notifications.filter(notification => notification.userId === userId);
   } catch (error) {
     console.error("Error getting notifications:", error);
     return [];
   }
 };
 
-export const addNotification = (notification: Notification): void => {
+export const addNotification = (notification: Omit<Notification, 'id' | 'createdAt'>) => {
   try {
-    const currentUser = getBaseCurrentUser();
-    if (!currentUser) return;
-    
-    if (!currentUser.notifications) {
-      currentUser.notifications = [];
+    if (!notification.userId) {
+      console.warn("Attempted to add notification without userId");
+      return null;
     }
     
-    currentUser.notifications.unshift(notification);
+    const notificationsString = localStorage.getItem('notifications');
+    const allNotifications: Notification[] = notificationsString ? JSON.parse(notificationsString) : [];
     
-    // Keep only last 50 notifications
-    if (currentUser.notifications.length > 50) {
-      currentUser.notifications = currentUser.notifications.slice(0, 50);
-    }
+    const newNotification: Notification = {
+      id: uuidv4(),
+      createdAt: new Date().toISOString(),
+      read: false,
+      ...notification,
+    };
     
-    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+    // Add the notification to the general notifications list
+    allNotifications.push(newNotification);
+    localStorage.setItem('notifications', JSON.stringify(allNotifications));
     
-    // Also update in users array
-    const usersString = localStorage.getItem('users');
-    if (usersString) {
-      const users = JSON.parse(usersString);
-      const userIndex = users.findIndex((u: any) => u.id === currentUser.id);
-      if (userIndex >= 0) {
-        users[userIndex] = currentUser;
-        localStorage.setItem('users', JSON.stringify(users));
-      }
-    }
+    // Return the notification ID so it can be used for further operations if needed
+    return newNotification.id;
   } catch (error) {
     console.error("Error adding notification:", error);
+    return null;
   }
 };
 
-export const createNotification = (notification: Notification): void => {
-  addNotification(notification);
-};
-
-export const markNotificationAsRead = (notificationId: string): void => {
+export const markNotificationAsRead = (id: string) => {
   try {
-    const currentUser = getBaseCurrentUser();
-    if (!currentUser || !currentUser.notifications) return;
+    if (!id) return;
     
-    const notificationIndex = currentUser.notifications.findIndex(n => n.id === notificationId);
+    const notificationsString = localStorage.getItem('notifications');
+    if (!notificationsString) return;
+
+    const notifications: Notification[] = JSON.parse(notificationsString);
+    const notificationIndex = notifications.findIndex(notification => notification.id === id);
     if (notificationIndex >= 0) {
-      currentUser.notifications[notificationIndex].read = true;
-      localStorage.setItem('currentUser', JSON.stringify(currentUser));
-      
-      // Also update in users array
-      const usersString = localStorage.getItem('users');
-      if (usersString) {
-        const users = JSON.parse(usersString);
-        const userIndex = users.findIndex((u: any) => u.id === currentUser.id);
-        if (userIndex >= 0) {
-          users[userIndex] = currentUser;
-          localStorage.setItem('users', JSON.stringify(users));
-        }
-      }
+      notifications[notificationIndex].read = true;
+      localStorage.setItem('notifications', JSON.stringify(notifications));
     }
   } catch (error) {
     console.error("Error marking notification as read:", error);
   }
 };
 
-export const markAllNotificationsAsRead = (): void => {
+export const markAllNotificationsAsRead = (userId: string = null) => {
   try {
-    const currentUser = getBaseCurrentUser();
-    if (!currentUser || !currentUser.notifications) return;
+    if (!userId) return;
     
-    currentUser.notifications = currentUser.notifications.map(notification => ({
-      ...notification,
-      read: true
-    }));
+    const notificationsString = localStorage.getItem('notifications');
+    if (!notificationsString) return;
+
+    const notifications: Notification[] = JSON.parse(notificationsString);
+    let updated = false;
     
-    localStorage.setItem('currentUser', JSON.stringify(currentUser));
-    
-    // Also update in users array
-    const usersString = localStorage.getItem('users');
-    if (usersString) {
-      const users = JSON.parse(usersString);
-      const userIndex = users.findIndex((u: any) => u.id === currentUser.id);
-      if (userIndex >= 0) {
-        users[userIndex] = currentUser;
-        localStorage.setItem('users', JSON.stringify(users));
+    notifications.forEach(notification => {
+      if ((userId && notification.userId === userId && !notification.read) || 
+          (!userId && !notification.read)) {
+        notification.read = true;
+        updated = true;
       }
+    });
+    
+    if (updated) {
+      localStorage.setItem('notifications', JSON.stringify(notifications));
     }
   } catch (error) {
     console.error("Error marking all notifications as read:", error);
   }
+};
+
+// Helper function to check if a user has unread notifications
+export const hasUnreadNotifications = (userId: string): boolean => {
+  if (!userId) return false;
+  const notifications = getNotifications(userId);
+  return notifications.some(notification => !notification.read);
+};
+
+// Helper to get the count of unread notifications
+export const getUnreadNotificationsCount = (userId: string): number => {
+  if (!userId) return 0;
+  const notifications = getNotifications(userId);
+  return notifications.filter(notification => !notification.read).length;
 };

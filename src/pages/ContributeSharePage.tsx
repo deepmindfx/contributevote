@@ -1,139 +1,265 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Copy, ArrowLeft } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { toast } from 'sonner';
-import { useApp } from '@/contexts/AppContext';
-import { format } from 'date-fns';
-import ShareContribution from '@/components/contributions/ShareContribution';
-
-const AccountNumberDisplay = ({ accountNumber, accountName }: { accountNumber: string | undefined, accountName: string }) => {
-  const [isCopied, setIsCopied] = useState(false);
-
-  const copyToClipboard = () => {
-    if (accountNumber) {
-      navigator.clipboard.writeText(accountNumber)
-        .then(() => {
-          setIsCopied(true);
-          toast.success('Account number copied to clipboard!');
-          setTimeout(() => setIsCopied(false), 2000);
-        })
-        .catch(err => {
-          console.error("Could not copy text: ", err);
-          toast.error('Failed to copy account number');
-        });
-    } else {
-      toast.error('Account number not available');
-    }
-  };
-
-  return (
-    <div className="flex items-center justify-between p-4 border rounded-md bg-muted/50">
-      <div>
-        <h3 className="text-lg font-semibold">{accountName}</h3>
-        <p className="text-sm text-muted-foreground">
-          Account Number: {accountNumber || 'Not Available'}
-        </p>
-      </div>
-      <Button variant="outline" size="sm" onClick={copyToClipboard} disabled={isCopied}>
-        {isCopied ? 'Copied!' : <><Copy className="h-4 w-4 mr-2" /> Copy</>}
-      </Button>
-    </div>
-  );
-};
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Wallet, ArrowLeft, AlertCircle, Copy, Check } from "lucide-react";
+import { toast } from "sonner";
+import { useApp } from "@/contexts/AppContext";
+import Header from "@/components/layout/Header";
+import { ensureAccountNumberDisplay } from "@/localStorage";
+import AccountNumberDisplay from "@/components/contributions/AccountNumberDisplay";
 
 const ContributeSharePage = () => {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const { contributions } = useApp();
+  const { contributions, contribute, user, isAuthenticated } = useApp();
   const [contribution, setContribution] = useState<any>(null);
-
+  const [amount, setAmount] = useState<number>(0);
+  const [isAnonymous, setIsAnonymous] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [navigate] = useState(() => useNavigate());
+  
   useEffect(() => {
-    if (id && contributions) {
-      const foundContribution = contributions.find((c: any) => c.id === id);
+    if (id) {
+      // Ensure account numbers are displayed
+      ensureAccountNumberDisplay();
+      
+      const allContributions = getContributions();
+      const foundContribution = allContributions.find(c => c.id === id);
       if (foundContribution) {
         setContribution(foundContribution);
-      } else {
-        toast.error("Contribution not found");
-        navigate("/dashboard");
+        // Set the default contribution amount if available
+        if (foundContribution.contributionAmount) {
+          setAmount(foundContribution.contributionAmount);
+        }
       }
     }
-  }, [id, contributions, navigate]);
-
+  }, [id]);
+  
+  // Get all contributions, not just the user's contributions
+  const getContributions = () => {
+    const contributionsString = localStorage.getItem('contributions');
+    if (!contributionsString) {
+      return [];
+    }
+    return JSON.parse(contributionsString);
+  };
+  
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseFloat(e.target.value);
+    setAmount(isNaN(value) ? 0 : value);
+  };
+  
+  const handleContribute = () => {
+    if (!isAuthenticated) {
+      toast.error("Please log in to contribute");
+      navigate("/auth", { state: { returnUrl: `/contribute/share/${id}` } });
+      return;
+    }
+    
+    if (amount <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+    
+    // Check if amount meets minimum requirement
+    if (contribution.contributionAmount && amount < contribution.contributionAmount) {
+      toast.error(`Minimum contribution amount is ₦${contribution.contributionAmount.toLocaleString()}`);
+      return;
+    }
+    
+    if (user.walletBalance < amount) {
+      toast.error("Insufficient funds in your wallet");
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    // Process contribution
+    setTimeout(() => {
+      contribute(contribution.id, amount, isAnonymous);
+      setIsLoading(false);
+      toast.success(`Successfully contributed ₦${amount.toLocaleString()} to ${contribution.name}`);
+      navigate(`/groups/${contribution.id}`);
+    }, 1000);
+  };
+  
   if (!contribution) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        Loading contribution details...
+      <div className="min-h-screen">
+        <Header />
+        <div className="flex flex-col items-center justify-center p-4 pt-24">
+          <Card className="w-full max-w-md text-center">
+            <CardHeader>
+              <AlertCircle className="mx-auto h-12 w-12 text-destructive" />
+              <CardTitle className="mt-4">Contribution Not Found</CardTitle>
+              <CardDescription>
+                The contribution you're looking for doesn't exist or may have been deleted.
+              </CardDescription>
+            </CardHeader>
+            <CardFooter className="flex justify-center">
+              <Button asChild>
+                <Link to="/">Return Home</Link>
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
       </div>
     );
   }
-
+  
   return (
-    <div className="container max-w-4xl mx-auto px-4 pt-24 pb-12">
-      <Button
-        variant="ghost"
-        size="sm"
-        className="mb-4"
-        onClick={() => navigate("/dashboard")}
-      >
-        <ArrowLeft className="h-4 w-4 mr-2" />
-        Back to Dashboard
-      </Button>
-
-      <Card className="glass-card animate-slide-up">
-        <CardContent className="p-6">
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold">{contribution.name}</h1>
-            <p className="text-muted-foreground">{contribution.description}</p>
-          </div>
-
-          <div className="mb-4">
-            <h2 className="text-xl font-semibold mb-2">Contribution Details</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <p className="text-muted-foreground">Frequency</p>
-                <p className="font-medium">{contribution.frequency}</p>
+    <div className="min-h-screen">
+      <Header />
+      <div className="flex flex-col items-center justify-center p-4 pt-24 bg-background">
+        <Card className="w-full max-w-md glass-card">
+          <CardHeader className="text-center">
+            <div className="flex justify-center mb-4">
+              <div className="rounded-full bg-primary p-2 text-primary-foreground">
+                <Wallet className="h-6 w-6" />
               </div>
+            </div>
+            <CardTitle>Contribute to {contribution.name}</CardTitle>
+            <CardDescription>
+              Join others in this contribution group
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center space-x-3 p-3 bg-secondary/50 rounded-lg">
+              <Avatar className="h-10 w-10">
+                <AvatarFallback>{contribution.name.charAt(0)}</AvatarFallback>
+              </Avatar>
               <div>
-                <p className="text-muted-foreground">Start Date</p>
-                <p className="font-medium">
-                  {format(new Date(contribution.startDate), 'MMM d, yyyy')}
+                <p className="font-medium">{contribution.name}</p>
+                <p className="text-sm text-muted-foreground">
+                  {contribution.description.substring(0, 50)}
+                  {contribution.description.length > 50 ? "..." : ""}
                 </p>
               </div>
-              <div>
-                <p className="text-muted-foreground">Target Amount</p>
-                <p className="font-medium">₦{contribution.targetAmount}</p>
+            </div>
+            
+            <div>
+              <p className="text-sm font-medium mb-1">Contribution Progress</p>
+              <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
+                <div 
+                  className="bg-primary h-full rounded-full"
+                  style={{ 
+                    width: `${Math.min(
+                      (contribution.currentAmount / contribution.targetAmount) * 100, 
+                      100
+                    )}%` 
+                  }}
+                ></div>
               </div>
-              <div>
-                <p className="text-muted-foreground">Current Amount</p>
-                <p className="font-medium">₦{contribution.currentAmount}</p>
+              <div className="flex justify-between text-sm mt-1">
+                <span>₦{contribution.currentAmount.toLocaleString()}</span>
+                <span>₦{contribution.targetAmount.toLocaleString()}</span>
               </div>
             </div>
-          </div>
-
-          <div className="mb-6">
-            <h2 className="text-xl font-semibold mb-2">Share & Contribute</h2>
-            <p className="text-muted-foreground mb-4">
-              Share this contribution group with others or contribute directly.
-            </p>
-
-            <div className="flex flex-col space-y-4">
-              <ShareContribution
-                contributionId={contribution.id}
-                contributionName={contribution.name}
-              />
-
-              {contribution.accountReference && (
-                <AccountNumberDisplay
-                  accountNumber={contribution.accountNumber}
+            
+            <Separator />
+            
+            {contribution.accountNumber && (
+              <div className="p-3 bg-secondary/30 rounded-lg">
+                {/* Replace the manual account display with AccountNumberDisplay component */}
+                <AccountNumberDisplay 
+                  accountNumber={contribution.accountNumber} 
                   accountName={contribution.name}
+                  monnifyDetails={contribution.accountDetails}
                 />
+                <p className="text-xs text-muted-foreground mt-2">
+                  You can also transfer directly to this account
+                </p>
+              </div>
+            )}
+            
+            <Separator />
+            
+            <div className="space-y-3">
+              <Label htmlFor="amount">Contribution Amount</Label>
+              <Input
+                id="amount"
+                type="number"
+                min={contribution.contributionAmount}
+                step="100"
+                placeholder="Enter amount"
+                value={amount || ''}
+                onChange={handleAmountChange}
+              />
+              {contribution.contributionAmount > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Minimum contribution: ₦{contribution.contributionAmount.toLocaleString()}
+                </p>
               )}
+              
+              <div className="flex flex-wrap gap-2 pt-2">
+                {[500, 1000, 5000, 10000].map(value => (
+                  <Button
+                    key={value}
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => setAmount(value)}
+                    disabled={value < contribution.contributionAmount}
+                  >
+                    ₦{value.toLocaleString()}
+                  </Button>
+                ))}
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+            
+            <div className="space-y-2">
+              <Label>Contribution Privacy</Label>
+              <RadioGroup defaultValue="public" className="pt-2">
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="public" id="public" 
+                    checked={!isAnonymous}
+                    onClick={() => setIsAnonymous(false)}
+                  />
+                  <Label htmlFor="public" className="cursor-pointer">
+                    Public (Your name will be visible)
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="anonymous" id="anonymous" 
+                    checked={isAnonymous}
+                    onClick={() => setIsAnonymous(true)}
+                  />
+                  <Label htmlFor="anonymous" className="cursor-pointer">
+                    Anonymous (Your name will be hidden)
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+          </CardContent>
+          <CardFooter className="flex flex-col space-y-3">
+            <Button 
+              className="w-full" 
+              onClick={handleContribute}
+              disabled={isLoading || amount <= 0}
+            >
+              {isLoading ? (
+                <>
+                  <span className="animate-spin mr-2 h-4 w-4 border-t-2 border-b-2 border-current rounded-full"></span>
+                  Processing...
+                </>
+              ) : (
+                `Contribute ₦${amount.toLocaleString()}`
+              )}
+            </Button>
+            <Button variant="ghost" asChild className="w-full">
+              <Link to="/">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Return to Home
+              </Link>
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
     </div>
   );
 };

@@ -2,49 +2,6 @@
 // Import only what we need from date-fns
 import { isValid } from "date-fns";
 
-// Auth token management functions
-export const clearAuthToken = (): void => {
-  try {
-    localStorage.removeItem('authToken');
-  } catch (error) {
-    console.error("Error clearing auth token:", error);
-  }
-};
-
-export const getAuthToken = (): string | null => {
-  try {
-    return localStorage.getItem('authToken');
-  } catch (error) {
-    console.error("Error getting auth token:", error);
-    return null;
-  }
-};
-
-export const storeAuthToken = (token: string): void => {
-  try {
-    localStorage.setItem('authToken', token);
-  } catch (error) {
-    console.error("Error storing auth token:", error);
-  }
-};
-
-// Current user management
-export const storeCurrentUser = (user: any): void => {
-  try {
-    localStorage.setItem('currentUser', JSON.stringify(user));
-  } catch (error) {
-    console.error("Error storing current user:", error);
-  }
-};
-
-export const clearCurrentUser = (): void => {
-  try {
-    localStorage.removeItem('currentUser');
-  } catch (error) {
-    console.error("Error clearing current user:", error);
-  }
-};
-
 // Basic helper functions that don't require imports from other modules
 export const addTransaction = (transaction: any): void => {
   try {

@@ -1,4 +1,3 @@
-
 import { v4 as uuidv4 } from 'uuid';
 import { User } from './types';
 import { getBaseUsers, getBaseCurrentUser } from './storageUtils';
@@ -18,7 +17,6 @@ export const createUser = (user: Omit<User, 'id' | 'walletBalance' | 'role' | 'a
     accountNumber: `20${Math.floor(100000000 + Math.random() * 900000000)}`,
     accountName: user.name,
     verified: false,
-    createdAt: new Date().toISOString(),
     ...user,
   };
   users.push(newUser);
@@ -55,12 +53,6 @@ export const updateUserById = (id: string, userData: Partial<User>) => {
   if (userIndex >= 0) {
     users[userIndex] = { ...users[userIndex], ...userData };
     localStorage.setItem('users', JSON.stringify(users));
-    
-    // If this is the current user, update current user too
-    const currentUser = getBaseCurrentUser();
-    if (currentUser && currentUser.id === id) {
-      localStorage.setItem('currentUser', JSON.stringify(users[userIndex]));
-    }
   }
 };
 
@@ -76,25 +68,15 @@ export const depositToUser = (userId: string, amount: number) => {
   const users = getBaseUsers();
   const userIndex = users.findIndex(user => user.id === userId);
   if (userIndex >= 0) {
-    users[userIndex].walletBalance = (users[userIndex].walletBalance || 0) + amount;
+    users[userIndex].walletBalance += amount;
     localStorage.setItem('users', JSON.stringify(users));
-
-    // If this is the current user, update current user too
-    const currentUser = getBaseCurrentUser();
-    if (currentUser && currentUser.id === userId) {
-      currentUser.walletBalance = users[userIndex].walletBalance;
-      localStorage.setItem('currentUser', JSON.stringify(currentUser));
-    }
 
     // Create a transaction record
     createTransaction({
-      id: uuidv4(),
       userId,
       type: 'deposit',
       amount,
       description: `Admin deposit`,
-      status: 'completed',
-      createdAt: new Date().toISOString(),
     });
   }
 };

@@ -1,202 +1,112 @@
 
+// Define all types here to avoid circular dependencies
 export interface User {
   id: string;
   name: string;
+  email: string;
+  password?: string;
+  walletBalance: number;
+  preferences?: {
+    darkMode: boolean;
+    anonymousContributions: boolean;
+    notificationsEnabled?: boolean;
+  };
+  role: 'user' | 'admin' | 'paused';
+  accountNumber?: string;
+  accountName?: string;
+  verified: boolean;
+  reservedAccount?: any;
+  invoices?: any[];
+  cardTokens?: any[];
+  notifications?: any[];
+  phone?: string;
+  phoneNumber?: string;
   firstName?: string;
   lastName?: string;
   username?: string;
-  email: string;
-  phone?: string;
-  phoneNumber?: string;
-  password?: string;
-  profilePicture?: string;
   profileImage?: string;
-  address?: string;
-  city?: string;
-  country?: string;
-  occupation?: string;
-  bio?: string;
-  website?: string;
-  socialLinks?: {
-    facebook?: string;
-    twitter?: string;
-    linkedin?: string;
-    instagram?: string;
-  };
-  emailVerified?: boolean;
-  phoneVerified?: boolean;
-  twoFactorAuthEnabled?: boolean;
+  status?: string;
   createdAt?: string;
-  updatedAt?: string;
-  lastLogin?: string;
-  role?: 'user' | 'admin' | 'paused';
-  status?: 'active' | 'inactive' | 'pending' | 'paused';
-  settings?: {
-    notificationsEnabled?: boolean;
-    darkModeEnabled?: boolean;
-    language?: string;
-    currency?: string;
-  };
-  preferences?: {
-    notifications?: boolean;
-    notificationsEnabled?: boolean;
-    darkMode?: boolean;
-    language?: string;
-    currency?: string;
-    anonymousContributions?: boolean;
-  };
-  groups?: string[];
-  contributions?: string[];
-  notifications?: Notification[];
-  reservedAccount?: ReservedAccountData;
-  verified?: boolean;
-  walletBalance?: number;
-  accountNumber?: string;
-  accountName?: string;
   pin?: string;
-}
-
-export interface ReservedAccountData {
-  accountName: string;
-  accountNumber: string;
-  bankCode: string;
-  bankName: string;
-  accountReference?: string;
-  flwRef?: string;
-  orderRef?: string;
-  createdAt?: string;
-  accounts?: {
-    accountNumber: string;
-    bankName: string;
-    bankCode: string;
-  }[];
-}
-
-export interface Transaction {
-  id: string;
-  userId: string;
-  type: 'deposit' | 'withdrawal' | 'transfer' | 'payment' | 'vote' | 'contribution';
-  amount: number;
-  description: string;
-  status: 'pending' | 'completed' | 'failed' | 'successful';
-  createdAt: string;
-  reference?: string;
-  contributionId?: string;
-  contributionName?: string;
-  contributionAmount?: number;
-  recipientName?: string;
-  recipientAccount?: string;
-  bankName?: string;
-  senderName?: string;
-  fee?: number;
-  narration?: string;
-  anonymous?: boolean;
-  paymentMethod?: string;
-  metaData?: {
-    paymentReference?: string;
-    paymentDetails?: {
-      transactionId?: string;
-      reference?: string;
-    };
-    transactionReference?: string;
-    senderName?: string;
-    senderBank?: string;
-    bankName?: string;
-    payerEmail?: string;
-    [key: string]: any;
-  };
 }
 
 export interface Contribution {
   id: string;
   name: string;
   description: string;
-  imageUrl?: string;
   targetAmount: number;
   currentAmount: number;
-  contributionAmount?: number;
+  category: "personal" | "family" | "community" | "business" | "event" | "education" | "other";
+  frequency: "daily" | "weekly" | "monthly" | "one-time";
+  contributionAmount: number;
   startDate: string;
   endDate?: string;
-  frequency: 'daily' | 'weekly' | 'monthly' | 'one-time';
-  isPrivate: boolean;
-  allowAnonymous: boolean;
-  requireApproval: boolean;
-  adminId: string;
+  deadline?: string;
   creatorId: string;
-  category: string;
-  visibility: 'public' | 'private' | 'invite-only';
-  status: 'active' | 'completed' | 'expired';
-  deadline: string;
-  votingThreshold: number;
-  privacy: 'public' | 'private';
-  memberRoles: 'equal' | 'weighted';
+  members: string[];
+  contributors: any[];
+  createdAt: string;
+  status?: "active" | "completed" | "expired";
+  visibility?: "public" | "private" | "invite-only";
+  privacy?: string;
+  memberRoles?: string;
+  votingThreshold?: number;
   accountNumber?: string;
-  bankName?: string;
   accountName?: string;
+  bankName?: string;
   accountReference?: string;
   accountDetails?: any;
-  members: string[];
-  createdAt?: string;
-  contributors?: {
-    userId: string;
-    name: string;
-    amount: number;
-    date: string;
-    anonymous: boolean;
-    paymentReference?: string;
-    paymentDetails?: any;
-  }[];
-  withdrawalRequests?: WithdrawalRequest[];
+}
+
+export interface Transaction {
+  id: string;
+  type: "deposit" | "withdrawal" | "transfer" | "payment" | "vote";
+  amount: number;
+  narration?: string;
+  status?: "pending" | "successful" | "failed" | "completed";
+  reference?: string;
+  userId: string;
+  toUserId?: string;
+  contributionId?: string;
+  createdAt: string;
+  paymentMethod?: string;
+  metadata?: any;
+  metaData?: any;
+  description?: string;
+  anonymous?: boolean;
 }
 
 export interface WithdrawalRequest {
   id: string;
   contributionId: string;
-  userId: string;
   amount: number;
-  purpose: string;
   reason: string;
+  status: 'pending' | 'approved' | 'rejected' | 'expired';
+  votes: {
+    userId: string;
+    vote: 'approve' | 'reject';
+  }[];
+  createdAt: string;
+  deadline: string;
   beneficiary: string;
   accountNumber: string;
   bankName: string;
-  status: 'pending' | 'approved' | 'rejected' | 'expired';
-  createdAt: string;
-  updatedAt?: string;
-  deadline: string;
-  votes: Record<string, 'approve' | 'reject'>;
+  purpose: string;
 }
 
 export interface Notification {
   id: string;
-  type: string;
+  userId: string;
   message: string;
+  type: 'info' | 'warning' | 'error' | 'success';
   read: boolean;
   createdAt: string;
-  userId?: string;
   relatedId?: string;
 }
 
 export interface Stats {
-  totalContributions: number;
-  totalAmount: number;
-  activeGroups: number;
-  completedGroups: number;
   totalUsers: number;
-}
-
-export function hasContributed(userId: string, contributionId: string): boolean {
-  try {
-    const contributionsString = localStorage.getItem('contributions');
-    if (!contributionsString) return false;
-
-    const contributions = JSON.parse(contributionsString);
-    const contribution = contributions.find((c: Contribution) => c.id === contributionId);
-
-    if (!contribution || !contribution.contributors) return false;
-
-    return contribution.contributors.some(contributor => contributor.userId === userId);
-  } catch (error) {
-    console.error("Error in hasContributed:", error);
-    return false;
-  }
+  totalContributions: number;
+  totalWithdrawals: number;
+  totalAmountContributed: number;
 }
