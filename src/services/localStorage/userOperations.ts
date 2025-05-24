@@ -1,3 +1,4 @@
+
 import { v4 as uuidv4 } from 'uuid';
 import { User } from './types';
 import { getBaseUsers, getBaseCurrentUser } from './storageUtils';
@@ -53,6 +54,12 @@ export const updateUserById = (id: string, userData: Partial<User>) => {
   if (userIndex >= 0) {
     users[userIndex] = { ...users[userIndex], ...userData };
     localStorage.setItem('users', JSON.stringify(users));
+    
+    // If this is the current user, update current user too
+    const currentUser = getBaseCurrentUser();
+    if (currentUser && currentUser.id === id) {
+      localStorage.setItem('currentUser', JSON.stringify(users[userIndex]));
+    }
   }
 };
 
@@ -68,8 +75,15 @@ export const depositToUser = (userId: string, amount: number) => {
   const users = getBaseUsers();
   const userIndex = users.findIndex(user => user.id === userId);
   if (userIndex >= 0) {
-    users[userIndex].walletBalance += amount;
+    users[userIndex].walletBalance = (users[userIndex].walletBalance || 0) + amount;
     localStorage.setItem('users', JSON.stringify(users));
+
+    // If this is the current user, update current user too
+    const currentUser = getBaseCurrentUser();
+    if (currentUser && currentUser.id === userId) {
+      currentUser.walletBalance = users[userIndex].walletBalance;
+      localStorage.setItem('currentUser', JSON.stringify(currentUser));
+    }
 
     // Create a transaction record
     createTransaction({
@@ -77,6 +91,8 @@ export const depositToUser = (userId: string, amount: number) => {
       type: 'deposit',
       amount,
       description: `Admin deposit`,
+      status: 'completed',
+      createdAt: new Date().toISOString(),
     });
   }
 };

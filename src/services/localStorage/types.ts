@@ -2,10 +2,15 @@
 export interface User {
   id: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
+  username?: string;
   email: string;
   phone?: string;
+  phoneNumber?: string;
   password?: string;
   profilePicture?: string;
+  profileImage?: string;
   address?: string;
   city?: string;
   country?: string;
@@ -24,8 +29,8 @@ export interface User {
   createdAt?: string;
   updatedAt?: string;
   lastLogin?: string;
-  role?: 'user' | 'admin';
-  status?: 'active' | 'inactive' | 'pending';
+  role?: 'user' | 'admin' | 'paused';
+  status?: 'active' | 'inactive' | 'pending' | 'paused';
   settings?: {
     notificationsEnabled?: boolean;
     darkModeEnabled?: boolean;
@@ -34,9 +39,11 @@ export interface User {
   };
   preferences?: {
     notifications?: boolean;
+    notificationsEnabled?: boolean;
     darkMode?: boolean;
     language?: string;
     currency?: string;
+    anonymousContributions?: boolean;
   };
   groups?: string[];
   contributions?: string[];
@@ -46,10 +53,13 @@ export interface User {
     message: string;
     read: boolean;
     createdAt: string;
+    relatedId?: string;
   }[];
   reservedAccount?: ReservedAccountData;
   verified?: boolean;
   walletBalance?: number;
+  accountNumber?: string;
+  accountName?: string;
   pin?: string;
 }
 
@@ -58,7 +68,10 @@ export interface ReservedAccountData {
   accountNumber: string;
   bankCode: string;
   bankName: string;
-  accountReference: string;
+  accountReference?: string;
+  flwRef?: string;
+  orderRef?: string;
+  createdAt?: string;
   accounts?: {
     accountNumber: string;
     bankName: string;
@@ -128,6 +141,7 @@ export interface Contribution {
   accountReference?: string;
   accountDetails?: any;
   members: string[];
+  createdAt?: string;
   contributors?: {
     userId: string;
     name: string;

@@ -1,3 +1,4 @@
+
 import React, {
   createContext,
   useState,
@@ -34,12 +35,23 @@ import { useWithdrawalActions } from './contribution/hooks/useWithdrawalActions'
 
 interface AppContextType {
   user: User | null;
+  users?: User[];
   isAuthenticated: boolean;
+  isAdmin?: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   register: (userData: any) => Promise<boolean>;
   updateUser: (userData: Partial<User>) => void;
+  updateProfile?: (userData: Partial<User>) => void;
   refreshData: () => void;
+  
+  // User management functions
+  updateUserAsAdmin?: (userId: string, userData: Partial<User>) => void;
+  depositToUserAsAdmin?: (userId: string, amount: number) => void;
+  pauseUserAsAdmin?: (userId: string) => void;
+  activateUserAsAdmin?: (userId: string) => void;
+  getUserByEmail?: (email: string) => User | null;
+  getUserByPhone?: (phone: string) => User | null;
   
   // Contribution methods
   contributions: Contribution[];
@@ -261,12 +273,19 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   
   const contextValue: AppContextType = {
     user,
+    users: getUsers(),
     isAuthenticated,
+    isAdmin: user?.role === 'admin',
     login,
     logout,
     register,
     updateUser,
+    updateProfile: updateUser,
     refreshData,
+    
+    // User management
+    getUserByEmail,
+    getUserByPhone,
     
     contributions,
     withdrawalRequests,
@@ -304,3 +323,5 @@ export const useApp = (): AppContextType => {
   }
   return context;
 };
+
+export { AppContext };
