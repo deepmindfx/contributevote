@@ -1,34 +1,23 @@
+
 export interface ReservedAccountData {
   accountNumber: string;
-  bankName: string;
   accountName: string;
-  flwRef: string;
-  orderRef: string;
-  createdAt: string;
+  bankName: string;
+  accountReference?: string;
+  flwRef?: string;
+  accounts?: Array<{
+    accountNumber: string;
+    bankName: string;
+    accountName?: string;
+  }>;
 }
 
-export interface CardTokenData {
-  token: string;
-  lastFourDigits: string;
-  expiryMonth: string;
-  expiryYear: string;
-  issuer: string;
-  cardType: string;
-  createdOn: string;
-}
-
-export interface InvoiceData {
-  invoiceReference: string;
-  description: string;
+export interface WalletTransaction {
+  id: string;
   amount: number;
-  currencyCode: string;
-  status: string;
-  customerEmail: string;
-  customerName: string;
-  expiryDate: string;
-  redirectUrl: string;
-  checkoutUrl: string;
-  createdOn: string;
+  type: 'deposit' | 'withdrawal' | 'transfer';
+  status: 'pending' | 'successful' | 'failed';
   createdAt: string;
-  contributionId: string;
+  reference?: string;
+  description?: string;
 }

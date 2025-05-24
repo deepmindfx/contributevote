@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import jsPDF from "jspdf";
@@ -14,11 +15,11 @@ const ExportContributions = ({ contribution }: ExportContributionsProps) => {
     // Create new PDF document
     const doc = new jsPDF();
     
-    // Add watermark logo
-    const watermarkLogo = new Image();
+    // Create watermark logo element
+    const watermarkLogo = document.createElement('img');
     watermarkLogo.src = '/lovable-uploads/85c09632-4fd3-46fb-b70a-45daac74abfc.png';
     
-    // Wait for logo to load
+    // Wait for logo to load, then generate PDF
     watermarkLogo.onload = () => {
       // Add watermark
       doc.saveGraphicsState();
@@ -125,19 +126,51 @@ const ExportContributions = ({ contribution }: ExportContributionsProps) => {
         doc.save(`${contribution.name}-contributions.pdf`);
       };
     };
+    
+    // Fallback - generate PDF without logo if it fails to load
+    watermarkLogo.onerror = () => {
+      generatePDFContent(doc);
+    };
+  };
+
+  const generatePDFContent = (doc: jsPDF) => {
+    // Add title
+    doc.setFontSize(20);
+    doc.text('Contribution Report', 20, 30);
+    
+    // Add contribution details
+    doc.setFontSize(12);
+    doc.text(`Group: ${contribution.name}`, 20, 50);
+    doc.text(`Target Amount: ₦${contribution.targetAmount.toLocaleString()}`, 20, 60);
+    doc.text(`Current Amount: ₦${contribution.currentAmount.toLocaleString()}`, 20, 70);
+    doc.text(`Created: ${format(new Date(contribution.createdAt), 'MMMM d, yyyy')}`, 20, 80);
+    
+    // Add contributors table
+    const tableData = contribution.contributors.map((contributor, index) => [
+      index + 1,
+      contributor.anonymous ? 'Anonymous' : contributor.name,
+      `₦${contributor.amount.toLocaleString()}`,
+      format(new Date(contributor.date), 'MMM d, yyyy')
+    ]);
+    
+    autoTable(doc, {
+      head: [['#', 'Contributor', 'Amount', 'Date']],
+      body: tableData,
+      startY: 90,
+      styles: { fontSize: 10 },
+      headStyles: { fillColor: [45, 174, 117] }
+    });
+    
+    // Save the PDF
+    doc.save(`${contribution.name}_report.pdf`);
   };
 
   return (
-    <Button 
-      variant="outline" 
-      size="sm" 
-      onClick={generatePDF}
-      className="flex items-center gap-2"
-    >
-      <Download className="h-4 w-4" />
-      Export Statement
+    <Button onClick={generatePDF} variant="outline" size="sm">
+      <Download className="h-4 w-4 mr-2" />
+      Export PDF
     </Button>
   );
 };
 
-export default ExportContributions; 
+export default ExportContributions;

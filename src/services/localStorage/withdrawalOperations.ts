@@ -44,11 +44,13 @@ export const createWithdrawalRequest = (
     // Notify all members of the contribution about this withdrawal request
     contribution.members.forEach(memberId => {
       addNotification({
+        id: uuidv4(),
         userId: memberId,
         message: `New withdrawal request of ₦${request.amount.toLocaleString()} from ${contribution.name}`,
         type: 'info',
         read: false,
         relatedId: request.contributionId,
+        createdAt: new Date().toISOString(),
       });
     });
   }
@@ -76,7 +78,7 @@ export const updateWithdrawalRequest = (
 
 export const voteOnWithdrawalRequest = (
   requestId: string,
-  vote: 'approve' | 'reject'
+  voteValue: 'approve' | 'reject'
 ): void => {
   const withdrawalRequests = getWithdrawalRequests();
   const index = withdrawalRequests.findIndex(request => request.id === requestId);
@@ -125,7 +127,7 @@ export const voteOnWithdrawalRequest = (
   // Add the vote
   request.votes.push({
     userId: currentUser.id,
-    vote,
+    vote: voteValue,
   });
   
   // Check if the request should be approved or rejected based on votes
@@ -161,16 +163,19 @@ export const voteOnWithdrawalRequest = (
     type: 'vote',
     amount: 0,
     contributionId: request.contributionId,
-    description: `Voted ${vote} on withdrawal request`,
+    description: `Voted ${voteValue} on withdrawal request`,
+    status: 'completed',
   });
   
   // Notify the contribution creator about the vote
   addNotification({
+    id: uuidv4(),
     userId: contribution.creatorId,
-    message: `${currentUser.name} voted to ${vote} your withdrawal request`,
+    message: `${currentUser.name} voted to ${voteValue} your withdrawal request`,
     type: 'info',
     read: false,
     relatedId: request.contributionId,
+    createdAt: new Date().toISOString(),
   });
 };
 
@@ -203,6 +208,7 @@ const processApprovedWithdrawal = (request: WithdrawalRequest): void => {
       amount: request.amount,
       contributionId: request.contributionId,
       description: `Withdrawal from ${contribution.name}`,
+      status: 'completed',
     });
     
     // Update user balance
@@ -210,11 +216,13 @@ const processApprovedWithdrawal = (request: WithdrawalRequest): void => {
     
     // Notify the user
     addNotification({
+      id: uuidv4(),
       userId: contribution.creatorId,
       message: `Your withdrawal request for ₦${request.amount.toLocaleString()} has been approved`,
       type: 'success',
       read: false,
       relatedId: request.contributionId,
+      createdAt: new Date().toISOString(),
     });
   }
 };
@@ -259,11 +267,13 @@ export const pingGroupMembersForVote = (requestId: string): void => {
   // Send notifications to non-voted members
   nonVotedMembers.forEach(memberId => {
     addNotification({
+      id: uuidv4(),
       userId: memberId,
       message: `REMINDER: Please vote on the withdrawal request for ${contribution.name}`,
       type: 'warning',
       read: false,
       relatedId: request.contributionId,
+      createdAt: new Date().toISOString(),
     });
   });
 };
@@ -288,11 +298,13 @@ export const updateWithdrawalRequestsStatus = (): void => {
       const contribution = getBaseContributionById(request.contributionId);
       if (contribution) {
         addNotification({
+          id: uuidv4(),
           userId: contribution.creatorId,
           message: `Your withdrawal request for ${contribution.name} has expired due to insufficient votes`,
           type: 'warning',
           read: false,
           relatedId: request.contributionId,
+          createdAt: new Date().toISOString(),
         });
       }
     }

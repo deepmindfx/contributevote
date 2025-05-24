@@ -77,6 +77,7 @@ export const depositToUser = (userId: string, amount: number) => {
       type: 'deposit',
       amount,
       description: `Admin deposit`,
+      status: 'completed',
     });
   }
 };

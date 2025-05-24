@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowDown, ArrowUp, CreditCard } from "lucide-react";
@@ -14,6 +15,7 @@ interface WalletActionsProps {
   onWithdrawClick: () => void;
   contributionId: string;
   contributionName: string;
+  contributionAccountReference?: string;
 }
 
 const WalletActions = ({ 
@@ -21,7 +23,8 @@ const WalletActions = ({
   onContributeClick, 
   onWithdrawClick,
   contributionId,
-  contributionName
+  contributionName,
+  contributionAccountReference
 }: WalletActionsProps) => {
   const { user } = useUser();
   const { refreshData } = useApp();
@@ -43,9 +46,7 @@ const WalletActions = ({
           console.log('Processing Flutterwave success response:', response);
           try {
             // Contribute to group with Flutterwave payment details
-            await contributeToGroup(contributionId, {
-              amount,
-              anonymous,
+            await contributeToGroup(contributionId, amount, anonymous, {
               paymentMethod: 'flutterwave',
               paymentReference: response.paymentReference || response.tx_ref,
               paymentProvider: 'flutterwave',

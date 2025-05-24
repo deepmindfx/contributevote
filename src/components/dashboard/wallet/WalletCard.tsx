@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
@@ -197,8 +198,8 @@ const WalletCard = () => {
             isWithdrawOpen={isWithdrawOpen}
             amount={amount}
             setAmount={setAmount}
-            handleDeposit={handleDeposit}
-            handleWithdraw={handleWithdraw} 
+            onFundWallet={handleDeposit}
+            onWithdrawFunds={handleWithdraw}
             depositMethod={depositMethod}
             setDepositMethod={setDepositMethod}
             isProcessingDeposit={isProcessingDeposit}

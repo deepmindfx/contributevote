@@ -1,10 +1,11 @@
 
-import { createContext, useContext, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useEffect, ReactNode, useState } from 'react';
 import { useUser } from './UserContext';
 import { useContribution } from './ContributionContext'; 
 import { useAdmin } from './AdminContext';
 import { initializeLocalStorage } from '@/services/localStorage';
 import { ensureAccountNumberDisplay } from '@/localStorage';
+import { hasUnreadNotifications } from '@/services/localStorage/notificationOperations';
 
 // Create a backward compatibility context
 interface AppContextType {
@@ -36,6 +37,12 @@ interface AppContextType {
   getReceipt: (transactionId: string) => any;
   verifyUser: (userId: string) => void;
   isGroupCreator: (contributionId: string) => boolean;
+  // Missing functions that need to be added
+  login: (email: string, password: string) => Promise<any>;
+  register: (userData: any) => Promise<any>;
+  updateUser: (userData: any) => void;
+  refreshContributionData: () => void;
+  hasUnreadNotifications: (userId: string) => boolean;
 }
 
 // Export the context so it can be imported directly
@@ -115,6 +122,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Mock auth functions for now - these would be implemented properly
+  const login = async (email: string, password: string) => {
+    // This would be implemented with actual auth logic
+    console.log('Login called with:', email);
+    return Promise.resolve({ success: true });
+  };
+
+  const register = async (userData: any) => {
+    // This would be implemented with actual registration logic
+    console.log('Register called with:', userData);
+    return Promise.resolve({ success: true });
+  };
+
+  const updateUser = (userData: any) => {
+    // This would call the appropriate user update function
+    updateProfile(userData);
+  };
+
+  const checkUnreadNotifications = (userId: string) => {
+    return hasUnreadNotifications(userId);
+  };
+
   return (
     <AppContext.Provider value={{
       user,
@@ -145,6 +174,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       getReceipt,
       verifyUser,
       isGroupCreator,
+      // Added missing functions
+      login,
+      register,
+      updateUser,
+      refreshContributionData,
+      hasUnreadNotifications: checkUnreadNotifications,
     }}>
       {children}
     </AppContext.Provider>
