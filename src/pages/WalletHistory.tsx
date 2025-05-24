@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
+
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import MobileNav from "@/components/layout/MobileNav";
@@ -78,35 +79,15 @@ const WalletHistory = () => {
     setCurrencyType(prevType => prevType === "NGN" ? "USD" : "NGN");
   };
   
-  // Filter and deduplicate transactions
-  const uniqueFilteredTransactions = useMemo(() => {
-    const seen = new Map();
-    
-    return transactions
-      .filter(t => t.userId === user?.id) // Only show current user's transactions
-      .filter(t => filter === "all" || t.type === filter)
-      .filter(transaction => {
-        // Create a unique key based on multiple identifiers
-        const key = transaction.metaData?.paymentReference || 
-                   transaction.metaData?.paymentDetails?.transactionId ||
-                   transaction.metaData?.transactionReference ||
-                   transaction.id;
-
-        // If we've seen this key before, it's a duplicate
-        if (seen.has(key)) {
-          return false;
-        }
-        
-        // Add the transaction to our seen map
-        seen.set(key, true);
-        return true;
-      })
-      .sort((a, b) => {
-        const dateA = new Date(a.createdAt).getTime();
-        const dateB = new Date(b.createdAt).getTime();
-        return isNaN(dateB) || isNaN(dateA) ? 0 : dateB - dateA;
-      });
-  }, [transactions, user?.id, filter]);
+  // Filter transactions based on the current filter and only show user's transactions
+  const filteredTransactions = transactions
+    .filter(t => t.userId === user?.id) // Only show current user's transactions
+    .filter(t => filter === "all" || t.type === filter)
+    .sort((a, b) => {
+      const dateA = new Date(a.createdAt).getTime();
+      const dateB = new Date(b.createdAt).getTime();
+      return isNaN(dateB) || isNaN(dateA) ? 0 : dateB - dateA;
+    });
   
   // Improved formatDate function with proper error handling
   const formatDate = (dateString?: string) => {
@@ -249,12 +230,16 @@ const WalletHistory = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {uniqueFilteredTransactions.length > 0 ? (
-                  <div className="space-y-3">
-                    {uniqueFilteredTransactions.map(transaction => (
+                {filteredTransactions.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>No transactions found</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {filteredTransactions.map((transaction) => (
                       <div 
-                        key={`${transaction.id}-${transaction.metaData?.paymentReference || ''}`}
-                        className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-muted/30 transition-colors"
+                        key={transaction.id} 
+                        className="flex items-start p-3 border rounded-lg cursor-pointer hover:bg-muted/30 transition-colors"
                         onClick={() => viewTransactionDetails(transaction)}
                       >
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center
@@ -317,10 +302,6 @@ const WalletHistory = () => {
                         </div>
                       </div>
                     ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-6 text-muted-foreground">
-                    <p>No transactions found</p>
                   </div>
                 )}
               </CardContent>

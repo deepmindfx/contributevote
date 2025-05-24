@@ -1,12 +1,12 @@
+
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowDown, ArrowUp, CreditCard } from "lucide-react";
-import { payWithFlutterwave } from "@/utils/flutterwavePayment";
+import { payWithMonnify } from "@/utils/monnifyPayment";
 import { useUser } from "@/contexts/UserContext";
 import { useApp } from "@/contexts/AppContext";
 import { toast } from "sonner";
-import PaymentAmountDialog from "../dialogs/PaymentAmountDialog";
-import { contributeToGroup } from "@/services/localStorage";
+import MonnifyAmountDialog from "../dialogs/MonnifyAmountDialog";
 
 interface WalletActionsProps {
   isUserCreator: boolean;
@@ -14,6 +14,7 @@ interface WalletActionsProps {
   onWithdrawClick: () => void;
   contributionId: string;
   contributionName: string;
+  contributionAccountReference?: string;
 }
 
 const WalletActions = ({ 
@@ -21,68 +22,58 @@ const WalletActions = ({
   onContributeClick, 
   onWithdrawClick,
   contributionId,
-  contributionName
+  contributionName,
+  contributionAccountReference
 }: WalletActionsProps) => {
   const { user } = useUser();
   const { refreshData } = useApp();
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [isMonnifyDialogOpen, setIsMonnifyDialogOpen] = useState(false);
 
-  const handlePayment = async (amount: number, anonymous: boolean) => {
-    if (!user) return;
+  const handleMonnifyPayment = (amount: number, anonymous: boolean) => {
+    if (!user || !user.id) {
+      toast.error("Please log in to contribute");
+      return;
+    }
+    
+    setIsProcessing(true);
     
     try {
-      setIsProcessing(true);
-      
-      await payWithFlutterwave(
-        amount,
-        user.email,
-        user.name,
-        contributionName,
-        async (response) => {
-          console.log('Processing Flutterwave success response:', response);
-          try {
-            // Contribute to group with Flutterwave payment details
-            await contributeToGroup(contributionId, {
-              amount,
-              anonymous,
-              paymentMethod: 'flutterwave',
-              paymentReference: response.paymentReference || response.tx_ref,
-              paymentProvider: 'flutterwave',
-              paymentStatus: response.status,
-              paymentDetails: {
-                transactionId: response.transactionId,
-                flutterwaveReference: response.flutterwaveReference,
-                chargeResponseCode: response.chargeResponseCode,
-                chargeResponseMessage: response.chargeResponseMessage,
-                currency: response.currency,
-                chargedAmount: response.charged_amount,
-                createdAt: response.created_at
-              }
-            });
-            
-            toast.success('Payment successful!');
-            // Force a refresh of the data
-            setTimeout(() => {
-              refreshData();
-            }, 500);
-          } catch (error) {
-            console.error('Error processing successful payment:', error);
-            toast.error('Error processing payment. Please contact support.');
-          }
+      payWithMonnify({
+        amount: amount,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email
         },
-        () => {
+        contribution: {
+          id: contributionId,
+          name: contributionName,
+          accountReference: contributionAccountReference
+        },
+        anonymous: anonymous,
+        onSuccess: (response) => {
+          console.log("Payment success, refreshing data", response);
+          refreshData();
           setIsProcessing(false);
-          setIsPaymentDialogOpen(false);
-          toast.error('Payment cancelled');
+          setIsMonnifyDialogOpen(false);
+          toast.success("Payment initiated successfully. Check back for confirmation.");
+        },
+        onClose: () => {
+          console.log("Payment window closed");
+          // Since we added auto-contribution in payWithMonnify, we need to refresh here
+          setTimeout(() => {
+            refreshData();
+          }, 2000);
+          setIsProcessing(false);
+          setIsMonnifyDialogOpen(false);
         }
-      );
+      });
     } catch (error) {
-      console.error('Payment error:', error);
-      toast.error('Payment failed. Please try again.');
-    } finally {
+      console.error("Monnify payment error:", error);
+      toast.error("Payment initialization failed. Please try again.");
       setIsProcessing(false);
-      setIsPaymentDialogOpen(false);
+      setIsMonnifyDialogOpen(false);
     }
   };
 
@@ -100,7 +91,7 @@ const WalletActions = ({
         <Button 
           className="flex-1"
           variant="outline"
-          onClick={() => setIsPaymentDialogOpen(true)}
+          onClick={() => setIsMonnifyDialogOpen(true)}
           disabled={isProcessing}
         >
           <CreditCard className="mr-2 h-4 w-4" />
@@ -119,11 +110,11 @@ const WalletActions = ({
         )}
       </div>
       
-      {/* Payment Amount Dialog */}
-      <PaymentAmountDialog
-        open={isPaymentDialogOpen}
-        onOpenChange={setIsPaymentDialogOpen}
-        onProceed={handlePayment}
+      {/* Custom Monnify Amount Dialog */}
+      <MonnifyAmountDialog
+        open={isMonnifyDialogOpen}
+        onOpenChange={setIsMonnifyDialogOpen}
+        onProceed={handleMonnifyPayment}
         isProcessing={isProcessing}
         contributionName={contributionName}
       />

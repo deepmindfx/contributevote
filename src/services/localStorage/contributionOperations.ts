@@ -1,3 +1,4 @@
+
 import { v4 as uuidv4 } from 'uuid';
 import { Contribution } from './types';
 import { getBaseCurrentUser, getBaseContributions, getBaseContributionById } from './storageUtils';
@@ -62,125 +63,50 @@ export const updateContribution = (id: string, contributionData: Partial<Contrib
   }
 };
 
-export const contributeToGroup = (
-  contributionId: string,
-  paymentDetails: {
-    amount: number;
-    anonymous: boolean;
-    paymentMethod: string;
-    paymentReference: string;
-    paymentProvider: string;
-    paymentStatus: string;
-    paymentDetails: any;
-  }
-) => {
+export const contributeToGroup = (contributionId: string, amount: number, anonymous: boolean = false) => {
   const user = getBaseCurrentUser();
   if (!user) throw new Error('User not logged in');
 
-  // Get all contributions from localStorage
-  const contributions = getBaseContributions();
-  const contributionIndex = contributions.findIndex(c => c.id === contributionId);
-  
-  if (contributionIndex === -1) {
-    throw new Error('Contribution group not found');
-  }
+  const contribution = getBaseContributionById(contributionId);
+  if (!contribution) throw new Error('Contribution group not found');
 
-  // Check for existing contribution with same payment reference
-  const existingContribution = contributions[contributionIndex].contributors?.find(
-    c => c.paymentReference === paymentDetails.paymentReference ||
-         (c.paymentDetails?.transactionId === paymentDetails.paymentDetails?.transactionId &&
-          paymentDetails.paymentDetails?.transactionId)
-  );
+  if (user.walletBalance < amount) throw new Error('Insufficient funds in your wallet');
 
-  if (existingContribution) {
-    console.warn("Duplicate contribution detected, skipping:", {
-      existing: existingContribution,
-      attempted: paymentDetails
-    });
-    return;
-  }
+  // Update user's wallet balance
+  updateUserBalance(user.id, user.walletBalance - amount);
 
-  // Create the new contributor entry
+  // Add contribution to the group
+  contribution.currentAmount += amount;
+
+  // Add contributor to the contribution group
   const date = new Date().toISOString();
-  const newContributor = {
+  contribution.contributors.push({
     userId: user.id,
-    name: user.name,
-    email: user.email,
-    amount: paymentDetails.amount,
+    amount,
     date,
-    anonymous: paymentDetails.anonymous,
-    paymentMethod: paymentDetails.paymentMethod,
-    paymentReference: paymentDetails.paymentReference,
-    paymentProvider: paymentDetails.paymentProvider,
-    paymentStatus: paymentDetails.paymentStatus,
-    paymentDetails: paymentDetails.paymentDetails
-  };
+    anonymous,
+  });
 
-  // Update the contribution
-  contributions[contributionIndex].currentAmount += paymentDetails.amount;
-  
-  // Initialize contributors array if it doesn't exist
-  if (!contributions[contributionIndex].contributors) {
-    contributions[contributionIndex].contributors = [];
-  }
-
-  // Add new contributor to the beginning of the array
-  contributions[contributionIndex].contributors.unshift(newContributor);
-
-  // Save updated contributions back to localStorage
-  try {
-    localStorage.setItem('contributions', JSON.stringify(contributions));
-    console.log("Successfully updated contribution in localStorage:", {
-      contributionId,
-      newAmount: contributions[contributionIndex].currentAmount,
-      contributorDetails: {
-        amount: newContributor.amount,
-        reference: newContributor.paymentReference,
-        provider: newContributor.paymentProvider
-      }
-    });
-  } catch (error) {
-    console.error("Failed to save contribution to localStorage:", error);
-    throw new Error('Failed to save contribution');
-  }
+  // Update contribution in local storage
+  updateContribution(contributionId, {
+    currentAmount: contribution.currentAmount,
+    contributors: contribution.contributors,
+  });
 
   // Create a transaction record
-  try {
-    createTransaction({
-      contributionId,
-      userId: user.id,
-      type: 'deposit',
-      amount: paymentDetails.amount,
-      description: `Contribution to ${contributions[contributionIndex].name}`,
-      anonymous: paymentDetails.anonymous,
-      status: 'completed',
-      metaData: {
-        paymentMethod: paymentDetails.paymentMethod,
-        paymentReference: paymentDetails.paymentReference,
-        paymentProvider: paymentDetails.paymentProvider,
-        paymentStatus: paymentDetails.paymentStatus,
-        paymentDetails: paymentDetails.paymentDetails,
-        accountNumber: contributions[contributionIndex].accountNumber,
-        accountReference: contributions[contributionIndex].accountReference
-      }
-    });
-  } catch (error) {
-    // If transaction creation fails, we should roll back the contribution update
-    console.error("Failed to create transaction record:", error);
-    
-    // Roll back the contribution amount and remove the new contributor
-    contributions[contributionIndex].currentAmount -= paymentDetails.amount;
-    contributions[contributionIndex].contributors.shift();
-    
-    try {
-      localStorage.setItem('contributions', JSON.stringify(contributions));
-      console.log("Successfully rolled back contribution after transaction failure");
-    } catch (rollbackError) {
-      console.error("Critical: Failed to roll back contribution:", rollbackError);
+  createTransaction({
+    contributionId,
+    userId: user.id,
+    type: 'deposit',
+    amount,
+    description: `Contribution to ${contribution.name}`,
+    anonymous,
+    status: 'completed',
+    metaData: {
+      accountNumber: contribution.accountNumber,
+      accountReference: contribution.accountReference
     }
-    
-    throw new Error('Failed to create transaction record');
-  }
+  });
 };
 
 export const contributeByAccountNumber = (accountNumber: string, amount: number, contributorInfo: { name: string, email?: string, phone?: string }, anonymous: boolean = false) => {

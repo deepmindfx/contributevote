@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
+
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
 import { Contribution, WithdrawalRequest, Transaction, hasContributed } from "@/services/localStorage";
@@ -17,30 +18,9 @@ export function useContributionDetail(id: string | undefined) {
   
   const [contribution, setContribution] = useState<Contribution | null>(null);
   const [contributionRequests, setContributionRequests] = useState<WithdrawalRequest[]>([]);
+  const [contributionTransactions, setContributionTransactions] = useState<Transaction[]>([]);
   const [hasUserContributed, setHasUserContributed] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-
-  // Filter and deduplicate transactions
-  const contributionTransactions = useMemo(() => {
-    if (!id || !transactions) return [];
-
-    const groupTransactions = transactions.filter(t => t.contributionId === id);
-    const uniqueTransactions = new Map();
-
-    // Keep only unique transactions based on payment reference or transaction ID
-    groupTransactions.forEach(transaction => {
-      const key = transaction.metaData?.paymentReference || 
-                 transaction.metaData?.paymentDetails?.transactionId ||
-                 transaction.id;
-      
-      // Only keep the first occurrence of each transaction
-      if (!uniqueTransactions.has(key)) {
-        uniqueTransactions.set(key, transaction);
-      }
-    });
-
-    return Array.from(uniqueTransactions.values());
-  }, [id, transactions]);
 
   useEffect(() => {
     // Refresh data when component mounts to ensure fresh data after login
@@ -71,9 +51,10 @@ export function useContributionDetail(id: string | undefined) {
       // Call the function to ensure account numbers exist
       ensureAccountNumberDisplay();
       
-      // Set contribution and withdrawal requests
+      // Set contribution and other related data
       setContribution(foundContribution);
       setContributionRequests(withdrawalRequests.filter(w => w.contributionId === id));
+      setContributionTransactions(transactions.filter(t => t.contributionId === id));
 
       // Check if user has contributed to this group
       if (user && user.id) {
@@ -85,7 +66,7 @@ export function useContributionDetail(id: string | undefined) {
       console.error("Error loading contribution details:", error);
       setIsLoading(false);
     }
-  }, [id, contributions, withdrawalRequests, navigate, user]);
+  }, [id, contributions, withdrawalRequests, transactions, navigate, user]);
 
   return {
     contribution,
