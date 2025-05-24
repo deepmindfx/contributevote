@@ -13,13 +13,12 @@ import {
   getAuthToken,
   storeAuthToken,
   getCurrentUser,
-  storeCurrentUser,
-  clearCurrentUser,
+  setCurrentUser,
   updateUser as updateLocalStorageUser,
   getUsers,
   getNotifications,
-  createNotification as createLocalStorageNotification,
-  markNotificationAsRead as markLocalStorageNotificationAsRead,
+  createNotification,
+  markNotificationAsRead,
 } from '@/services/localStorage';
 import {
   User,
@@ -104,7 +103,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     
     if (foundUser) {
       storeAuthToken('fake_token');
-      storeCurrentUser(foundUser);
+      setCurrentUser(foundUser);
       setIsAuthenticated(true);
       setUser(foundUser);
       toast.success(`Welcome back, ${foundUser.name}!`);
@@ -161,7 +160,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       
       // Log in the new user
       storeAuthToken('fake_token');
-      storeCurrentUser(newUser);
+      setCurrentUser(newUser);
       setIsAuthenticated(true);
       setUser(newUser);
       
@@ -177,7 +176,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   
   const logout = () => {
     clearAuthToken();
-    clearCurrentUser();
+    localStorage.removeItem('currentUser');
     setIsAuthenticated(false);
     setUser(null);
     toast.success('Logged out successfully');
@@ -187,7 +186,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const updateUser = (userData: Partial<User>) => {
     if (user) {
       const updatedUser = { ...user, ...userData };
-      storeCurrentUser(updatedUser);
+      setCurrentUser(updatedUser);
       updateLocalStorageUser(updatedUser);
       setUser(updatedUser);
       toast.success('Profile updated successfully');
@@ -245,7 +244,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   );
   
   // Notifications
-  const createNotification = (notification: Omit<Notification, 'id'>) => {
+  const handleCreateNotification = (notification: Omit<Notification, 'id'>) => {
     if (!user) {
       console.error('User not logged in');
       return;
@@ -259,12 +258,12 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       createdAt: new Date().toISOString(),
     };
     
-    createLocalStorageNotification(newNotification);
+    createNotification(newNotification);
     refreshData();
   };
   
-  const markNotificationAsRead = (notificationId: string) => {
-    markLocalStorageNotificationAsRead(notificationId);
+  const handleMarkNotificationAsRead = (notificationId: string) => {
+    markNotificationAsRead(notificationId);
     refreshData();
   };
   

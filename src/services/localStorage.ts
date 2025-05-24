@@ -1,3 +1,4 @@
+
 // Import from types first to avoid circular dependencies
 import { User, Transaction, Contribution, WithdrawalRequest, Notification, Stats } from './localStorage/types';
 
@@ -5,7 +6,8 @@ import { User, Transaction, Contribution, WithdrawalRequest, Notification, Stats
 import {
   ensureAccountNumberDisplay, verifyUserWithOTP, validateDate, 
   getContributionByAccountNumber, reExportEnsureAccountNumberDisplay,
-  addTransaction
+  addTransaction, clearAuthToken, getAuthToken, storeAuthToken,
+  storeCurrentUser, clearCurrentUser, markAllNotificationsAsRead
 } from '@/localStorage';
 
 // Import from storage utilities
@@ -34,7 +36,7 @@ import {
   getTransactions, createTransaction
 } from './localStorage/transactionOperations';
 import {
-  getNotifications, addNotification, markNotificationAsRead, markAllNotificationsAsRead
+  getNotifications, addNotification, markNotificationAsRead
 } from './localStorage/notificationOperations';
 import { getStatistics } from './localStorage/statisticsOperations';
 import { generateContributionReceipt } from './localStorage/receiptOperations';
@@ -44,6 +46,11 @@ import {
 
 // Re-export the direct localStorage functions
 export const getCurrentUser = getBaseCurrentUser;
+
+// Create a notification function that matches the expected signature
+export const createNotification = (notification: Notification) => {
+  addNotification(notification);
+};
 
 // Re-export everything for backward compatibility
 export {
@@ -62,7 +69,8 @@ export {
   // Re-exported from original localStorage.ts
   ensureAccountNumberDisplay, verifyUserWithOTP, validateDate,
   getContributionByAccountNumber, reExportEnsureAccountNumberDisplay,
-  addTransaction
+  addTransaction, clearAuthToken, getAuthToken, storeAuthToken,
+  storeCurrentUser, clearCurrentUser
 };
 
 // Re-export the interfaces

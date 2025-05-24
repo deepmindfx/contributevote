@@ -1,24 +1,36 @@
 
-import { Stats } from './types';
-import { getBaseUsers } from './storageUtils';
-import { getBaseContributions } from './storageUtils';
-import { getWithdrawalRequests } from './withdrawalOperations';
+import { getBaseUsers, getBaseContributions } from './storageUtils';
 import { getTransactions } from './transactionOperations';
+import { Stats } from './types';
 
 export const getStatistics = (): Stats => {
-  const users = getBaseUsers();
-  const contributions = getBaseContributions();
-  const withdrawalRequests = getWithdrawalRequests();
-  const transactions = getTransactions();
+  try {
+    const users = getBaseUsers();
+    const contributions = getBaseContributions();
+    const transactions = getTransactions();
 
-  const totalAmountContributed = transactions
-    .filter(transaction => transaction.type === 'deposit')
-    .reduce((sum, transaction) => sum + transaction.amount, 0);
+    const totalAmount = transactions
+      .filter(t => t.type === 'contribution' && t.status === 'completed')
+      .reduce((sum, t) => sum + t.amount, 0);
 
-  return {
-    totalUsers: users.length,
-    totalContributions: contributions.length,
-    totalWithdrawals: withdrawalRequests.length,
-    totalAmountContributed,
-  };
+    const activeGroups = contributions.filter(c => c.status === 'active').length;
+    const completedGroups = contributions.filter(c => c.status === 'completed').length;
+
+    return {
+      totalContributions: contributions.length,
+      totalAmount,
+      activeGroups,
+      completedGroups,
+      totalUsers: users.length
+    };
+  } catch (error) {
+    console.error("Error getting statistics:", error);
+    return {
+      totalContributions: 0,
+      totalAmount: 0,
+      activeGroups: 0,
+      completedGroups: 0,
+      totalUsers: 0
+    };
+  }
 };

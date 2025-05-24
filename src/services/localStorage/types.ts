@@ -47,14 +47,7 @@ export interface User {
   };
   groups?: string[];
   contributions?: string[];
-  notifications?: {
-    id: string;
-    type: string;
-    message: string;
-    read: boolean;
-    createdAt: string;
-    relatedId?: string;
-  }[];
+  notifications?: Notification[];
   reservedAccount?: ReservedAccountData;
   verified?: boolean;
   walletBalance?: number;
@@ -82,7 +75,7 @@ export interface ReservedAccountData {
 export interface Transaction {
   id: string;
   userId: string;
-  type: 'deposit' | 'withdrawal' | 'transfer' | 'payment' | 'vote';
+  type: 'deposit' | 'withdrawal' | 'transfer' | 'payment' | 'vote' | 'contribution';
   amount: number;
   description: string;
   status: 'pending' | 'completed' | 'failed' | 'successful';
@@ -90,6 +83,7 @@ export interface Transaction {
   reference?: string;
   contributionId?: string;
   contributionName?: string;
+  contributionAmount?: number;
   recipientName?: string;
   recipientAccount?: string;
   bankName?: string;
@@ -120,6 +114,7 @@ export interface Contribution {
   imageUrl?: string;
   targetAmount: number;
   currentAmount: number;
+  contributionAmount?: number;
   startDate: string;
   endDate?: string;
   frequency: 'daily' | 'weekly' | 'monthly' | 'one-time';
@@ -186,6 +181,7 @@ export interface Stats {
   totalAmount: number;
   activeGroups: number;
   completedGroups: number;
+  totalUsers: number;
 }
 
 export function hasContributed(userId: string, contributionId: string): boolean {

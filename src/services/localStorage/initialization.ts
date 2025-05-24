@@ -1,178 +1,166 @@
+import { v4 as uuidv4 } from 'uuid';
 
-import { User, Contribution, Transaction } from '../localStorage/types';
-import { WithdrawalRequest } from './types';
-
-// Initialize Local Storage
 export const initializeLocalStorage = () => {
-  if (!localStorage.getItem('users')) {
-    localStorage.setItem('users', JSON.stringify([]));
-  }
-  if (!localStorage.getItem('contributions')) {
-    localStorage.setItem('contributions', JSON.stringify([]));
-  }
-  if (!localStorage.getItem('withdrawalRequests')) {
-    localStorage.setItem('withdrawalRequests', JSON.stringify([]));
-  }
-  if (!localStorage.getItem('transactions')) {
-    localStorage.setItem('transactions', JSON.stringify([]));
-  }
-  if (!localStorage.getItem('notifications')) {
-    localStorage.setItem('notifications', JSON.stringify([]));
+  // Check if localStorage is already initialized
+  if (!localStorage.getItem('initialized')) {
+    generateDummyData();
+    localStorage.setItem('initialized', 'true');
+    console.log('localStorage initialized with dummy data');
+  } else {
+    console.log('localStorage already initialized');
   }
 };
 
-// Generate Dummy Data
 export const generateDummyData = () => {
-  const users: User[] = [
+  const users = [
     {
-      id: '1',
-      name: 'John Doe',
-      email: 'john.doe@example.com',
-      phone: '123-456-7890',
-      role: 'user',
-      walletBalance: 1000,
-      preferences: {
-        darkMode: false,
-        anonymousContributions: false,
-      },
-      pin: '1234',
-      accountNumber: '1234567890',
-      accountName: 'John Doe',
+      id: "1",
+      name: "John Doe",
+      email: "john@example.com",
+      password: "password123",
+      profilePicture: "https://api.dicebear.com/7.x/lorelei/svg?seed=John",
+      role: "admin",
       verified: true,
+      walletBalance: 5000,
+      accountNumber: "2012345678",
+      accountName: "John Doe",
+      notifications: []
     },
     {
-      id: '2',
-      name: 'Jane Smith',
-      email: 'jane.smith@example.com',
-      phone: '987-654-3210',
-      role: 'user',
-      walletBalance: 500,
-      preferences: {
-        darkMode: true,
-        anonymousContributions: true,
-      },
-      pin: '5678',
-      accountNumber: '0987654321',
-      accountName: 'Jane Smith',
+      id: "2", 
+      name: "Jane Smith",
+      email: "jane@example.com",
+      password: "password123",
+      profilePicture: "https://api.dicebear.com/7.x/lorelei/svg?seed=Jane",
+      role: "user",
       verified: true,
+      walletBalance: 3000,
+      accountNumber: "2023456789",
+      accountName: "Jane Smith",
+      notifications: []
     },
     {
-      id: '3',
-      name: 'Admin User',
-      email: 'admin@example.com',
-      phone: '111-222-3333',
-      role: 'admin',
-      walletBalance: 10000,
-      preferences: {
-        darkMode: false,
-        anonymousContributions: false,
-      },
-      pin: '0000',
-      accountNumber: '1122334455',
-      accountName: 'Admin User',
+      id: "3",
+      name: "Mike Johnson", 
+      email: "mike@example.com",
+      password: "password123",
+      profilePicture: "https://api.dicebear.com/7.x/lorelei/svg?seed=Mike",
+      role: "user",
       verified: true,
-    },
+      walletBalance: 2500,
+      accountNumber: "2034567890",
+      accountName: "Mike Johnson",
+      notifications: []
+    }
   ];
 
-  const contributions: Contribution[] = [
+  const contributions = [
     {
-      id: '1',
-      name: 'Community Garden',
-      description: 'Help build a community garden for fresh produce.',
-      targetAmount: 5000,
-      currentAmount: 2500,
-      startDate: '2024-01-01',
-      endDate: '2024-12-31',
-      frequency: 'monthly',
-      contributionAmount: 100, // Added required field
-      category: 'community',
-      creatorId: '1',
-      members: ['1', '2'],
+      id: "1",
+      name: "Emergency Fund",
+      description: "Building an emergency fund for the team",
+      targetAmount: 50000,
+      currentAmount: 25000,
+      startDate: "2024-01-01",
+      endDate: "2024-12-31",
+      frequency: "monthly",
+      isPrivate: false,
+      allowAnonymous: true,
+      requireApproval: false,
+      adminId: "1",
+      creatorId: "1",
+      category: "Emergency",
+      visibility: "public",
+      status: "active",
+      deadline: "2024-12-31",
+      votingThreshold: 60,
+      privacy: "public",
+      memberRoles: "equal",
+      accountNumber: "6012345678",
+      members: ["1", "2", "3"],
       contributors: [
-        { userId: '1', amount: 500, date: '2024-02-15', anonymous: false },
-        { userId: '2', amount: 200, date: '2024-02-20', anonymous: true },
+        { userId: "1", name: "John Doe", amount: 15000, date: "2024-01-15", anonymous: false },
+        { userId: "2", name: "Jane Smith", amount: 10000, date: "2024-01-20", anonymous: true }
       ],
-      createdAt: '2024-01-01',
-      accountNumber: '6012345678',
+      withdrawalRequests: []
     },
     {
-      id: '2',
-      name: 'Family Vacation Fund',
-      description: 'Save up for a memorable family vacation.',
-      targetAmount: 10000,
-      currentAmount: 7500,
-      startDate: '2024-03-01',
-      endDate: '2024-12-31',
-      frequency: 'weekly',
-      contributionAmount: 200, // Added required field
-      category: 'family',
-      creatorId: '2',
-      members: ['2'],
+      id: "2",
+      name: "Vacation Fund",
+      description: "Saving for a group vacation",
+      targetAmount: 100000,
+      currentAmount: 45000,
+      startDate: "2024-02-01", 
+      endDate: "2024-11-30",
+      frequency: "weekly",
+      isPrivate: false,
+      allowAnonymous: false,
+      requireApproval: true,
+      adminId: "2",
+      creatorId: "2",
+      category: "Travel",
+      visibility: "public",
+      status: "active",
+      deadline: "2024-11-30",
+      votingThreshold: 75,
+      privacy: "public",
+      memberRoles: "equal",
+      accountNumber: "6023456789",
+      members: ["1", "2", "3"],
       contributors: [
-        { userId: '2', amount: 1000, date: '2024-03-05', anonymous: false },
+        { userId: "2", name: "Jane Smith", amount: 25000, date: "2024-02-05", anonymous: false }
       ],
-      createdAt: '2024-03-01',
-      accountNumber: '6087654321',
-    },
+      withdrawalRequests: [
+        {
+          id: "1",
+          contributionId: "2",
+          userId: "2",
+          amount: 20000,
+          purpose: "Flight bookings",
+          reason: "Need to book flights early for better rates",
+          beneficiary: "Travel Agency XYZ",
+          accountNumber: "1234567890",
+          bankName: "First Bank",
+          status: "pending",
+          createdAt: "2024-01-25T10:00:00Z",
+          deadline: "2024-02-01T10:00:00Z",
+          votes: {
+            "1": "approve",
+            "3": "reject"
+          }
+        }
+      ]
+    }
   ];
 
-  const withdrawalRequests: WithdrawalRequest[] = [
+  const transactions = [
     {
-      id: '1',
-      contributionId: '1',
-      amount: 1000,
-      reason: 'Purchase gardening tools',
-      status: 'pending',
-      votes: [
-        { userId: '1', vote: 'approve' },
-        { userId: '2', vote: 'reject' },
-      ],
-      createdAt: '2024-02-28',
-      deadline: '2024-03-07',
-      beneficiary: 'John Doe',
-      accountNumber: '1234567890',
-      bankName: 'CollectiPay Bank',
-      purpose: 'Purchase gardening tools',
+      id: "1",
+      userId: "1",
+      type: "contribution",
+      amount: 15000,
+      description: "Contribution to Emergency Fund",
+      status: "completed",
+      createdAt: "2024-01-15T08:00:00Z",
+      contributionId: "1"
     },
+    {
+      id: "2", 
+      userId: "2",
+      type: "contribution",
+      amount: 10000,
+      description: "Anonymous contribution to Emergency Fund",
+      status: "completed",
+      createdAt: "2024-01-20T14:30:00Z",
+      contributionId: "1",
+      anonymous: true
+    }
   ];
 
-  const transactions: Transaction[] = [
-    {
-      id: '1',
-      contributionId: '1',
-      userId: '1',
-      type: 'deposit',
-      amount: 500,
-      description: 'Contribution to Community Garden',
-      createdAt: '2024-02-15',
-      status: 'completed',
-      anonymous: false,
-    },
-    {
-      id: '2',
-      contributionId: '2',
-      userId: '2',
-      type: 'deposit',
-      amount: 1000,
-      description: 'Contribution to Family Vacation Fund',
-      createdAt: '2024-03-05',
-      status: 'completed',
-      anonymous: false,
-    },
-    {
-      id: '3',
-      contributionId: '1',
-      userId: '1',
-      type: 'withdrawal',
-      amount: 1000,
-      description: 'Withdrawal for gardening tools',
-      createdAt: '2024-03-01',
-      status: 'pending',
-    },
-  ];
-
+  // Store the data
   localStorage.setItem('users', JSON.stringify(users));
   localStorage.setItem('contributions', JSON.stringify(contributions));
-  localStorage.setItem('withdrawalRequests', JSON.stringify(withdrawalRequests));
   localStorage.setItem('transactions', JSON.stringify(transactions));
+
+  console.log('Dummy data generated successfully');
 };

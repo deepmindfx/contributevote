@@ -18,6 +18,7 @@ export const createUser = (user: Omit<User, 'id' | 'walletBalance' | 'role' | 'a
     accountNumber: `20${Math.floor(100000000 + Math.random() * 900000000)}`,
     accountName: user.name,
     verified: false,
+    createdAt: new Date().toISOString(),
     ...user,
   };
   users.push(newUser);
@@ -87,6 +88,7 @@ export const depositToUser = (userId: string, amount: number) => {
 
     // Create a transaction record
     createTransaction({
+      id: uuidv4(),
       userId,
       type: 'deposit',
       amount,
