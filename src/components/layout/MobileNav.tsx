@@ -1,136 +1,59 @@
-
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, Wallet, VoteIcon, Users, Settings, ArrowLeft } from "lucide-react";
+import React, { useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { Home, Plus, User, Bell } from 'lucide-react';
 import { useApp } from "@/contexts/AppContext";
-import { useState, useEffect } from "react";
 
 const MobileNav = () => {
   const location = useLocation();
-  const navigate = useNavigate();
-  
-  // Set safe defaults in case context isn't available
-  const [pendingVotes, setPendingVotes] = useState<any[]>([]);
-  const [showBackButton, setShowBackButton] = useState(false);
-  
-  // Use try-catch to handle potential context errors
-  let withdrawalRequests: any[] = [];
-  let user: any = null;
-  
-  try {
-    const appContext = useApp();
-    withdrawalRequests = appContext.withdrawalRequests || [];
-    user = appContext.user || {};
-    
-    // Check for pending votes for the current user
-    useEffect(() => {
-      if (!user?.id) return;
-      
-      const userPendingVotes = withdrawalRequests.filter(request => 
-        request.status === 'pending' && 
-        !request.votes.some(vote => vote.userId === user?.id)
-      );
-      
-      setPendingVotes(userPendingVotes);
-    }, [withdrawalRequests, user]);
-  } catch (error) {
-    console.error("Error accessing AppContext in MobileNav:", error);
-  }
+  const { user, hasUnreadNotifications } = useApp();
+  const [isLabelVisible, setIsLabelVisible] = useState(false);
 
-  // Determine if back button should be shown based on current route
   useEffect(() => {
-    setShowBackButton(location.pathname === '/settings' || location.pathname === '/profile');
-  }, [location.pathname]);
+    const checkLabelVisibility = () => {
+      const mobileNavElement = document.querySelector('.mobile-nav');
+      if (mobileNavElement && mobileNavElement instanceof HTMLElement) {
+        const height = mobileNavElement.offsetHeight;
+        setIsLabelVisible(height > 60);
+      }
+    };
 
-  // Handle back button click
-  const handleBackClick = () => {
-    navigate(-1);
-  };
-
-  // Fix for mobile nav disappearing - force a repaint on route change
-  useEffect(() => {
-    const nav = document.querySelector('.mobile-nav');
-    if (nav) {
-      // Force a repaint by getting offsetHeight
-      nav.offsetHeight;
-    }
-  }, [location.pathname]);
+    checkLabelVisibility();
+    window.addEventListener('resize', checkLabelVisibility);
+    return () => window.removeEventListener('resize', checkLabelVisibility);
+  }, []);
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-background border-t z-50 md:hidden mobile-nav">
-      {showBackButton ? (
-        <div className="flex items-center justify-between p-4">
-          <button
-            onClick={handleBackClick}
-            className="flex items-center text-muted-foreground"
-          >
-            <ArrowLeft className="h-5 w-5 mr-2" />
-            <span>Back</span>
-          </button>
-        </div>
-      ) : (
-        <div className="flex items-center justify-around">
-          <Link 
-            to="/dashboard" 
-            className={`flex flex-col items-center py-3 px-2 ${
-              location.pathname === "/dashboard" ? "text-[#2DAE75]" : "text-muted-foreground"
-            }`}
-            aria-label="Home"
-          >
-            <Home className="h-5 w-5" />
-            <span className="text-xs mt-1">Home</span>
+    <nav className="mobile-nav fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 dark:bg-gray-800 dark:border-gray-700 z-50">
+      <ul className="flex justify-around items-center p-4">
+        <li>
+          <Link to="/dashboard" className="flex flex-col items-center justify-center">
+            <Home className={`h-5 w-5 ${location.pathname === '/dashboard' ? 'text-[#2DAE75]' : 'text-gray-500 dark:text-gray-400'}`} />
+            {isLabelVisible && <span className={`text-xs ${location.pathname === '/dashboard' ? 'text-[#2DAE75]' : 'text-gray-500 dark:text-gray-400'}`}>Home</span>}
           </Link>
-          
-          <Link 
-            to="/wallet-history" 
-            className={`flex flex-col items-center py-3 px-2 ${
-              location.pathname === "/wallet-history" ? "text-[#2DAE75]" : "text-muted-foreground"
-            }`}
-            aria-label="Wallet"
-          >
-            <Wallet className="h-5 w-5" />
-            <span className="text-xs mt-1">Wallet</span>
+        </li>
+        <li>
+          <Link to="/contributions/new" className="flex flex-col items-center justify-center">
+            <Plus className={`h-5 w-5 ${location.pathname === '/contributions/new' ? 'text-[#2DAE75]' : 'text-gray-500 dark:text-gray-400'}`} />
+            {isLabelVisible && <span className={`text-xs ${location.pathname === '/contributions/new' ? 'text-[#2DAE75]' : 'text-gray-500 dark:text-gray-400'}`}>Create</span>}
           </Link>
-          
-          <Link 
-            to="/votes" 
-            className={`flex flex-col items-center py-3 px-2 relative ${
-              location.pathname === "/votes" ? "text-[#2DAE75]" : "text-muted-foreground"
-            }`}
-            aria-label="Votes"
-          >
-            <VoteIcon className="h-5 w-5" />
-            {pendingVotes.length > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
-                {pendingVotes.length > 9 ? '9+' : pendingVotes.length}
-              </span>
+        </li>
+        <li>
+          <Link to={`/profile/${user?.id}`} className="flex flex-col items-center justify-center">
+            <User className={`h-5 w-5 ${location.pathname === `/profile/${user?.id}` ? 'text-[#2DAE75]' : 'text-gray-500 dark:text-gray-400'}`} />
+            {isLabelVisible && <span className={`text-xs ${location.pathname === `/profile/${user?.id}` ? 'text-[#2DAE75]' : 'text-gray-500 dark:text-gray-400'}`}>Profile</span>}
+          </Link>
+        </li>
+        <li>
+          <Link to="/notifications" className="flex flex-col items-center justify-center relative">
+            <Bell className={`h-5 w-5 ${location.pathname === '/notifications' ? 'text-[#2DAE75]' : 'text-gray-500 dark:text-gray-400'}`} />
+            {hasUnreadNotifications && (
+              <span className="absolute top-0 right-0 transform translate-x-1/2 -translate-y-1/2 bg-red-500 rounded-full w-2 h-2"></span>
             )}
-            <span className="text-xs mt-1">Votes</span>
+            {isLabelVisible && <span className={`text-xs ${location.pathname === '/notifications' ? 'text-[#2DAE75]' : 'text-gray-500 dark:text-gray-400'}`}>Notifications</span>}
           </Link>
-          
-          <Link 
-            to="/all-groups" 
-            className={`flex flex-col items-center py-3 px-2 ${
-              location.pathname === "/all-groups" ? "text-[#2DAE75]" : "text-muted-foreground"
-            }`}
-            aria-label="Groups"
-          >
-            <Users className="h-5 w-5" />
-            <span className="text-xs mt-1">Groups</span>
-          </Link>
-          
-          <Link 
-            to="/settings" 
-            className={`flex flex-col items-center py-3 px-2 ${
-              location.pathname === "/settings" ? "text-[#2DAE75]" : "text-muted-foreground"
-            }`}
-            aria-label="Settings"
-          >
-            <Settings className="h-5 w-5" />
-            <span className="text-xs mt-1">Settings</span>
-          </Link>
-        </div>
-      )}
-    </div>
+        </li>
+      </ul>
+    </nav>
   );
 };
 

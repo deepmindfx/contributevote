@@ -1,112 +1,135 @@
-
-// Define all types here to avoid circular dependencies
 export interface User {
   id: string;
   name: string;
   email: string;
-  password?: string;
-  walletBalance: number;
-  preferences?: {
-    darkMode: boolean;
-    anonymousContributions: boolean;
-    notificationsEnabled?: boolean;
-  };
-  role: 'user' | 'admin' | 'paused';
-  accountNumber?: string;
-  accountName?: string;
-  verified: boolean;
-  reservedAccount?: any;
-  invoices?: any[];
-  cardTokens?: any[];
-  notifications?: any[];
   phone?: string;
-  phoneNumber?: string;
-  firstName?: string;
-  lastName?: string;
-  username?: string;
-  profileImage?: string;
-  status?: string;
+  password?: string;
+  profilePicture?: string;
+  address?: string;
+  city?: string;
+  country?: string;
+  occupation?: string;
+  bio?: string;
+  website?: string;
+  socialLinks?: {
+    facebook?: string;
+    twitter?: string;
+    linkedin?: string;
+    instagram?: string;
+  };
+  emailVerified?: boolean;
+  phoneVerified?: boolean;
+  twoFactorAuthEnabled?: boolean;
   createdAt?: string;
-  pin?: string;
+  updatedAt?: string;
+  lastLogin?: string;
+  role?: 'user' | 'admin';
+  status?: 'active' | 'inactive' | 'pending';
+  settings?: {
+    notificationsEnabled?: boolean;
+    darkModeEnabled?: boolean;
+    language?: string;
+    currency?: string;
+  };
+  groups?: string[];
+  contributions?: string[];
+  notifications?: {
+    id: string;
+    type: string;
+    message: string;
+    read: boolean;
+    createdAt: string;
+  }[];
+  reservedAccount?: {
+    accountName: string;
+    accountNumber: string;
+    bankCode: string;
+    bankName: string;
+    accountReference: string;
+  };
+  verified?: boolean;
+}
+
+export interface Transaction {
+  id: string;
+  userId: string;
+  type: 'deposit' | 'withdrawal' | 'transfer' | 'payment' | 'vote';
+  amount: number;
+  description: string;
+  status: 'pending' | 'completed' | 'failed';
+  createdAt: string;
+  reference?: string;
+  contributionId?: string;
+  contributionName?: string;
+  recipientName?: string;
+  recipientAccount?: string;
+  bankName?: string;
+  senderName?: string;
+  metaData?: {
+    paymentReference?: string;
+    paymentDetails?: {
+      transactionId?: string;
+      reference?: string;
+    };
+    transactionReference?: string;
+    senderName?: string;
+    senderBank?: string;
+    bankName?: string;
+    payerEmail?: string;
+    [key: string]: any;
+  };
 }
 
 export interface Contribution {
   id: string;
   name: string;
   description: string;
+  imageUrl?: string;
   targetAmount: number;
   currentAmount: number;
-  category: "personal" | "family" | "community" | "business" | "event" | "education" | "other";
-  frequency: "daily" | "weekly" | "monthly" | "one-time";
-  contributionAmount: number;
   startDate: string;
   endDate?: string;
-  deadline?: string;
-  creatorId: string;
-  members: string[];
-  contributors: any[];
-  createdAt: string;
-  status?: "active" | "completed" | "expired";
-  visibility?: "public" | "private" | "invite-only";
-  privacy?: string;
-  memberRoles?: string;
-  votingThreshold?: number;
+  frequency: 'daily' | 'weekly' | 'monthly' | 'one-time';
+  isPrivate: boolean;
+  allowAnonymous: boolean;
+  requireApproval: boolean;
+  adminId: string;
+  contributors?: {
+    userId: string;
+    name: string;
+    amount: number;
+    date: string;
+    anonymous: boolean;
+  }[];
+  withdrawalRequests?: WithdrawalRequest[];
   accountNumber?: string;
-  accountName?: string;
-  bankName?: string;
   accountReference?: string;
-  accountDetails?: any;
-}
-
-export interface Transaction {
-  id: string;
-  type: "deposit" | "withdrawal" | "transfer" | "payment" | "vote";
-  amount: number;
-  narration?: string;
-  status?: "pending" | "successful" | "failed" | "completed";
-  reference?: string;
-  userId: string;
-  toUserId?: string;
-  contributionId?: string;
-  createdAt: string;
-  paymentMethod?: string;
-  metadata?: any;
-  metaData?: any;
-  description?: string;
-  anonymous?: boolean;
 }
 
 export interface WithdrawalRequest {
   id: string;
   contributionId: string;
-  amount: number;
-  reason: string;
-  status: 'pending' | 'approved' | 'rejected' | 'expired';
-  votes: {
-    userId: string;
-    vote: 'approve' | 'reject';
-  }[];
-  createdAt: string;
-  deadline: string;
-  beneficiary: string;
-  accountNumber: string;
-  bankName: string;
-  purpose: string;
-}
-
-export interface Notification {
-  id: string;
   userId: string;
-  message: string;
-  type: 'info' | 'warning' | 'error' | 'success';
-  read: boolean;
+  amount: number;
+  purpose: string;
+  status: 'pending' | 'approved' | 'rejected';
   createdAt: string;
-  relatedId?: string;
+  updatedAt?: string;
 }
 
-export interface Stats {
-  totalUsers: number;
-  totalContributions: number;
-  totalWithdrawals: number;
-  totalAmountContributed: number;
+export function hasContributed(userId: string, contributionId: string): boolean {
+  try {
+    const contributionsString = localStorage.getItem('contributions');
+    if (!contributionsString) return false;
+
+    const contributions = JSON.parse(contributionsString);
+    const contribution = contributions.find((c: Contribution) => c.id === contributionId);
+
+    if (!contribution || !contribution.contributors) return false;
+
+    return contribution.contributors.some(contributor => contributor.userId === userId);
+  } catch (error) {
+    console.error("Error in hasContributed:", error);
+    return false;
+  }
 }
