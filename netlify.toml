@@ -1,6 +1,7 @@
 [build]
   functions = "netlify/functions"
   publish = "dist"
+  command = "npm run build"
 
 [[redirects]]
   from = "/api/flutterwave/*"
@@ -12,4 +13,9 @@
   from = "/api/webhooks/flutterwave"
   to = "/.netlify/functions/webhooks-flutterwave"
   status = 200
-  force = true 
+  force = true
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200 
