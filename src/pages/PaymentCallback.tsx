@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { contributeToGroup } from '@/services/localStorage';
@@ -52,13 +53,7 @@ const PaymentCallback = () => {
               contributeToGroup(
                 transactionDetails.contribution_id,
                 transactionDetails.amount,
-                transactionDetails.anonymous,
-                {
-                  reference: tx_ref,
-                  status: 'completed',
-                  method: 'card',
-                  bankName: response.data.data.payment_type
-                }
+                transactionDetails.anonymous || false
               );
               toast.success('Contribution successful!');
             } catch (err) {
@@ -78,6 +73,9 @@ const PaymentCallback = () => {
       } finally {
         setIsVerifying(false);
         // Redirect to appropriate page
+        const storedTransaction = localStorage.getItem(`flw_transaction_${tx_ref}`);
+        const transactionDetails = storedTransaction ? JSON.parse(storedTransaction) : null;
+        
         if (transactionDetails?.contribution_id) {
           navigate(`/groups/${transactionDetails.contribution_id}`);
         } else {

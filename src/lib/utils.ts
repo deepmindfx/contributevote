@@ -14,3 +14,16 @@ export function formatCurrency(amount: number, currency: string = 'NGN'): string
   }
   return `${amount.toFixed(2)} ${currency}`;
 }
+
+export function formatDate(dateString: string): string {
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleDateString();
+  } catch (error) {
+    return 'Invalid date';
+  }
+}
+
+export function generateId(): string {
+  return Math.random().toString(36).substr(2, 9);
+}

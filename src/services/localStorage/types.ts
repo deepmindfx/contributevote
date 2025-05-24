@@ -1,3 +1,4 @@
+
 export interface User {
   id: string;
   name: string;
@@ -31,6 +32,12 @@ export interface User {
     language?: string;
     currency?: string;
   };
+  preferences?: {
+    notifications?: boolean;
+    darkMode?: boolean;
+    language?: string;
+    currency?: string;
+  };
   groups?: string[];
   contributions?: string[];
   notifications?: {
@@ -40,14 +47,23 @@ export interface User {
     read: boolean;
     createdAt: string;
   }[];
-  reservedAccount?: {
-    accountName: string;
-    accountNumber: string;
-    bankCode: string;
-    bankName: string;
-    accountReference: string;
-  };
+  reservedAccount?: ReservedAccountData;
   verified?: boolean;
+  walletBalance?: number;
+  pin?: string;
+}
+
+export interface ReservedAccountData {
+  accountName: string;
+  accountNumber: string;
+  bankCode: string;
+  bankName: string;
+  accountReference: string;
+  accounts?: {
+    accountNumber: string;
+    bankName: string;
+    bankCode: string;
+  }[];
 }
 
 export interface Transaction {
@@ -56,7 +72,7 @@ export interface Transaction {
   type: 'deposit' | 'withdrawal' | 'transfer' | 'payment' | 'vote';
   amount: number;
   description: string;
-  status: 'pending' | 'completed' | 'failed';
+  status: 'pending' | 'completed' | 'failed' | 'successful';
   createdAt: string;
   reference?: string;
   contributionId?: string;
@@ -65,6 +81,10 @@ export interface Transaction {
   recipientAccount?: string;
   bankName?: string;
   senderName?: string;
+  fee?: number;
+  narration?: string;
+  anonymous?: boolean;
+  paymentMethod?: string;
   metaData?: {
     paymentReference?: string;
     paymentDetails?: {
@@ -94,16 +114,30 @@ export interface Contribution {
   allowAnonymous: boolean;
   requireApproval: boolean;
   adminId: string;
+  creatorId: string;
+  category: string;
+  visibility: 'public' | 'private' | 'invite-only';
+  status: 'active' | 'completed' | 'expired';
+  deadline: string;
+  votingThreshold: number;
+  privacy: 'public' | 'private';
+  memberRoles: 'equal' | 'weighted';
+  accountNumber?: string;
+  bankName?: string;
+  accountName?: string;
+  accountReference?: string;
+  accountDetails?: any;
+  members: string[];
   contributors?: {
     userId: string;
     name: string;
     amount: number;
     date: string;
     anonymous: boolean;
+    paymentReference?: string;
+    paymentDetails?: any;
   }[];
   withdrawalRequests?: WithdrawalRequest[];
-  accountNumber?: string;
-  accountReference?: string;
 }
 
 export interface WithdrawalRequest {
@@ -112,9 +146,32 @@ export interface WithdrawalRequest {
   userId: string;
   amount: number;
   purpose: string;
-  status: 'pending' | 'approved' | 'rejected';
+  reason: string;
+  beneficiary: string;
+  accountNumber: string;
+  bankName: string;
+  status: 'pending' | 'approved' | 'rejected' | 'expired';
   createdAt: string;
   updatedAt?: string;
+  deadline: string;
+  votes: Record<string, 'approve' | 'reject'>;
+}
+
+export interface Notification {
+  id: string;
+  type: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
+  userId?: string;
+  relatedId?: string;
+}
+
+export interface Stats {
+  totalContributions: number;
+  totalAmount: number;
+  activeGroups: number;
+  completedGroups: number;
 }
 
 export function hasContributed(userId: string, contributionId: string): boolean {

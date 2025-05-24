@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -33,6 +34,8 @@ const GroupForm = () => {
     votingThreshold: 70,
     privacy: 'private' as 'public' | 'private',
     memberRoles: 'equal' as 'equal' | 'weighted',
+    allowAnonymous: false,
+    requireApproval: false,
     notifyContributions: true,
     notifyVotes: true,
     notifyUpdates: true,
@@ -153,6 +156,8 @@ const GroupForm = () => {
         privacy: formData.privacy,
         memberRoles: formData.memberRoles,
         creatorId: user.id,
+        allowAnonymous: formData.allowAnonymous,
+        requireApproval: formData.requireApproval,
         // Setting required properties to meet the type requirements
         visibility: formData.privacy === 'public' ? 'public' as VisibilityType : 'private' as VisibilityType,
         status: 'active' as 'active' | 'completed' | 'expired',
@@ -160,8 +165,8 @@ const GroupForm = () => {
         // Add account details
         accountNumber: accountDetails.account_number,
         bankName: accountDetails.bank_name,
-        accountName: formData.name, // Use group name as account name
-        accountReference: accountDetails.flw_ref, // Use Flutterwave reference
+        accountName: formData.name,
+        accountReference: accountDetails.flw_ref,
         accountDetails: accountDetails,
       };
       
@@ -198,6 +203,7 @@ const GroupForm = () => {
             handleChange={handleChange} 
             goToNextStep={goToNextStep} 
             goToPreviousStep={goToPreviousStep} 
+            validationErrors={validationErrors}
           />
         );
       case 3:
