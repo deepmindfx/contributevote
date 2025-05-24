@@ -403,21 +403,6 @@ app.post('/api/test/simulate-charge-completed', async (req, res) => {
   }
 });
 
-// Add webhook endpoint
-app.post('/api/webhooks/flutterwave', async (req, res) => {
-  try {
-    const { post } = await import('./src/routes/api/webhooks/flutterwave.js');
-    return post(req, res);
-  } catch (error) {
-    console.error('Error handling webhook:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Internal server error',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
-});
-
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 }); 
