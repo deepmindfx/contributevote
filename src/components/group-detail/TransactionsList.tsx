@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Transaction } from "@/services/localStorage";
@@ -19,6 +18,26 @@ const TransactionsList = ({ transactions }: TransactionsListProps) => {
   const [receiptData, setReceiptData] = useState<any>(null);
   const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Filter out duplicate transactions
+  const uniqueTransactions = useMemo(() => {
+    const seen = new Set();
+    return transactions.filter(transaction => {
+      // Create a unique key based on payment reference or transaction ID
+      const key = transaction.metaData?.paymentReference || 
+                 transaction.metaData?.paymentDetails?.transactionId ||
+                 transaction.id;
+                 
+      // If we've seen this key before, it's a duplicate
+      if (seen.has(key)) {
+        return false;
+      }
+      
+      // Add the key to our set of seen keys
+      seen.add(key);
+      return true;
+    });
+  }, [transactions]);
 
   const handleViewReceipt = (transactionId: string) => {
     const receipt = getReceipt(transactionId);
@@ -52,7 +71,7 @@ const TransactionsList = ({ transactions }: TransactionsListProps) => {
         />
         <CardContent>
           <TransactionListContent 
-            transactions={transactions}
+            transactions={uniqueTransactions}
             onViewReceipt={handleViewReceipt}
           />
         </CardContent>

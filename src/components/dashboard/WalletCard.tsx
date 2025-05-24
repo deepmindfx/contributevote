@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
@@ -62,11 +62,32 @@ const WalletCard = () => {
     setCurrencyType(prev => prev === "NGN" ? "USD" : "NGN");
   };
 
-  // Filter only the user's wallet-related transactions
-  const walletTransactions = transactions.filter(t => 
-    t.userId === user?.id && 
-    (t.contributionId === "" || t.type === "deposit" || t.type === "withdrawal")
-  ).slice(0, 5);
+  // Filter and deduplicate wallet transactions
+  const uniqueWalletTransactions = useMemo(() => {
+    const seen = new Map();
+    return transactions
+      .filter(t => 
+        t.userId === user?.id && 
+        (t.contributionId === "" || t.type === "deposit" || t.type === "withdrawal")
+      )
+      .filter(transaction => {
+        // Create a unique key based on multiple identifiers
+        const key = transaction.metaData?.paymentReference || 
+                   transaction.metaData?.paymentDetails?.transactionId ||
+                   transaction.metaData?.transactionReference ||
+                   transaction.id;
+
+        // If we've seen this key before, it's a duplicate
+        if (seen.has(key)) {
+          return false;
+        }
+        
+        // Add the transaction to our seen map
+        seen.set(key, true);
+        return true;
+      })
+      .slice(0, 5); // Keep only the 5 most recent transactions
+  }, [transactions, user?.id]);
   
   const refreshBalance = () => {
     setIsLoading(true);
@@ -265,11 +286,11 @@ const WalletCard = () => {
               </Button>
             </div>
             
-            {walletTransactions.length > 0 ? (
+            {uniqueWalletTransactions.length > 0 ? (
               <div className="space-y-3">
-                {walletTransactions.map(transaction => (
+                {uniqueWalletTransactions.map(transaction => (
                   <div 
-                    key={transaction.id} 
+                    key={`${transaction.id}-${transaction.metaData?.paymentReference || ''}`}
                     className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-muted/30 transition-colors"
                     onClick={() => viewTransactionDetails(transaction)}
                   >

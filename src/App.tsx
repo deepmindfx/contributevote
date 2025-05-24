@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -26,6 +25,7 @@ import ActivityHistory from "./pages/ActivityHistory";
 import Votes from "./pages/Votes";
 import AllGroups from "./pages/AllGroups";
 import TransferForm from "./components/TransferForm";
+import PaymentCallback from "./pages/PaymentCallback";
 
 const queryClient = new QueryClient();
 
@@ -126,12 +126,14 @@ const AppRoutes = () => {
           <AllGroups />
         </ProtectedRoute>
       } />
-      {/* New Transfer Route */}
       <Route path="/transfer" element={
         <ProtectedRoute>
           <TransferForm />
         </ProtectedRoute>
       } />
+      
+      {/* Payment Callback Route */}
+      <Route path="/payment-callback" element={<PaymentCallback />} />
       
       {/* Admin Routes */}
       <Route path="/admin" element={
