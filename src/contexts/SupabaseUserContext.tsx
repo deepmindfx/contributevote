@@ -275,26 +275,76 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('currentUser');
   };
 
-  // Wrapper functions for AuthForm compatibility
+  // Proper Supabase Auth functions
   const signIn = async (email: string, password: string) => {
-    const result = await login(email, password);
-    if (result.success) {
+    try {
+      // Use Supabase Auth for proper authentication
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) {
+        return { error: { message: error.message } };
+      }
+
+      if (data.user) {
+        // Fetch user profile from profiles table
+        const profile = await UserService.getUserById(data.user.id);
+        if (profile) {
+          setUser(profile);
+          localStorage.setItem('currentUser', JSON.stringify(profile));
+        }
+      }
+
       return { error: null };
-    } else {
-      return { error: { message: result.error || 'Login failed' } };
+    } catch (error: any) {
+      return { error: { message: error.message || 'Login failed' } };
     }
   };
 
   const signUp = async (email: string, password: string, metadata: { name: string; phone?: string }) => {
-    const result = await register({
-      name: metadata.name,
-      email: email,
-      phone: metadata.phone
-    });
-    if (result.success) {
+    try {
+      // Use Supabase Auth for proper registration
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name: metadata.name,
+            phone: metadata.phone
+          }
+        }
+      });
+
+      if (error) {
+        return { error: { message: error.message } };
+      }
+
+      if (data.user) {
+        // Create profile in profiles table
+        const newProfile = await UserService.createUser({
+          id: data.user.id,
+          name: metadata.name,
+          email: email,
+          phone: metadata.phone,
+          wallet_balance: 0,
+          role: 'user',
+          status: 'active',
+          preferences: {
+            darkMode: false,
+            anonymousContributions: false,
+            notificationsEnabled: true
+          }
+        });
+
+        setUser(newProfile);
+        localStorage.setItem('currentUser', JSON.stringify(newProfile));
+      }
+
       return { error: null };
-    } else {
-      return { error: { message: result.error || 'Registration failed' } };
+    } catch (error: any) {
+      return { error: { message: error.message || 'Registration failed' } };
     }
   };
 

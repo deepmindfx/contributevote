@@ -85,24 +85,24 @@ export default function GroupDetail() {
   const isActive = group.status === 'active';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 pb-20 md:pb-6">
       <Header />
-      <div className="container mx-auto p-6 space-y-6">
+      <div className="container mx-auto px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6 pt-20 md:pt-24">
         {/* Back Button */}
         <Link to="/dashboard">
-          <Button variant="ghost" className="mb-4">
+          <Button variant="ghost" className="mb-2 md:mb-4" size="sm">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Dashboard
           </Button>
         </Link>
 
         {/* Group Header */}
-        <Card className="p-6">
+        <Card className="p-4 md:p-6">
           <div className="space-y-6">
-            <div className="flex items-start justify-between">
-              <div className="space-y-2">
-                <div className="flex items-center gap-3">
-                  <h1 className="text-3xl font-bold">{group.name}</h1>
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+              <div className="space-y-2 flex-1">
+                <div className="flex flex-wrap items-center gap-2 md:gap-3">
+                  <h1 className="text-2xl md:text-3xl font-bold">{group.name}</h1>
                   <Badge variant={isActive ? 'default' : 'secondary'}>
                     {group.status}
                   </Badge>
@@ -112,60 +112,62 @@ export default function GroupDetail() {
                     </Badge>
                   )}
                 </div>
-                <p className="text-muted-foreground">{group.description}</p>
+                <p className="text-sm md:text-base text-muted-foreground">{group.description}</p>
               </div>
 
               {isActive && (
-                <ContributeButton
-                  groupId={id!}
-                  groupName={group.name}
-                  onSuccess={handleContributeSuccess}
-                />
+                <div className="w-full md:w-auto">
+                  <ContributeButton
+                    groupId={id!}
+                    groupName={group.name}
+                    onSuccess={handleContributeSuccess}
+                  />
+                </div>
               )}
             </div>
 
             {/* Progress */}
             <div className="space-y-3">
-              <div className="flex items-center justify-between text-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-sm">
                 <span className="text-muted-foreground">Progress</span>
-                <span className="font-medium">
+                <span className="font-medium text-xs sm:text-sm">
                   ₦{group.current_amount?.toLocaleString() || '0'} / ₦{group.target_amount?.toLocaleString() || '0'}
                 </span>
               </div>
               <Progress value={progress} className="h-3" />
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-xs text-muted-foreground">
                 <span>{progress.toFixed(1)}% funded</span>
-                <span>₦{((group.target_amount || 0) - (group.current_amount || 0)).toLocaleString()} remaining</span>
+                <span className="truncate">₦{((group.target_amount || 0) - (group.current_amount || 0)).toLocaleString()} remaining</span>
               </div>
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="flex items-center gap-3 p-4 rounded-lg border">
-                <Target className="h-8 w-8 text-primary" />
-                <div>
-                  <p className="text-sm text-muted-foreground">Target</p>
-                  <p className="text-lg font-semibold">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+              <div className="flex items-center gap-3 p-3 md:p-4 rounded-lg border">
+                <Target className="h-6 w-6 md:h-8 md:w-8 text-primary flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xs md:text-sm text-muted-foreground">Target</p>
+                  <p className="text-base md:text-lg font-semibold truncate">
                     ₦{group.target_amount?.toLocaleString() || '0'}
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 p-4 rounded-lg border">
-                <TrendingUp className="h-8 w-8 text-green-600" />
-                <div>
-                  <p className="text-sm text-muted-foreground">Raised</p>
-                  <p className="text-lg font-semibold text-green-600">
+              <div className="flex items-center gap-3 p-3 md:p-4 rounded-lg border">
+                <TrendingUp className="h-6 w-6 md:h-8 md:w-8 text-green-600 flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xs md:text-sm text-muted-foreground">Raised</p>
+                  <p className="text-base md:text-lg font-semibold text-green-600 truncate">
                     ₦{group.current_amount?.toLocaleString() || '0'}
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 p-4 rounded-lg border">
-                <Calendar className="h-8 w-8 text-blue-600" />
-                <div>
-                  <p className="text-sm text-muted-foreground">Deadline</p>
-                  <p className="text-lg font-semibold">
+              <div className="flex items-center gap-3 p-3 md:p-4 rounded-lg border sm:col-span-2 md:col-span-1">
+                <Calendar className="h-6 w-6 md:h-8 md:w-8 text-blue-600 flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xs md:text-sm text-muted-foreground">Deadline</p>
+                  <p className="text-base md:text-lg font-semibold truncate">
                     {group.deadline ? new Date(group.deadline).toLocaleDateString() : 'No deadline'}
                   </p>
                 </div>
@@ -176,25 +178,25 @@ export default function GroupDetail() {
 
         {/* Account Details */}
         {group.account_number && (
-          <Card className="p-6">
+          <Card className="p-4 md:p-6">
             <CardHeader className="px-0 pt-0">
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
+              <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
+                <Users className="h-4 w-4 md:h-5 md:w-5" />
                 Bank Transfer Details
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-sm">
                 Transfer directly to this account number
               </CardDescription>
             </CardHeader>
             <CardContent className="px-0 pb-0">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-muted-foreground">Account Number</p>
-                  <p className="text-lg font-mono font-semibold">{group.account_number}</p>
+                  <p className="text-xs md:text-sm text-muted-foreground">Account Number</p>
+                  <p className="text-base md:text-lg font-mono font-semibold break-all">{group.account_number}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Bank Name</p>
-                  <p className="text-lg font-semibold">{group.bank_name || 'Sterling Bank'}</p>
+                  <p className="text-xs md:text-sm text-muted-foreground">Bank Name</p>
+                  <p className="text-base md:text-lg font-semibold">{group.bank_name || 'Sterling Bank'}</p>
                 </div>
               </div>
               <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg">
