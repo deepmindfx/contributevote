@@ -5,14 +5,12 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Users, Calendar, ArrowUpRight } from "lucide-react";
-import { useApp } from "@/contexts/AppContext";
+import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 import { format, isValid, parseISO } from "date-fns";
 import { Progress } from "@/components/ui/progress";
 const AllGroups = () => {
   const navigate = useNavigate();
-  const {
-    contributions
-  } = useApp();
+  const { contributions } = useSupabaseContribution();
 
   // Sort contributions by creation date (newest first)
   const sortedContributions = [...contributions].sort((a, b) => {
@@ -82,8 +80,8 @@ const AllGroups = () => {
           </Card> : <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {sortedContributions.map(contribution => {
           // Add null checks and default values
-          const currentAmount = contribution.currentAmount || 0;
-          const targetAmount = contribution.targetAmount || 1; // Prevent division by zero
+          const currentAmount = contribution.current_amount || 0;
+          const targetAmount = contribution.target_amount || 1; // Prevent division by zero
           const progressPercentage = Math.min(100, Math.round(currentAmount / targetAmount * 100) || 0);
           return <Card key={contribution.id} className="hover:shadow-md transition-shadow">
                   <CardHeader>

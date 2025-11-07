@@ -4,13 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Clipboard, RefreshCw, Plus, ArrowRight, Building } from "lucide-react";
 import { toast } from "sonner";
-import { useApp } from "@/contexts/AppContext";
-import { 
-  getUserReservedAccount, 
-  createUserReservedAccount, 
-  getReservedAccountTransactions 
-} from "@/services/walletIntegration";
-import { ReservedAccountData } from "@/services/wallet/types";
+import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
+import { WalletService, ReservedAccountData } from "@/services/supabase/walletService";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormDescription, FormMessage } from "@/components/ui/form";
@@ -38,7 +33,7 @@ interface IdFormData {
 }
 
 const ReservedAccount = () => {
-  const { user, refreshData } = useApp();
+  const { user, isAuthenticated, refreshCurrentUser } = useSupabaseUser();
   const [isLoading, setIsLoading] = useState(false);
   const [accountDetails, setAccountDetails] = useState<ReservedAccountData | null>(null);
   const [showFullDetails, setShowFullDetails] = useState(false);
@@ -54,15 +49,17 @@ const ReservedAccount = () => {
   });
   
   useEffect(() => {
-    // Check if user already has a reserved account
-    if (user?.reservedAccount) {
-      setAccountDetails(user.reservedAccount);
-      
-      // If account details exist but the accountNumber or bankName is undefined, refresh account details
-      if (!user.reservedAccount.accountNumber || !user.reservedAccount.bankName) {
-        handleRefresh();
+    // Load existing virtual account data
+    const loadAccountData = async () => {
+      if (user?.id) {
+        const existingAccount = await WalletService.getVirtualAccount(user.id);
+        if (existingAccount) {
+          setAccountDetails(existingAccount);
+        }
       }
-    }
+    };
+    
+    loadAccountData();
   }, [user]);
   
   const handleCreateAccount = async (values?: IdFormData) => {
@@ -82,24 +79,20 @@ const ReservedAccount = () => {
       // Close the ID form dialog after submission
       setShowIdForm(false);
       
-      const result = await createUserReservedAccount(user.id, values.idType, values.idNumber);
+      const result = await WalletService.createVirtualAccount(user.id, values.idType, values.idNumber);
       if (result) {
         console.log("Reserved account created:", result);
         setAccountDetails(result);
-        refreshData();
         
-        // Also fetch transactions after creating account
-        if (result.accountReference) {
-          try {
-            await getReservedAccountTransactions(result.accountReference);
-            refreshData();
-          } catch (error) {
-            console.error("Error fetching transactions after account creation:", error);
-            // Continue even if this fails
-          }
+        // Refresh user data to get the saved account info
+        await refreshCurrentUser();
+        
+        // Check for transactions
+        try {
+          await WalletService.checkForNewTransactions(user.id);
+        } catch (error) {
+          console.error("Error checking for transactions:", error);
         }
-        
-        toast.success("Virtual account created successfully");
       }
     } catch (error) {
       console.error("Error creating reserved account:", error);
@@ -117,23 +110,14 @@ const ReservedAccount = () => {
         return;
       }
       
-      const result = await getUserReservedAccount(user.id);
-      if (result) {
-        console.log("Retrieved account details:", result);
-        setAccountDetails(result);
-        
-        // Fetch transactions when refreshing account details
-        if (result.accountReference) {
-          try {
-            await getReservedAccountTransactions(result.accountReference);
-          } catch (error) {
-            console.error("Error fetching transactions after refresh:", error);
-            // Continue even if this fails
-          }
-        }
-        
-        refreshData();
-        toast.success("Account details refreshed");
+      // Check for new transactions
+      try {
+        await WalletService.checkForNewTransactions(user.id);
+        await refreshCurrentUser();
+        toast.success("Checked for new transactions");
+      } catch (error) {
+        console.error("Error checking for transactions:", error);
+        toast.error("Failed to check for transactions");
       }
     } catch (error) {
       console.error("Error refreshing reserved account:", error);
@@ -396,6 +380,16 @@ const ReservedAccount = () => {
             <p className="text-sm text-muted-foreground mt-2">
               Transfer to this account from any bank and your wallet will be credited automatically.
             </p>
+            
+            {/* Webhook system info */}
+            <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
+              <p className="text-sm text-green-800 mb-2">
+                <strong>Automatic Updates:</strong> Your balance will update automatically when you transfer money to this account.
+              </p>
+              <p className="text-xs text-green-600">
+                Powered by real-time webhooks - no manual refresh needed!
+              </p>
+            </div>
           </div>
         )}
       </CardContent>

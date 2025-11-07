@@ -1,4 +1,5 @@
-import { useApp } from "@/contexts/AppContext";
+import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
+import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 import { format, isValid } from "date-fns";
 import { useMemo } from "react";
 import ActivityItem from "./ActivityItem";
@@ -10,20 +11,22 @@ interface ActivityListProps {
 }
 
 const ActivityList = ({ isLoading }: ActivityListProps) => {
-  const { transactions, contributions, user } = useApp();
+  const { user } = useSupabaseUser();
+  const { transactions, contributions } = useSupabaseContribution();
 
   // Format and sort transactions, ensuring we only show unique transactions for the current user
   const formattedTransactions = useMemo(() => {
     // First, deduplicate transactions
     const seen = new Map();
     const uniqueTransactions = transactions
-      .filter(transaction => transaction.userId === user?.id) // Only show current user's transactions
-      .filter(transaction => transaction.createdAt) // Filter out transactions without createdAt
+      .filter(transaction => transaction.user_id === user?.id) // Only show current user's transactions
+      .filter(transaction => transaction.created_at) // Filter out transactions without created_at
       .filter(transaction => {
+        const meta = (transaction.metadata || {}) as any;
         // Create a unique key based on multiple identifiers
-        const key = transaction.metaData?.paymentReference || 
-                   transaction.metaData?.paymentDetails?.transactionId ||
-                   transaction.metaData?.transactionReference ||
+        const key = meta?.paymentReference || 
+                   meta?.paymentDetails?.transactionId ||
+                   meta?.transactionReference ||
                    transaction.id;
 
         // If we've seen this key before, it's a duplicate
@@ -40,11 +43,11 @@ const ActivityList = ({ isLoading }: ActivityListProps) => {
     return uniqueTransactions
       .sort((a, b) => {
         try {
-          const dateA = new Date(a.createdAt);
-          const dateB = new Date(b.createdAt);
+          const dateA = new Date(a.created_at);
+          const dateB = new Date(b.created_at);
           
           if (!isValid(dateA) || !isValid(dateB)) {
-            console.error("Invalid date in transaction sort:", a.createdAt, b.createdAt);
+            console.error("Invalid date in transaction sort:", a.created_at, b.created_at);
             return 0;
           }
           
@@ -54,9 +57,10 @@ const ActivityList = ({ isLoading }: ActivityListProps) => {
           return 0;
         }
       })
-      .slice(0, 5)
+      .slice(0, 3)
       .map(transaction => {
-        const contribution = contributions.find(c => c.id === transaction.contributionId);
+        const contribution = contributions.find(c => c.id === transaction.contribution_id);
+        const meta = (transaction.metadata || {}) as any;
         
         let type: "deposit" | "withdrawal" | "vote" = "deposit";
         if (transaction.type === "withdrawal") type = "withdrawal";
@@ -64,19 +68,20 @@ const ActivityList = ({ isLoading }: ActivityListProps) => {
         
         return {
           type,
-          title: transaction.type === 'deposit' ? 'Contribution' : 
-                 transaction.type === 'withdrawal' ? 'Fund Withdrawal' : 'Vote',
+          title: transaction.type === 'deposit' ? 'Deposit' : 
+                 transaction.type === 'withdrawal' ? 'Withdrawal' : 
+                 transaction.type === 'contribution' ? 'Group Contribution' : 'Vote',
           description: contribution ? contribution.name : 
                        transaction.description || 
-                       (transaction.metaData?.bankName ? `Via ${transaction.metaData.bankName}` : ''),
+                       (meta?.bankName ? `Via ${meta.bankName}` : ''),
           amount: transaction.type === 'vote' ? 
-                  `₦ ${transaction.amount.toLocaleString()}` : 
-                  `${transaction.type === 'deposit' ? '+' : '-'}₦ ${transaction.amount.toLocaleString()}`,
-          date: formatDate(transaction.createdAt),
+                  `₦${transaction.amount.toLocaleString()}` : 
+                  `${transaction.type === 'deposit' || transaction.type === 'contribution' ? '+' : '-'}₦${transaction.amount.toLocaleString()}`,
+          date: formatDate(transaction.created_at),
           status: transaction.status as "pending" | "completed" | "rejected",
           senderDetails: getSenderDetails(transaction),
           id: transaction.id, // Add ID for better key handling
-          reference: transaction.metaData?.paymentReference || transaction.metaData?.transactionReference, // Add reference for better key handling
+          reference: meta?.paymentReference || meta?.transactionReference, // Add reference for better key handling
         }
       });
   }, [transactions, contributions, user?.id]);
@@ -108,15 +113,16 @@ const ActivityList = ({ isLoading }: ActivityListProps) => {
 
   // Enhanced function to get sender details from transaction
   function getSenderDetails(transaction: any) {
-    if (transaction.type !== 'deposit') return null;
+    if (transaction.type !== 'deposit' && transaction.type !== 'contribution') return null;
     
-    const senderName = transaction.metaData?.senderName || 
-                      transaction.metaData?.contributorName || 
-                      transaction.metaData?.customerName;
+    const meta = (transaction.metadata || {}) as any;
+    const senderName = meta?.senderName || 
+                      meta?.contributorName || 
+                      meta?.customerName;
                       
-    const bankName = transaction.metaData?.bankName || 
-                    transaction.metaData?.senderBank || 
-                    transaction.metaData?.paymentBank;
+    const bankName = meta?.bankName || 
+                    meta?.senderBank || 
+                    meta?.paymentBank;
     
     if (senderName && bankName) {
       return `From: ${senderName} (${bankName})`;

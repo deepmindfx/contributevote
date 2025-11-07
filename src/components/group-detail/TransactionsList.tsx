@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useApp } from "@/contexts/AppContext";
+import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Transaction } from "@/services/localStorage";
 import TransactionReceiptDialog from "./dialogs/TransactionReceiptDialog";
@@ -13,7 +13,7 @@ interface TransactionsListProps {
 }
 
 const TransactionsList = ({ transactions }: TransactionsListProps) => {
-  const { getReceipt, refreshData } = useApp();
+  const { getReceipt, refreshContributionData } = useSupabaseContribution();
   const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
   const [receiptData, setReceiptData] = useState<any>(null);
   const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
@@ -52,7 +52,7 @@ const TransactionsList = ({ transactions }: TransactionsListProps) => {
     setIsRefreshing(true);
     
     try {
-      await refreshData();
+      await refreshContributionData();
       setTimeout(() => {
         setIsRefreshing(false);
       }, 1000);

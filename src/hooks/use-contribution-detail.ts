@@ -1,19 +1,20 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useApp } from "@/contexts/AppContext";
-import { Contribution, WithdrawalRequest, Transaction, hasContributed } from "@/services/localStorage";
+import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
+import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
+import { hasContributed } from "@/services/localStorage";
 import { ensureAccountNumberDisplay } from "@/localStorage";
 import { toast } from "sonner";
 
 export function useContributionDetail(id: string | undefined) {
   const navigate = useNavigate();
+  const { user } = useSupabaseUser();
   const {
     contributions,
     withdrawalRequests,
     transactions,
-    user,
-    refreshData,
-  } = useApp();
+    refreshContributionData,
+  } = useSupabaseContribution();
   
   const [contribution, setContribution] = useState<Contribution | null>(null);
   const [contributionRequests, setContributionRequests] = useState<WithdrawalRequest[]>([]);
@@ -24,13 +25,14 @@ export function useContributionDetail(id: string | undefined) {
   const contributionTransactions = useMemo(() => {
     if (!id || !transactions) return [];
 
-    const groupTransactions = transactions.filter(t => t.contributionId === id);
+    const groupTransactions = transactions.filter(t => t.contribution_id === id);
     const uniqueTransactions = new Map();
 
     // Keep only unique transactions based on payment reference or transaction ID
     groupTransactions.forEach(transaction => {
-      const key = transaction.metaData?.paymentReference || 
-                 transaction.metaData?.paymentDetails?.transactionId ||
+      const meta = transaction.metadata || transaction.metaData || {};
+      const key = meta?.paymentReference || 
+                 meta?.paymentDetails?.transactionId ||
                  transaction.id;
       
       // Only keep the first occurrence of each transaction
@@ -44,7 +46,7 @@ export function useContributionDetail(id: string | undefined) {
 
   useEffect(() => {
     // Refresh data when component mounts to ensure fresh data after login
-    refreshData();
+    refreshContributionData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   
@@ -73,7 +75,7 @@ export function useContributionDetail(id: string | undefined) {
       
       // Set contribution and withdrawal requests
       setContribution(foundContribution);
-      setContributionRequests(withdrawalRequests.filter(w => w.contributionId === id));
+      setContributionRequests(withdrawalRequests.filter(w => w.contribution_id === id));
 
       // Check if user has contributed to this group
       if (user && user.id) {

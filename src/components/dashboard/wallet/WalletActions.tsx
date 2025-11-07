@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Clock, PlusCircle, SendHorizontal, UserPlus } from "lucide-react";
+import { Clock, PlusCircle, SendHorizontal, UserPlus, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CreditCard, Wallet, Building } from "lucide-react";
 import { User } from "@/services/localStorage/types";
 import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { WalletService, ReservedAccountData } from "@/services/supabase/walletService";
+import { toast } from "sonner";
 
 interface WalletActionsProps {
   setIsDepositOpen: (value: boolean) => void;
@@ -43,6 +46,48 @@ const WalletActions = ({
   setShowHistory,
 }: WalletActionsProps) => {
   const navigate = useNavigate();
+  const [accountDetails, setAccountDetails] = useState<ReservedAccountData | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+  
+  // Fetch virtual account when dialog opens
+  useEffect(() => {
+    const loadAccountData = async () => {
+      if (isDepositOpen && user?.id) {
+        const existingAccount = await WalletService.getVirtualAccount(user.id);
+        if (existingAccount) {
+          setAccountDetails(existingAccount);
+        }
+      }
+    };
+    
+    loadAccountData();
+  }, [isDepositOpen, user?.id]);
+  
+  // Copy to clipboard function
+  const copyToClipboard = async (text: string, field: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(field);
+      toast.success(`${field} copied!`);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch (err) {
+      toast.error("Failed to copy");
+    }
+  };
+  
+  // Copy all account details
+  const copyAllDetails = async () => {
+    if (!accountDetails) return;
+    
+    const allDetails = `Bank Name: ${accountDetails.bankName}\nAccount Number: ${accountDetails.accountNumber}\nAccount Name: ${accountDetails.accountName}`;
+    
+    try {
+      await navigator.clipboard.writeText(allDetails);
+      toast.success("All details copied!");
+    } catch (err) {
+      toast.error("Failed to copy");
+    }
+  };
   
   return (
     <div className="bg-white dark:bg-black/40 rounded-t-3xl -mt-3 overflow-hidden">
@@ -58,90 +103,113 @@ const WalletActions = ({
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Deposit Funds</DialogTitle>
+              <DialogTitle>Top Up Wallet</DialogTitle>
               <DialogDescription>
-                Add money to your wallet. Choose your preferred method.
+                Transfer money to your virtual account to fund your wallet.
               </DialogDescription>
             </DialogHeader>
             
-            <Tabs value={depositMethod} onValueChange={value => setDepositMethod(value as "manual" | "card" | "bank")}>
-              <TabsList className="grid grid-cols-3 mb-4">
-                <TabsTrigger value="manual">
-                  <Wallet className="h-4 w-4 mr-2" />
-                  Manual
-                </TabsTrigger>
-                <TabsTrigger value="card">
-                  <CreditCard className="h-4 w-4 mr-2" />
-                  Card
-                </TabsTrigger>
-                <TabsTrigger value="bank">
-                  <Building className="h-4 w-4 mr-2" />
-                  Bank
-                </TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="manual" className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="deposit-amount">Amount ({currencyType})</Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-2.5 text-muted-foreground">
-                      {currencyType === "NGN" ? "₦" : "$"}
-                    </span>
-                    <Input id="deposit-amount" type="number" className="pl-8" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} />
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Use this option for demo purposes only. In a real app, this would be replaced by actual payment methods.
-                  </p>
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="card" className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="card-deposit-amount">Amount ({currencyType})</Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-2.5 text-muted-foreground">
-                      {currencyType === "NGN" ? "₦" : "$"}
-                    </span>
-                    <Input id="card-deposit-amount" type="number" className="pl-8" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} />
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    You'll be redirected to a secure payment page to complete your transaction.
-                  </p>
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="bank" className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="bank-deposit-amount">Amount ({currencyType})</Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-2.5 text-muted-foreground">
-                      {currencyType === "NGN" ? "₦" : "$"}
-                    </span>
-                    <Input id="bank-deposit-amount" type="number" className="pl-8" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} />
-                  </div>
-                  
-                  {user?.reservedAccount ? (
-                    <div className="p-3 bg-muted/50 rounded-md text-sm">
-                      <p className="font-medium">Your Virtual Account:</p>
-                      <p className="mt-1">{user.reservedAccount.bankName}</p>
-                      <p className="font-mono">{user.reservedAccount.accountNumber}</p>
-                      <p className="text-xs text-muted-foreground mt-2">
-                        Transfer the amount to this account and your wallet will be credited automatically.
-                      </p>
+            <div className="space-y-4">
+              {accountDetails ? (
+                <div className="space-y-3">
+                  <div className="p-4 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg">
+                    <div className="flex justify-between items-center mb-3">
+                      <p className="font-semibold text-green-900 dark:text-green-100">Transfer to this account:</p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={copyAllDetails}
+                        className="h-7 text-xs"
+                      >
+                        <Copy className="h-3 w-3 mr-1" />
+                        Copy All
+                      </Button>
                     </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      You need to set up a virtual account first. This will require your BVN or NIN for verification.
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Bank Name</p>
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="font-medium">{accountDetails.bankName}</p>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => copyToClipboard(accountDetails.bankName, "Bank name")}
+                            className="h-7 w-7 p-0"
+                          >
+                            {copiedField === "Bank name" ? (
+                              <Check className="h-3 w-3 text-green-600" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Account Number</p>
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="font-mono text-lg font-bold">{accountDetails.accountNumber}</p>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => copyToClipboard(accountDetails.accountNumber, "Account number")}
+                            className="h-7 w-7 p-0"
+                          >
+                            {copiedField === "Account number" ? (
+                              <Check className="h-3 w-3 text-green-600" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Account Name</p>
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="font-medium">{accountDetails.accountName}</p>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => copyToClipboard(accountDetails.accountName, "Account name")}
+                            className="h-7 w-7 p-0"
+                          >
+                            {copiedField === "Account name" ? (
+                              <Check className="h-3 w-3 text-green-600" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
+                    <div className="text-blue-600 dark:text-blue-400 mt-0.5">ℹ️</div>
+                    <p className="text-sm text-blue-900 dark:text-blue-100">
+                      Transfer any amount to this account and your wallet will be credited automatically within minutes.
                     </p>
-                  )}
+                  </div>
                 </div>
-              </TabsContent>
-            </Tabs>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    You need to set up a virtual account first to receive bank transfers.
+                  </p>
+                  <Button 
+                    onClick={() => {
+                      setIsDepositOpen(false);
+                      navigate("/dashboard");
+                    }}
+                    className="w-full"
+                  >
+                    Set Up Virtual Account
+                  </Button>
+                </div>
+              )}
+            </div>
             
-            <DialogFooter className="flex space-x-2">
+            <DialogFooter>
               <Button 
-                variant="outline" 
-                className="flex-1" 
+                className="w-full" 
                 onClick={e => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -149,15 +217,7 @@ const WalletActions = ({
                 }} 
                 type="button"
               >
-                Cancel
-              </Button>
-              <Button 
-                className="flex-1" 
-                onClick={handleDeposit} 
-                disabled={isProcessingDeposit} 
-                type="button"
-              >
-                {isProcessingDeposit ? "Processing..." : "Deposit"}
+                Close
               </Button>
             </DialogFooter>
           </DialogContent>

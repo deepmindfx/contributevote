@@ -14,7 +14,8 @@ import {
   CreditCard,
   PiggyBank
 } from "lucide-react";
-import { useApp } from "@/contexts/AppContext";
+import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
+import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 import { format, isValid } from "date-fns";
 import {
   Card,
@@ -108,7 +109,8 @@ const ActivityItem = ({ type, title, description, amount, date, status }: Activi
 
 const ActivityHistory = () => {
   const navigate = useNavigate();
-  const { transactions, contributions, user } = useApp();
+  const { user } = useSupabaseUser();
+  const { transactions, contributions } = useSupabaseContribution();
   const [activeTab, setActiveTab] = useState("all");
   
   function formatDate(dateString: string) {
@@ -138,7 +140,7 @@ const ActivityHistory = () => {
   
   // Format and sort transactions, ensuring we only show the current user's transactions
   const formattedTransactions = transactions
-    .filter(transaction => transaction.userId === user?.id) // Only show current user's transactions
+    .filter(transaction => transaction.user_id === user?.id) // Only show current user's transactions
     .filter(transaction => {
       if (activeTab === "all") return true;
       if (activeTab === "deposits" && transaction.type === "deposit") return true;
@@ -146,14 +148,14 @@ const ActivityHistory = () => {
       if (activeTab === "votes" && transaction.type === "vote") return true;
       return false;
     })
-    .filter(transaction => transaction.createdAt) // Filter out transactions without createdAt
+    .filter(transaction => transaction.created_at) // Filter out transactions without created_at
     .sort((a, b) => {
       try {
-        const dateA = new Date(a.createdAt);
-        const dateB = new Date(b.createdAt);
+        const dateA = new Date(a.created_at);
+        const dateB = new Date(b.created_at);
         
         if (!isValid(dateA) || !isValid(dateB)) {
-          console.error("Invalid date in transaction sort:", a.createdAt, b.createdAt);
+          console.error("Invalid date in transaction sort:", a.created_at, b.created_at);
           return 0;
         }
         
@@ -164,7 +166,8 @@ const ActivityHistory = () => {
       }
     })
     .map(transaction => {
-      const contribution = contributions.find(c => c.id === transaction.contributionId);
+      const contribution = contributions.find(c => c.id === transaction.contribution_id);
+      const meta = (transaction.metadata || {}) as any;
       
       let type: "deposit" | "withdrawal" | "vote" = "deposit";
       if (transaction.type === "withdrawal") type = "withdrawal";
@@ -172,15 +175,16 @@ const ActivityHistory = () => {
       
       return {
         type,
-        title: transaction.type === 'deposit' ? 'Contribution' : 
-               transaction.type === 'withdrawal' ? 'Fund Withdrawal' : 'Vote',
+        title: transaction.type === 'deposit' ? 'Deposit' : 
+               transaction.type === 'withdrawal' ? 'Withdrawal' : 
+               transaction.type === 'contribution' ? 'Group Contribution' : 'Vote',
         description: contribution ? contribution.name : 
                     transaction.description || 
-                    (transaction.metaData?.bankName ? `Via ${transaction.metaData.bankName}` : ''),
+                    (meta?.bankName ? `Via ${meta.bankName}` : ''),
         amount: transaction.type === 'vote' ? 
-                `₦ ${transaction.amount.toLocaleString()}` : 
-                `${transaction.type === 'deposit' ? '+' : '-'}₦ ${transaction.amount.toLocaleString()}`,
-        date: formatDate(transaction.createdAt),
+                `₦${transaction.amount.toLocaleString()}` : 
+                `${transaction.type === 'deposit' || transaction.type === 'contribution' ? '+' : '-'}₦${transaction.amount.toLocaleString()}`,
+        date: formatDate(transaction.created_at),
         status: transaction.status as "pending" | "completed" | "rejected",
       }
     });

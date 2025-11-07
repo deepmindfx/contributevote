@@ -15,36 +15,34 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { markAllNotificationsAsRead, markNotificationAsRead } from "@/services/localStorage";
-import { useApp } from "@/contexts/AppContext";
+import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
+import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Dashboard = () => {
-  const {
-    user,
-    refreshData,
-    contributions
-  } = useApp();
+  const { user } = useSupabaseUser();
+  const { contributions, refreshContributionData } = useSupabaseContribution();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("wallet");
   
   useEffect(() => {
     // Refresh data when dashboard loads to ensure shared contributions are visible
-    refreshData();
-  }, [refreshData]);
-
-  // Force an additional refresh a few seconds after the component mounts 
-  // to ensure we have the latest notifications and shared contributions
-  useEffect(() => {
+    refreshContributionData();
+    
+    // Force an additional refresh a few seconds after the component mounts 
+    // to ensure we have the latest notifications and shared contributions
     const timer = setTimeout(() => {
-      refreshData();
+      refreshContributionData();
     }, 1500);
+    
     return () => clearTimeout(timer);
-  }, [refreshData]);
+  }, []); // Empty dependency array to prevent infinite re-renders
   
   const handleNotificationRead = (id: string, relatedId?: string) => {
-    markNotificationAsRead(id);
-    refreshData();
+    // TODO: Implement with Supabase notifications
+    // markNotificationAsRead(id);
+    // Note: Removed refreshContributionData() call to prevent excessive API requests
 
     // If notification is related to a contribution, navigate to it
     if (relatedId) {
@@ -58,8 +56,9 @@ const Dashboard = () => {
   };
   
   const handleMarkAllRead = () => {
-    markAllNotificationsAsRead();
-    refreshData();
+    // TODO: Implement with Supabase notifications
+    // markAllNotificationsAsRead();
+    // Note: Removed refreshContributionData() call to prevent excessive API requests
   };
   
   const unreadNotifications = user?.notifications?.filter(n => !n.read) || [];

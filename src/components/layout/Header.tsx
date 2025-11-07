@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { useApp } from "@/contexts/AppContext";
+import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { 
   LogOut, 
   Menu, 
@@ -10,7 +10,6 @@ import {
   Settings, 
   Bell, 
   Moon,
-  Sun,
   ShieldCheck,
   BellDot
 } from "lucide-react";
@@ -36,8 +35,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { format } from "date-fns";
-import { markAllNotificationsAsRead, markNotificationAsRead } from "@/services/localStorage";
+// Removed localStorage imports - will implement with Supabase
 
 interface NavLinkProps {
   href: string;
@@ -46,7 +44,7 @@ interface NavLinkProps {
 }
 
 const Header = () => {
-  const { user, isAuthenticated, isAdmin, logout, updateProfile, refreshData } = useApp();
+  const { user, isAuthenticated, isAdmin, logout } = useSupabaseUser();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -55,19 +53,14 @@ const Header = () => {
   const location = useLocation();
   
   const toggleDarkMode = () => {
-    if (user && user.id) {
-      const newPreferences = {
-        ...user.preferences,
-        darkMode: !user.preferences?.darkMode
-      };
-      
-      updateProfile({ preferences: newPreferences });
-      toast.success(`${newPreferences.darkMode ? 'Dark' : 'Light'} mode enabled`);
-    }
+    // For now, just toggle the class - will implement with Supabase profile update
+    document.documentElement.classList.toggle('dark');
+    const isDark = document.documentElement.classList.contains('dark');
+    toast.success(`${isDark ? 'Dark' : 'Light'} mode enabled`);
   };
   
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/');
   };
   
@@ -104,26 +97,23 @@ const Header = () => {
   );
   
   const handleNotificationRead = (id: string, relatedId?: string) => {
-    markNotificationAsRead(id);
-    refreshData();
-
+    // TODO: Implement with Supabase notifications
+    console.log('Mark notification as read:', id);
+    
     // If notification is related to a contribution, navigate to it
     if (relatedId) {
-      const isContribution = user.contributions?.some(c => c.id === relatedId);
-      if (isContribution) {
-        setNotificationsOpen(false);
-        navigate(`/groups/${relatedId}`);
-      }
+      setNotificationsOpen(false);
+      navigate(`/groups/${relatedId}`);
     }
   };
   
   const handleMarkAllRead = () => {
-    markAllNotificationsAsRead(user?.id);
-    refreshData();
+    // TODO: Implement with Supabase notifications
+    console.log('Mark all notifications as read');
     toast.success("All notifications marked as read");
   };
   
-  const unreadNotifications = user?.notifications?.filter(n => !n.read).length || 0;
+  const unreadNotifications = 0; // TODO: Implement with Supabase notifications
   
   return (
     <header 
@@ -140,8 +130,8 @@ const Header = () => {
               className="object-contain h-full w-full"
             />
           </div>
-          {isAuthenticated && user?.firstName ? (
-            <span className="font-medium text-lg">Hi, {user.firstName}</span>
+          {isAuthenticated && user?.name ? (
+            <span className="font-medium text-lg">Hi, {user.name}</span>
           ) : (
             <span className="font-bold text-xl">CollectiPay</span>
           )}
@@ -229,43 +219,15 @@ const Header = () => {
                   <PopoverContent className="w-80 p-0" align="end">
                     <div className="flex items-center justify-between p-4 border-b">
                       <h4 className="font-semibold">Notifications</h4>
-                      {user?.notifications && user.notifications.length > 0 && 
-                        <Button variant="ghost" size="sm" onClick={handleMarkAllRead}>
-                          Mark all read
-                        </Button>
-                      }
+                      <Button variant="ghost" size="sm" onClick={handleMarkAllRead}>
+                        Mark all read
+                      </Button>
                     </div>
                     <ScrollArea className="h-[400px]">
-                      {!user?.notifications || user.notifications.length === 0 ? 
-                        <div className="p-4 text-center text-muted-foreground">
-                          <Bell className="h-10 w-10 mx-auto mb-2 opacity-20" />
-                          <p>No notifications</p>
-                        </div> 
-                        : 
-                        user.notifications.map(notification => 
-                          <div 
-                            key={notification.id} 
-                            className={`p-4 border-b last:border-b-0 ${!notification.read ? 'bg-muted/50' : ''} 
-                              hover:bg-muted/30 cursor-pointer transition-colors`} 
-                            onClick={() => handleNotificationRead(notification.id, notification.relatedId)}
-                          >
-                            <div className="flex items-start gap-3">
-                              <div className={`rounded-full w-2 h-2 mt-1.5 ${!notification.read ? 'bg-green-600' : 'bg-transparent'}`} />
-                              <div className="flex-1">
-                                <p className="text-sm">{notification.message}</p>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  {notification.createdAt && format(new Date(notification.createdAt), 'MMM d, h:mm a')}
-                                </p>
-                              </div>
-                              {notification.read && 
-                                <div className="text-muted-foreground opacity-50">
-                                  <X className="h-3 w-3" />
-                                </div>
-                              }
-                            </div>
-                          </div>
-                        )
-                      }
+                      <div className="p-4 text-center text-muted-foreground">
+                        <Bell className="h-10 w-10 mx-auto mb-2 opacity-20" />
+                        <p>No notifications</p>
+                      </div>
                     </ScrollArea>
                   </PopoverContent>
                 </Popover>
@@ -276,19 +238,15 @@ const Header = () => {
                   className="p-2"
                   onClick={toggleDarkMode}
                 >
-                  {user?.preferences?.darkMode ? (
-                    <Sun className="h-5 w-5" />
-                  ) : (
-                    <Moon className="h-5 w-5" />
-                  )}
+                  <Moon className="h-5 w-5" />
                 </Button>
                 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Avatar className="h-8 w-8 cursor-pointer">
-                      <AvatarImage src={user.profileImage} alt={user.name} />
+                      <AvatarImage src="" alt={user?.name || user?.email} />
                       <AvatarFallback>
-                        {user.firstName?.charAt(0)}{user.lastName?.charAt(0) || ""}
+                        {user?.name?.charAt(0) || user?.email?.charAt(0) || "U"}
                       </AvatarFallback>
                     </Avatar>
                   </DropdownMenuTrigger>
@@ -371,43 +329,15 @@ const Header = () => {
                 <PopoverContent className="w-80 p-0" align="end">
                   <div className="flex items-center justify-between p-4 border-b">
                     <h4 className="font-semibold">Notifications</h4>
-                    {user?.notifications && user.notifications.length > 0 && 
-                      <Button variant="ghost" size="sm" onClick={handleMarkAllRead}>
-                        Mark all read
-                      </Button>
-                    }
+                    <Button variant="ghost" size="sm" onClick={handleMarkAllRead}>
+                      Mark all read
+                    </Button>
                   </div>
                   <ScrollArea className="h-[400px]">
-                    {!user?.notifications || user.notifications.length === 0 ? 
-                      <div className="p-4 text-center text-muted-foreground">
-                        <Bell className="h-10 w-10 mx-auto mb-2 opacity-20" />
-                        <p>No notifications</p>
-                      </div> 
-                      : 
-                      user.notifications.map(notification => 
-                        <div 
-                          key={notification.id} 
-                          className={`p-4 border-b last:border-b-0 ${!notification.read ? 'bg-muted/50' : ''} 
-                            hover:bg-muted/30 cursor-pointer transition-colors`} 
-                          onClick={() => handleNotificationRead(notification.id, notification.relatedId)}
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className={`rounded-full w-2 h-2 mt-1.5 ${!notification.read ? 'bg-green-600' : 'bg-transparent'}`} />
-                            <div className="flex-1">
-                              <p className="text-sm">{notification.message}</p>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {notification.createdAt && format(new Date(notification.createdAt), 'MMM d, h:mm a')}
-                              </p>
-                            </div>
-                            {notification.read && 
-                              <div className="text-muted-foreground opacity-50">
-                                <X className="h-3 w-3" />
-                              </div>
-                            }
-                          </div>
-                        </div>
-                      )
-                    }
+                    <div className="p-4 text-center text-muted-foreground">
+                      <Bell className="h-10 w-10 mx-auto mb-2 opacity-20" />
+                      <p>No notifications</p>
+                    </div>
                   </ScrollArea>
                 </PopoverContent>
               </Popover>
@@ -418,11 +348,7 @@ const Header = () => {
                 className="p-2"
                 onClick={toggleDarkMode}
               >
-                {user?.preferences?.darkMode ? (
-                  <Sun className="h-5 w-5" />
-                ) : (
-                  <Moon className="h-5 w-5" />
-                )}
+                <Moon className="h-5 w-5" />
               </Button>
             </>
           )}
@@ -446,15 +372,15 @@ const Header = () => {
               <>
                 <div className="flex items-center space-x-3 p-3 bg-muted rounded-md">
                   <Avatar className="h-10 w-10">
-                    <AvatarImage src={user.profileImage} alt={user.name} />
+                    <AvatarImage src="" alt={user?.name || user?.email} />
                     <AvatarFallback>
-                      {user.firstName?.charAt(0)}{user.lastName?.charAt(0) || ""}
+                      {user?.name?.charAt(0) || user?.email?.charAt(0) || "U"}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="font-medium">{user.name}</p>
+                    <p className="font-medium">{user?.name || user?.email}</p>
                     <p className="text-sm text-muted-foreground">
-                      Balance: ₦{user.walletBalance?.toLocaleString() || 0}
+                      Balance: ₦{user?.wallet_balance || 0}
                     </p>
                   </div>
                 </div>

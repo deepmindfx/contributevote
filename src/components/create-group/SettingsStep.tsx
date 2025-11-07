@@ -53,13 +53,11 @@ const SettingsStep = ({
             type="number" 
             min="1" 
             max="100" 
-            defaultValue="70"
             value={formData.votingThreshold}
             onChange={(e) => handleChange('votingThreshold', Number(e.target.value))}
           />
           <p className="text-sm text-muted-foreground">Percentage of members required to approve withdrawals</p>
-        </div>
-        
+        </div>        
         <div className="space-y-2">
           <Label>Privacy</Label>
           <RadioGroup 

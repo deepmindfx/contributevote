@@ -1,40 +1,24 @@
 
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Home, Wallet, VoteIcon, Users, Settings, ArrowLeft } from "lucide-react";
-import { useApp } from "@/contexts/AppContext";
+import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { useState, useEffect } from "react";
 
 const MobileNav = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, isAuthenticated } = useSupabaseUser();
   
-  // Set safe defaults in case context isn't available
   const [pendingVotes, setPendingVotes] = useState<any[]>([]);
   const [showBackButton, setShowBackButton] = useState(false);
   
-  // Use try-catch to handle potential context errors
-  let withdrawalRequests: any[] = [];
-  let user: any = null;
-  
-  try {
-    const appContext = useApp();
-    withdrawalRequests = appContext.withdrawalRequests || [];
-    user = appContext.user || {};
+  // TODO: Implement pending votes with Supabase
+  useEffect(() => {
+    if (!user?.id) return;
     
-    // Check for pending votes for the current user
-    useEffect(() => {
-      if (!user?.id) return;
-      
-      const userPendingVotes = withdrawalRequests.filter(request => 
-        request.status === 'pending' && 
-        !request.votes.some(vote => vote.userId === user?.id)
-      );
-      
-      setPendingVotes(userPendingVotes);
-    }, [withdrawalRequests, user]);
-  } catch (error) {
-    console.error("Error accessing AppContext in MobileNav:", error);
-  }
+    // For now, set empty array - will implement with Supabase withdrawal requests
+    setPendingVotes([]);
+  }, [user]);
 
   // Determine if back button should be shown based on current route
   useEffect(() => {
@@ -48,7 +32,7 @@ const MobileNav = () => {
 
   // Fix for mobile nav disappearing - force a repaint on route change
   useEffect(() => {
-    const nav = document.querySelector('.mobile-nav');
+    const nav = document.querySelector('.mobile-nav') as HTMLElement;
     if (nav) {
       // Force a repaint by getting offsetHeight
       nav.offsetHeight;

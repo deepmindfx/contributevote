@@ -4,15 +4,13 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { useApp } from "@/contexts/AppContext";
+import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 import { format, isValid, parseISO } from "date-fns";
 import { Users, Calendar, ArrowRight } from "lucide-react";
 
 const GroupsList = () => {
   const navigate = useNavigate();
-  const {
-    contributions
-  } = useApp();
+  const { contributions } = useSupabaseContribution();
   
   const getRecentGroups = () => {
     // Sort contributions by creation date (newest first)
@@ -86,8 +84,8 @@ const GroupsList = () => {
           <div className="space-y-4">
             {recentGroups.map(group => {
               // Add null checks and default values
-              const currentAmount = group.currentAmount || 0;
-              const targetAmount = group.targetAmount || 1; // Prevent division by zero
+              const currentAmount = group.current_amount || 0;
+              const targetAmount = group.target_amount || 1; // Prevent division by zero
               const progressPercentage = Math.min(100, Math.round((currentAmount / targetAmount) * 100) || 0);
               
               return (

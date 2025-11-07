@@ -3,8 +3,8 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowDown, ArrowUp, CreditCard } from "lucide-react";
 import { payWithFlutterwave } from "@/utils/flutterwavePayment";
-import { useUser } from "@/contexts/UserContext";
-import { useApp } from "@/contexts/AppContext";
+import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
+import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 import { toast } from "sonner";
 import PaymentAmountDialog from "../dialogs/PaymentAmountDialog";
 import { contributeToGroup } from "@/services/localStorage";
@@ -26,8 +26,8 @@ const WalletActions = ({
   contributionName,
   contributionAccountReference
 }: WalletActionsProps) => {
-  const { user } = useUser();
-  const { refreshData } = useApp();
+  const { user } = useSupabaseUser();
+  const { refreshContributionData } = useSupabaseContribution();
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
 
@@ -65,7 +65,7 @@ const WalletActions = ({
             toast.success('Payment successful!');
             // Force a refresh of the data
             setTimeout(() => {
-              refreshData();
+              refreshContributionData();
             }, 500);
           } catch (error) {
             console.error('Error processing successful payment:', error);

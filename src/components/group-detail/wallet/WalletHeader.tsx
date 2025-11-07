@@ -27,10 +27,10 @@ const WalletHeader = ({
       
       <div className="text-center md:text-right">
         <div className="text-3xl font-bold text-green-600 dark:text-green-400">
-          ₦{contribution?.currentAmount.toLocaleString()}
+          ₦{contribution?.currentAmount?.toLocaleString() || '0'}
         </div>
         <p className="text-sm text-muted-foreground">
-          of ₦{contribution?.targetAmount.toLocaleString()} goal ({progressPercentage}%)
+          of ₦{contribution?.targetAmount?.toLocaleString() || '0'} goal ({progressPercentage}%)
         </p>
       </div>
     </div>;

@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"; 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, Copy, Link, Share2, User, UserPlus, Mail, Phone, AlertCircle } from "lucide-react";
-import { useApp } from "@/contexts/AppContext";
+import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
+import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -20,7 +21,8 @@ interface ShareContributionProps {
 }
 
 const ShareContribution = ({ contributionId, contributionName }: ShareContributionProps) => {
-  const { shareToContacts, users, user, getUserByEmail, getUserByPhone } = useApp();
+  const { users, user, getUserByEmail, getUserByPhone } = useSupabaseUser();
+  const { shareToContacts } = useSupabaseContribution();
   const [copied, setCopied] = useState(false);
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
   const [recipientEmail, setRecipientEmail] = useState("");

@@ -3,7 +3,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
 import { PlusCircle, ArrowDown, Wallet, SendHorizontal, UserPlus, Clock, Eye, EyeOff, DollarSign, CreditCard, Building, ExternalLink } from "lucide-react";
-import { useApp } from "@/contexts/AppContext";
+import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
+import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { createPaymentInvoice, getReservedAccountTransactions } from "@/services/walletIntegration";
 import WalletActions from "@/components/dashboard/wallet/WalletActions";
+import { useBalanceUpdates } from "@/hooks/useBalanceUpdates";
 
 const WalletCard = () => {
   const navigate = useNavigate();
@@ -29,27 +31,25 @@ const WalletCard = () => {
   const [isTransactionDetailsOpen, setIsTransactionDetailsOpen] = useState(false);
   const [isProcessingDeposit, setIsProcessingDeposit] = useState(false);
   
-  const {
-    user,
-    refreshData,
-    isAdmin,
-    transactions
-  } = useApp();
+  const { user, isAdmin, refreshCurrentUser } = useSupabaseUser();
+  const { refreshBalance } = useBalanceUpdates();
   
-  // Load transaction history when component mounts
+  // Import transactions from context
+  const { transactions } = useSupabaseContribution();
+  const refreshData = async () => {
+    await refreshCurrentUser();
+  };
+  
+  // TODO: Load transaction history when component mounts
   useEffect(() => {
-    if (user?.reservedAccount?.accountReference) {
-      fetchTransactions();
-    }
-  }, [user?.reservedAccount]);
+    // Will implement with Supabase
+  }, [user]);
   
   const fetchTransactions = async () => {
-    if (!user?.reservedAccount?.accountReference) return;
-    
+    // TODO: Implement with Supabase
     setIsLoading(true);
     try {
-      await getReservedAccountTransactions(user.reservedAccount.accountReference);
-      refreshData();
+      // Will fetch from Supabase transactions table
     } catch (error) {
       console.error("Error fetching transactions:", error);
     } finally {
@@ -62,19 +62,25 @@ const WalletCard = () => {
     setCurrencyType(prev => prev === "NGN" ? "USD" : "NGN");
   };
 
+  // Helper to get metadata field (handles both camelCase and snake_case)
+  const getMetadata = (transaction: any) => {
+    return transaction.metadata || transaction.metaData || {};
+  };
+
   // Filter and deduplicate wallet transactions
   const uniqueWalletTransactions = useMemo(() => {
     const seen = new Map();
     return transactions
       .filter(t => 
-        t.userId === user?.id && 
-        (t.contributionId === "" || t.type === "deposit" || t.type === "withdrawal")
+        t.user_id === user?.id && 
+        (!t.contribution_id || t.type === "deposit" || t.type === "withdrawal")
       )
       .filter(transaction => {
+        const meta = getMetadata(transaction);
         // Create a unique key based on multiple identifiers
-        const key = transaction.metaData?.paymentReference || 
-                   transaction.metaData?.paymentDetails?.transactionId ||
-                   transaction.metaData?.transactionReference ||
+        const key = meta?.paymentReference || 
+                   meta?.paymentDetails?.transactionId ||
+                   meta?.transactionReference ||
                    transaction.id;
 
         // If we've seen this key before, it's a duplicate
@@ -86,14 +92,22 @@ const WalletCard = () => {
         seen.set(key, true);
         return true;
       })
+      .sort((a, b) => {
+        const dateA = new Date(a.created_at).getTime();
+        const dateB = new Date(b.created_at).getTime();
+        return isNaN(dateB) || isNaN(dateA) ? 0 : dateB - dateA;
+      })
       .slice(0, 5); // Keep only the 5 most recent transactions
   }, [transactions, user?.id]);
   
-  const refreshBalance = () => {
+  const handleRefreshBalance = async () => {
     setIsLoading(true);
-    fetchTransactions().finally(() => {
+    try {
+      await refreshBalance();
+      await fetchTransactions();
+    } finally {
       setIsLoading(false);
-    });
+    }
   };
   
   const handleDeposit = async (e: React.MouseEvent) => {
@@ -106,41 +120,30 @@ const WalletCard = () => {
       return;
     }
     
+    // Only allow card payments - no manual deposits
+    if (depositMethod !== "card") {
+      toast.error("Invalid deposit method");
+      return;
+    }
+    
     setIsProcessingDeposit(true);
     
     try {
-      if (depositMethod === "manual") {
-        // Original manual deposit logic
-        updateUserBalance(user.id, user.walletBalance + Number(amount));
-        refreshData();
-        toast.success(`Successfully deposited ${currencyType === "NGN" ? "₦" : "$"}${Number(amount).toLocaleString()}`);
-      } 
-      else if (depositMethod === "card") {
-        // Create an invoice for card payment
-        const result = await createPaymentInvoice({
-          amount: Number(amount),
-          description: "Wallet top-up via card",
-          customerEmail: user.email,
-          customerName: user.name || `${user.firstName} ${user.lastName}`,
-          userId: user.id
-        });
-        
-        if (result && result.checkoutUrl) {
-          // Open the checkout URL in a new tab
-          window.open(result.checkoutUrl, "_blank");
-          toast.success("Payment page opened. Complete your payment to fund your wallet.");
-        } else {
-          toast.error("Failed to create payment invoice");
-        }
-      } 
-      else if (depositMethod === "bank") {
-        // For bank transfer, direct to dashboard to see account details
-        if (user.reservedAccount) {
-          toast.success("Use your virtual account details to make a bank transfer");
-        } else {
-          toast.info("You need to set up a virtual account first");
-          navigate("/dashboard");
-        }
+      // Create an invoice for card payment
+      const result = await createPaymentInvoice({
+        amount: Number(amount),
+        description: "Wallet top-up via card",
+        customerEmail: user.email,
+        customerName: user.name || `${user.firstName} ${user.lastName}`,
+        userId: user.id
+      });
+      
+      if (result && result.checkoutUrl) {
+        // Open the checkout URL in a new tab
+        window.open(result.checkoutUrl, "_blank");
+        toast.success("Payment page opened. Complete your payment to fund your wallet.");
+      } else {
+        toast.error("Failed to create payment invoice");
       }
     } catch (error) {
       console.error("Error processing deposit:", error);
@@ -161,11 +164,12 @@ const WalletCard = () => {
       toast.error("Please enter a valid amount");
       return;
     }
-    if (Number(amount) > user.walletBalance) {
+    if (Number(amount) > (user?.wallet_balance || 0)) {
       toast.error("Insufficient funds in your wallet");
       return;
     }
-    updateUserBalance(user.id, user.walletBalance - Number(amount));
+    // TODO: Implement with Supabase wallet balance update
+    // updateUserBalance(user.id, user.wallet_balance - Number(amount));
     refreshData();
     setAmount("");
     setIsWithdrawOpen(false);
@@ -191,7 +195,7 @@ const WalletCard = () => {
 
   // Format the balance based on selected currency
   const getFormattedBalance = () => {
-    const balance = user?.walletBalance || 0;
+    const balance = user?.wallet_balance || 0;
     if (currencyType === "NGN") {
       return `₦${balance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
     } else {
@@ -208,8 +212,9 @@ const WalletCard = () => {
   
   // Find sender name if available
   const getSenderName = (transaction: any) => {
+    const meta = getMetadata(transaction);
     if (transaction.type === 'deposit') {
-      return transaction.senderName || transaction.metaData?.senderName || "Bank Transfer";
+      return transaction.senderName || meta?.senderName || "Bank Transfer";
     } else {
       return "Wallet Withdrawal";
     }
@@ -217,7 +222,8 @@ const WalletCard = () => {
   
   // Get sender bank if available
   const getSenderBank = (transaction: any) => {
-    return transaction.metaData?.bankName || transaction.metaData?.senderBank || "";
+    const meta = getMetadata(transaction);
+    return meta?.bankName || meta?.senderBank || "";
   };
 
   return (
@@ -227,21 +233,26 @@ const WalletCard = () => {
         <div className="absolute -top-24 -right-24 w-60 h-60 rounded-full border border-white/10 opacity-20"></div>
         <div className="absolute -bottom-24 -left-24 w-60 h-60 rounded-full border border-white/10 opacity-20"></div>
         
-        {/* Currency toggle - Make the entire container clickable */}
-        <div 
-          className="absolute top-5 right-5 flex items-center bg-green-600/50 rounded-full px-3 py-1.5 cursor-pointer"
+        {/* Currency toggle - Simple clickable button */}
+        <button 
+          type="button"
           onClick={toggleCurrency}
+          className="absolute top-5 right-5 z-20 flex items-center gap-2 bg-white/20 hover:bg-white/30 active:bg-white/40 rounded-full px-4 py-2 transition-all cursor-pointer select-none"
         >
-          <span className={`text-xs ${currencyType === 'NGN' ? 'text-white' : 'text-white/60'}`}>NGN</span>
-          <div className="mx-1.5 w-10">
-            <Switch 
-              checked={currencyType === "USD"} 
-              onCheckedChange={toggleCurrency} 
-              className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-green-500" 
+          <span className={`text-xs font-semibold transition-colors ${currencyType === 'NGN' ? 'text-white' : 'text-white/50'}`}>
+            NGN
+          </span>
+          <div className="w-8 h-4 bg-white/30 rounded-full relative flex items-center">
+            <div 
+              className={`absolute w-3 h-3 bg-white rounded-full transition-all duration-200 ${
+                currencyType === 'USD' ? 'left-[18px]' : 'left-0.5'
+              }`}
             />
           </div>
-          <span className={`text-xs ${currencyType === 'USD' ? 'text-white' : 'text-white/60'}`}>USD</span>
-        </div>
+          <span className={`text-xs font-semibold transition-colors ${currencyType === 'USD' ? 'text-white' : 'text-white/50'}`}>
+            USD
+          </span>
+        </button>
         
         <div className="relative z-10 mx-0 my-[5px]">
           <div className="flex justify-between items-center mb-1 my-[6px]">
@@ -304,10 +315,12 @@ const WalletCard = () => {
                           {transaction.type === 'deposit' ? 'Money In' : 'Money Out'}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {transaction.metaData?.senderName || getSenderBank(transaction) ? 
-                            `From: ${transaction.metaData?.senderName || ""} ${getSenderBank(transaction) ? `(${getSenderBank(transaction)})` : ""}` : 
-                            formatDate(transaction.createdAt)
-                          }
+                          {(() => {
+                            const meta = getMetadata(transaction);
+                            return meta?.senderName || getSenderBank(transaction) ? 
+                              `From: ${meta?.senderName || ""} ${getSenderBank(transaction) ? `(${getSenderBank(transaction)})` : ""}` : 
+                              formatDate(transaction.created_at);
+                          })()}
                         </p>
                       </div>
                     </div>
@@ -359,7 +372,7 @@ const WalletCard = () => {
                   ₦{selectedTransaction.amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                 </h3>
                 <p className="text-muted-foreground text-sm">
-                  {formatDateTime(selectedTransaction.createdAt)}
+                  {formatDateTime(selectedTransaction.created_at)}
                 </p>
               </div>
               
@@ -379,12 +392,14 @@ const WalletCard = () => {
                   <span className="font-medium">{selectedTransaction.id.slice(0, 8)}</span>
                 </div>
                 
-                {selectedTransaction.type === 'deposit' && (
+                {selectedTransaction.type === 'deposit' && (() => {
+                  const meta = getMetadata(selectedTransaction);
+                  return (
                   <>
-                    {(selectedTransaction.metaData?.senderName || getSenderName(selectedTransaction) !== "Bank Transfer") && (
+                    {(meta?.senderName || getSenderName(selectedTransaction) !== "Bank Transfer") && (
                       <div className="flex justify-between py-2 border-b">
                         <span className="text-muted-foreground">Sender</span>
-                        <span className="font-medium">{selectedTransaction.metaData?.senderName || getSenderName(selectedTransaction)}</span>
+                        <span className="font-medium">{meta?.senderName || getSenderName(selectedTransaction)}</span>
                       </div>
                     )}
                     
@@ -395,14 +410,14 @@ const WalletCard = () => {
                       </div>
                     )}
                     
-                    {selectedTransaction.metaData?.transactionReference && (
+                    {meta?.transactionReference && (
                       <div className="flex justify-between py-2 border-b">
                         <span className="text-muted-foreground">Reference</span>
-                        <span className="font-medium">{selectedTransaction.metaData.transactionReference}</span>
+                        <span className="font-medium">{meta.transactionReference}</span>
                       </div>
                     )}
                   </>
-                )}
+                )})()}
                 
                 {selectedTransaction.description && (
                   <div className="flex justify-between py-2 border-b">

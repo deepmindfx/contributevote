@@ -2,7 +2,8 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
-import { useApp } from "@/contexts/AppContext";
+import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
+import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 import WalletHeader from "./WalletHeader";
 import WalletActions from "./WalletActions";
 import TransactionHistory from "./TransactionHistory";
@@ -24,11 +25,8 @@ const WalletCard = () => {
   const [isTransactionDetailsOpen, setIsTransactionDetailsOpen] = useState(false);
   const [isProcessingDeposit, setIsProcessingDeposit] = useState(false);
   
-  const {
-    user,
-    refreshData,
-    transactions
-  } = useApp();
+  const { user } = useSupabaseUser();
+  const { transactions } = useSupabaseContribution();
   
   // Load transaction history when component mounts
   useEffect(() => {

@@ -1,15 +1,27 @@
 [build]
-  functions = "netlify/functions"
   publish = "dist"
+  command = "npm run build:prod"
+
+[build.environment]
+  NODE_VERSION = "18"
 
 [[redirects]]
-  from = "/api/flutterwave/*"
-  to = "/.netlify/functions/flutterwave-proxy/:splat"
+  from = "/*"
+  to = "/index.html"
   status = 200
-  force = true
 
-[[redirects]]
-  from = "/api/webhooks/flutterwave"
-  to = "/.netlify/functions/webhooks-flutterwave"
-  status = 200
-  force = true 
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    X-XSS-Protection = "1; mode=block"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=()"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://api.flutterwave.com https://*.supabase.co; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://api.flutterwave.com https://*.supabase.co wss://*.supabase.co; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests;"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

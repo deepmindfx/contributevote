@@ -27,10 +27,10 @@ const WalletDetails = ({ contribution }: WalletDetailsProps) => {
       {/* Account Number Display */}
       {contribution && (
         <AccountNumberDisplay 
-          accountNumber={contribution.accountNumber || ''} 
+          accountNumber={contribution.account_number || contribution.accountNumber || ''} 
           accountName={contribution.name || ''}
-          bankName={contribution.bankName || ''}
-          accountDetails={contribution.accountDetails}
+          bankName={contribution.bank_name || contribution.bankName || ''}
+          accountDetails={contribution.account_details || contribution.accountDetails}
         />
       )}
       
@@ -45,7 +45,7 @@ const WalletDetails = ({ contribution }: WalletDetailsProps) => {
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-muted-foreground">Members</span>
-          <span>{contribution?.members.length}</span>
+          <span>{contribution?.members?.length || 0}</span>
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-muted-foreground">Started</span>

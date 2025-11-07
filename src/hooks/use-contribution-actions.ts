@@ -1,10 +1,10 @@
 
 import { useState } from "react";
-import { useApp } from "@/contexts/AppContext";
+import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 import { toast } from "sonner";
 
 export function useContributionActions() {
-  const { contribute, requestWithdrawal, isGroupCreator } = useApp();
+  const { contribute, requestWithdrawal, isGroupCreator } = useSupabaseContribution();
   
   const [contributionAmount, setContributionAmount] = useState("");
   const [withdrawalAmount, setWithdrawalAmount] = useState("");

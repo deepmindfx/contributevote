@@ -217,11 +217,13 @@ export const createGroupVirtualAccount = async (data: {
     
     console.log("Request body:", JSON.stringify(requestBody, null, 2));
     
-    // Use the proxy endpoint instead of direct API call
-    const response = await fetch('/api/flutterwave/virtual-account-numbers', {
+    // Use the Supabase Edge Function
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const response = await fetch(`${supabaseUrl}/functions/v1/flutterwave-virtual-account`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
       },
       body: JSON.stringify(requestBody)
     });

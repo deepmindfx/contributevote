@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
-import { useApp } from '@/contexts/AppContext';
+import { useSupabaseUser } from '@/contexts/SupabaseUserContext';
 import { ChevronDown, Info, ArrowLeft, Lock, Search, Loader2, Download, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
@@ -56,7 +56,7 @@ interface FlutterwaveTransferResponse {
 }
 
 export default function TransferForm() {
-  const { user, refreshData } = useApp();
+  const { user } = useSupabaseUser();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [isValidating, setIsValidating] = useState(false);

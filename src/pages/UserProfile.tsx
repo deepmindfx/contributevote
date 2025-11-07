@@ -2,7 +2,8 @@
 import { useState } from "react";
 import Header from "@/components/layout/Header";
 import MobileNav from "@/components/layout/MobileNav";
-import { useApp } from "@/contexts/AppContext";
+import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
+import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 import { 
   Card, 
   CardContent, 
@@ -27,7 +28,8 @@ import {
 import { Link } from "react-router-dom";
 
 const UserProfile = () => {
-  const { user, contributions, transactions, logout } = useApp();
+  const { user, logout } = useSupabaseUser();
+  const { contributions, transactions } = useSupabaseContribution();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleLogout = () => {

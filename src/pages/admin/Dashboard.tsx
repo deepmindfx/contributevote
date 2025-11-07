@@ -10,12 +10,14 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { AlertCircle, ArrowUpDown, Check, CreditCard, DollarSign, Search, Users, X } from "lucide-react";
-import { useApp } from "@/contexts/AppContext";
+import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
+import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 import Header from "@/components/layout/Header";
 import { format } from "date-fns";
 
 const AdminDashboard = () => {
-  const { users, contributions, transactions, stats, updateUserAsAdmin, depositToUserAsAdmin, pauseUserAsAdmin, activateUserAsAdmin } = useApp();
+  const { users, updateUserAsAdmin, depositToUserAsAdmin, pauseUserAsAdmin, activateUserAsAdmin } = useSupabaseUser();
+  const { contributions, transactions, stats } = useSupabaseContribution();
   const [searchTerm, setSearchTerm] = useState("");
   const [displayedUsers, setDisplayedUsers] = useState(users);
   const [selectedUser, setSelectedUser] = useState<any>(null);

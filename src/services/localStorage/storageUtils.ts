@@ -1,5 +1,5 @@
 
-import { User, Contribution } from './types';
+import { User, Contribution, Transaction } from './types';
 
 // Direct storage access functions that don't depend on other modules
 export const getBaseUsers = (): User[] => {
@@ -35,4 +35,14 @@ export const getBaseCurrentUser = (): User | null => {
 export const getBaseContributionById = (id: string): Contribution | undefined => {
   const contributions = getBaseContributions();
   return contributions.find(contribution => contribution.id === id);
+};
+
+export const getBaseTransactions = (): Transaction[] => {
+  try {
+    const transactionsString = localStorage.getItem('transactions');
+    return transactionsString ? JSON.parse(transactionsString) : [];
+  } catch (error) {
+    console.error("Error getting transactions:", error);
+    return [];
+  }
 };

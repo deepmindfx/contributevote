@@ -1,4 +1,4 @@
-import { useApp } from "@/contexts/AppContext";
+import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
@@ -19,7 +19,7 @@ interface ContributorsListProps {
 }
 
 const ContributorsList = ({ contributors }: ContributorsListProps) => {
-  const { refreshData } = useApp();
+  const { refreshCurrentUser } = useSupabaseUser();
   const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Group contributions by user (handling anonymous separately)
@@ -63,7 +63,7 @@ const ContributorsList = ({ contributors }: ContributorsListProps) => {
     setIsRefreshing(true);
     
     try {
-      await refreshData();
+      await refreshCurrentUser();
       setTimeout(() => {
         setIsRefreshing(false);
       }, 1000);

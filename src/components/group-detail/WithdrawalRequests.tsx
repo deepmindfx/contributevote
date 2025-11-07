@@ -1,5 +1,6 @@
 
-import { useApp } from "@/contexts/AppContext";
+import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
+import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 import { Contribution, WithdrawalRequest, hasContributed } from "@/services/localStorage";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,11 +21,8 @@ const WithdrawalRequests = ({
   contributionRequests,
   hasUserContributed
 }: WithdrawalRequestsProps) => {
-  const {
-    user,
-    vote,
-    pingMembersForVote
-  } = useApp();
+  const { user } = useSupabaseUser();
+  const { vote, pingMembersForVote } = useSupabaseContribution();
   const isMobile = useIsMobile();
 
   const formatDate = (dateString: string) => {

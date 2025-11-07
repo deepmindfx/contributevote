@@ -4,10 +4,12 @@ import Header from "@/components/layout/Header";
 import MobileNav from "@/components/layout/MobileNav";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ArrowDown, ArrowUp, HelpCircle, Wallet, Building, ExternalLink } from "lucide-react";
+import { ArrowLeft, ArrowDown, ArrowUp, HelpCircle, Wallet, Building, ExternalLink, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { useApp } from "@/contexts/AppContext";
+import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
+import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 import { format, isValid, parseISO } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getReservedAccountTransactions } from "@/services/walletIntegration";
@@ -34,7 +36,20 @@ interface MonnifyTransaction {
 
 const WalletHistory = () => {
   const navigate = useNavigate();
-  const { user, transactions, refreshData } = useApp();
+  const { user, refreshCurrentUser } = useSupabaseUser();
+  const { transactions, refreshContributions } = useSupabaseContribution();
+  
+  // Define refreshData function
+  const refreshData = async () => {
+    try {
+      await Promise.all([
+        refreshCurrentUser(),
+        refreshContributions()
+      ]);
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    }
+  };
   const [filter, setFilter] = useState<"all" | "deposit" | "withdrawal" | "vote">("all");
   const [currencyType, setCurrencyType] = useState<"NGN" | "USD">("NGN");
   const [apiTransactions, setApiTransactions] = useState<MonnifyTransaction[]>([]);
@@ -42,6 +57,37 @@ const WalletHistory = () => {
   const [activeTab, setActiveTab] = useState<"app" | "bank">("app");
   const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
   const [isTransactionDetailsOpen, setIsTransactionDetailsOpen] = useState(false);
+  const [groupNames, setGroupNames] = useState<Record<string, string>>({});
+  
+  // Fetch group names for transactions with contribution_id
+  useEffect(() => {
+    const fetchGroupNames = async () => {
+      const contributionIds = transactions
+        .filter(t => t.contribution_id)
+        .map(t => t.contribution_id);
+      
+      if (contributionIds.length === 0) return;
+      
+      try {
+        const { data: groups } = await supabase
+          .from('contribution_groups')
+          .select('id, name')
+          .in('id', contributionIds);
+        
+        if (groups) {
+          const names: Record<string, string> = {};
+          groups.forEach(g => {
+            names[g.id] = g.name;
+          });
+          setGroupNames(names);
+        }
+      } catch (error) {
+        console.error('Error fetching group names:', error);
+      }
+    };
+    
+    fetchGroupNames();
+  }, [transactions]);
   
   // Fetch reserved account transactions on component mount and when tab changes
   useEffect(() => {
@@ -54,7 +100,7 @@ const WalletHistory = () => {
             // If result is an array, use it directly
             setApiTransactions(Array.isArray(result) ? result : []);
             // After fetching transactions, refresh app data to update balances
-            refreshData();
+            await refreshData();
           } else {
             // Handle empty or failed response
             setApiTransactions([]);
@@ -71,7 +117,8 @@ const WalletHistory = () => {
     if (activeTab === "bank") {
       fetchReservedAccountTransactions();
     }
-  }, [user?.reservedAccount?.accountReference, activeTab, refreshData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.reservedAccount?.accountReference, activeTab]);
   
   // Fixed toggle currency function
   const toggleCurrency = () => {
@@ -83,13 +130,13 @@ const WalletHistory = () => {
     const seen = new Map();
     
     return transactions
-      .filter(t => t.userId === user?.id) // Only show current user's transactions
+      .filter(t => t.user_id === user?.id) // Only show current user's transactions (using snake_case)
       .filter(t => filter === "all" || t.type === filter)
       .filter(transaction => {
         // Create a unique key based on multiple identifiers
-        const key = transaction.metaData?.paymentReference || 
-                   transaction.metaData?.paymentDetails?.transactionId ||
-                   transaction.metaData?.transactionReference ||
+        const key = transaction.metadata?.paymentReference || 
+                   transaction.metadata?.paymentDetails?.transactionId ||
+                   transaction.metadata?.transactionReference ||
                    transaction.id;
 
         // If we've seen this key before, it's a duplicate
@@ -102,8 +149,8 @@ const WalletHistory = () => {
         return true;
       })
       .sort((a, b) => {
-        const dateA = new Date(a.createdAt).getTime();
-        const dateB = new Date(b.createdAt).getTime();
+        const dateA = new Date(a.created_at).getTime();
+        const dateB = new Date(b.created_at).getTime();
         return isNaN(dateB) || isNaN(dateA) ? 0 : dateB - dateA;
       });
   }, [transactions, user?.id, filter]);
@@ -130,6 +177,11 @@ const WalletHistory = () => {
     }
   };
   
+  // Helper to get metadata field (handles both camelCase and snake_case)
+  const getMetadata = (transaction: any) => {
+    return transaction.metadata || transaction.metaData || {};
+  };
+  
   // Convert NGN to USD (simplified conversion rate)
   const convertToUSD = (amount: number) => {
     return amount / 1550; // Using a simplified conversion rate of 1 USD = 1550 NGN
@@ -143,8 +195,9 @@ const WalletHistory = () => {
   
   // Find sender name if available
   const getSenderName = (transaction: any) => {
+    const meta = getMetadata(transaction);
     if (transaction.type === 'deposit') {
-      return transaction.metaData?.senderName || transaction.senderName || "Bank Transfer";
+      return meta?.senderName || transaction.senderName || "Bank Transfer";
     } else {
       return "Wallet Withdrawal";
     }
@@ -152,7 +205,8 @@ const WalletHistory = () => {
   
   // Get sender bank if available
   const getSenderBank = (transaction: any) => {
-    return transaction.metaData?.bankName || transaction.metaData?.senderBank || "";
+    const meta = getMetadata(transaction);
+    return meta?.bankName || meta?.senderBank || "";
   };
   
   return (
@@ -251,9 +305,11 @@ const WalletHistory = () => {
               <CardContent>
                 {uniqueFilteredTransactions.length > 0 ? (
                   <div className="space-y-3">
-                    {uniqueFilteredTransactions.map(transaction => (
+                    {uniqueFilteredTransactions.map(transaction => {
+                      const meta = getMetadata(transaction);
+                      return (
                       <div 
-                        key={`${transaction.id}-${transaction.metaData?.paymentReference || ''}`}
+                        key={`${transaction.id}-${meta?.paymentReference || ''}`}
                         className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-muted/30 transition-colors"
                         onClick={() => viewTransactionDetails(transaction)}
                       >
@@ -272,22 +328,27 @@ const WalletHistory = () => {
                         <div className="ml-3 flex-1">
                           <div className="flex justify-between">
                             <div>
-                              <h4 className="font-medium">
-                                {transaction.type === 'deposit' ? 'Deposit' : 
-                                transaction.type === 'withdrawal' ? 'Withdrawal' : 
-                                'Vote'}
+                              <h4 className="font-medium flex items-center gap-2">
+                                {transaction.contribution_id && (
+                                  <Users className="h-4 w-4 text-blue-600" />
+                                )}
+                                {transaction.contribution_id 
+                                  ? `Contribution to ${groupNames[transaction.contribution_id] || 'Group'}`
+                                  : transaction.type === 'deposit' ? 'Wallet Deposit' : 
+                                    transaction.type === 'withdrawal' ? 'Withdrawal' : 
+                                    'Vote'}
                               </h4>
                               <p className="text-sm text-muted-foreground">
                                 {transaction.description}
                               </p>
-                              {(transaction.metaData?.senderName || getSenderBank(transaction)) && (
+                              {!transaction.contribution_id && (meta?.senderName || getSenderBank(transaction)) && (
                                 <p className="text-xs text-muted-foreground mt-0.5">
-                                  {transaction.metaData?.senderName ? `From: ${transaction.metaData.senderName}` : ""} 
-                                  {getSenderBank(transaction) ? `${transaction.metaData?.senderName ? " via " : "Via "} ${getSenderBank(transaction)}` : ""}
+                                  {meta?.senderName ? `From: ${meta.senderName}` : ""} 
+                                  {getSenderBank(transaction) ? `${meta?.senderName ? " via " : "Via "} ${getSenderBank(transaction)}` : ""}
                                 </p>
                               )}
                               <p className="text-xs text-muted-foreground mt-1">
-                                {formatDate(transaction.createdAt)}
+                                {formatDate(transaction.created_at)}
                               </p>
                             </div>
                             <div className="text-right flex items-center">
@@ -316,7 +377,7 @@ const WalletHistory = () => {
                           </div>
                         </div>
                       </div>
-                    ))}
+                    )})}
                   </div>
                 ) : (
                   <div className="text-center py-6 text-muted-foreground">
@@ -461,7 +522,7 @@ const WalletHistory = () => {
                   ₦{selectedTransaction.amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                 </h3>
                 <p className="text-muted-foreground text-sm">
-                  {formatDate(selectedTransaction.createdAt)}
+                  {formatDate(selectedTransaction.created_at)}
                 </p>
               </div>
               
@@ -481,12 +542,14 @@ const WalletHistory = () => {
                   <span className="font-medium">{selectedTransaction.id ? selectedTransaction.id.slice(0, 8) : 'N/A'}</span>
                 </div>
                 
-                {selectedTransaction.type === 'deposit' && (
+                {selectedTransaction.type === 'deposit' && (() => {
+                  const meta = getMetadata(selectedTransaction);
+                  return (
                   <>
-                    {(selectedTransaction.metaData?.senderName || getSenderName(selectedTransaction) !== "Bank Transfer") && (
+                    {(meta?.senderName || getSenderName(selectedTransaction) !== "Bank Transfer") && (
                       <div className="flex justify-between py-2 border-b">
                         <span className="text-muted-foreground">Sender</span>
-                        <span className="font-medium">{selectedTransaction.metaData?.senderName || getSenderName(selectedTransaction)}</span>
+                        <span className="font-medium">{meta?.senderName || getSenderName(selectedTransaction)}</span>
                       </div>
                     )}
                     
@@ -497,33 +560,36 @@ const WalletHistory = () => {
                       </div>
                     )}
                     
-                    {selectedTransaction.metaData?.payerEmail && (
+                    {meta?.payerEmail && (
                       <div className="flex justify-between py-2 border-b">
                         <span className="text-muted-foreground">Email</span>
-                        <span className="font-medium">{selectedTransaction.metaData.payerEmail}</span>
+                        <span className="font-medium">{meta.payerEmail}</span>
                       </div>
                     )}
                     
-                    {selectedTransaction.metaData?.transactionReference && (
+                    {meta?.transactionReference && (
                       <div className="flex justify-between py-2 border-b">
                         <span className="text-muted-foreground">Reference</span>
-                        <span className="font-medium">{selectedTransaction.metaData.transactionReference}</span>
+                        <span className="font-medium">{meta.transactionReference}</span>
                       </div>
                     )}
                   </>
+                )})()}
+                
+                {selectedTransaction.contribution_id && (
+                  <div className="flex justify-between py-2 border-b bg-blue-50 dark:bg-blue-950/20 px-3 -mx-3 rounded">
+                    <span className="text-muted-foreground flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      Group Contribution
+                    </span>
+                    <span className="font-medium">{groupNames[selectedTransaction.contribution_id] || "Group Transaction"}</span>
+                  </div>
                 )}
                 
                 {selectedTransaction.description && (
                   <div className="flex justify-between py-2 border-b">
                     <span className="text-muted-foreground">Description</span>
                     <span className="font-medium">{selectedTransaction.description}</span>
-                  </div>
-                )}
-                
-                {selectedTransaction.contributionId && (
-                  <div className="flex justify-between py-2 border-b">
-                    <span className="text-muted-foreground">Related Group</span>
-                    <span className="font-medium">{selectedTransaction.contributionName || "Group Transaction"}</span>
                   </div>
                 )}
               </div>

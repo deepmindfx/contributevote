@@ -3,7 +3,7 @@ import { ReactNode, useEffect } from 'react';
 import { UserProvider } from './UserContext';
 import { ContributionProvider } from './ContributionContext';
 import { AdminProvider } from './AdminContext';
-import { AppProvider } from './AppContext';
+// AppProvider removed - now using SupabaseUserProvider and SupabaseContributionProvider
 import { ensureAccountNumberDisplay } from '@/localStorage';
 import { initializeLocalStorage } from '@/services/localStorage';
 

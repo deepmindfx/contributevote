@@ -3,7 +3,8 @@ import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { createGroupVirtualAccount } from "@/services/flutterwave/virtualAccounts";
-import { useApp } from "@/contexts/AppContext";
+import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
+import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 
 // Import Step Components
 import DetailsStep from "./DetailsStep";
@@ -18,7 +19,8 @@ const GroupForm = () => {
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { createNewContribution, user } = useApp();
+  const { user } = useSupabaseUser();
+  const { createNewContribution } = useSupabaseContribution();
   
   // Form state
   const [formData, setFormData] = useState({
@@ -165,10 +167,13 @@ const GroupForm = () => {
         accountDetails: accountDetails,
       };
       
-      // Create contribution
-      createNewContribution(contributionData);
+      // Create contribution and wait for it to complete
+      await createNewContribution(contributionData);
       
       toast.success("Group created successfully with dedicated account");
+      
+      // Small delay to ensure data is synced
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       // Navigate to dashboard
       navigate("/dashboard");

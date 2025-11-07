@@ -10,12 +10,14 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Wallet, ArrowLeft, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
-import { useApp } from "@/contexts/AppContext";
+import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
+import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 import Header from "@/components/layout/Header";
 
 const ContributePage = () => {
   const { id } = useParams<{ id: string }>();
-  const { contributions, contribute, user, isAuthenticated } = useApp();
+  const { user, isAuthenticated } = useSupabaseUser();
+  const { contributions, contribute } = useSupabaseContribution();
   const [contribution, setContribution] = useState<any>(null);
   const [amount, setAmount] = useState<number>(0);
   const [isAnonymous, setIsAnonymous] = useState(false);

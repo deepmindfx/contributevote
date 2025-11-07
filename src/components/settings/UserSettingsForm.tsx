@@ -7,12 +7,12 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useApp } from "@/contexts/AppContext";
+import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { toast } from "sonner";
 import { Pencil, User, Moon, Bell, Key, EyeOff, Eye } from "lucide-react";
 
 const UserSettingsForm = () => {
-  const { user, updateProfile } = useApp();
+  const { user, updateProfile } = useSupabaseUser();
   
   const [userData, setUserData] = useState({
     firstName: user.firstName || '',

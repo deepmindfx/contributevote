@@ -3,25 +3,26 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Wallet, ArrowLeft, AlertCircle, Copy, Check } from "lucide-react";
+import { Wallet, ArrowLeft, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
-import { useApp } from "@/contexts/AppContext";
+import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
+import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 import Header from "@/components/layout/Header";
 import { ensureAccountNumberDisplay } from "@/localStorage";
 import AccountNumberDisplay from "@/components/contributions/AccountNumberDisplay";
-
 const ContributeSharePage = () => {
   const { id } = useParams<{ id: string }>();
-  const { contributions, contribute, user, isAuthenticated } = useApp();
+  const { user, isAuthenticated } = useSupabaseUser();
+  const { contribute } = useSupabaseContribution();
+  const navigate = useNavigate();
   const [contribution, setContribution] = useState<any>(null);
   const [amount, setAmount] = useState<number>(0);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [navigate] = useState(() => useNavigate());
   
   useEffect(() => {
     if (id) {
@@ -72,7 +73,7 @@ const ContributeSharePage = () => {
       return;
     }
     
-    if (user.walletBalance < amount) {
+    if (user.wallet_balance < amount) {
       toast.error("Insufficient funds in your wallet");
       return;
     }
@@ -169,7 +170,6 @@ const ContributeSharePage = () => {
                 <AccountNumberDisplay 
                   accountNumber={contribution.accountNumber} 
                   accountName={contribution.name}
-                  monnifyDetails={contribution.accountDetails}
                 />
                 <p className="text-xs text-muted-foreground mt-2">
                   You can also transfer directly to this account
