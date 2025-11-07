@@ -63,7 +63,7 @@ export default defineConfig(({ mode }) => {
           manualChunks: {
             vendor: ['react', 'react-dom'],
             supabase: ['@supabase/supabase-js'],
-            ui: ['lucide-react', '@radix-ui/react-dialog', '@radix-ui/react-button']
+            ui: ['lucide-react', '@radix-ui/react-dialog', '@radix-ui/react-slot']
           }
         }
       }
