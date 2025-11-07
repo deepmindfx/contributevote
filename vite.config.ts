@@ -57,7 +57,7 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       sourcemap: !isProduction,
-      minify: isProduction ? 'terser' : false,
+      minify: isProduction ? 'esbuild' : false,
       rollupOptions: {
         output: {
           manualChunks: {
