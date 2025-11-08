@@ -156,8 +156,8 @@ const PhoneMockup = () => {
         </div>
       </div>
 
-      {/* Background Card */}
-      <div className="absolute bottom-5 -right-12 sm:-right-20 z-0 w-56 h-36 bg-lime-300 rounded-xl p-4 shadow-lg transform rotate-12">
+      {/* Background Card - Hidden on mobile to prevent overflow */}
+      <div className="hidden sm:block absolute bottom-5 -right-20 z-0 w-56 h-36 bg-lime-300 rounded-xl p-4 shadow-lg transform rotate-12">
         <span className="text-black text-4xl font-black absolute bottom-4 right-4">App</span>
       </div>
     </div>
@@ -241,7 +241,7 @@ const Index = () => {
           </div>
 
           {/* Right Side - Phone Mockup */}
-          <div className="relative h-[500px] flex items-center justify-center">
+          <div className="relative h-[500px] flex items-center justify-center mt-12 lg:mt-0">
             <PhoneMockup />
           </div>
         </div>
