@@ -194,10 +194,11 @@ const Index = () => {
       <header className="py-6 px-4 sm:px-6 lg:px-8">
         <div className="container mx-auto max-w-7xl flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <div className="rounded-full bg-lime-400 p-1.5 text-black">
-              <CreditCard className="h-5 w-5" />
-            </div>
-            <span className="text-2xl font-bold tracking-tight">CollectiPay</span>
+            <img 
+              src="/logo-white.png" 
+              alt="CollectiPay" 
+              className="h-8 md:h-10 object-contain"
+            />
           </div>
           <nav className="hidden lg:flex items-center gap-8">
             <a href="#features" className="text-gray-300 hover:text-white transition-colors">Features</a>
@@ -366,10 +367,11 @@ const Index = () => {
           <div className="border-t border-white/10 pt-8">
             <div className="flex flex-col md:flex-row justify-between items-center">
               <div className="flex items-center space-x-2 mb-4 md:mb-0">
-                <div className="rounded-full bg-lime-400 p-1.5 text-black">
-                  <CreditCard className="h-5 w-5" />
-                </div>
-                <span className="text-xl font-bold">CollectiPay</span>
+                <img 
+                  src="/logo-white.png" 
+                  alt="CollectiPay" 
+                  className="h-8 object-contain"
+                />
               </div>
               <div className="flex space-x-6">
                 <Link to="#" className="text-gray-400 hover:text-white">
