@@ -321,26 +321,9 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
         return { error: { message: error.message } };
       }
 
-      if (data.user) {
-        // Create profile in profiles table
-        const newProfile = await UserService.createUser({
-          id: data.user.id,
-          name: metadata.name,
-          email: email,
-          phone: metadata.phone,
-          wallet_balance: 0,
-          role: 'user',
-          status: 'active',
-          preferences: {
-            darkMode: false,
-            anonymousContributions: false,
-            notificationsEnabled: true
-          }
-        });
-
-        setUser(newProfile);
-        localStorage.setItem('currentUser', JSON.stringify(newProfile));
-      }
+      // Profile will be automatically created by database trigger
+      // User needs to verify email before they can log in
+      // Don't set user state here - they need to verify email first
 
       return { error: null };
     } catch (error: any) {
