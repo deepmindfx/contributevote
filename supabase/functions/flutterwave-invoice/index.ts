@@ -51,25 +51,27 @@ Deno.serve(async (req: Request) => {
       throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
     }
 
-    // Create invoice with Flutterwave
+    // Create payment link with Flutterwave
     const flutterwavePayload = {
+      tx_ref: body.paymentReference,
       amount: body.amount,
-      customer_name: body.customerName,
-      customer_email: body.customerEmail,
-      payment_reference: body.paymentReference,
-      payment_description: body.paymentDescription,
-      currency_code: body.currencyCode,
-      redirect_url: body.redirectUrl
+      currency: body.currencyCode || 'NGN',
+      redirect_url: body.redirectUrl,
+      customer: {
+        email: body.customerEmail,
+        name: body.customerName
+      },
+      customizations: {
+        title: "CollectiPay Contribution",
+        description: body.paymentDescription || "Group contribution payment",
+        logo: "https://collectipay.vercel.app/logo.png"
+      }
     };
-
-    // Only add contract_code if provided
-    if (body.contractCode) {
-      flutterwavePayload.contract_code = body.contractCode;
-    }
 
     console.log('Sending to Flutterwave:', JSON.stringify(flutterwavePayload, null, 2));
 
-    const response = await fetch(`${FLUTTERWAVE_BASE_URL}/invoices`, {
+    // Use Flutterwave Payment Links API
+    const response = await fetch(`${FLUTTERWAVE_BASE_URL}/payment-links`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${FLUTTERWAVE_SECRET_KEY}`,

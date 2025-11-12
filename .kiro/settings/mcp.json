@@ -20,7 +20,8 @@
         "get_project",
         "list_tables",
         "list_projects",
-        "get_logs"
+        "get_logs",
+        "search_docs"
       ]
     }
   }
