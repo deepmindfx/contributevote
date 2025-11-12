@@ -28,8 +28,12 @@ export function ContributeButton({ groupId, groupName, onSuccess }: ContributeBu
   const [isProcessing, setIsProcessing] = useState(false);
   const { user } = useSupabaseUser();
 
+  const publicKey = import.meta.env.VITE_FLW_PUBLIC_KEY_PROD || import.meta.env.VITE_FLUTTERWAVE_PUBLIC_KEY || '';
+  
+  console.log('Flutterwave Public Key:', publicKey ? `${publicKey.substring(0, 10)}...` : 'NOT SET');
+  
   const config = {
-    public_key: import.meta.env.VITE_FLW_PUBLIC_KEY_PROD || import.meta.env.VITE_FLUTTERWAVE_PUBLIC_KEY || '',
+    public_key: publicKey,
     tx_ref: `GROUP_${groupId}_${Date.now()}`,
     amount: parseFloat(amount) || 0,
     currency: 'NGN',
@@ -69,6 +73,12 @@ export function ContributeButton({ groupId, groupName, onSuccess }: ContributeBu
 
     if (!user) {
       toast.error('Please login to contribute');
+      return;
+    }
+
+    if (!publicKey) {
+      toast.error('Payment system not configured. Please contact support.');
+      console.error('Flutterwave public key not found in environment variables');
       return;
     }
 
