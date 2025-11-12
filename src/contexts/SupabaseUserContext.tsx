@@ -39,9 +39,37 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
   const isAuthenticated = !!user;
   const isAdmin = user?.role === 'admin';
 
-  // Load user data on mount
+  // Load user data on mount and set up auth listener
   useEffect(() => {
     loadInitialData();
+    
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state changed:', event, session?.user?.id);
+      
+      if (event === 'SIGNED_IN' && session?.user) {
+        // User signed in, fetch their profile
+        try {
+          const profile = await UserService.getUserById(session.user.id);
+          if (profile) {
+            setUser(profile);
+            localStorage.setItem('currentUser', JSON.stringify(profile));
+          }
+        } catch (error) {
+          console.error('Error fetching user profile after sign in:', error);
+        }
+      } else if (event === 'SIGNED_OUT') {
+        // User signed out
+        setUser(null);
+        localStorage.removeItem('currentUser');
+      }
+      
+      setLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   // Set up real-time subscription for profile updates
