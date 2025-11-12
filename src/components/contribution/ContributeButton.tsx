@@ -28,9 +28,12 @@ export function ContributeButton({ groupId, groupName, onSuccess }: ContributeBu
   const [isProcessing, setIsProcessing] = useState(false);
   const { user } = useSupabaseUser();
 
-  const publicKey = import.meta.env.VITE_FLW_PUBLIC_KEY_PROD || import.meta.env.VITE_FLUTTERWAVE_PUBLIC_KEY || '';
+  // Temporarily use test keys to debug
+  const publicKey = import.meta.env.VITE_FLW_PUBLIC_KEY_TEST || import.meta.env.VITE_FLW_PUBLIC_KEY_PROD || import.meta.env.VITE_FLUTTERWAVE_PUBLIC_KEY || '';
   
-  console.log('Flutterwave Public Key:', publicKey ? `${publicKey.substring(0, 10)}...` : 'NOT SET');
+  console.log('Flutterwave Public Key:', publicKey ? `${publicKey.substring(0, 15)}...` : 'NOT SET');
+  console.log('VITE_FLW_PUBLIC_KEY_PROD:', import.meta.env.VITE_FLW_PUBLIC_KEY_PROD ? `${import.meta.env.VITE_FLW_PUBLIC_KEY_PROD.substring(0, 15)}...` : 'NOT SET');
+  console.log('VITE_FLUTTERWAVE_PUBLIC_KEY:', import.meta.env.VITE_FLUTTERWAVE_PUBLIC_KEY ? `${import.meta.env.VITE_FLUTTERWAVE_PUBLIC_KEY.substring(0, 15)}...` : 'NOT SET');
   
   const config = {
     public_key: publicKey,
