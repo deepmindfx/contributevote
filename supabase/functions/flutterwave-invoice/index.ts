@@ -38,8 +38,17 @@ Deno.serve(async (req: Request) => {
 
     const body: InvoiceRequest = await req.json();
     
+    console.log('Received request body:', JSON.stringify(body, null, 2));
+    console.log('FLUTTERWAVE_SECRET_KEY exists:', !!FLUTTERWAVE_SECRET_KEY);
+    
     if (!body.amount || !body.customerEmail || !body.customerName || !body.paymentReference) {
-      throw new Error('Missing required fields: amount, customerEmail, customerName, paymentReference');
+      const missingFields = [];
+      if (!body.amount) missingFields.push('amount');
+      if (!body.customerEmail) missingFields.push('customerEmail');
+      if (!body.customerName) missingFields.push('customerName');
+      if (!body.paymentReference) missingFields.push('paymentReference');
+      
+      throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
     }
 
     // Create invoice with Flutterwave
