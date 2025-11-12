@@ -50,7 +50,37 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
       if (event === 'SIGNED_IN' && session?.user) {
         // User signed in, fetch their profile
         try {
-          const profile = await UserService.getUserById(session.user.id);
+          let profile = await UserService.getUserById(session.user.id);
+          
+          // If profile doesn't exist (406 error), create it
+          if (!profile) {
+            console.log('Profile not found, creating new profile for user:', session.user.id);
+            
+            const newProfile = {
+              id: session.user.id,
+              name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
+              email: session.user.email || '',
+              phone: session.user.user_metadata?.phone || null,
+              wallet_balance: 0,
+              role: 'user' as const,
+              status: 'active' as const,
+              preferences: {
+                darkMode: false,
+                anonymousContributions: false,
+                notificationsEnabled: true
+              }
+            };
+            
+            try {
+              profile = await UserService.createUser(newProfile);
+              console.log('Profile created successfully:', profile);
+            } catch (createError) {
+              console.error('Error creating profile:', createError);
+              // If creation fails, use a temporary profile object
+              profile = newProfile as any;
+            }
+          }
+          
           if (profile) {
             setUser(profile);
             localStorage.setItem('currentUser', JSON.stringify(profile));

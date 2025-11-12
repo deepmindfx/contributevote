@@ -18,7 +18,8 @@
         "apply_migration",
         "get_edge_function",
         "get_project",
-        "list_tables"
+        "list_tables",
+        "list_projects"
       ]
     }
   }
