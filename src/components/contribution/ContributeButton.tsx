@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { useFlutterwave, closePaymentModal } from 'flutterwave-react-v3';
 import { useSupabaseUser } from '@/contexts/SupabaseUserContext';
 import { ContributorService } from '@/services/supabase/contributorService';
+import { WalletService } from '@/services/supabase/walletService';
 import { toast } from 'sonner';
 import { CreditCard, Loader2 } from 'lucide-react';
 import {
@@ -28,40 +28,9 @@ export function ContributeButton({ groupId, groupName, onSuccess }: ContributeBu
   const [isProcessing, setIsProcessing] = useState(false);
   const { user } = useSupabaseUser();
 
-  // Temporarily use test keys to debug
-  const publicKey = import.meta.env.VITE_FLW_PUBLIC_KEY_TEST || import.meta.env.VITE_FLW_PUBLIC_KEY_PROD || import.meta.env.VITE_FLUTTERWAVE_PUBLIC_KEY || '';
-  
-  console.log('Flutterwave Public Key:', publicKey ? `${publicKey.substring(0, 15)}...` : 'NOT SET');
-  console.log('VITE_FLW_PUBLIC_KEY_PROD:', import.meta.env.VITE_FLW_PUBLIC_KEY_PROD ? `${import.meta.env.VITE_FLW_PUBLIC_KEY_PROD.substring(0, 15)}...` : 'NOT SET');
-  console.log('VITE_FLUTTERWAVE_PUBLIC_KEY:', import.meta.env.VITE_FLUTTERWAVE_PUBLIC_KEY ? `${import.meta.env.VITE_FLUTTERWAVE_PUBLIC_KEY.substring(0, 15)}...` : 'NOT SET');
-  
-  const config = {
-    public_key: publicKey,
-    tx_ref: `GROUP_${groupId}_${Date.now()}`,
-    amount: parseFloat(amount) || 0,
-    currency: 'NGN',
-    payment_options: 'card,banktransfer,ussd',
-    customer: {
-      email: user?.email || '',
-      name: user?.name || '',
-      phone_number: user?.phone || '',
-    },
-    customizations: {
-      title: `Contribute to ${groupName}`,
-      description: `Contributing ₦${amount} to ${groupName}`,
-      logo: '',
-    },
-    // ⭐ CRITICAL: This enables automatic voting rights
-    meta: {
-      group_id: groupId,
-      user_id: user?.id,
-      contribution_type: 'group',
-    },
-  };
 
-  const handleFlutterPayment = useFlutterwave(config);
 
-  const handleContribute = () => {
+  const handleContribute = async () => {
     const contributionAmount = parseFloat(amount);
 
     if (!contributionAmount || contributionAmount <= 0) {
@@ -79,60 +48,58 @@ export function ContributeButton({ groupId, groupName, onSuccess }: ContributeBu
       return;
     }
 
-    if (!publicKey) {
-      toast.error('Payment system not configured. Please contact support.');
-      console.error('Flutterwave public key not found in environment variables');
-      return;
-    }
-
     setIsProcessing(true);
 
-    handleFlutterPayment({
-      callback: async (response) => {
-        console.log('Payment response:', response);
-        closePaymentModal();
+    try {
+      // Create payment invoice using the same system as wallet funding
+      const invoice = await WalletService.createPaymentInvoice({
+        amount: contributionAmount,
+        description: `Contribution to ${groupName}`,
+        customerEmail: user.email || '',
+        customerName: user.name || '',
+        userId: user.id,
+        contributionId: groupId
+      });
 
-        // Check for both 'successful' and 'completed' status
-        if (response.status === 'successful' || response.status === 'completed') {
-          try {
-            // Immediately record as pending contribution
-            await ContributorService.recordPendingContribution(
-              groupId,
-              user!.id,
-              contributionAmount,
-              {
-                txRef: response.tx_ref,
-                flwRef: response.flw_ref,
-                transactionId: response.transaction_id,
-                paymentType: (response as any).payment_type || 'card'
-              }
-            );
+      if (!invoice || !invoice.checkoutUrl) {
+        toast.error('Failed to create payment. Please try again.');
+        setIsProcessing(false);
+        return;
+      }
 
-            toast.success('Payment successful! Contribution recorded.', {
-              description: 'Your voting rights will be activated shortly.',
-              duration: 5000,
-            });
-            
-            setIsOpen(false);
-            setAmount('');
-            
-            // Refresh immediately to show pending contribution
-            onSuccess?.();
-          } catch (error) {
-            console.error('Error recording contribution:', error);
-            toast.error('Payment successful but failed to record. Please contact support with reference: ' + response.tx_ref);
-          }
-        } else {
-          toast.error('Payment was not successful. Please try again.');
+      // Record as pending contribution immediately
+      await ContributorService.recordPendingContribution(
+        groupId,
+        user.id,
+        contributionAmount,
+        {
+          txRef: invoice.invoiceReference,
+          flwRef: invoice.invoiceReference,
+          transactionId: invoice.invoiceReference,
+          paymentType: 'invoice'
         }
-        
-        setIsProcessing(false);
-      },
-      onClose: () => {
-        setIsProcessing(false);
-        console.log('Payment modal closed');
-      },
-    });
+      );
+
+      // Redirect to Flutterwave checkout
+      window.open(invoice.checkoutUrl, '_blank');
+      
+      toast.success('Payment link opened! Complete payment in the new tab.', {
+        description: 'Your contribution will be recorded after successful payment.',
+        duration: 8000,
+      });
+      
+      setIsOpen(false);
+      setAmount('');
+      
+      // Refresh to show pending contribution
+      onSuccess?.();
+
+    } catch (error) {
+      console.error('Error creating payment:', error);
+      toast.error('Failed to create payment. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
