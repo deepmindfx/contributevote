@@ -10,7 +10,7 @@ interface InvoiceRequest {
   paymentReference: string;
   paymentDescription: string;
   currencyCode: string;
-  contractCode: string;
+  contractCode?: string;
   redirectUrl: string;
 }
 
@@ -52,28 +52,37 @@ Deno.serve(async (req: Request) => {
     }
 
     // Create invoice with Flutterwave
+    const flutterwavePayload = {
+      amount: body.amount,
+      customer_name: body.customerName,
+      customer_email: body.customerEmail,
+      payment_reference: body.paymentReference,
+      payment_description: body.paymentDescription,
+      currency_code: body.currencyCode,
+      redirect_url: body.redirectUrl
+    };
+
+    // Only add contract_code if provided
+    if (body.contractCode) {
+      flutterwavePayload.contract_code = body.contractCode;
+    }
+
+    console.log('Sending to Flutterwave:', JSON.stringify(flutterwavePayload, null, 2));
+
     const response = await fetch(`${FLUTTERWAVE_BASE_URL}/invoices`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${FLUTTERWAVE_SECRET_KEY}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        amount: body.amount,
-        customer_name: body.customerName,
-        customer_email: body.customerEmail,
-        payment_reference: body.paymentReference,
-        payment_description: body.paymentDescription,
-        currency_code: body.currencyCode,
-        contract_code: body.contractCode,
-        redirect_url: body.redirectUrl
-      }),
+      body: JSON.stringify(flutterwavePayload),
     });
 
     if (!response.ok) {
       const errorData = await response.text();
-      console.error('Flutterwave API error:', errorData);
-      throw new Error(`Flutterwave API error: ${response.status}`);
+      console.error('Flutterwave API error status:', response.status);
+      console.error('Flutterwave API error response:', errorData);
+      throw new Error(`Flutterwave API error: ${response.status} - ${errorData}`);
     }
 
     const data = await response.json();
