@@ -41,21 +41,73 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
 
   // Load user data on mount and set up auth listener
   useEffect(() => {
-    loadInitialData();
+    let mounted = true;
+    
+    const initializeAuth = async () => {
+      try {
+        // Get initial session
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session?.user && mounted) {
+          // User is already signed in, fetch their profile
+          try {
+            let profile = await UserService.getUserById(session.user.id);
+            
+            // If profile doesn't exist, create it
+            if (!profile) {
+              const newProfile = {
+                id: session.user.id,
+                name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
+                email: session.user.email || '',
+                phone: session.user.user_metadata?.phone || null,
+                wallet_balance: 0,
+                role: 'user' as const,
+                status: 'active' as const,
+                preferences: {
+                  darkMode: false,
+                  anonymousContributions: false,
+                  notificationsEnabled: true
+                }
+              };
+              
+              try {
+                profile = await UserService.createUser(newProfile);
+              } catch (createError) {
+                console.error('Error creating profile:', createError);
+                profile = newProfile as any;
+              }
+            }
+            
+            if (profile && mounted) {
+              setUser(profile);
+              localStorage.setItem('currentUser', JSON.stringify(profile));
+            }
+          } catch (error) {
+            console.error('Error fetching user profile:', error);
+          }
+        }
+        
+        // Load other data
+        await loadInitialData();
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
     
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state changed:', event, session?.user?.id);
       
-      if (event === 'SIGNED_IN' && session?.user) {
+      if (event === 'SIGNED_IN' && session?.user && mounted) {
         // User signed in, fetch their profile
         try {
           let profile = await UserService.getUserById(session.user.id);
           
-          // If profile doesn't exist (406 error), create it
           if (!profile) {
-            console.log('Profile not found, creating new profile for user:', session.user.id);
-            
             const newProfile = {
               id: session.user.id,
               name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
@@ -73,31 +125,29 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
             
             try {
               profile = await UserService.createUser(newProfile);
-              console.log('Profile created successfully:', profile);
             } catch (createError) {
               console.error('Error creating profile:', createError);
-              // If creation fails, use a temporary profile object
               profile = newProfile as any;
             }
           }
           
-          if (profile) {
+          if (profile && mounted) {
             setUser(profile);
             localStorage.setItem('currentUser', JSON.stringify(profile));
           }
         } catch (error) {
           console.error('Error fetching user profile after sign in:', error);
         }
-      } else if (event === 'SIGNED_OUT') {
-        // User signed out
+      } else if (event === 'SIGNED_OUT' && mounted) {
         setUser(null);
         localStorage.removeItem('currentUser');
       }
-      
-      setLoading(false);
     });
 
+    initializeAuth();
+
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
   }, []);
@@ -133,25 +183,11 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
 
   const loadInitialData = async () => {
     try {
-      setLoading(true);
-      
-      // Check if user is logged in (from localStorage for now)
-      const currentUserData = localStorage.getItem('currentUser');
-      if (currentUserData) {
-        const userData = JSON.parse(currentUserData);
-        // Fetch fresh user data from Supabase
-        const freshUser = await UserService.getUserById(userData.id);
-        if (freshUser) {
-          setUser(freshUser);
-        }
-      }
-      
-      // Load all users if admin
-      await refreshUserData();
+      // Load all users for admin functionality
+      const allUsers = await UserService.getUsers();
+      setUsers(allUsers);
     } catch (error) {
       console.error('Error loading initial data:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
