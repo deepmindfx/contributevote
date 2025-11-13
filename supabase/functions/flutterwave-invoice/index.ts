@@ -92,9 +92,22 @@ Deno.serve(async (req: Request) => {
 
     const data = JSON.parse(responseText);
     
+    // Map Flutterwave response to expected format
     return new Response(JSON.stringify({
       success: true,
-      data: data.data
+      data: {
+        invoiceReference: body.paymentReference,
+        paymentDescription: body.paymentDescription,
+        amount: body.amount,
+        currencyCode: body.currencyCode,
+        invoiceStatus: 'PENDING',
+        customerEmail: body.customerEmail,
+        customerName: body.customerName,
+        expiryDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        redirectUrl: body.redirectUrl,
+        checkoutUrl: data.data.link,
+        createdOn: new Date().toISOString()
+      }
     }), {
       status: 200,
       headers: {
