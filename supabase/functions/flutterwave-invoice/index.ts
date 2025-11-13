@@ -70,8 +70,8 @@ Deno.serve(async (req: Request) => {
 
     console.log('Sending to Flutterwave:', JSON.stringify(flutterwavePayload, null, 2));
 
-    // Use Flutterwave Payment Links API
-    const response = await fetch(`${FLUTTERWAVE_BASE_URL}/payment-links`, {
+    // Use Flutterwave Standard Payment API
+    const response = await fetch(`${FLUTTERWAVE_BASE_URL}/payments`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${FLUTTERWAVE_SECRET_KEY}`,
