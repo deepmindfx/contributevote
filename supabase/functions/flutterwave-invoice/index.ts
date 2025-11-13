@@ -80,14 +80,17 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify(flutterwavePayload),
     });
 
+    const responseText = await response.text();
+    console.log('Flutterwave API response status:', response.status);
+    console.log('Flutterwave API response:', responseText);
+
     if (!response.ok) {
-      const errorData = await response.text();
       console.error('Flutterwave API error status:', response.status);
-      console.error('Flutterwave API error response:', errorData);
-      throw new Error(`Flutterwave API error: ${response.status} - ${errorData}`);
+      console.error('Flutterwave API error response:', responseText);
+      throw new Error(`Flutterwave API error: ${response.status} - ${responseText}`);
     }
 
-    const data = await response.json();
+    const data = JSON.parse(responseText);
     
     return new Response(JSON.stringify({
       success: true,
