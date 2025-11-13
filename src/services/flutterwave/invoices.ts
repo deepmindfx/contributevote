@@ -24,9 +24,13 @@ interface FlutterwavePaymentResponse {
  */
 export const createInvoice = async (data: InvoiceRequest) => {
   try {
+    console.log('Calling flutterwave-invoice with data:', data);
     const { data: response, error } = await supabase.functions.invoke('flutterwave-invoice', {
       body: data
     });
+
+    console.log('Flutterwave invoice response:', response);
+    console.log('Flutterwave invoice error:', error);
 
     if (error) {
       console.error('Error calling flutterwave-invoice function:', error);
@@ -35,6 +39,11 @@ export const createInvoice = async (data: InvoiceRequest) => {
 
     if (!response?.success || !response?.data?.link) {
       console.error('Invalid response from flutterwave-invoice:', response);
+      console.error('Response structure check:', {
+        hasSuccess: !!response?.success,
+        hasData: !!response?.data,
+        hasLink: !!response?.data?.link
+      });
       return null;
     }
 
