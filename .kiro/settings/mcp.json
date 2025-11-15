@@ -21,7 +21,9 @@
         "list_tables",
         "list_projects",
         "get_logs",
-        "search_docs"
+        "search_docs",
+        "get_advisors",
+        "get_advisors"
       ]
     }
   }
