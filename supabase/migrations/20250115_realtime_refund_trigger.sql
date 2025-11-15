@@ -15,9 +15,9 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  -- Count votes
-  v_votes_for := COALESCE(array_length(NEW.votes_for, 1), 0);
-  v_votes_against := COALESCE(array_length(NEW.votes_against, 1), 0);
+  -- Use the integer columns that track vote counts
+  v_votes_for := COALESCE(NEW.total_votes_for, 0);
+  v_votes_against := COALESCE(NEW.total_votes_against, 0);
   v_total_votes := v_votes_for + v_votes_against;
 
   -- Get total eligible voters (contributors with voting rights)
@@ -63,7 +63,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Create trigger that fires after vote update
 DROP TRIGGER IF EXISTS trigger_check_refund_approval ON group_refund_requests;
 CREATE TRIGGER trigger_check_refund_approval
-  BEFORE UPDATE OF votes_for, votes_against ON group_refund_requests
+  BEFORE UPDATE OF total_votes_for, total_votes_against ON group_refund_requests
   FOR EACH ROW
   WHEN (OLD.status = 'pending' AND NEW.status = 'pending')
   EXECUTE FUNCTION check_and_process_refund();
