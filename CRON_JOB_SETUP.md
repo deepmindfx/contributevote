@@ -166,13 +166,26 @@ The function handles errors gracefully:
 3. **Database Error** - Transaction rolled back, logged
 4. **Network Error** - Retried on next cron run
 
-## 📝 Next Steps
+## 📝 Status
 
 1. ✅ Edge function deployed
-2. ⏳ Set up cron job (choose one option above)
-3. ⏳ Test with a scheduled contribution
-4. ⏳ Monitor logs for first few runs
-5. ⏳ Set up alerts for failures (optional)
+2. ✅ Cron job set up and running (every hour)
+3. ✅ Migration applied successfully
+4. ⏳ Test with a scheduled contribution
+5. ⏳ Monitor logs for first few runs
+6. ⏳ Set up alerts for failures (optional)
+
+## ✅ Cron Job Active
+
+**Job Name:** `process-scheduled-contributions`  
+**Schedule:** Every hour at minute 0 (`0 * * * *`)  
+**Status:** Active  
+**Next Run:** Top of the next hour
+
+You can view the cron job status by running:
+```sql
+SELECT jobid, jobname, schedule, active FROM cron.job;
+```
 
 ## 🎉 Benefits
 
