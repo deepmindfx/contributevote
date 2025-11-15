@@ -39,8 +39,16 @@ export default function GroupDetail() {
   }, [id, contributions]);
 
   const handleContributeSuccess = async () => {
-    await refreshContributionData(); // Refresh group data
     toast.success('Thank you for contributing!');
+    
+    // Refresh contribution data from context
+    await refreshContributionData();
+    
+    // Small delay to ensure database has updated
+    setTimeout(() => {
+      // Force page reload to get fresh data
+      window.location.reload();
+    }, 500);
   };
 
   if (loading || rightsLoading) {
