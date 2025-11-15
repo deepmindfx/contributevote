@@ -7,6 +7,10 @@ import { toast } from 'sonner';
 import { useSupabaseUser } from '@/contexts/SupabaseUserContext';
 import { useSupabaseContribution } from '@/contexts/SupabaseContributionContext';
 import { ContributeButton } from '@/components/contribution/ContributeButton';
+import { RecurringContributionDialog } from '@/components/contribution/RecurringContributionDialog';
+import { ScheduledContributionDialog } from '@/components/contribution/ScheduledContributionDialog';
+import { GroupRefundDialog } from '@/components/contribution/GroupRefundDialog';
+import { RefundRequestsCard } from '@/components/contribution/RefundRequestsCard';
 import { ContributorsList } from '@/components/contribution/ContributorsList';
 import { GroupAdminPanel } from '@/components/contribution/GroupAdminPanel';
 import { VotingRightsGuard } from '@/components/contribution/VotingRightsGuard';
@@ -116,12 +120,36 @@ export default function GroupDetail() {
               </div>
 
               {isActive && (
-                <div className="w-full md:w-auto">
-                  <ContributeButton
-                    groupId={id!}
-                    groupName={group.name}
-                    onSuccess={handleContributeSuccess}
-                  />
+                <div className="space-y-3 w-full">
+                  {/* Primary Contribution Button */}
+                  <div className="w-full md:w-auto">
+                    <ContributeButton
+                      groupId={id!}
+                      groupName={group.name}
+                      onSuccess={handleContributeSuccess}
+                    />
+                  </div>
+                  
+                  {/* Advanced Contribution Options - Only for members with voting rights */}
+                  {canVote && (
+                    <div className="flex flex-wrap gap-2">
+                      <RecurringContributionDialog
+                        groupId={id!}
+                        groupName={group.name}
+                        onSuccess={handleContributeSuccess}
+                      />
+                      <ScheduledContributionDialog
+                        groupId={id!}
+                        groupName={group.name}
+                        onSuccess={handleContributeSuccess}
+                      />
+                      <GroupRefundDialog
+                        groupId={id!}
+                        groupName={group.name}
+                        onSuccess={handleContributeSuccess}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -228,6 +256,9 @@ export default function GroupDetail() {
             </div>
           </Card>
         </VotingRightsGuard>
+
+        {/* Refund Requests - Shows voting interface if any refund requests exist */}
+        <RefundRequestsCard groupId={id!} />
 
         {/* Contributors List */}
         <ContributorsList groupId={id!} />
