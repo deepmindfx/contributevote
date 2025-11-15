@@ -68,7 +68,7 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
             // Add timeout to profile fetch
             const profilePromise = UserService.getUserById(session.user.id);
             const timeoutPromise = new Promise<null>((_, reject) => 
-              setTimeout(() => reject(new Error('Profile fetch timeout')), 3000)
+              setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
             );
             
             let profile = await Promise.race([profilePromise, timeoutPromise]);
@@ -149,7 +149,7 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
           // Add timeout to profile fetch
           const profilePromise = UserService.getUserById(session.user.id);
           const timeoutPromise = new Promise<null>((_, reject) => 
-            setTimeout(() => reject(new Error('Profile fetch timeout')), 3000)
+            setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
           );
           
           let profile = await Promise.race([profilePromise, timeoutPromise]);
