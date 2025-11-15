@@ -46,13 +46,13 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
     
     const initializeAuth = async () => {
       try {
-        // Set a timeout to prevent infinite loading
+        // Set a timeout to prevent infinite loading (10 seconds for slower connections)
         timeoutId = setTimeout(() => {
-          if (mounted && loading) {
+          if (mounted) {
             console.warn('Auth initialization timeout - setting loading to false');
             setLoading(false);
           }
-        }, 5000); // 5 second timeout
+        }, 10000); // 10 second timeout
         
         // Get initial session
         const { data: { session } } = await supabase.auth.getSession();
@@ -115,6 +115,7 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
       console.log('Auth state changed:', event, session?.user?.id);
       
       if (event === 'SIGNED_IN' && session?.user && mounted) {
+        setLoading(true); // Show loading while fetching profile
         // User signed in, fetch their profile
         try {
           let profile = await UserService.getUserById(session.user.id);
@@ -149,10 +150,21 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
           }
         } catch (error) {
           console.error('Error fetching user profile after sign in:', error);
+        } finally {
+          if (mounted) {
+            setLoading(false); // Always stop loading after sign in attempt
+          }
         }
       } else if (event === 'SIGNED_OUT' && mounted) {
         setUser(null);
         localStorage.removeItem('currentUser');
+        setLoading(false);
+      } else if (event === 'INITIAL_SESSION' && mounted) {
+        // Initial session check is done in initializeAuth
+        // Just ensure loading is false if no session
+        if (!session) {
+          setLoading(false);
+        }
       }
     });
 

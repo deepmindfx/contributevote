@@ -18,7 +18,7 @@ import UserSettings from "./pages/UserSettings";
 import NotFound from "./pages/NotFound";
 import AdminDashboard from "./pages/admin/Dashboard";
 import UserProfile from "./pages/UserProfile";
-import { useEffect, Component, ErrorInfo, ReactNode } from "react";
+import React, { useEffect, Component, ErrorInfo, ReactNode } from "react";
 
 // Error Boundary Component
 interface ErrorBoundaryState {
@@ -118,7 +118,23 @@ const AppRoutes = () => {
   }, [user?.preferences]);
   
   // Show loading spinner while user context is initializing
-  if (loading) {
+  // But only for a maximum of 3 seconds to prevent infinite loading
+  const [showLoading, setShowLoading] = React.useState(loading);
+  
+  React.useEffect(() => {
+    if (loading) {
+      setShowLoading(true);
+      // Force stop loading after 3 seconds
+      const timeout = setTimeout(() => {
+        setShowLoading(false);
+      }, 3000);
+      return () => clearTimeout(timeout);
+    } else {
+      setShowLoading(false);
+    }
+  }, [loading]);
+  
+  if (showLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
