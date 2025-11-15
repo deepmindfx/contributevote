@@ -14,6 +14,14 @@ interface ScheduledContributionDialogProps {
   onSuccess?: () => void;
 }
 
+// Helper function to format time in 12-hour format with AM/PM
+const formatTime12Hour = (time24: string): string => {
+  const [hours, minutes] = time24.split(':').map(Number);
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const hours12 = hours % 12 || 12;
+  return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
+};
+
 export function ScheduledContributionDialog({ groupId, groupName, onSuccess }: ScheduledContributionDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [amount, setAmount] = useState('');
@@ -135,13 +143,20 @@ export function ScheduledContributionDialog({ groupId, groupName, onSuccess }: S
           {/* Time */}
           <div className="space-y-2">
             <Label htmlFor="scheduled-time">Time</Label>
-            <Input
-              id="scheduled-time"
-              type="time"
-              value={scheduledTime}
-              onChange={(e) => setScheduledTime(e.target.value)}
-              disabled={isProcessing}
-            />
+            <div className="relative">
+              <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="scheduled-time"
+                type="time"
+                value={scheduledTime}
+                onChange={(e) => setScheduledTime(e.target.value)}
+                disabled={isProcessing}
+                className="pl-10"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {scheduledTime && `Selected: ${formatTime12Hour(scheduledTime)}`}
+            </p>
           </div>
 
           {/* Preview */}
@@ -153,7 +168,13 @@ export function ScheduledContributionDialog({ groupId, groupName, onSuccess }: S
               </h4>
               <ul className="text-sm space-y-1 text-muted-foreground">
                 <li>💰 Amount: ₦{parseFloat(amount).toLocaleString()}</li>
-                <li>📅 Date: {new Date(`${scheduledDate}T${scheduledTime}`).toLocaleString()}</li>
+                <li>📅 Date: {new Date(`${scheduledDate}T${scheduledTime}`).toLocaleDateString('en-US', { 
+                  weekday: 'long', 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric' 
+                })}</li>
+                <li>🕐 Time: {formatTime12Hour(scheduledTime)}</li>
                 <li>⏰ In {daysUntil} {daysUntil === 1 ? 'day' : 'days'}</li>
                 <li>⚡ Will be deducted from your wallet</li>
               </ul>
