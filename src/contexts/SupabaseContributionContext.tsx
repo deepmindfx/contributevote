@@ -129,9 +129,19 @@ export function SupabaseContributionProvider({ children }: { children: ReactNode
   const loadInitialData = async () => {
     try {
       setLoading(true);
-      await refreshContributionData();
+      
+      // Add timeout protection
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout loading contributions')), 5000)
+      );
+      
+      await Promise.race([refreshContributionData(), timeoutPromise]);
     } catch (error) {
       console.error('Error loading initial contribution data:', error);
+      // Set empty arrays on error so app doesn't hang
+      setContributions([]);
+      setTransactions([]);
+      setWithdrawalRequests([]);
     } finally {
       setLoading(false);
     }

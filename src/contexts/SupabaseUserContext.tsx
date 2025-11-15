@@ -42,9 +42,18 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
   // Load user data on mount and set up auth listener
   useEffect(() => {
     let mounted = true;
+    let timeoutId: NodeJS.Timeout;
     
     const initializeAuth = async () => {
       try {
+        // Set a timeout to prevent infinite loading
+        timeoutId = setTimeout(() => {
+          if (mounted && loading) {
+            console.warn('Auth initialization timeout - setting loading to false');
+            setLoading(false);
+          }
+        }, 5000); // 5 second timeout
+        
         // Get initial session
         const { data: { session } } = await supabase.auth.getSession();
         
@@ -87,11 +96,14 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
           }
         }
         
-        // Load other data
-        await loadInitialData();
+        // Load other data (but don't let it block)
+        loadInitialData().catch(err => {
+          console.error('Error loading initial data:', err);
+        });
       } catch (error) {
         console.error('Error initializing auth:', error);
       } finally {
+        clearTimeout(timeoutId);
         if (mounted) {
           setLoading(false);
         }
@@ -148,6 +160,7 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
 
     return () => {
       mounted = false;
+      if (timeoutId) clearTimeout(timeoutId);
       subscription.unsubscribe();
     };
   }, []);
@@ -183,11 +196,19 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
 
   const loadInitialData = async () => {
     try {
-      // Load all users for admin functionality
-      const allUsers = await UserService.getUsers();
+      // Load all users for admin functionality (with timeout)
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout loading users')), 3000)
+      );
+      
+      const usersPromise = UserService.getUsers();
+      
+      const allUsers = await Promise.race([usersPromise, timeoutPromise]) as Profile[];
       setUsers(allUsers);
     } catch (error) {
       console.error('Error loading initial data:', error);
+      // Set empty array on error so app doesn't hang
+      setUsers([]);
     }
   };
 
