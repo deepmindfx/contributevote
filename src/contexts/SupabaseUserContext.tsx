@@ -193,6 +193,20 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
               const parsedUser = JSON.parse(cachedUser);
               console.log('Using cached profile after sign in error');
               setUser(parsedUser);
+              
+              // Try to refresh with fresh data in background
+              setTimeout(async () => {
+                try {
+                  const freshProfile = await UserService.getUserById(session.user.id);
+                  if (freshProfile && mounted) {
+                    console.log('Refreshed profile with fresh data');
+                    setUser(freshProfile);
+                    localStorage.setItem('currentUser', JSON.stringify(freshProfile));
+                  }
+                } catch (refreshError) {
+                  console.log('Background refresh failed, real-time will sync');
+                }
+              }, 1000); // Try again after 1 second
             } catch (parseError) {
               console.error('Error parsing cached user:', parseError);
             }
