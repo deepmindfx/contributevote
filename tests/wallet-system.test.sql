@@ -130,7 +130,7 @@ BEGIN
   
   RAISE NOTICE '=== TEST 2: Insufficient Balance ===';
   RAISE NOTICE 'Current balance: %', balance;
-  RAISE NOTICE 'Attempting to contribute: %', balance + 1000;
+  RAISE NOTICE 'Attempting to contribute: %', (balance + 1000);
   
   -- Try to contribute more than balance
   SELECT contribute_from_wallet(test_user, test_group, balance + 1000, false) INTO result;

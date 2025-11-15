@@ -457,9 +457,22 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('currentUser');
+  const logout = async () => {
+    try {
+      // Sign out from Supabase Auth
+      await supabase.auth.signOut();
+      
+      // Clear local state
+      setUser(null);
+      localStorage.removeItem('currentUser');
+      
+      console.log('User logged out successfully');
+    } catch (error) {
+      console.error('Error logging out:', error);
+      // Still clear local state even if signOut fails
+      setUser(null);
+      localStorage.removeItem('currentUser');
+    }
   };
 
   // Proper Supabase Auth functions
