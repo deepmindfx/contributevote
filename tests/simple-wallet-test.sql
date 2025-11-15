@@ -34,11 +34,12 @@ BEGIN
 END $$;
 
 -- Test 3: Simple contribution test with real user
--- Replace YOUR_USER_ID and YOUR_GROUP_ID with actual IDs
+-- UNCOMMENT AND EDIT THIS TEST TO TRY WITH YOUR DATA
+/*
 DO $$
 DECLARE
-  v_user_id UUID := 'YOUR_USER_ID'; -- Replace with your user ID
-  v_group_id UUID := 'YOUR_GROUP_ID'; -- Replace with a group ID
+  v_user_id UUID := 'paste-your-user-id-here'; -- Get from: SELECT id FROM profiles WHERE email = 'your@email.com';
+  v_group_id UUID := 'paste-your-group-id-here'; -- Get from: SELECT id FROM contribution_groups LIMIT 1;
   v_result JSON;
   v_initial_balance NUMERIC;
   v_final_balance NUMERIC;
@@ -66,6 +67,7 @@ BEGIN
     RAISE NOTICE '❌ Contribution failed: %', v_result->>'error';
   END IF;
 END $$;
+*/
 
 -- Success message
 DO $$
@@ -80,7 +82,8 @@ BEGIN
   RAISE NOTICE 'To test with real data:';
   RAISE NOTICE '1. Get your user ID: SELECT id FROM profiles WHERE email = ''your@email.com'';';
   RAISE NOTICE '2. Get a group ID: SELECT id FROM contribution_groups LIMIT 1;';
-  RAISE NOTICE '3. Replace YOUR_USER_ID and YOUR_GROUP_ID in Test 3 above';
-  RAISE NOTICE '4. Run the test again';
+  RAISE NOTICE '3. Uncomment Test 3 above (remove /* and */)';
+  RAISE NOTICE '4. Replace the UUID placeholders with your actual IDs';
+  RAISE NOTICE '5. Run the test again';
   RAISE NOTICE '';
 END $$;
