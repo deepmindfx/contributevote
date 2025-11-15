@@ -8,10 +8,20 @@
 3. Click **New Query**
 
 ### Step 2: Run the Test Suite
+
+**Option A: Simple Test (Recommended)**
+1. Open the file: `tests/simple-wallet-test.sql`
+2. Copy **ALL** the content (Ctrl+A, Ctrl+C)
+3. Paste into Supabase SQL Editor
+4. Click **Run** button
+5. ✅ Quick verification that everything is set up
+
+**Option B: Full Test Suite (Advanced)**
 1. Open the file: `tests/wallet-system.test.sql`
 2. Copy **ALL** the content (Ctrl+A, Ctrl+C)
 3. Paste into Supabase SQL Editor
 4. Click **Run** button
+5. ✅ Comprehensive testing with test data
 
 ### Step 3: Read the Results
 The tests will run automatically and show results like:
