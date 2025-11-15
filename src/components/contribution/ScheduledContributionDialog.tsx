@@ -14,21 +14,26 @@ interface ScheduledContributionDialogProps {
   onSuccess?: () => void;
 }
 
-// Helper function to format time in 12-hour format with AM/PM
-const formatTime12Hour = (time24: string): string => {
-  const [hours, minutes] = time24.split(':').map(Number);
-  const period = hours >= 12 ? 'PM' : 'AM';
-  const hours12 = hours % 12 || 12;
-  return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
-};
-
 export function ScheduledContributionDialog({ groupId, groupName, onSuccess }: ScheduledContributionDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [amount, setAmount] = useState('');
   const [scheduledDate, setScheduledDate] = useState('');
-  const [scheduledTime, setScheduledTime] = useState('12:00');
+  const [hours, setHours] = useState('12');
+  const [minutes, setMinutes] = useState('00');
+  const [period, setPeriod] = useState<'AM' | 'PM'>('PM');
   const [isProcessing, setIsProcessing] = useState(false);
   const { user } = useSupabaseUser();
+
+  // Convert 12-hour time to 24-hour format
+  const get24HourTime = () => {
+    let hour = parseInt(hours);
+    if (period === 'PM' && hour !== 12) {
+      hour += 12;
+    } else if (period === 'AM' && hour === 12) {
+      hour = 0;
+    }
+    return `${hour.toString().padStart(2, '0')}:${minutes}`;
+  };
 
   const handleSchedule = async () => {
     const contributionAmount = parseFloat(amount);
@@ -53,7 +58,7 @@ export function ScheduledContributionDialog({ groupId, groupName, onSuccess }: S
       return;
     }
 
-    const dateTime = new Date(`${scheduledDate}T${scheduledTime}`);
+    const dateTime = new Date(`${scheduledDate}T${get24HourTime()}`);
     
     if (dateTime <= new Date()) {
       toast.error('Scheduled date must be in the future');
@@ -74,7 +79,9 @@ export function ScheduledContributionDialog({ groupId, groupName, onSuccess }: S
         setIsOpen(false);
         setAmount('');
         setScheduledDate('');
-        setScheduledTime('12:00');
+        setHours('12');
+        setMinutes('00');
+        setPeriod('PM');
         onSuccess?.();
       }
     } catch (error) {
@@ -86,7 +93,7 @@ export function ScheduledContributionDialog({ groupId, groupName, onSuccess }: S
 
   const getDaysUntil = () => {
     if (!scheduledDate) return null;
-    const date = new Date(`${scheduledDate}T${scheduledTime}`);
+    const date = new Date(`${scheduledDate}T${get24HourTime()}`);
     const now = new Date();
     const diff = date.getTime() - now.getTime();
     const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
@@ -142,20 +149,52 @@ export function ScheduledContributionDialog({ groupId, groupName, onSuccess }: S
 
           {/* Time */}
           <div className="space-y-2">
-            <Label htmlFor="scheduled-time">Time</Label>
-            <div className="relative">
-              <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="scheduled-time"
-                type="time"
-                value={scheduledTime}
-                onChange={(e) => setScheduledTime(e.target.value)}
+            <Label>Time</Label>
+            <div className="flex gap-2">
+              {/* Hours */}
+              <select
+                value={hours}
+                onChange={(e) => setHours(e.target.value)}
                 disabled={isProcessing}
-                className="pl-10"
-              />
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => (
+                  <option key={h} value={h.toString().padStart(2, '0')}>
+                    {h.toString().padStart(2, '0')}
+                  </option>
+                ))}
+              </select>
+
+              <span className="flex items-center text-2xl font-bold">:</span>
+
+              {/* Minutes */}
+              <select
+                value={minutes}
+                onChange={(e) => setMinutes(e.target.value)}
+                disabled={isProcessing}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {Array.from({ length: 60 }, (_, i) => i).map((m) => (
+                  <option key={m} value={m.toString().padStart(2, '0')}>
+                    {m.toString().padStart(2, '0')}
+                  </option>
+                ))}
+              </select>
+
+              {/* AM/PM */}
+              <select
+                value={period}
+                onChange={(e) => setPeriod(e.target.value as 'AM' | 'PM')}
+                disabled={isProcessing}
+                className="flex h-10 w-24 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="AM">AM</option>
+                <option value="PM">PM</option>
+              </select>
             </div>
-            <p className="text-xs text-muted-foreground">
-              {scheduledTime && `Selected: ${formatTime12Hour(scheduledTime)}`}
+            <p className="text-xs text-muted-foreground flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              Selected: {hours}:{minutes} {period}
             </p>
           </div>
 
@@ -168,13 +207,13 @@ export function ScheduledContributionDialog({ groupId, groupName, onSuccess }: S
               </h4>
               <ul className="text-sm space-y-1 text-muted-foreground">
                 <li>💰 Amount: ₦{parseFloat(amount).toLocaleString()}</li>
-                <li>📅 Date: {new Date(`${scheduledDate}T${scheduledTime}`).toLocaleDateString('en-US', { 
+                <li>📅 Date: {new Date(`${scheduledDate}T${get24HourTime()}`).toLocaleDateString('en-US', { 
                   weekday: 'long', 
                   year: 'numeric', 
                   month: 'long', 
                   day: 'numeric' 
                 })}</li>
-                <li>🕐 Time: {formatTime12Hour(scheduledTime)}</li>
+                <li>🕐 Time: {hours}:{minutes} {period}</li>
                 <li>⏰ In {daysUntil} {daysUntil === 1 ? 'day' : 'days'}</li>
                 <li>⚡ Will be deducted from your wallet</li>
               </ul>
