@@ -55,15 +55,27 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
         }, 10000); // 10 second timeout
         
         // Get initial session
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error('Error getting session:', sessionError);
+        }
         
         if (session?.user && mounted) {
+          console.log('Found session for user:', session.user.id);
           // User is already signed in, fetch their profile
           try {
-            let profile = await UserService.getUserById(session.user.id);
+            // Add timeout to profile fetch
+            const profilePromise = UserService.getUserById(session.user.id);
+            const timeoutPromise = new Promise<null>((_, reject) => 
+              setTimeout(() => reject(new Error('Profile fetch timeout')), 3000)
+            );
+            
+            let profile = await Promise.race([profilePromise, timeoutPromise]);
             
             // If profile doesn't exist, create it
             if (!profile) {
+              console.log('Profile not found, creating new profile');
               const newProfile = {
                 id: session.user.id,
                 name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
@@ -81,6 +93,7 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
               
               try {
                 profile = await UserService.createUser(newProfile);
+                console.log('Profile created successfully');
               } catch (createError) {
                 console.error('Error creating profile:', createError);
                 profile = newProfile as any;
@@ -88,12 +101,26 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
             }
             
             if (profile && mounted) {
+              console.log('Setting user profile:', profile.email);
               setUser(profile);
               localStorage.setItem('currentUser', JSON.stringify(profile));
             }
           } catch (error) {
             console.error('Error fetching user profile:', error);
+            // If profile fetch fails, try to use cached data
+            const cachedUser = localStorage.getItem('currentUser');
+            if (cachedUser && mounted) {
+              try {
+                const parsedUser = JSON.parse(cachedUser);
+                console.log('Using cached user profile:', parsedUser.email);
+                setUser(parsedUser);
+              } catch (parseError) {
+                console.error('Error parsing cached user:', parseError);
+              }
+            }
           }
+        } else if (mounted) {
+          console.log('No active session found');
         }
         
         // Load other data (but don't let it block)
@@ -115,12 +142,20 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
       console.log('Auth state changed:', event, session?.user?.id);
       
       if (event === 'SIGNED_IN' && session?.user && mounted) {
+        console.log('User signed in, fetching profile...');
         setLoading(true); // Show loading while fetching profile
-        // User signed in, fetch their profile
+        
         try {
-          let profile = await UserService.getUserById(session.user.id);
+          // Add timeout to profile fetch
+          const profilePromise = UserService.getUserById(session.user.id);
+          const timeoutPromise = new Promise<null>((_, reject) => 
+            setTimeout(() => reject(new Error('Profile fetch timeout')), 3000)
+          );
+          
+          let profile = await Promise.race([profilePromise, timeoutPromise]);
           
           if (!profile) {
+            console.log('Creating new profile for signed in user');
             const newProfile = {
               id: session.user.id,
               name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
@@ -145,26 +180,37 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
           }
           
           if (profile && mounted) {
+            console.log('Profile loaded successfully:', profile.email);
             setUser(profile);
             localStorage.setItem('currentUser', JSON.stringify(profile));
           }
         } catch (error) {
           console.error('Error fetching user profile after sign in:', error);
+          // Try cached data as fallback
+          const cachedUser = localStorage.getItem('currentUser');
+          if (cachedUser && mounted) {
+            try {
+              const parsedUser = JSON.parse(cachedUser);
+              console.log('Using cached profile after sign in error');
+              setUser(parsedUser);
+            } catch (parseError) {
+              console.error('Error parsing cached user:', parseError);
+            }
+          }
         } finally {
           if (mounted) {
-            setLoading(false); // Always stop loading after sign in attempt
+            console.log('Sign in process complete, stopping loading');
+            setLoading(false);
           }
         }
       } else if (event === 'SIGNED_OUT' && mounted) {
+        console.log('User signed out');
         setUser(null);
         localStorage.removeItem('currentUser');
         setLoading(false);
-      } else if (event === 'INITIAL_SESSION' && mounted) {
-        // Initial session check is done in initializeAuth
-        // Just ensure loading is false if no session
-        if (!session) {
-          setLoading(false);
-        }
+      } else if (event === 'INITIAL_SESSION') {
+        // Initial session is handled in initializeAuth
+        console.log('Initial session event');
       }
     });
 
