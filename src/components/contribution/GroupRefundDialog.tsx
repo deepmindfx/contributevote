@@ -156,15 +156,53 @@ export function GroupRefundDialog({ groupId, groupName, onSuccess }: GroupRefund
             </p>
           </div>
 
-          {/* Info Box */}
-          <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg">
-            <h4 className="font-medium text-sm mb-2">How it works:</h4>
-            <ul className="text-sm space-y-1 text-muted-foreground">
-              <li>1️⃣ All contributors will be notified</li>
-              <li>2️⃣ They have 7 days to vote</li>
-              <li>3️⃣ If majority votes "for", refund is processed</li>
-              <li>4️⃣ Money is returned to everyone's wallet</li>
-              <li>5️⃣ Refund is proportional to contributions</li>
+          {/* Governance Rules */}
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+            <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Transparent Governance Rules
+            </h4>
+            <div className="grid grid-cols-3 gap-2 mb-3">
+              <div className="bg-white dark:bg-gray-900 p-2 rounded text-center">
+                <div className="text-lg font-bold text-blue-600">60%</div>
+                <div className="text-xs text-muted-foreground">Approval</div>
+              </div>
+              <div className="bg-white dark:bg-gray-900 p-2 rounded text-center">
+                <div className="text-lg font-bold text-green-600">70%</div>
+                <div className="text-xs text-muted-foreground">Participation</div>
+              </div>
+              <div className="bg-white dark:bg-gray-900 p-2 rounded text-center">
+                <div className="text-lg font-bold text-purple-600">7</div>
+                <div className="text-xs text-muted-foreground">Days</div>
+              </div>
+            </div>
+            <ul className="text-xs space-y-1.5 text-muted-foreground">
+              <li className="flex items-start gap-2">
+                <span className="text-blue-600 font-bold">1.</span>
+                <span>All contributors will be notified immediately</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-blue-600 font-bold">2.</span>
+                <span><strong>70% must vote</strong> (participation threshold)</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-blue-600 font-bold">3.</span>
+                <span><strong>60% must approve</strong> (of those who voted)</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-blue-600 font-bold">4.</span>
+                <span><strong>Early approval:</strong> If both thresholds met, approved immediately</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-blue-600 font-bold">5.</span>
+                <span>After 7 days: Auto-reject if thresholds not met</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-blue-600 font-bold">6.</span>
+                <span>Refund is proportional to each contributor's amount</span>
+              </li>
             </ul>
           </div>
 

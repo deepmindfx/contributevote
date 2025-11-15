@@ -311,6 +311,7 @@ export const WalletContributionService = {
 
   /**
    * Vote on a refund request
+   * Rules: 60% approval + 70% participation required
    */
   async voteOnRefund(
     refundRequestId: string,
@@ -340,11 +341,22 @@ export const WalletContributionService = {
       const newVotes = [...votes, { user_id: userId, vote, voted_at: new Date().toISOString() }];
       const votesFor = newVotes.filter((v: any) => v.vote === 'for').length;
       const votesAgainst = newVotes.filter((v: any) => v.vote === 'against').length;
+      const totalVotes = newVotes.length;
 
-      // Check if majority reached (>50%)
+      // Governance Rules
       const totalEligibleVoters = (request as any).total_eligible_voters;
-      const majorityNeeded = Math.floor(totalEligibleVoters / 2) + 1;
-      const newStatus = votesFor >= majorityNeeded ? 'approved' : 'pending';
+      const APPROVAL_THRESHOLD = 60; // 60% of voters must approve
+      const PARTICIPATION_THRESHOLD = 70; // 70% of contributors must vote
+
+      // Calculate percentages
+      const participationRate = (totalVotes / totalEligibleVoters) * 100;
+      const approvalRate = (votesFor / totalVotes) * 100;
+
+      // Check if thresholds met (early approval)
+      let newStatus = 'pending';
+      if (participationRate >= PARTICIPATION_THRESHOLD && approvalRate >= APPROVAL_THRESHOLD) {
+        newStatus = 'approved';
+      }
 
       const { error: updateError } = await supabase
         .from('group_refund_requests')
@@ -359,13 +371,15 @@ export const WalletContributionService = {
       if (updateError) throw updateError;
 
       if (newStatus === 'approved') {
-        toast.success('Refund request approved!', {
-          description: 'Refunds will be processed shortly.'
+        toast.success('🎉 Refund request approved!', {
+          description: `${participationRate.toFixed(0)}% participated, ${approvalRate.toFixed(0)}% approved. Processing refunds...`
         });
         // Trigger refund processing
         await this.processRefund(refundRequestId);
       } else {
-        toast.success('Vote recorded');
+        toast.success('✅ Vote recorded', {
+          description: `${participationRate.toFixed(0)}% participated, ${approvalRate.toFixed(0)}% approval`
+        });
       }
 
       return true;

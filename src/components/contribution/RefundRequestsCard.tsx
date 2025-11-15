@@ -105,6 +105,45 @@ export function RefundRequestsCard({ groupId }: RefundRequestsCardProps) {
         <CardDescription>
           Vote on pending refund requests
         </CardDescription>
+        
+        {/* Governance Rules Display */}
+        <div className="mt-4 bg-blue-50 dark:bg-blue-950 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+          <h4 className="font-semibold text-sm mb-2 flex items-center gap-2">
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Governance Rules (Transparent & Fair)
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+            <div className="bg-white dark:bg-gray-900 p-3 rounded border">
+              <div className="font-medium text-blue-600 dark:text-blue-400">60% Approval</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                60% of voters must vote "For"
+              </div>
+            </div>
+            <div className="bg-white dark:bg-gray-900 p-3 rounded border">
+              <div className="font-medium text-green-600 dark:text-green-400">70% Participation</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                70% of contributors must vote
+              </div>
+            </div>
+            <div className="bg-white dark:bg-gray-900 p-3 rounded border">
+              <div className="font-medium text-purple-600 dark:text-purple-400">7 Days Period</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                Auto-approve if thresholds met early
+              </div>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground mt-3 flex items-start gap-2">
+            <svg className="h-4 w-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>
+              <strong>How it works:</strong> If 70% of contributors vote AND 60% vote "For", the refund is approved immediately. 
+              Otherwise, voting continues for 7 days. If thresholds aren't met by deadline, request is rejected.
+            </span>
+          </p>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {requests.map((request) => {
@@ -136,17 +175,74 @@ export function RefundRequestsCard({ groupId }: RefundRequestsCardProps) {
               {/* Voting Progress */}
               {request.status === 'pending' && (
                 <>
+                  {/* Participation Progress */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">
-                        {request.total_votes_for} of {request.total_eligible_voters} votes needed
+                      <span className="text-muted-foreground font-medium">
+                        📊 Participation: {request.votes.length} of {request.total_eligible_voters} voted
                       </span>
-                      <span className="font-medium">
+                      <span className={`font-bold ${
+                        (request.votes.length / request.total_eligible_voters * 100) >= 70 
+                          ? 'text-green-600' 
+                          : 'text-orange-600'
+                      }`}>
+                        {((request.votes.length / request.total_eligible_voters) * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                    <Progress 
+                      value={(request.votes.length / request.total_eligible_voters) * 100} 
+                      className="h-2"
+                    />
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>Need 70% to proceed</span>
+                      {(request.votes.length / request.total_eligible_voters * 100) >= 70 ? (
+                        <span className="text-green-600 font-medium">✓ Threshold met</span>
+                      ) : (
+                        <span className="text-orange-600">
+                          {Math.ceil(request.total_eligible_voters * 0.7) - request.votes.length} more needed
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Approval Progress */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground font-medium">
+                        ✅ Approval: {request.total_votes_for} of {request.votes.length} voted "For"
+                      </span>
+                      <span className={`font-bold ${
+                        votePercentage >= 60 
+                          ? 'text-green-600' 
+                          : 'text-orange-600'
+                      }`}>
                         {votePercentage.toFixed(0)}%
                       </span>
                     </div>
                     <Progress value={votePercentage} className="h-2" />
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>Need 60% approval</span>
+                      {votePercentage >= 60 ? (
+                        <span className="text-green-600 font-medium">✓ Threshold met</span>
+                      ) : (
+                        <span className="text-orange-600">
+                          {Math.ceil(request.votes.length * 0.6) - request.total_votes_for} more "For" votes needed
+                        </span>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Status Summary */}
+                  {(request.votes.length / request.total_eligible_voters * 100) >= 70 && votePercentage >= 60 && (
+                    <div className="bg-green-50 dark:bg-green-950 p-3 rounded-lg border border-green-200 dark:border-green-800">
+                      <p className="text-sm text-green-800 dark:text-green-200 font-medium flex items-center gap-2">
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Both thresholds met! Refund will be approved automatically.
+                      </p>
+                    </div>
+                  )}
 
                   {/* Vote Counts */}
                   <div className="flex items-center gap-4 text-sm">
