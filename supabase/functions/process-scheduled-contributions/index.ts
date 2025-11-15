@@ -17,21 +17,27 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    // Check if this is a deadlines-only run
+    const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
+    const deadlinesOnly = body.deadlines_only === true;
+
     const now = new Date().toISOString();
     const results = {
       recurring: { processed: 0, failed: 0 },
       scheduled: { processed: 0, failed: 0 },
       refunds: { processed: 0, failed: 0 },
+      mode: deadlinesOnly ? 'deadlines-only' : 'full',
     };
 
-    // 1. Process Recurring Contributions
-    const { data: recurringDue } = await supabaseClient
-      .from('recurring_contributions')
-      .select('*')
-      .eq('status', 'active')
-      .lte('next_contribution_date', now);
+    // 1. Process Recurring Contributions (skip if deadlines-only mode)
+    if (!deadlinesOnly) {
+      const { data: recurringDue } = await supabaseClient
+        .from('recurring_contributions')
+        .select('*')
+        .eq('status', 'active')
+        .lte('next_contribution_date', now);
 
-    if (recurringDue) {
+      if (recurringDue) {
       for (const recurring of recurringDue) {
         try {
           // Check if end date passed
@@ -81,9 +87,11 @@ serve(async (req) => {
           results.recurring.failed++;
         }
       }
+      }
     }
 
-    // 2. Process Scheduled Contributions
+    // 2. Process Scheduled Contributions (skip if deadlines-only mode)
+    if (!deadlinesOnly) {
     const { data: scheduledDue } = await supabaseClient
       .from('scheduled_contributions')
       .select('*')
@@ -124,9 +132,10 @@ serve(async (req) => {
           results.scheduled.failed++;
         }
       }
+      }
     }
 
-    // 3. Process Refund Voting Deadlines
+    // 3. Process Refund Voting Deadlines (always run - but most refunds are instant now)
     const { data: refundsDue } = await supabaseClient
       .from('group_refund_requests')
       .select('*')
