@@ -107,7 +107,13 @@ export default function Discover() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Total Funded</p>
-                  <p className="text-2xl font-bold">₦{(stats.totalFunded / 1000000).toFixed(1)}M</p>
+                  <p className="text-2xl font-bold">
+                    ₦{stats.totalFunded >= 1000000 
+                      ? (stats.totalFunded / 1000000).toFixed(1) + 'M' 
+                      : stats.totalFunded >= 1000
+                      ? (stats.totalFunded / 1000).toFixed(1) + 'K'
+                      : stats.totalFunded.toLocaleString()}
+                  </p>
                 </div>
                 <TrendingUp className="h-8 w-8 text-green-600" />
               </div>

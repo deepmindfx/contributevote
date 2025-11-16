@@ -50,6 +50,11 @@ export default function GroupCard({ group }: GroupCardProps) {
           <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
             {group.description}
           </p>
+          {group.creator && (
+            <p className="text-xs text-muted-foreground mt-1">
+              By {group.creator.name || group.creator.email}
+            </p>
+          )}
         </div>
       </CardHeader>
 

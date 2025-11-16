@@ -25,9 +25,10 @@ export const DiscoverService = {
     try {
       let query = supabase
         .from('contribution_groups')
-        .select('*, contributors(count)', { count: 'exact' })
+        .select('*, creator:profiles!creator_id(name, email), contributors(count)', { count: 'exact' })
         .eq('privacy', 'public')
-        .eq('archived', false);
+        .eq('archived', false)
+        .not('privacy', 'is', null);
 
       // Apply filters
       if (filters.category && filters.category !== 'all') {

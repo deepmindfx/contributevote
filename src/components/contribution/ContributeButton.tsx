@@ -69,6 +69,14 @@ export function ContributeButton({ groupId, groupName, onSuccess }: ContributeBu
       );
 
       if (result.success) {
+        // Update local user balance immediately to prevent UI showing old balance
+        if (user && result.new_balance !== undefined) {
+          // Update user object in context with new balance
+          const updatedUser = { ...user, wallet_balance: result.new_balance };
+          // Store in localStorage to persist across reloads
+          localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+        }
+        
         setIsOpen(false);
         setAmount('');
         onSuccess?.();

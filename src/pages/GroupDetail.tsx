@@ -80,11 +80,11 @@ export default function GroupDetail() {
     // Refresh contribution data from context
     await refreshContributionData();
     
-    // Small delay to ensure database has updated
+    // Longer delay to ensure database transaction has fully committed
     setTimeout(() => {
       // Force page reload to get fresh data
       window.location.reload();
-    }, 500);
+    }, 2000); // Increased from 500ms to 2000ms
   };
 
   const handleArchive = async () => {
