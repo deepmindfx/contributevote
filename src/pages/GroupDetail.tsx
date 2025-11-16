@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Users, Target, TrendingUp, Calendar } from 'lucide-react';
+import { ArrowLeft, Users, Target, TrendingUp, Calendar, Archive, ArchiveRestore } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSupabaseUser } from '@/contexts/SupabaseUserContext';
 import { useSupabaseContribution } from '@/contexts/SupabaseContributionContext';
+import { 
+  archiveGroup,
+  unarchiveGroup 
+} from '@/services/supabase/groupEnhancementService';
 import { ContributeButton } from '@/components/contribution/ContributeButton';
 import { RecurringContributionDialog } from '@/components/contribution/RecurringContributionDialog';
 import { ScheduledContributionDialog } from '@/components/contribution/ScheduledContributionDialog';
@@ -21,10 +25,12 @@ import Header from '@/components/layout/Header';
 
 export default function GroupDetail() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [group, setGroup] = useState<any>(null);
   const { user } = useSupabaseUser();
   const { contributions, loading, refreshContributionData } = useSupabaseContribution();
   const { canVote, isAdmin, loading: rightsLoading } = useVotingRights(id);
+  const [isArchiving, setIsArchiving] = useState(false);
 
   useEffect(() => {
     if (id && contributions.length > 0) {
@@ -49,6 +55,39 @@ export default function GroupDetail() {
       // Force page reload to get fresh data
       window.location.reload();
     }, 500);
+  };
+
+  const handleArchive = async () => {
+    if (!confirm('Are you sure you want to archive this group? It will be hidden from the main list.')) return;
+    
+    setIsArchiving(true);
+    try {
+      await archiveGroup(group.id, user.id);
+      toast.success('Group archived successfully');
+      await refreshContributionData();
+      navigate('/dashboard');
+    } catch (error) {
+      console.error('Error archiving group:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to archive group');
+    } finally {
+      setIsArchiving(false);
+    }
+  };
+
+  const handleUnarchive = async () => {
+    setIsArchiving(true);
+    try {
+      await unarchiveGroup(group.id, user.id);
+      toast.success('Group unarchived successfully');
+      await refreshContributionData();
+      // Refresh the page to show updated status
+      window.location.reload();
+    } catch (error) {
+      console.error('Error unarchiving group:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to unarchive group');
+    } finally {
+      setIsArchiving(false);
+    }
   };
 
   if (loading || rightsLoading) {
@@ -118,6 +157,11 @@ export default function GroupDetail() {
                   <Badge variant={isActive ? 'default' : 'secondary'}>
                     {group.status}
                   </Badge>
+                  {group.archived && (
+                    <Badge variant="secondary" className="bg-orange-100 dark:bg-orange-950">
+                      📦 Archived
+                    </Badge>
+                  )}
                   {canVote && (
                     <Badge variant="outline" className="bg-green-50 dark:bg-green-950">
                       ✅ Can Vote
@@ -127,39 +171,69 @@ export default function GroupDetail() {
                 <p className="text-sm md:text-base text-muted-foreground">{group.description}</p>
               </div>
 
-              {isActive && (
-                <div className="space-y-3 w-full">
-                  {/* Primary Contribution Button */}
-                  <div className="w-full md:w-auto">
-                    <ContributeButton
-                      groupId={id!}
-                      groupName={group.name}
-                      onSuccess={handleContributeSuccess}
-                    />
+              <div className="space-y-3 w-full">
+                {/* Archive/Unarchive Button - Only for creators */}
+                {group.creator_id === user?.id && (
+                  <div className="flex gap-2">
+                    {!group.archived ? (
+                      <Button 
+                        variant="outline" 
+                        onClick={handleArchive}
+                        disabled={isArchiving}
+                        className="text-orange-600 hover:text-orange-700"
+                      >
+                        <Archive className="h-4 w-4 mr-2" />
+                        {isArchiving ? 'Archiving...' : 'Archive Group'}
+                      </Button>
+                    ) : (
+                      <Button 
+                        variant="outline" 
+                        onClick={handleUnarchive}
+                        disabled={isArchiving}
+                        className="text-green-600 hover:text-green-700"
+                      >
+                        <ArchiveRestore className="h-4 w-4 mr-2" />
+                        {isArchiving ? 'Unarchiving...' : 'Unarchive Group'}
+                      </Button>
+                    )}
                   </div>
-                  
-                  {/* Advanced Contribution Options - Only for members with voting rights */}
-                  {canVote && (
-                    <div className="flex flex-wrap gap-2">
-                      <RecurringContributionDialog
-                        groupId={id!}
-                        groupName={group.name}
-                        onSuccess={handleContributeSuccess}
-                      />
-                      <ScheduledContributionDialog
-                        groupId={id!}
-                        groupName={group.name}
-                        onSuccess={handleContributeSuccess}
-                      />
-                      <GroupRefundDialog
+                )}
+                
+                {/* Contribution Buttons - Only show if active */}
+                {isActive && (
+                  <>
+                    {/* Primary Contribution Button */}
+                    <div className="w-full md:w-auto">
+                      <ContributeButton
                         groupId={id!}
                         groupName={group.name}
                         onSuccess={handleContributeSuccess}
                       />
                     </div>
-                  )}
-                </div>
-              )}
+                    
+                    {/* Advanced Contribution Options - Only for members with voting rights */}
+                    {canVote && (
+                      <div className="flex flex-wrap gap-2">
+                        <RecurringContributionDialog
+                          groupId={id!}
+                          groupName={group.name}
+                          onSuccess={handleContributeSuccess}
+                        />
+                        <ScheduledContributionDialog
+                          groupId={id!}
+                          groupName={group.name}
+                          onSuccess={handleContributeSuccess}
+                        />
+                        <GroupRefundDialog
+                          groupId={id!}
+                          groupName={group.name}
+                          onSuccess={handleContributeSuccess}
+                        />
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
 
             {/* Progress */}

@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -18,6 +18,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { 
+  CATEGORIES, 
+  checkGroupCreationEligibility 
+} from '@/services/supabase/groupEnhancementService';
+import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 
 interface DetailsStepProps {
   formData: {
@@ -31,6 +37,28 @@ interface DetailsStepProps {
 }
 
 const DetailsStep = ({ formData, handleChange, goToNextStep }: DetailsStepProps) => {
+  const { user } = useSupabaseUser();
+  const [eligibility, setEligibility] = useState<any>(null);
+  const [isCheckingEligibility, setIsCheckingEligibility] = useState(false);
+
+  useEffect(() => {
+    if (user?.id) {
+      checkEligibility();
+    }
+  }, [user]);
+
+  const checkEligibility = async () => {
+    setIsCheckingEligibility(true);
+    try {
+      const result = await checkGroupCreationEligibility(user.id);
+      setEligibility(result);
+    } catch (error) {
+      console.error('Error checking eligibility:', error);
+    } finally {
+      setIsCheckingEligibility(false);
+    }
+  };
+
   return (
     <>
       <CardHeader>
@@ -82,15 +110,31 @@ const DetailsStep = ({ formData, handleChange, goToNextStep }: DetailsStepProps)
               <SelectValue placeholder="Select category" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="personal">Personal</SelectItem>
-              <SelectItem value="business">Business</SelectItem>
-              <SelectItem value="family">Family</SelectItem>
-              <SelectItem value="event">Event</SelectItem>
-              <SelectItem value="education">Education</SelectItem>
-              <SelectItem value="other">Other</SelectItem>
+              {CATEGORIES.map((cat) => (
+                <SelectItem key={cat.value} value={cat.value}>
+                  {cat.icon} {cat.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
+        
+        {/* Fee Warning */}
+        {!isCheckingEligibility && eligibility && !eligibility.can_create_free && (
+          <Alert className="border-orange-200 bg-orange-50 dark:bg-orange-950">
+            <AlertDescription className="text-orange-800 dark:text-orange-200">
+              ⚠️ Group creation fee: ₦500 (You've used all 3 free groups)
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        {isCheckingEligibility && (
+          <Alert>
+            <AlertDescription>
+              Checking eligibility...
+            </AlertDescription>
+          </Alert>
+        )}
       </CardContent>
       <CardFooter>
         <Button onClick={goToNextStep} className="w-full">

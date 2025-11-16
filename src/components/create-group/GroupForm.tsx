@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { createGroupVirtualAccount } from "@/services/flutterwave/virtualAccounts";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
+import { createGroupWithFee } from '@/services/supabase/groupEnhancementService';
 
 // Import Step Components
 import DetailsStep from "./DetailsStep";
@@ -120,63 +121,32 @@ const GroupForm = () => {
     setIsLoading(true);
     
     try {
-      // Create a virtual account for the group first
-      const accountData = {
-        email: user.email,
-        bvn: formData.bvn,
-        groupName: formData.name,
-        groupId: user.id
-      };
-      
-      console.log("Creating contribution group account:", accountData);
-      const accountResponse = await createGroupVirtualAccount(accountData);
-      
-      if (!accountResponse.success) {
-        toast.error(accountResponse.message || "Failed to create account for the group");
-        setIsLoading(false);
-        return;
-      }
-      
-      // Extract account details from response
-      const accountDetails = accountResponse.responseBody;
-      console.log("Account creation successful:", accountDetails);
-      
-      // Prepare contribution data with account details
-      const contributionData = {
+      // Use the new service that handles fee deduction
+      const result = await createGroupWithFee(user.id, {
         name: formData.name,
         description: formData.description,
-        targetAmount: Number(formData.targetAmount),
-        category: formData.category as "personal" | "business" | "family" | "event" | "education" | "other", 
+        target_amount: Number(formData.targetAmount),
+        category: formData.category,
         frequency: formData.frequency,
-        contributionAmount: Number(formData.contributionAmount),
-        startDate: formData.startDate,
-        endDate: formData.endDate || undefined,
-        votingThreshold: formData.votingThreshold,
         privacy: formData.privacy,
-        memberRoles: formData.memberRoles,
-        creatorId: user.id,
-        // Setting required properties to meet the type requirements
-        visibility: formData.privacy === 'public' ? 'public' as VisibilityType : 'private' as VisibilityType,
-        status: 'active' as 'active' | 'completed' | 'expired',
-        deadline: formData.endDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-        // Add account details
-        accountNumber: accountDetails.account_number,
-        bankName: accountDetails.bank_name,
-        accountName: formData.name, // Use group name as account name
-        accountReference: accountDetails.flw_ref, // Use Flutterwave reference
-        accountDetails: accountDetails,
-      };
+        contribution_amount: Number(formData.contributionAmount),
+        start_date: formData.startDate,
+        end_date: formData.endDate || undefined,
+        voting_threshold: formData.votingThreshold,
+        bvn: formData.bvn,
+      });
       
-      // Create contribution and wait for it to complete
-      await createNewContribution(contributionData);
-      
-      toast.success("Group created successfully with dedicated account");
-      
-      // Small delay to ensure data is synced
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Navigate to dashboard
-      navigate("/dashboard");
+      if (result.success) {
+        toast.success(result.message);
+        
+        // Small delay to ensure data is synced
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Navigate to dashboard
+        navigate("/dashboard");
+      } else {
+        toast.error(result.error || "Failed to create group");
+      }
     } catch (error) {
       console.error("Error creating group:", error);
       toast.error(`Failed to create group: ${error instanceof Error ? error.message : "Unknown error"}`);
