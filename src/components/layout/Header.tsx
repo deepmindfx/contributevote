@@ -148,6 +148,10 @@ const Header = () => {
                   </NavigationMenuItem>
                   
                   <NavigationMenuItem>
+                    <NavLink href="/discover">Discover</NavLink>
+                  </NavigationMenuItem>
+                  
+                  <NavigationMenuItem>
                     <NavigationMenuTrigger>Groups</NavigationMenuTrigger>
                     <NavigationMenuContent>
                       <ul className="grid gap-3 p-6 w-[400px]">
@@ -391,6 +395,13 @@ const Header = () => {
                     className="block p-3 rounded-md hover:bg-accent"
                   >
                     Dashboard
+                  </Link>
+                  
+                  <Link 
+                    to="/discover" 
+                    className="block p-3 rounded-md hover:bg-accent"
+                  >
+                    Discover Groups
                   </Link>
                   
                   <Link 

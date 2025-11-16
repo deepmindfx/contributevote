@@ -18,6 +18,7 @@ import UserSettings from "./pages/UserSettings";
 import NotFound from "./pages/NotFound";
 import AdminDashboard from "./pages/admin/Dashboard";
 import UserProfile from "./pages/UserProfile";
+import Discover from "./pages/Discover";
 import React, { useEffect, Component, ErrorInfo, ReactNode } from "react";
 
 // Error Boundary Component
@@ -148,6 +149,7 @@ const AppRoutes = () => {
       <Route path="/" element={<Index />} />
       <Route path="/auth" element={<Auth />} />
       <Route path="/admin-login" element={<AdminAuth />} />
+      <Route path="/discover" element={<Discover />} />
       
       {/* Protected Routes */}
       <Route path="/dashboard" element={
