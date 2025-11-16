@@ -228,7 +228,7 @@ const UserProfile = () => {
                           <div>
                             <h3 className="font-medium">{group.name}</h3>
                             <div className="flex items-center text-sm text-muted-foreground">
-                              <span className="mr-2">{group.members.length} members</span>
+                              <span className="mr-2">{group.members?.length || 0} members</span>
                               <span>•</span>
                               <span className="ml-2 capitalize">{group.frequency}</span>
                             </div>
