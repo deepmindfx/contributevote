@@ -19,6 +19,7 @@ import NotFound from "./pages/NotFound";
 import AdminDashboard from "./pages/admin/Dashboard";
 import UserProfile from "./pages/UserProfile";
 import Discover from "./pages/Discover";
+import AcceptInvite from "./pages/AcceptInvite";
 import React, { useEffect, Component, ErrorInfo, ReactNode } from "react";
 
 // Error Boundary Component
@@ -204,6 +205,7 @@ const AppRoutes = () => {
         </ProtectedRoute>
       } />
       <Route path="/join/:id" element={<JoinGroup />} />
+      <Route path="/invite/:token" element={<AcceptInvite />} />
       <Route path="/transfer" element={
         <ProtectedRoute>
           <TransferForm />

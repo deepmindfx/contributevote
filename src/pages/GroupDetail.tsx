@@ -20,6 +20,7 @@ import { GroupAdminPanel } from '@/components/contribution/GroupAdminPanel';
 import { VotingRightsGuard } from '@/components/contribution/VotingRightsGuard';
 import { ShareableBankCard } from '@/components/contribution/ShareableBankCard';
 import { ShareGroupButton } from '@/components/contribution/ShareGroupButton';
+import { InviteMembersDialog } from '@/components/contribution/InviteMembersDialog';
 import { useVotingRights } from '@/hooks/useVotingRights';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -35,15 +36,42 @@ export default function GroupDetail() {
   const [isArchiving, setIsArchiving] = useState(false);
 
   useEffect(() => {
-    if (id && contributions.length > 0) {
+    const fetchGroup = async () => {
+      if (!id) return;
+
+      // First, try to find in contributions
       const foundGroup = contributions.find((c: any) => c.id === id);
       if (foundGroup) {
         setGroup(foundGroup);
-      } else {
-        // Group not found in user's contributions, might not have access
+        return;
+      }
+
+      // If not in contributions, fetch directly from database
+      // This handles cases where user just joined the group
+      try {
+        const { supabase } = await import('@/integrations/supabase/client');
+        const { data, error } = await supabase
+          .from('contribution_groups')
+          .select('*')
+          .eq('id', id)
+          .single();
+
+        if (error) throw error;
+        
+        if (data) {
+          setGroup(data);
+          // Refresh contributions to include this new group
+          await refreshContributionData();
+        } else {
+          setGroup(null);
+        }
+      } catch (error) {
+        console.error('Error fetching group:', error);
         setGroup(null);
       }
-    }
+    };
+
+    fetchGroup();
   }, [id, contributions]);
 
   const handleContributeSuccess = async () => {
@@ -156,6 +184,16 @@ export default function GroupDetail() {
               groupId={group.id}
               groupName={group.name}
               groupDescription={group.description || ''}
+            />
+          )}
+          
+          {/* Invite Members for Private Groups */}
+          {group.privacy !== 'public' && group.creator_id === user.id && (
+            <InviteMembersDialog
+              groupId={group.id}
+              groupName={group.name}
+              userId={user.id}
+              privacy={group.privacy}
             />
           )}
         </div>
