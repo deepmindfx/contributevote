@@ -82,37 +82,54 @@ const UserSettingsForm = () => {
     }
   };
   
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
-    // Validate PIN if it was changed
-    if (userData.pin && userData.pin !== user.pin) {
-      if (userData.pin.length < 4) {
-        toast.error("PIN must be at least 4 digits");
-        setIsLoading(false);
-        return;
+    try {
+      // Validate PIN if it was changed
+      if (userData.pin && userData.pin !== user.pin) {
+        if (userData.pin.length < 4) {
+          toast.error("PIN must be at least 4 digits");
+          setIsLoading(false);
+          return;
+        }
+        
+        if (userData.pin !== confirmPin) {
+          toast.error("PINs don't match");
+          setIsLoading(false);
+          return;
+        }
       }
       
-      if (userData.pin !== confirmPin) {
-        toast.error("PINs don't match");
-        setIsLoading(false);
-        return;
-      }
-    }
-    
-    // Prepare data for update
-    const updateData = {
-      ...userData,
-      name: `${userData.firstName} ${userData.lastName}`,
-    };
-    
-    // Update profile
-    setTimeout(() => {
-      updateProfile(updateData);
-      setIsLoading(false);
+      // Prepare data for update
+      const updateData = {
+        ...userData,
+        name: `${userData.firstName} ${userData.lastName}`,
+      };
+      
+      console.log('Updating profile with data:', updateData);
+      
+      // Update profile
+      await updateProfile(updateData);
       toast.success("Profile updated successfully");
-    }, 800);
+      
+      // Show specific messages for preference changes
+      if (userData.preferences.darkMode !== user.preferences?.darkMode) {
+        toast.info(userData.preferences.darkMode ? "Dark mode enabled" : "Dark mode disabled");
+      }
+      if (userData.preferences.anonymousContributions !== user.preferences?.anonymousContributions) {
+        toast.info(userData.preferences.anonymousContributions ? "Anonymous contributions enabled" : "Anonymous contributions disabled");
+      }
+      if (userData.preferences.notificationsEnabled !== user.preferences?.notificationsEnabled) {
+        toast.info(userData.preferences.notificationsEnabled ? "Notifications enabled" : "Notifications disabled");
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      toast.error("Failed to update profile");
+    } finally {
+      setIsLoading(false);
+    }
   };
   
   return (
