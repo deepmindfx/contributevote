@@ -18,6 +18,7 @@ import { RefundRequestsCard } from '@/components/contribution/RefundRequestsCard
 import { ContributorsList } from '@/components/contribution/ContributorsList';
 import { GroupAdminPanel } from '@/components/contribution/GroupAdminPanel';
 import { VotingRightsGuard } from '@/components/contribution/VotingRightsGuard';
+import { ShareableBankCard } from '@/components/contribution/ShareableBankCard';
 import { useVotingRights } from '@/hooks/useVotingRights';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -283,36 +284,14 @@ export default function GroupDetail() {
           </div>
         </Card>
 
-        {/* Account Details */}
+        {/* Shareable Bank Account Card */}
         {group.account_number && (
-          <Card className="p-4 md:p-6">
-            <CardHeader className="px-0 pt-0">
-              <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
-                <Users className="h-4 w-4 md:h-5 md:w-5" />
-                Bank Transfer Details
-              </CardTitle>
-              <CardDescription className="text-sm">
-                Transfer directly to this account number
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="px-0 pb-0">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs md:text-sm text-muted-foreground">Account Number</p>
-                  <p className="text-base md:text-lg font-mono font-semibold break-all">{group.account_number}</p>
-                </div>
-                <div>
-                  <p className="text-xs md:text-sm text-muted-foreground">Bank Name</p>
-                  <p className="text-base md:text-lg font-semibold">{group.bank_name || 'Sterling Bank'}</p>
-                </div>
-              </div>
-              <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg">
-                <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                  ⚠️ Bank transfers require admin verification for voting rights
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <ShareableBankCard
+            groupName={group.name}
+            accountNumber={group.account_number}
+            bankName={group.bank_name || 'Sterling Bank'}
+            accountName={group.account_name || group.name}
+          />
         )}
 
         {/* Voting Section - Protected */}
