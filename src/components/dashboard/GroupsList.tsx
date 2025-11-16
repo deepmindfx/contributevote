@@ -42,16 +42,23 @@ const GroupsList = () => {
   const fetchGroups = async () => {
     setIsLoading(true);
     try {
-      const groups = await getGroupsSorted(user.id, {
+      // Add timeout to prevent infinite loading
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Request timeout')), 10000)
+      );
+      
+      const groupsPromise = getGroupsSorted(user.id, {
         sortBy,
         showArchived,
         category: filterCategory
       });
+      
+      const groups = await Promise.race([groupsPromise, timeoutPromise]) as any;
       setSortedGroups(groups);
     } catch (error) {
       console.error('Error fetching groups:', error);
-      // Fallback to local sorting if service fails
-      setSortedGroups(contributions.slice(0, 3));
+      // Fallback to local data from context
+      setSortedGroups(contributions);
     } finally {
       setIsLoading(false);
     }

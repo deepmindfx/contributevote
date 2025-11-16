@@ -50,21 +50,23 @@ const AllGroups = () => {
   const fetchGroups = async () => {
     setIsLoading(true);
     try {
-      const groups = await getGroupsSorted(user.id, {
+      // Add timeout to prevent infinite loading
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Request timeout')), 10000)
+      );
+      
+      const groupsPromise = getGroupsSorted(user.id, {
         sortBy,
         showArchived,
         category: filterCategory
       });
+      
+      const groups = await Promise.race([groupsPromise, timeoutPromise]) as any;
       setSortedContributions(groups);
     } catch (error) {
       console.error('Error fetching groups:', error);
-      // Fallback to local sorting if service fails
-      const fallback = [...contributions].sort((a, b) => {
-        const dateA = new Date((a as any).created_at || (a as any).createdAt).getTime();
-        const dateB = new Date((b as any).created_at || (b as any).createdAt).getTime();
-        return dateB - dateA;
-      });
-      setSortedContributions(fallback);
+      // Fallback to local data from context
+      setSortedContributions(contributions);
     } finally {
       setIsLoading(false);
     }
