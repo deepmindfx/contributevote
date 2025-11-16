@@ -19,6 +19,7 @@ import { ContributorsList } from '@/components/contribution/ContributorsList';
 import { GroupAdminPanel } from '@/components/contribution/GroupAdminPanel';
 import { VotingRightsGuard } from '@/components/contribution/VotingRightsGuard';
 import { ShareableBankCard } from '@/components/contribution/ShareableBankCard';
+import { ShareGroupButton } from '@/components/contribution/ShareGroupButton';
 import { useVotingRights } from '@/hooks/useVotingRights';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -140,13 +141,24 @@ export default function GroupDetail() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 pb-20 md:pb-6">
       <Header />
       <div className="container mx-auto px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6 pt-20 md:pt-24">
-        {/* Back Button */}
-        <Link to="/dashboard">
-          <Button variant="ghost" className="mb-2 md:mb-4" size="sm">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
-          </Button>
-        </Link>
+        {/* Back Button and Share */}
+        <div className="flex items-center justify-between mb-2 md:mb-4">
+          <Link to="/dashboard">
+            <Button variant="ghost" size="sm">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Dashboard
+            </Button>
+          </Link>
+          
+          {/* Share Button for Public Groups */}
+          {group.privacy === 'public' && (
+            <ShareGroupButton
+              groupId={group.id}
+              groupName={group.name}
+              groupDescription={group.description || ''}
+            />
+          )}
+        </div>
 
         {/* Group Header */}
         <Card className="p-4 md:p-6">

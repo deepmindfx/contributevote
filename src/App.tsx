@@ -72,6 +72,7 @@ import WalletHistory from "./pages/WalletHistory";
 import ActivityHistory from "./pages/ActivityHistory";
 import Votes from "./pages/Votes";
 import AllGroups from "./pages/AllGroups";
+import JoinGroup from "./pages/JoinGroup";
 import TransferForm from "./components/TransferForm";
 import PaymentCallback from "./pages/PaymentCallback";
 
@@ -200,6 +201,7 @@ const AppRoutes = () => {
           <AllGroups />
         </ProtectedRoute>
       } />
+      <Route path="/join/:id" element={<JoinGroup />} />
       <Route path="/transfer" element={
         <ProtectedRoute>
           <TransferForm />
