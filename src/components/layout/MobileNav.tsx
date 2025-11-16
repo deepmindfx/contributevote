@@ -76,14 +76,19 @@ const MobileNav = () => {
           </Link>
           
           <Link 
-            to="/wallet-history" 
-            className={`flex flex-col items-center py-3 px-2 ${
-              location.pathname === "/wallet-history" ? "text-[#2DAE75]" : "text-muted-foreground"
+            to="/votes" 
+            className={`flex flex-col items-center py-3 px-2 relative ${
+              location.pathname === "/votes" ? "text-[#2DAE75]" : "text-muted-foreground"
             }`}
-            aria-label="Wallet"
+            aria-label="Votes"
           >
-            <Wallet className="h-5 w-5" />
-            <span className="text-xs mt-1">Wallet</span>
+            <VoteIcon className="h-5 w-5" />
+            {pendingVotes.length > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
+                {pendingVotes.length > 9 ? '9+' : pendingVotes.length}
+              </span>
+            )}
+            <span className="text-xs mt-1">Votes</span>
           </Link>
           
           <Link 

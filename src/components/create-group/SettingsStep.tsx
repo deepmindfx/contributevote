@@ -16,9 +16,7 @@ import {
 
 interface SettingsStepProps {
   formData: {
-    votingThreshold: number;
     privacy: 'public' | 'private';
-    memberRoles: 'equal' | 'weighted';
     bvn: string;
     notifyContributions: boolean;
     notifyVotes: boolean;
@@ -47,18 +45,6 @@ const SettingsStep = ({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="voting-threshold">Voting Threshold (%)</Label>
-          <Input 
-            id="voting-threshold" 
-            type="number" 
-            min="1" 
-            max="100" 
-            value={formData.votingThreshold}
-            onChange={(e) => handleChange('votingThreshold', Number(e.target.value))}
-          />
-          <p className="text-sm text-muted-foreground">Percentage of members required to approve withdrawals</p>
-        </div>        
-        <div className="space-y-2">
           <Label>Privacy</Label>
           <RadioGroup 
             defaultValue={formData.privacy}
@@ -66,30 +52,16 @@ const SettingsStep = ({
           >
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="public" id="public" />
-              <Label htmlFor="public">Public - Anyone can request to join</Label>
+              <Label htmlFor="public">Public - Anyone can discover and join</Label>
             </div>
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="private" id="private" />
               <Label htmlFor="private">Private - Invitation only</Label>
             </div>
           </RadioGroup>
-        </div>
-        
-        <div className="space-y-2">
-          <Label>Member Roles</Label>
-          <RadioGroup 
-            defaultValue={formData.memberRoles}
-            onValueChange={(value) => handleChange('memberRoles', value)}
-          >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="equal" id="equal" />
-              <Label htmlFor="equal">Equal voting rights for all members</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="weighted" id="weighted" />
-              <Label htmlFor="weighted">Voting power based on contribution amount</Label>
-            </div>
-          </RadioGroup>
+          <p className="text-xs text-muted-foreground mt-2">
+            Note: Voting rules are automatically set (60% approval, 70% participation, 7 days deadline)
+          </p>
         </div>
         
         {/* BVN input section */}

@@ -69,11 +69,16 @@ export function ContributeButton({ groupId, groupName, onSuccess }: ContributeBu
       );
 
       if (result.success) {
-        // Update local user balance immediately to prevent UI showing old balance
+        // SECURITY NOTE: This localStorage update is ONLY for UI optimization
+        // to prevent showing stale balance during the 2-second reload delay.
+        // The database is the ONLY source of truth. Any manual localStorage
+        // edits will be overwritten when:
+        // 1. Page reloads (fetches from DB)
+        // 2. User logs in again (fetches from DB)
+        // 3. Any transaction occurs (validates against DB)
+        // All transactions validate current balance from DB before processing.
         if (user && result.new_balance !== undefined) {
-          // Update user object in context with new balance
           const updatedUser = { ...user, wallet_balance: result.new_balance };
-          // Store in localStorage to persist across reloads
           localStorage.setItem('currentUser', JSON.stringify(updatedUser));
         }
         

@@ -45,9 +45,9 @@ const GroupForm = () => {
     contributionAmount: 0,
     startDate: '',
     endDate: '',
-    votingThreshold: 70,
+    votingThreshold: 60, // Default: 60% approval (fixed, not user-configurable)
     privacy: 'private' as 'public' | 'private',
-    memberRoles: 'equal' as 'equal' | 'weighted',
+    memberRoles: 'equal' as 'equal' | 'weighted', // Default: equal (fixed, not user-configurable)
     notifyContributions: true,
     notifyVotes: true,
     notifyUpdates: true,
