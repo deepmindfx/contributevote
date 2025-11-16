@@ -171,16 +171,47 @@ export default function GroupDetail() {
                 <p className="text-sm md:text-base text-muted-foreground">{group.description}</p>
               </div>
 
-              <div className="space-y-3 w-full">
-                {/* Archive/Unarchive Button - Only for creators */}
+              <div className="space-y-3 w-full md:w-auto md:min-w-[280px]">
+                {/* Primary Action - Contribute Button (Only if active) */}
+                {isActive && (
+                  <ContributeButton
+                    groupId={id!}
+                    groupName={group.name}
+                    onSuccess={handleContributeSuccess}
+                  />
+                )}
+                
+                {/* Secondary Actions - Only for members with voting rights */}
+                {isActive && canVote && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <RecurringContributionDialog
+                      groupId={id!}
+                      groupName={group.name}
+                      onSuccess={handleContributeSuccess}
+                    />
+                    <ScheduledContributionDialog
+                      groupId={id!}
+                      groupName={group.name}
+                      onSuccess={handleContributeSuccess}
+                    />
+                    <GroupRefundDialog
+                      groupId={id!}
+                      groupName={group.name}
+                      onSuccess={handleContributeSuccess}
+                    />
+                  </div>
+                )}
+                
+                {/* Admin Actions - Only for creators */}
                 {group.creator_id === user?.id && (
-                  <div className="flex gap-2">
+                  <div className="pt-2 border-t">
                     {!group.archived ? (
                       <Button 
                         variant="outline" 
                         onClick={handleArchive}
                         disabled={isArchiving}
-                        className="text-orange-600 hover:text-orange-700"
+                        className="w-full text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                        size="sm"
                       >
                         <Archive className="h-4 w-4 mr-2" />
                         {isArchiving ? 'Archiving...' : 'Archive Group'}
@@ -190,48 +221,14 @@ export default function GroupDetail() {
                         variant="outline" 
                         onClick={handleUnarchive}
                         disabled={isArchiving}
-                        className="text-green-600 hover:text-green-700"
+                        className="w-full text-green-600 hover:text-green-700 hover:bg-green-50"
+                        size="sm"
                       >
                         <ArchiveRestore className="h-4 w-4 mr-2" />
                         {isArchiving ? 'Unarchiving...' : 'Unarchive Group'}
                       </Button>
                     )}
                   </div>
-                )}
-                
-                {/* Contribution Buttons - Only show if active */}
-                {isActive && (
-                  <>
-                    {/* Primary Contribution Button */}
-                    <div className="w-full md:w-auto">
-                      <ContributeButton
-                        groupId={id!}
-                        groupName={group.name}
-                        onSuccess={handleContributeSuccess}
-                      />
-                    </div>
-                    
-                    {/* Advanced Contribution Options - Only for members with voting rights */}
-                    {canVote && (
-                      <div className="flex flex-wrap gap-2">
-                        <RecurringContributionDialog
-                          groupId={id!}
-                          groupName={group.name}
-                          onSuccess={handleContributeSuccess}
-                        />
-                        <ScheduledContributionDialog
-                          groupId={id!}
-                          groupName={group.name}
-                          onSuccess={handleContributeSuccess}
-                        />
-                        <GroupRefundDialog
-                          groupId={id!}
-                          groupName={group.name}
-                          onSuccess={handleContributeSuccess}
-                        />
-                      </div>
-                    )}
-                  </>
                 )}
               </div>
             </div>
