@@ -17,6 +17,8 @@ import {
 interface SettingsStepProps {
   formData: {
     privacy: 'public' | 'private';
+    category: string;
+    enableVotingRights: boolean;
     bvn: string;
     notifyContributions: boolean;
     notifyVotes: boolean;
@@ -59,9 +61,63 @@ const SettingsStep = ({
               <Label htmlFor="private">Private - Invitation only</Label>
             </div>
           </RadioGroup>
-          <p className="text-xs text-muted-foreground mt-2">
-            Note: Voting rules are automatically set (60% approval, 70% participation, 7 days deadline)
-          </p>
+        </div>
+
+        {/* Voting Rights Toggle */}
+        <div className="space-y-2 p-4 bg-muted/40 rounded-lg border">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="h-5 w-5 text-blue-500 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="text-sm font-medium">Governance Settings</h3>
+              <p className="text-sm text-muted-foreground mb-3">
+                Choose how withdrawals are approved in this group
+              </p>
+            </div>
+          </div>
+          
+          <RadioGroup 
+            value={formData.enableVotingRights ? "with-voting" : "no-voting"}
+            onValueChange={(value) => handleChange('enableVotingRights', value === "with-voting")}
+          >
+            <div className="flex items-start space-x-2 p-3 rounded-md border bg-background">
+              <RadioGroupItem value="with-voting" id="with-voting" className="mt-1" />
+              <div className="flex-1">
+                <Label htmlFor="with-voting" className="font-medium">
+                  With Voting Rights (Recommended)
+                </Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Contributors vote on withdrawal requests. Democratic and transparent.
+                  {formData.category === 'emergency' || formData.category === 'charity' 
+                    ? ' Recommended for emergency and charity groups.' 
+                    : ''}
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-start space-x-2 p-3 rounded-md border bg-background">
+              <RadioGroupItem value="no-voting" id="no-voting" className="mt-1" />
+              <div className="flex-1">
+                <Label htmlFor="no-voting" className="font-medium">
+                  No Voting Rights
+                </Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Admin can withdraw without approval. Contributors will be notified they have no voting rights.
+                </p>
+              </div>
+            </div>
+          </RadioGroup>
+          
+          {!formData.enableVotingRights && (
+            <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded text-xs text-amber-800 dark:text-amber-200">
+              ⚠️ Contributors will see a clear warning that they have no voting rights when contributing
+            </div>
+          )}
+          
+          {formData.enableVotingRights && (
+            <p className="text-xs text-muted-foreground mt-2">
+              Voting rules: 60% approval, 70% participation, 7 days deadline
+            </p>
+          )}
         </div>
         
         {/* BVN input section */}

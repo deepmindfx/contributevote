@@ -48,6 +48,7 @@ const GroupForm = () => {
     votingThreshold: 60, // Default: 60% approval (fixed, not user-configurable)
     privacy: 'private' as 'public' | 'private',
     memberRoles: 'equal' as 'equal' | 'weighted', // Default: equal (fixed, not user-configurable)
+    enableVotingRights: true, // Default: true - contributors have voting rights
     notifyContributions: true,
     notifyVotes: true,
     notifyUpdates: true,
@@ -168,6 +169,7 @@ const GroupForm = () => {
         category: formData.category,
         frequency: formData.frequency,
         privacy: formData.privacy,
+        enable_voting_rights: formData.enableVotingRights,
       });
       
       toast.success("Group created successfully!");

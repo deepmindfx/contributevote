@@ -53,6 +53,33 @@ export function WithdrawalRequest({ groupId }: WithdrawalRequestProps) {
     setIsSubmitting(true);
 
     try {
+      // Check if group has voting rights enabled
+      const groupHasVotingRights = group?.enable_voting_rights !== false;
+
+      if (!groupHasVotingRights) {
+        // For non-voting groups, process withdrawal immediately
+        // Deduct from group balance and add to admin wallet
+        const { error: updateError } = await supabase.rpc('process_instant_withdrawal', {
+          p_group_id: groupId,
+          p_admin_id: user.id,
+          p_amount: withdrawalAmount,
+          p_purpose: purpose.trim()
+        });
+
+        if (updateError) throw updateError;
+
+        toast.success(`₦${withdrawalAmount.toLocaleString()} withdrawn successfully and added to your wallet!`);
+        
+        // Reset form
+        setAmount('');
+        setPurpose('');
+        
+        // Refresh data
+        await refreshContributionData();
+        return;
+      }
+
+      // For voting groups, create withdrawal request
       // Calculate deadline (24 hours from now)
       const deadline = new Date();
       deadline.setHours(deadline.getHours() + 24);
@@ -124,8 +151,17 @@ export function WithdrawalRequest({ groupId }: WithdrawalRequestProps) {
       <Alert>
         <AlertCircle className="h-4 w-4" />
         <AlertDescription>
-          Withdrawal requests require approval from contributors with voting rights.
-          The voting period is 24 hours. Once approved, funds will be transferred to your wallet.
+          {group?.enable_voting_rights !== false ? (
+            <>
+              Withdrawal requests require approval from contributors with voting rights.
+              The voting period is 24 hours. Once approved, funds will be transferred to your wallet.
+            </>
+          ) : (
+            <>
+              This group has no voting rights. As admin, you can withdraw funds instantly without approval.
+              Funds will be transferred directly to your wallet.
+            </>
+          )}
         </AlertDescription>
       </Alert>
 

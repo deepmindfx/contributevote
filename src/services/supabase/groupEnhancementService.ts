@@ -50,6 +50,7 @@ export async function createGroupWithFee(
     category: string;
     frequency: string;
     privacy?: string;
+    enable_voting_rights?: boolean;
   }
 ): Promise<any> {
   try {
@@ -61,6 +62,7 @@ export async function createGroupWithFee(
       p_category: groupData.category,
       p_frequency: groupData.frequency,
       p_privacy: groupData.privacy || 'public',
+      p_enable_voting_rights: groupData.enable_voting_rights !== false,
     } as any);
 
     if (error) throw error;

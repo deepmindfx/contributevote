@@ -223,6 +223,18 @@ export default function GroupDetail() {
               </div>
 
               <div className="space-y-3 w-full md:w-auto md:min-w-[280px]">
+                {/* Voting Rights Warning for Non-Voting Groups */}
+                {!group.enable_voting_rights && (
+                  <div className="p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                    <p className="text-xs font-medium text-amber-800 dark:text-amber-200 mb-1">
+                      ⚠️ No Voting Rights
+                    </p>
+                    <p className="text-xs text-amber-700 dark:text-amber-300">
+                      Contributors to this group do not have voting rights. The admin can withdraw funds without approval.
+                    </p>
+                  </div>
+                )}
+                
                 {/* Primary Action - Contribute Button (Only if active) */}
                 {isActive && (
                   <ContributeButton
@@ -334,13 +346,13 @@ export default function GroupDetail() {
           </div>
         </Card>
 
-        {/* Shareable Bank Account Card */}
-        {group.account_number && (
+        {/* Shareable Bank Account Card - Visible to ALL members */}
+        {(group.account_number || group.bank_details?.accountNumber) && (
           <ShareableBankCard
             groupName={group.name}
-            accountNumber={group.account_number}
-            bankName={group.bank_name || 'Sterling Bank'}
-            accountName={group.account_name || group.name}
+            accountNumber={group.account_number || group.bank_details?.accountNumber}
+            bankName={group.bank_name || group.bank_details?.bankName || 'Sterling Bank'}
+            accountName={group.account_name || group.bank_details?.accountName || group.name}
           />
         )}
 

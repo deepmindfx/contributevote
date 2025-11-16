@@ -22,6 +22,7 @@ export type Database = {
           creator_id: string | null
           current_amount: number | null
           description: string | null
+          enable_voting_rights: boolean | null
           end_date: string | null
           frequency: string
           id: string
@@ -45,6 +46,7 @@ export type Database = {
           creator_id?: string | null
           current_amount?: number | null
           description?: string | null
+          enable_voting_rights?: boolean | null
           end_date?: string | null
           frequency: string
           id?: string
@@ -68,6 +70,7 @@ export type Database = {
           creator_id?: string | null
           current_amount?: number | null
           description?: string | null
+          enable_voting_rights?: boolean | null
           end_date?: string | null
           frequency?: string
           id?: string
