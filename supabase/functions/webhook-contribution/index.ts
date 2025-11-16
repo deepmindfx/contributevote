@@ -332,6 +332,119 @@ async function recordBankTransferContribution(supabase: any, groupId: string, am
   }
 }
 
+// Handle bank transfer to GROUP account (not user account)
+async function handleGroupAccountCredit(supabase: any, group: any, creditData: any) {
+  try {
+    console.log('💰 Processing GROUP account credit:', { groupId: group.id, groupName: group.name, amount: creditData.amount });
+
+    // Check if transaction already exists
+    const referenceId = creditData.payment_reference || creditData.transaction_reference || creditData.reference || `GROUP_BANK_${creditData.amount}_${Date.now()}`;
+    
+    const { data: existingTx, error: checkError } = await supabase
+      .from('transactions')
+      .select('id, reference_id, amount, created_at')
+      .eq('reference_id', referenceId)
+      .single();
+
+    if (checkError && checkError.code !== 'PGRST116') {
+      console.error('Error checking existing group transaction:', checkError);
+    }
+
+    if (existingTx) {
+      console.log('⚠️ Transaction already processed:', existingTx);
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: 'Already processed',
+        existingTransaction: existingTx
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Create transaction record for the GROUP (not user)
+    const { error: txError } = await supabase
+      .from('transactions')
+      .insert({
+        user_id: group.creator_id, // Link to group creator for tracking
+        contribution_id: group.id,
+        type: 'contribution',
+        amount: creditData.amount,
+        description: `Bank transfer to ${group.name} from ${creditData.sender_name || creditData.senderName || 'Bank'}`,
+        reference_id: referenceId,
+        payment_method: 'bank_transfer',
+        status: 'completed',
+        metadata: {
+          senderName: creditData.sender_name || creditData.senderName,
+          senderBank: creditData.sender_bank || creditData.bankName,
+          narration: creditData.narration,
+          paymentReference: creditData.payment_reference,
+          transactionReference: creditData.transaction_reference,
+          accountNumber: creditData.account_number || creditData.accountNumber,
+          isGroupContribution: true,
+          groupId: group.id,
+          groupName: group.name,
+          votingRightsGranted: false,
+          requiresVerification: true
+        }
+      });
+
+    if (txError) {
+      console.error('Error creating group transaction:', txError);
+      throw txError;
+    }
+
+    // Record bank transfer contribution (without voting rights)
+    await recordBankTransferContribution(supabase, group.id, creditData.amount, {
+      senderName: creditData.sender_name || creditData.senderName,
+      senderBank: creditData.sender_bank || creditData.bankName,
+      accountNumber: creditData.account_number || creditData.accountNumber
+    });
+
+    // Update GROUP wallet balance (not user wallet!)
+    const currentGroupAmount = group.current_amount || 0;
+    const newGroupAmount = currentGroupAmount + creditData.amount;
+    
+    const { error: groupBalanceError } = await supabase
+      .from('contribution_groups')
+      .update({ 
+        current_amount: newGroupAmount,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', group.id);
+
+    if (groupBalanceError) {
+      console.error('Error updating group balance:', groupBalanceError);
+      throw groupBalanceError;
+    }
+
+    console.log('✅ GROUP account credited successfully:', { 
+      groupId: group.id, 
+      groupName: group.name,
+      amount: creditData.amount,
+      newBalance: newGroupAmount
+    });
+
+    return new Response(JSON.stringify({
+      success: true,
+      message: `Bank transfer to group "${group.name}" recorded successfully`,
+      data: { 
+        groupId: group.id,
+        groupName: group.name,
+        amount: creditData.amount,
+        newGroupBalance: newGroupAmount,
+        votingRights: false,
+        requiresVerification: true
+      }
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+
+  } catch (error) {
+    console.error('Error handling group account credit:', error);
+    throw error;
+  }
+}
+
 // Handle virtual account credit (bank transfer)
 // This does NOT grant automatic voting rights
 async function handleVirtualAccountCredit(supabase: any, creditData: any) {
@@ -343,7 +456,22 @@ async function handleVirtualAccountCredit(supabase: any, creditData: any) {
       });
     }
 
-    // Find user with this virtual account
+    // FIRST: Check if this account belongs to a GROUP
+    const { data: groups } = await supabase
+      .from('contribution_groups')
+      .select('*');
+
+    const group = groups?.find((g: any) => {
+      const bankDetails = g.bank_details;
+      return bankDetails?.accountNumber === accountNumber || g.account_number === accountNumber;
+    });
+
+    // If it's a group account, handle it as a group contribution
+    if (group) {
+      return await handleGroupAccountCredit(supabase, group, creditData);
+    }
+
+    // SECOND: If not a group account, check if it's a user account
     const { data: users } = await supabase
       .from('profiles')
       .select('*');
@@ -354,7 +482,7 @@ async function handleVirtualAccountCredit(supabase: any, creditData: any) {
     });
 
     if (!user) {
-      return new Response(JSON.stringify({ success: true, message: 'User not found' }), {
+      return new Response(JSON.stringify({ success: true, message: 'Account not found' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }

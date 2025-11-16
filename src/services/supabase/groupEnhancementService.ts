@@ -26,11 +26,11 @@ export const CATEGORIES = [
 export type CategoryValue = typeof CATEGORIES[number]['value'];
 
 // Check if user can create group for free or needs to pay
-export async function checkGroupCreationEligibility(userId: string) {
+export async function checkGroupCreationEligibility(userId: string): Promise<any> {
   try {
-    const { data, error } = await supabase.rpc('check_group_creation_eligibility' as any, {
+    const { data, error } = await supabase.rpc('check_group_creation_eligibility', {
       p_user_id: userId,
-    });
+    } as any);
 
     if (error) throw error;
     return data;
@@ -51,9 +51,9 @@ export async function createGroupWithFee(
     frequency: string;
     privacy?: string;
   }
-) {
+): Promise<any> {
   try {
-    const { data, error } = await supabase.rpc('create_group_with_fee_check' as any, {
+    const { data, error } = await supabase.rpc('create_group_with_fee_check', {
       p_user_id: userId,
       p_name: groupData.name,
       p_description: groupData.description,
@@ -61,7 +61,7 @@ export async function createGroupWithFee(
       p_category: groupData.category,
       p_frequency: groupData.frequency,
       p_privacy: groupData.privacy || 'public',
-    });
+    } as any);
 
     if (error) throw error;
     return data;
@@ -72,12 +72,12 @@ export async function createGroupWithFee(
 }
 
 // Archive a group
-export async function archiveGroup(groupId: string, userId: string) {
+export async function archiveGroup(groupId: string, userId: string): Promise<any> {
   try {
-    const { data, error } = await supabase.rpc('archive_group' as any, {
+    const { data, error } = await supabase.rpc('archive_group', {
       p_group_id: groupId,
       p_user_id: userId,
-    });
+    } as any);
 
     if (error) throw error;
     return data;
@@ -88,12 +88,12 @@ export async function archiveGroup(groupId: string, userId: string) {
 }
 
 // Unarchive a group
-export async function unarchiveGroup(groupId: string, userId: string) {
+export async function unarchiveGroup(groupId: string, userId: string): Promise<any> {
   try {
-    const { data, error } = await supabase.rpc('unarchive_group' as any, {
+    const { data, error } = await supabase.rpc('unarchive_group', {
       p_group_id: groupId,
       p_user_id: userId,
-    });
+    } as any);
 
     if (error) throw error;
     return data;
@@ -113,39 +113,78 @@ export async function getGroupsSorted(
   } = {}
 ) {
   try {
-    let query = supabase
+    // Get groups where user is creator
+    let creatorQuery = supabase
       .from('contribution_groups')
       .select('*')
       .eq('creator_id', userId);
 
     // Filter archived
     if (!options.showArchived) {
-      query = query.eq('archived', false);
+      creatorQuery = creatorQuery.eq('archived', false);
     }
 
     // Filter by category
     if (options.category && options.category !== 'all') {
-      query = query.eq('category', options.category);
+      creatorQuery = creatorQuery.eq('category', options.category);
     }
 
-    // Sort
+    const { data: creatorGroups, error: creatorError } = await creatorQuery;
+    if (creatorError) throw creatorError;
+
+    // Get groups where user is a contributor (but not creator)
+    const { data: contributorData, error: contributorError } = await supabase
+      .from('contributors')
+      .select('group_id')
+      .eq('user_id', userId);
+
+    if (contributorError) throw contributorError;
+
+    const contributorGroupIds = contributorData?.map(c => c.group_id) || [];
+
+    // Fetch contributor groups
+    let contributorGroups: any[] = [];
+    if (contributorGroupIds.length > 0) {
+      let contributorGroupQuery = supabase
+        .from('contribution_groups')
+        .select('*')
+        .in('id', contributorGroupIds)
+        .neq('creator_id', userId); // Exclude groups where user is creator (already fetched)
+
+      // Filter archived
+      if (!options.showArchived) {
+        contributorGroupQuery = contributorGroupQuery.eq('archived', false);
+      }
+
+      // Filter by category
+      if (options.category && options.category !== 'all') {
+        contributorGroupQuery = contributorGroupQuery.eq('category', options.category);
+      }
+
+      const { data, error } = await contributorGroupQuery;
+      if (error) throw error;
+      contributorGroups = data || [];
+    }
+
+    // Combine both lists
+    const allGroups = [...(creatorGroups || []), ...contributorGroups];
+
+    // Sort the combined list
     switch (options.sortBy) {
       case 'date':
-        query = query.order('created_at', { ascending: false });
+        allGroups.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         break;
       case 'category':
-        query = query.order('category');
+        allGroups.sort((a, b) => (a.category || '').localeCompare(b.category || ''));
         break;
       case 'progress':
-        query = query.order('current_amount', { ascending: false });
+        allGroups.sort((a, b) => (b.current_amount || 0) - (a.current_amount || 0));
         break;
       default:
-        query = query.order('created_at', { ascending: false });
+        allGroups.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     }
 
-    const { data, error } = await query;
-    if (error) throw error;
-    return data;
+    return allGroups;
   } catch (error) {
     console.error('Error getting sorted groups:', error);
     throw error;
