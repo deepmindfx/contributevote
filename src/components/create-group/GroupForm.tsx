@@ -1,11 +1,21 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { createGroupVirtualAccount } from "@/services/flutterwave/virtualAccounts";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
-import { createGroupWithFee } from '@/services/supabase/groupEnhancementService';
+import { createGroupWithFee, checkGroupCreationEligibility } from '@/services/supabase/groupEnhancementService';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // Import Step Components
 import DetailsStep from "./DetailsStep";
@@ -19,6 +29,8 @@ type VisibilityType = "public" | "private" | "invite-only";
 const GroupForm = () => {
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
+  const [showFeeConfirmation, setShowFeeConfirmation] = useState(false);
+  const [eligibility, setEligibility] = useState<any>(null);
   const navigate = useNavigate();
   const { user } = useSupabaseUser();
   const { createNewContribution } = useSupabaseContribution();
@@ -47,6 +59,22 @@ const GroupForm = () => {
   const [validationErrors, setValidationErrors] = useState<{
     bvn?: string;
   }>({});
+
+  // Check eligibility on mount
+  useEffect(() => {
+    if (user?.id) {
+      checkEligibility();
+    }
+  }, [user]);
+
+  const checkEligibility = async () => {
+    try {
+      const result = await checkGroupCreationEligibility(user.id);
+      setEligibility(result);
+    } catch (error) {
+      console.error('Error checking eligibility:', error);
+    }
+  };
 
   const handleChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -117,41 +145,44 @@ const GroupForm = () => {
     if (!validateStep(step)) {
       return;
     }
-    
+
+    // Check if fee is required and show confirmation
+    if (eligibility && !eligibility.can_create_free) {
+      setShowFeeConfirmation(true);
+      return;
+    }
+
+    // Proceed with creation
+    await createGroup();
+  };
+
+  const createGroup = async () => {
     setIsLoading(true);
     
     try {
       // Use the new service that handles fee deduction
-      const result = await createGroupWithFee(user.id, {
+      await createGroupWithFee(user.id, {
         name: formData.name,
         description: formData.description,
         target_amount: Number(formData.targetAmount),
         category: formData.category,
         frequency: formData.frequency,
         privacy: formData.privacy,
-        contribution_amount: Number(formData.contributionAmount),
-        start_date: formData.startDate,
-        end_date: formData.endDate || undefined,
-        voting_threshold: formData.votingThreshold,
-        bvn: formData.bvn,
       });
       
-      if (result.success) {
-        toast.success(result.message);
-        
-        // Small delay to ensure data is synced
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Navigate to dashboard
-        navigate("/dashboard");
-      } else {
-        toast.error(result.error || "Failed to create group");
-      }
+      toast.success("Group created successfully!");
+      
+      // Small delay to ensure data is synced
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Navigate to dashboard
+      navigate("/dashboard");
     } catch (error) {
       console.error("Error creating group:", error);
       toast.error(`Failed to create group: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       setIsLoading(false);
+      setShowFeeConfirmation(false);
     }
   };
 
@@ -192,10 +223,48 @@ const GroupForm = () => {
   };
 
   return (
-    <Card className="shadow-none border-0 p-6">
-      <StepIndicator current={step} totalSteps={3} />
-      {renderStep()}
-    </Card>
+    <>
+      <Card className="shadow-none border-0 p-6">
+        <StepIndicator current={step} totalSteps={3} />
+        {renderStep()}
+      </Card>
+
+      {/* Fee Confirmation Dialog */}
+      <AlertDialog open={showFeeConfirmation} onOpenChange={setShowFeeConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Group Creation Fee</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                You've used all 3 free group creations. Creating this group will cost <strong className="text-orange-600">₦500</strong>.
+              </p>
+              <p className="text-sm">
+                This fee will be deducted from your wallet balance.
+              </p>
+              <div className="bg-muted p-3 rounded-md text-sm">
+                <p className="font-medium mb-1">What you get:</p>
+                <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                  <li>Dedicated bank account for the group</li>
+                  <li>Full admin controls</li>
+                  <li>Unlimited members</li>
+                  <li>Voting and governance features</li>
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={createGroup}
+              disabled={isLoading}
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              {isLoading ? "Creating..." : "Pay ₦500 & Create Group"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };
 
