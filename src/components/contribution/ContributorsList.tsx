@@ -21,6 +21,13 @@ export function ContributorsList({ groupId }: ContributorsListProps) {
 
   useEffect(() => {
     loadContributors();
+    
+    // Set up interval to refresh contributors every 10 seconds
+    const interval = setInterval(() => {
+      loadContributors();
+    }, 10000);
+    
+    return () => clearInterval(interval);
   }, [groupId]);
 
   const loadContributors = async () => {

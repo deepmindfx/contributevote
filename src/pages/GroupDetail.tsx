@@ -80,11 +80,21 @@ export default function GroupDetail() {
     // Refresh contribution data from context
     await refreshContributionData();
     
-    // Longer delay to ensure database transaction has fully committed
-    setTimeout(() => {
-      // Force page reload to get fresh data
-      window.location.reload();
-    }, 2000); // Increased from 500ms to 2000ms
+    // Refresh the group data to show updated balance
+    try {
+      const { supabase } = await import('@/integrations/supabase/client');
+      const { data, error } = await supabase
+        .from('contribution_groups')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (!error && data) {
+        setGroup(data);
+      }
+    } catch (error) {
+      console.error('Error refreshing group:', error);
+    }
   };
 
   const handleArchive = async () => {
