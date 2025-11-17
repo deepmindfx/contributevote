@@ -34,7 +34,7 @@ const ScheduleStep = ({ formData, handleChange, goToNextStep }: ScheduleStepProp
         <div className="space-y-2">
           <Label>Contribution Frequency</Label>
           <RadioGroup 
-            defaultValue={formData.frequency}
+            value={formData.frequency}
             onValueChange={(value) => handleChange('frequency', value)}
           >
             <div className="flex items-center space-x-2">

@@ -49,7 +49,7 @@ const SettingsStep = ({
         <div className="space-y-2">
           <Label>Privacy</Label>
           <RadioGroup 
-            defaultValue={formData.privacy}
+            value={formData.privacy}
             onValueChange={(value) => handleChange('privacy', value)}
           >
             <div className="flex items-center space-x-2">
