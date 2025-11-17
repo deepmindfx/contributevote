@@ -88,25 +88,8 @@ export const WalletContributionService = {
           description: `New balance: ₦${result.new_balance?.toLocaleString()}. You now have voting rights!`
         });
         
-        // Force a profile refresh to update wallet balance in UI
-        // The realtime subscription should handle this, but we force it to be sure
-        setTimeout(async () => {
-          try {
-            const { data: updatedProfile } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', userId)
-              .single();
-            
-            if (updatedProfile) {
-              // Trigger a storage event to update all tabs
-              localStorage.setItem('currentUser', JSON.stringify(updatedProfile));
-              window.dispatchEvent(new Event('storage'));
-            }
-          } catch (error) {
-            console.error('Error refreshing profile after contribution:', error);
-          }
-        }, 500);
+        // The realtime subscription will handle the balance update automatically
+        // DO NOT fetch profile here as it might get stale/cached data
       } else {
         toast.error(result.error || 'Contribution failed');
       }
