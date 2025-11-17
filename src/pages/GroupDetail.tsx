@@ -22,6 +22,7 @@ import { VotingRightsGuard } from '@/components/contribution/VotingRightsGuard';
 import { ShareableBankCard } from '@/components/contribution/ShareableBankCard';
 import { ShareGroupButton } from '@/components/contribution/ShareGroupButton';
 import { InviteMembersDialog } from '@/components/contribution/InviteMembersDialog';
+import { BvnInputDialog } from '@/components/contribution/BvnInputDialog';
 import { useVotingRights } from '@/hooks/useVotingRights';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -36,6 +37,7 @@ export default function GroupDetail() {
   const { canVote, isAdmin, loading: rightsLoading } = useVotingRights(id);
   const [isArchiving, setIsArchiving] = useState(false);
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
+  const [showBvnDialog, setShowBvnDialog] = useState(false);
 
   useEffect(() => {
     const fetchGroup = async () => {
@@ -116,27 +118,33 @@ export default function GroupDetail() {
     }
   };
 
-  const handleSetupBankAccount = async () => {
+  const handleSetupBankAccount = async (bvn: string) => {
     setIsCreatingAccount(true);
     try {
       const accountData = await createGroupVirtualAccount({
         email: user.email,
-        bvn: '', // BVN can be optional or collected separately
+        bvn: bvn,
         groupName: group.name,
         groupId: group.id,
       });
 
       console.log('Virtual account created:', accountData);
-      toast.success('Bank account created successfully! Refreshing...');
       
-      // Refresh the group data to show the new account
-      await refreshContributionData();
-      
-      // Small delay to ensure data is synced
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Reload the page to show the bank card
-      window.location.reload();
+      if (accountData.success) {
+        toast.success('Bank account created successfully! Refreshing...');
+        setShowBvnDialog(false);
+        
+        // Refresh the group data to show the new account
+        await refreshContributionData();
+        
+        // Small delay to ensure data is synced
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Reload the page to show the bank card
+        window.location.reload();
+      } else {
+        toast.error(accountData.message || 'Failed to create bank account');
+      }
     } catch (error) {
       console.error('Error creating virtual account:', error);
       toast.error('Failed to create bank account. Please try again.');
@@ -412,7 +420,7 @@ export default function GroupDetail() {
               </div>
               {group.creator_id === user?.id && (
                 <Button 
-                  onClick={handleSetupBankAccount}
+                  onClick={() => setShowBvnDialog(true)}
                   disabled={isCreatingAccount}
                   className="mt-2"
                 >
@@ -456,6 +464,14 @@ export default function GroupDetail() {
           <GroupAdminPanel groupId={id!} isAdmin={isAdmin} />
         )}
       </div>
+
+      {/* BVN Input Dialog */}
+      <BvnInputDialog
+        open={showBvnDialog}
+        onOpenChange={setShowBvnDialog}
+        onSubmit={handleSetupBankAccount}
+        isLoading={isCreatingAccount}
+      />
     </div>
   );
 }
