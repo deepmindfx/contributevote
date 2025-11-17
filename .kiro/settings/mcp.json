@@ -23,7 +23,8 @@
         "get_logs",
         "search_docs",
         "get_advisors",
-        "get_advisors"
+        "get_advisors",
+        "list_migrations"
       ]
     }
   }
