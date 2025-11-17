@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import html2canvas from 'html2canvas';
 
 interface ContributionData {
   id: string;
@@ -21,12 +22,12 @@ interface ReceiptData {
 }
 
 export class PDFGenerator {
-  private static readonly BRAND_COLOR = '#F97316'; // Orange
-  private static readonly SECONDARY_COLOR = '#1F2937'; // Dark gray
-  private static readonly LIGHT_GRAY = '#F3F4F6';
+  private static readonly BRAND_COLOR = '#10B981'; // Green
+  private static readonly SECONDARY_COLOR = '#1E293B'; // Slate
+  private static readonly LIGHT_GRAY = '#F1F5F9';
 
   /**
-   * Generate a single contribution receipt
+   * Generate a single contribution receipt with modern design
    */
   static generateSingleReceipt(
     contribution: ContributionData,
@@ -35,98 +36,125 @@ export class PDFGenerator {
   ): void {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
 
-    // Add branding header
-    this.addHeader(doc, pageWidth);
+    // Background
+    doc.setFillColor(241, 245, 249); // slate-100
+    doc.rect(0, 0, pageWidth, pageHeight, 'F');
 
-    // Receipt title
-    doc.setFontSize(20);
-    doc.setTextColor(this.SECONDARY_COLOR);
-    doc.text('CONTRIBUTION RECEIPT', pageWidth / 2, 50, { align: 'center' });
+    // White card background
+    const cardMargin = 15;
+    const cardWidth = pageWidth - (cardMargin * 2);
+    doc.setFillColor(255, 255, 255);
+    doc.roundedRect(cardMargin, 20, cardWidth, pageHeight - 40, 3, 3, 'F');
 
-    // Receipt number
+    // Success icon (green circle with checkmark)
+    doc.setFillColor(74, 222, 128); // green-400
+    doc.circle(pageWidth / 2, 40, 8, 'F');
+    doc.setDrawColor(255, 255, 255);
+    doc.setLineWidth(2);
+    // Checkmark
+    doc.line(pageWidth / 2 - 3, 40, pageWidth / 2 - 1, 42);
+    doc.line(pageWidth / 2 - 1, 42, pageWidth / 2 + 3, 38);
+
+    // Success text
+    doc.setFontSize(18);
+    doc.setTextColor(30, 41, 59); // slate-800
+    doc.setFont('helvetica', 'bold');
+    doc.text('Payment Success!', pageWidth / 2, 58, { align: 'center' });
+
     doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text(`Receipt #: ${contribution.reference_id.substring(0, 20)}`, pageWidth / 2, 58, {
-      align: 'center',
-    });
+    doc.setTextColor(100, 116, 139); // slate-500
+    doc.setFont('helvetica', 'normal');
+    doc.text('Your payment has been successfully done.', pageWidth / 2, 65, { align: 'center' });
 
-    // Divider line
-    doc.setDrawColor(this.BRAND_COLOR);
+    // Divider
+    doc.setDrawColor(226, 232, 240); // slate-200
     doc.setLineWidth(0.5);
-    doc.line(20, 65, pageWidth - 20, 65);
+    doc.line(cardMargin + 10, 72, pageWidth - cardMargin - 10, 72);
 
-    // Contributor and Group Info
-    let yPos = 75;
-    doc.setFontSize(11);
-    doc.setTextColor(this.SECONDARY_COLOR);
+    // Total Payment label
+    doc.setFontSize(10);
+    doc.setTextColor(100, 116, 139);
+    doc.text('Total Payment', pageWidth / 2, 82, { align: 'center' });
 
+    // Amount
+    doc.setFontSize(32);
+    doc.setTextColor(30, 41, 59);
     doc.setFont('helvetica', 'bold');
-    doc.text('Contributor:', 20, yPos);
-    doc.setFont('helvetica', 'normal');
-    doc.text(contributorName, 60, yPos);
+    doc.text(`₦${contribution.amount.toLocaleString()}`, pageWidth / 2, 95, { align: 'center' });
 
-    yPos += 8;
+    // Details grid
+    let yPos = 108;
+    const boxWidth = (cardWidth - 30) / 2;
+    const boxHeight = 18;
+    const gap = 5;
+
+    // Helper function to draw detail box
+    const drawDetailBox = (x: number, y: number, label: string, value: string) => {
+      doc.setFillColor(241, 245, 249); // slate-100
+      doc.roundedRect(x, y, boxWidth, boxHeight, 2, 2, 'F');
+      
+      doc.setFontSize(8);
+      doc.setTextColor(100, 116, 139);
+      doc.setFont('helvetica', 'normal');
+      doc.text(label, x + boxWidth / 2, y + 6, { align: 'center' });
+      
+      doc.setFontSize(9);
+      doc.setTextColor(30, 41, 59);
+      doc.setFont('helvetica', 'bold');
+      const truncatedValue = value.length > 20 ? value.substring(0, 20) + '...' : value;
+      doc.text(truncatedValue, x + boxWidth / 2, y + 13, { align: 'center' });
+    };
+
+    // Row 1
+    drawDetailBox(cardMargin + 10, yPos, 'Ref Number', contribution.reference_id.substring(0, 16));
+    drawDetailBox(cardMargin + 10 + boxWidth + gap, yPos, 'Payment Time', 
+      `${this.formatDate(contribution.created_at)}, ${this.formatTime(contribution.created_at)}`);
+
+    // Row 2
+    yPos += boxHeight + gap;
+    drawDetailBox(cardMargin + 10, yPos, 'Payment Method', this.capitalizeFirst(contribution.payment_method));
+    drawDetailBox(cardMargin + 10 + boxWidth + gap, yPos, 'Sender Name', contributorName);
+
+    // Group name box (full width)
+    yPos += boxHeight + gap;
+    doc.setFillColor(241, 245, 249);
+    doc.roundedRect(cardMargin + 10, yPos, cardWidth - 20, boxHeight, 2, 2, 'F');
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.text('Group', pageWidth / 2, yPos + 6, { align: 'center' });
+    doc.setFontSize(10);
+    doc.setTextColor(30, 41, 59);
     doc.setFont('helvetica', 'bold');
-    doc.text('Group:', 20, yPos);
-    doc.setFont('helvetica', 'normal');
-    doc.text(groupName, 60, yPos);
+    doc.text(groupName, pageWidth / 2, yPos + 13, { align: 'center' });
 
-    yPos += 8;
-    doc.setFont('helvetica', 'bold');
-    doc.text('Date:', 20, yPos);
-    doc.setFont('helvetica', 'normal');
-    doc.text(this.formatDate(contribution.created_at), 60, yPos);
-
-    yPos += 8;
-    doc.setFont('helvetica', 'bold');
-    doc.text('Time:', 20, yPos);
-    doc.setFont('helvetica', 'normal');
-    doc.text(this.formatTime(contribution.created_at), 60, yPos);
-
-    yPos += 8;
-    doc.setFont('helvetica', 'bold');
-    doc.text('Payment Method:', 20, yPos);
-    doc.setFont('helvetica', 'normal');
-    doc.text(this.capitalizeFirst(contribution.payment_method), 60, yPos);
-
-    yPos += 8;
-    doc.setFont('helvetica', 'bold');
-    doc.text('Status:', 20, yPos);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(contribution.status === 'completed' ? '#16A34A' : '#EAB308');
-    doc.text(this.capitalizeFirst(contribution.status), 60, yPos);
-
-    // Amount box
-    yPos += 20;
-    doc.setFillColor(this.LIGHT_GRAY);
-    doc.rect(20, yPos, pageWidth - 40, 25, 'F');
-
-    doc.setFontSize(14);
-    doc.setTextColor(this.SECONDARY_COLOR);
-    doc.setFont('helvetica', 'bold');
-    doc.text('AMOUNT PAID', pageWidth / 2, yPos + 10, { align: 'center' });
-
-    doc.setFontSize(24);
-    doc.setTextColor(this.BRAND_COLOR);
-    doc.text(`₦${contribution.amount.toLocaleString()}`, pageWidth / 2, yPos + 20, {
-      align: 'center',
-    });
-
-    // Description
+    // Description if available
     if (contribution.description) {
-      yPos += 35;
-      doc.setFontSize(10);
-      doc.setTextColor(100);
-      doc.setFont('helvetica', 'italic');
-      doc.text(`Note: ${contribution.description}`, 20, yPos);
+      yPos += boxHeight + gap;
+      doc.setFillColor(241, 245, 249);
+      doc.roundedRect(cardMargin + 10, yPos, cardWidth - 20, 20, 2, 2, 'F');
+      doc.setFontSize(8);
+      doc.setTextColor(100, 116, 139);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Description', cardMargin + 15, yPos + 6);
+      doc.setFontSize(8);
+      doc.setTextColor(30, 41, 59);
+      const wrappedText = doc.splitTextToSize(contribution.description, cardWidth - 30);
+      doc.text(wrappedText, cardMargin + 15, yPos + 12);
     }
 
-    // Footer
-    this.addFooter(doc, pageWidth);
+    // Footer branding
+    yPos = pageHeight - 25;
+    doc.setFontSize(8);
+    doc.setTextColor(148, 163, 184); // slate-400
+    doc.setFont('helvetica', 'italic');
+    doc.text('Powered by Collectipay', pageWidth / 2, yPos, { align: 'center' });
+    doc.setFontSize(7);
+    doc.text(`Generated on ${new Date().toLocaleString()}`, pageWidth / 2, yPos + 5, { align: 'center' });
 
     // Save PDF
-    const fileName = `CollectiPay_Receipt_${contribution.reference_id.substring(0, 12)}.pdf`;
+    const fileName = `Collectipay_Receipt_${contribution.reference_id.substring(0, 12)}.pdf`;
     doc.save(fileName);
   }
 

@@ -381,7 +381,10 @@ export default function GroupDetail() {
               </div>
               {group.creator_id === user?.id && (
                 <Button 
-                  onClick={() => navigate('/wallet')}
+                  onClick={() => {
+                    // TODO: Implement group virtual account creation
+                    toast.info('Group virtual account creation coming soon! For now, use card/wallet contributions.');
+                  }}
                   className="mt-2"
                 >
                   <Building2 className="h-4 w-4 mr-2" />
