@@ -241,9 +241,20 @@ async function handleSuccessfulPayment(supabase: any, paymentData: any) {
       throw txError;
     }
 
-    // If this is a contribution, add contributor with voting rights
+    // If this is a contribution, add contributor
     if (isContribution) {
-      await addContributorWithVotingRights(supabase, groupId, user.id, paymentData.amount);
+      // Bank transfers don't get automatic voting rights - only card/online payments do
+      if (paymentData.payment_type === 'bank_transfer') {
+        // Record as anonymous bank transfer without voting rights
+        await recordBankTransferContribution(supabase, groupId, paymentData.amount, {
+          senderName: paymentData.meta_data?.originatorname || 'Anonymous',
+          senderBank: paymentData.meta_data?.bankname || 'Bank',
+          accountNumber: paymentData.meta_data?.originatoraccountnumber || 'Unknown'
+        });
+      } else {
+        // Card/online payments get automatic voting rights
+        await addContributorWithVotingRights(supabase, groupId, user.id, paymentData.amount);
+      }
     }
 
     // Update user wallet balance (for non-contribution payments)
