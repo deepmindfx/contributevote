@@ -214,6 +214,7 @@ export function ContributionHistoryDialog({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
@@ -341,55 +342,46 @@ export function ContributionHistoryDialog({
         </div>
       </DialogContent>
 
-      {/* Modern Receipt Modal */}
-      {showReceiptModal && selectedReceipt && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-center justify-center p-4"
-          onClick={() => setShowReceiptModal(false)}
-        >
-          <div
-            className="relative bg-slate-100 rounded-2xl shadow-lg w-full max-w-md p-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={() => setShowReceiptModal(false)}
-              className="absolute top-4 right-4 z-10 text-slate-400 hover:text-slate-800 transition-colors bg-white rounded-full p-2"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <ModernReceipt
-              ref={receiptRef}
-              data={selectedReceipt}
-              onDownload={() => {
-                // Show download options
-              }}
-            />
-
-            <div className="mt-4 flex flex-col gap-3 px-4">
-              <h3 className="text-lg font-bold text-center text-slate-800">Download Receipt</h3>
-              <p className="text-sm text-slate-500 text-center mb-2">
-                Choose your preferred format
-              </p>
-              <Button
-                onClick={handleDownloadPDF}
-                disabled={isGenerating}
-                className="w-full"
-              >
-                {isGenerating ? 'Generating...' : 'Download as PDF'}
-              </Button>
-              <Button
-                onClick={handleDownloadImage}
-                disabled={isGenerating}
-                variant="outline"
-                className="w-full"
-              >
-                {isGenerating ? 'Generating...' : 'Download as Image (PNG)'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </Dialog>
+
+      {/* Modern Receipt Modal - Outside main Dialog to prevent conflicts */}
+      {showReceiptModal && selectedReceipt && (
+        <Dialog open={showReceiptModal} onOpenChange={setShowReceiptModal}>
+          <DialogContent className="max-w-md p-0 bg-slate-100">
+            <div className="relative">
+              <ModernReceipt
+                ref={receiptRef}
+                data={selectedReceipt}
+                onDownload={() => {
+                  // Show download options
+                }}
+              />
+
+              <div className="p-4 flex flex-col gap-3">
+                <h3 className="text-lg font-bold text-center text-slate-800">Download Receipt</h3>
+                <p className="text-sm text-slate-500 text-center mb-2">
+                  Choose your preferred format
+                </p>
+                <Button
+                  onClick={handleDownloadPDF}
+                  disabled={isGenerating}
+                  className="w-full"
+                >
+                  {isGenerating ? 'Generating...' : 'Download as PDF'}
+                </Button>
+                <Button
+                  onClick={handleDownloadImage}
+                  disabled={isGenerating}
+                  variant="outline"
+                  className="w-full"
+                >
+                  {isGenerating ? 'Generating...' : 'Download as Image (PNG)'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
   );
 }
