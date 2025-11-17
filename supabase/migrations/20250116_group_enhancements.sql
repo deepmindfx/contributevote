@@ -164,9 +164,9 @@ BEGIN
       reference_id
     ) VALUES (
       p_user_id,
-      'payment',
+      'withdrawal',
       v_creation_fee,
-      'Group creation fee',
+      'Group creation fee for: ' || p_name,
       'completed',
       'wallet',
       'GROUP_FEE_' || p_user_id || '_' || EXTRACT(EPOCH FROM NOW())::TEXT

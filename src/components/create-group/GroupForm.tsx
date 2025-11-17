@@ -175,23 +175,31 @@ const GroupForm = () => {
       // Get the created group ID
       const groupId = result?.group_id || result?.id;
       
-      if (groupId) {
-        // Create virtual account for the group
+      if (groupId && formData.bvn && formData.bvn.length === 11) {
+        // Create virtual account for the group only if BVN is provided
         try {
           const accountData = await createGroupVirtualAccount({
             email: user.email,
-            bvn: formData.bvn || '',
+            bvn: formData.bvn,
             groupName: formData.name,
             groupId: groupId,
           });
 
           console.log('Virtual account created:', accountData);
-          toast.success("Group created with bank account!");
+          
+          if (accountData.success) {
+            toast.success("Group created with bank account!");
+          } else {
+            toast.warning("Group created, but bank account setup failed. You can set it up later from the group page.");
+          }
         } catch (accountError) {
           console.error('Error creating virtual account:', accountError);
           // Don't fail the whole process if virtual account creation fails
-          toast.warning("Group created, but bank account setup failed. You can set it up later.");
+          toast.warning("Group created, but bank account setup failed. You can set it up later from the group page.");
         }
+      } else {
+        // Group created without bank account
+        toast.success("Group created successfully! You can set up a bank account later from the group page.");
       }
       
       // Small delay to ensure data is synced
@@ -255,23 +263,33 @@ const GroupForm = () => {
       <AlertDialog open={showFeeConfirmation} onOpenChange={setShowFeeConfirmation}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Group Creation Fee</AlertDialogTitle>
-            <AlertDialogDescription className="space-y-3">
-              <p>
-                You've used all 3 free group creations. Creating this group will cost <strong className="text-orange-600">₦500</strong>.
-              </p>
-              <p className="text-sm">
-                This fee will be deducted from your wallet balance.
-              </p>
-              <div className="bg-muted p-3 rounded-md text-sm">
-                <p className="font-medium mb-1">What you get:</p>
-                <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+            <AlertDialogTitle className="flex items-center gap-2">
+              <span className="text-2xl">⚠️</span>
+              Confirm Group Creation Fee
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-4">
+              <div className="bg-yellow-50 dark:bg-yellow-950/30 border-2 border-yellow-200 dark:border-yellow-900 rounded-lg p-4">
+                <p className="text-yellow-900 dark:text-yellow-200 font-semibold mb-2">
+                  ⚠️ Payment Required
+                </p>
+                <p className="text-yellow-800 dark:text-yellow-300 text-sm">
+                  You've used all 3 free group creations. A fee of <strong className="text-orange-600 text-lg">₦500</strong> will be <strong>deducted from your wallet balance</strong> to create this group.
+                </p>
+              </div>
+
+              <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 rounded-lg p-3">
+                <p className="font-medium mb-2 text-blue-900 dark:text-blue-200">What you get:</p>
+                <ul className="list-disc list-inside space-y-1 text-sm text-blue-800 dark:text-blue-300">
                   <li>Dedicated bank account for the group</li>
                   <li>Full admin controls</li>
                   <li>Unlimited members</li>
                   <li>Voting and governance features</li>
                 </ul>
               </div>
+
+              <p className="text-sm text-muted-foreground">
+                By clicking "Confirm & Pay ₦500", you authorize this deduction from your wallet.
+              </p>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -281,7 +299,7 @@ const GroupForm = () => {
               disabled={isLoading}
               className="bg-orange-600 hover:bg-orange-700"
             >
-              {isLoading ? "Creating..." : "Pay ₦500 & Create Group"}
+              {isLoading ? "Processing..." : "Confirm & Pay ₦500"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
