@@ -49,7 +49,13 @@ const GroupForm = () => {
     const savedData = localStorage.getItem(FORM_STORAGE_KEY);
     if (savedData) {
       try {
-        return JSON.parse(savedData);
+        const parsed = JSON.parse(savedData);
+        // Ensure defaults are set for new fields
+        return {
+          ...parsed,
+          frequency: parsed.frequency || 'daily',
+          privacy: parsed.privacy || 'public',
+        };
       } catch (error) {
         console.error('Error parsing saved form data:', error);
       }
