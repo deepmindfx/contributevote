@@ -59,7 +59,7 @@ const GroupForm = () => {
       description: '',
       targetAmount: 0,
       category: 'personal',
-      frequency: 'monthly' as 'daily' | 'weekly' | 'monthly' | 'one-time',
+      frequency: 'daily' as 'daily' | 'weekly' | 'monthly' | 'one-time',
       contributionAmount: 0,
       startDate: '',
       endDate: '',
