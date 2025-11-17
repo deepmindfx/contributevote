@@ -10,6 +10,7 @@ import {
   archiveGroup,
   unarchiveGroup 
 } from '@/services/supabase/groupEnhancementService';
+import { createGroupVirtualAccount } from '@/services/flutterwave/virtualAccounts';
 import { ContributeButton } from '@/components/contribution/ContributeButton';
 import { RecurringContributionDialog } from '@/components/contribution/RecurringContributionDialog';
 import { ScheduledContributionDialog } from '@/components/contribution/ScheduledContributionDialog';
@@ -34,6 +35,7 @@ export default function GroupDetail() {
   const { contributions, loading, refreshContributionData } = useSupabaseContribution();
   const { canVote, isAdmin, loading: rightsLoading } = useVotingRights(id);
   const [isArchiving, setIsArchiving] = useState(false);
+  const [isCreatingAccount, setIsCreatingAccount] = useState(false);
 
   useEffect(() => {
     const fetchGroup = async () => {
@@ -111,6 +113,35 @@ export default function GroupDetail() {
       toast.error(error instanceof Error ? error.message : 'Failed to archive group');
     } finally {
       setIsArchiving(false);
+    }
+  };
+
+  const handleSetupBankAccount = async () => {
+    setIsCreatingAccount(true);
+    try {
+      const accountData = await createGroupVirtualAccount({
+        email: user.email,
+        bvn: '', // BVN can be optional or collected separately
+        groupName: group.name,
+        groupId: group.id,
+      });
+
+      console.log('Virtual account created:', accountData);
+      toast.success('Bank account created successfully! Refreshing...');
+      
+      // Refresh the group data to show the new account
+      await refreshContributionData();
+      
+      // Small delay to ensure data is synced
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Reload the page to show the bank card
+      window.location.reload();
+    } catch (error) {
+      console.error('Error creating virtual account:', error);
+      toast.error('Failed to create bank account. Please try again.');
+    } finally {
+      setIsCreatingAccount(false);
     }
   };
 
@@ -381,14 +412,12 @@ export default function GroupDetail() {
               </div>
               {group.creator_id === user?.id && (
                 <Button 
-                  onClick={() => {
-                    // TODO: Implement group virtual account creation
-                    toast.info('Group virtual account creation coming soon! For now, use card/wallet contributions.');
-                  }}
+                  onClick={handleSetupBankAccount}
+                  disabled={isCreatingAccount}
                   className="mt-2"
                 >
                   <Building2 className="h-4 w-4 mr-2" />
-                  Set Up Bank Account
+                  {isCreatingAccount ? 'Setting up...' : 'Set Up Bank Account'}
                 </Button>
               )}
             </div>
