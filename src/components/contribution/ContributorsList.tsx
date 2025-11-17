@@ -18,6 +18,7 @@ export function ContributorsList({ groupId }: ContributorsListProps) {
   const [totalAmount, setTotalAmount] = useState(0);
   const [selectedContributor, setSelectedContributor] = useState<any>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [groupName, setGroupName] = useState('Group');
 
   useEffect(() => {
     loadContributors();
@@ -41,6 +42,18 @@ export function ContributorsList({ groupId }: ContributorsListProps) {
         sum + (c.total_contributed || 0), 0
       );
       setTotalAmount(total);
+      
+      // Fetch group name
+      const { supabase } = await import('@/integrations/supabase/client');
+      const { data: groupData } = await supabase
+        .from('contribution_groups')
+        .select('name')
+        .eq('id', groupId)
+        .single();
+      
+      if (groupData) {
+        setGroupName(groupData.name);
+      }
     } catch (error) {
       console.error('Error loading contributors:', error);
     } finally {
@@ -166,6 +179,7 @@ export function ContributorsList({ groupId }: ContributorsListProps) {
               : selectedContributor.profiles?.name || 'Unknown'
           }
           groupId={groupId}
+          groupName={groupName}
         />
       )}
     </Card>

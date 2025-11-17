@@ -8,8 +8,11 @@ import {
 } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Calendar, CreditCard, CheckCircle, Clock } from 'lucide-react';
+import { Calendar, CreditCard, CheckCircle, Clock, Download, FileText } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { PDFGenerator } from '@/utils/pdfGenerator';
+import { toast } from 'sonner';
 
 interface ContributionHistoryDialogProps {
   open: boolean;
@@ -17,6 +20,7 @@ interface ContributionHistoryDialogProps {
   contributorId: string;
   contributorName: string;
   groupId: string;
+  groupName?: string;
 }
 
 export function ContributionHistoryDialog({
@@ -25,9 +29,11 @@ export function ContributionHistoryDialog({
   contributorId,
   contributorName,
   groupId,
+  groupName = 'Group',
 }: ContributionHistoryDialogProps) {
   const [contributions, setContributions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
     if (open && contributorId) {
@@ -105,14 +111,64 @@ export function ContributionHistoryDialog({
     );
   };
 
+  const handleDownloadSingleReceipt = (contribution: any) => {
+    try {
+      setIsGenerating(true);
+      PDFGenerator.generateSingleReceipt(contribution, contributorName, groupName);
+      toast.success('Receipt downloaded successfully!');
+    } catch (error) {
+      console.error('Error generating receipt:', error);
+      toast.error('Failed to generate receipt');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleDownloadFullReport = () => {
+    try {
+      setIsGenerating(true);
+      const totalAmount = contributions.reduce((sum, c) => sum + c.amount, 0);
+      PDFGenerator.generateFullReport({
+        contributorName,
+        groupName,
+        groupId,
+        contributions,
+        totalAmount,
+        contributionCount: contributions.length,
+      });
+      toast.success('Full report downloaded successfully!');
+    } catch (error) {
+      console.error('Error generating report:', error);
+      toast.error('Failed to generate report');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Contribution History</DialogTitle>
-          <DialogDescription>
-            All contributions by {contributorName}
-          </DialogDescription>
+          <div className="flex items-start justify-between">
+            <div>
+              <DialogTitle>Contribution History</DialogTitle>
+              <DialogDescription>
+                All contributions by {contributorName}
+              </DialogDescription>
+            </div>
+            {!loading && contributions.length > 0 && (
+              <Button
+                onClick={handleDownloadFullReport}
+                disabled={isGenerating}
+                size="sm"
+                variant="outline"
+                className="ml-4"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download Report
+              </Button>
+            )}
+          </div>
         </DialogHeader>
 
         <div className="space-y-4 mt-4">
@@ -132,9 +188,9 @@ export function ContributionHistoryDialog({
                 key={contribution.id}
                 className="p-4 rounded-lg border bg-card space-y-3"
               >
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-1 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <CreditCard className="h-4 w-4 text-muted-foreground" />
                       <span className="font-medium">
                         ₦{contribution.amount.toLocaleString()}
@@ -146,15 +202,27 @@ export function ContributionHistoryDialog({
                     </p>
                   </div>
                   
-                  <div className="text-right text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
-                      {formatDate(contribution.created_at)}
+                  <div className="flex flex-col items-end gap-2">
+                    <div className="text-right text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        {formatDate(contribution.created_at)}
+                      </div>
+                      <div className="flex items-center gap-1 mt-1">
+                        <Clock className="h-3 w-3" />
+                        {formatTime(contribution.created_at)}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1 mt-1">
-                      <Clock className="h-3 w-3" />
-                      {formatTime(contribution.created_at)}
-                    </div>
+                    <Button
+                      onClick={() => handleDownloadSingleReceipt(contribution)}
+                      disabled={isGenerating}
+                      size="sm"
+                      variant="ghost"
+                      className="h-8"
+                    >
+                      <FileText className="h-3 w-3 mr-1" />
+                      Receipt
+                    </Button>
                   </div>
                 </div>
 
