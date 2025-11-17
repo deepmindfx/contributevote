@@ -26,6 +26,7 @@ interface SettingsStepProps {
   };
   handleChange: (field: string, value: any) => void;
   handleCreateGroup: () => void;
+  goToPreviousStep: () => void;
   isLoading: boolean;
   validationErrors: {
     bvn?: string;
@@ -35,7 +36,8 @@ interface SettingsStepProps {
 const SettingsStep = ({ 
   formData, 
   handleChange, 
-  handleCreateGroup, 
+  handleCreateGroup,
+  goToPreviousStep,
   isLoading, 
   validationErrors 
 }: SettingsStepProps) => {
@@ -200,10 +202,18 @@ const SettingsStep = ({
           </div>
         </div>
       </CardContent>
-      <CardFooter>
+      <CardFooter className="flex gap-3">
+        <Button 
+          onClick={goToPreviousStep} 
+          variant="outline" 
+          className="flex-1"
+          disabled={isLoading}
+        >
+          Previous
+        </Button>
         <Button 
           onClick={handleCreateGroup} 
-          className="w-full"
+          className="flex-1"
           disabled={isLoading}
         >
           {isLoading ? (
