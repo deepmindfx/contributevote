@@ -66,6 +66,8 @@ export const WalletContributionService = {
     anonymous: boolean = false
   ): Promise<WalletContributionResult> {
     try {
+      console.log('🔵 Contributing from wallet:', { userId, groupId, amount, anonymous });
+      
       const { data, error } = await supabase.rpc('contribute_from_wallet', {
         p_user_id: userId,
         p_group_id: groupId,
@@ -73,14 +75,38 @@ export const WalletContributionService = {
         p_anonymous: anonymous
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Contribution error:', error);
+        throw error;
+      }
 
       const result = data as WalletContributionResult;
+      console.log('✅ Contribution result:', result);
 
       if (result.success) {
         toast.success('Contribution successful!', {
-          description: 'You now have voting rights in this group.'
+          description: `New balance: ₦${result.new_balance?.toLocaleString()}. You now have voting rights!`
         });
+        
+        // Force a profile refresh to update wallet balance in UI
+        // The realtime subscription should handle this, but we force it to be sure
+        setTimeout(async () => {
+          try {
+            const { data: updatedProfile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', userId)
+              .single();
+            
+            if (updatedProfile) {
+              // Trigger a storage event to update all tabs
+              localStorage.setItem('currentUser', JSON.stringify(updatedProfile));
+              window.dispatchEvent(new Event('storage'));
+            }
+          } catch (error) {
+            console.error('Error refreshing profile after contribution:', error);
+          }
+        }, 500);
       } else {
         toast.error(result.error || 'Contribution failed');
       }
