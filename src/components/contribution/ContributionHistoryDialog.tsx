@@ -52,12 +52,13 @@ export function ContributionHistoryDialog({
       }
 
       // Get all transactions for this user in this group
+      // Include both 'contribution' (wallet) and 'deposit' (card/bank) types
       const { data, error } = await supabase
         .from('transactions')
         .select('*')
         .eq('user_id', contributor.user_id)
         .eq('contribution_id', groupId)
-        .eq('type', 'deposit')
+        .in('type', ['contribution', 'deposit'])
         .order('created_at', { ascending: false });
 
       if (error) throw error;
