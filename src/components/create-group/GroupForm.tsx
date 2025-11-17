@@ -162,7 +162,7 @@ const GroupForm = () => {
     
     try {
       // Use the new service that handles fee deduction
-      await createGroupWithFee(user.id, {
+      const result = await createGroupWithFee(user.id, {
         name: formData.name,
         description: formData.description,
         target_amount: Number(formData.targetAmount),
@@ -172,7 +172,27 @@ const GroupForm = () => {
         enable_voting_rights: formData.enableVotingRights,
       });
       
-      toast.success("Group created successfully!");
+      // Get the created group ID
+      const groupId = result?.group_id || result?.id;
+      
+      if (groupId) {
+        // Create virtual account for the group
+        try {
+          const accountData = await createGroupVirtualAccount({
+            email: user.email,
+            bvn: formData.bvn || '',
+            groupName: formData.name,
+            groupId: groupId,
+          });
+
+          console.log('Virtual account created:', accountData);
+          toast.success("Group created with bank account!");
+        } catch (accountError) {
+          console.error('Error creating virtual account:', accountError);
+          // Don't fail the whole process if virtual account creation fails
+          toast.warning("Group created, but bank account setup failed. You can set it up later.");
+        }
+      }
       
       // Small delay to ensure data is synced
       await new Promise(resolve => setTimeout(resolve, 500));
