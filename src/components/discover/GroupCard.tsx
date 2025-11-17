@@ -1,10 +1,12 @@
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Users, Calendar, Target, ArrowRight } from 'lucide-react';
+import { Users, Calendar, Target, ArrowRight, CheckCircle } from 'lucide-react';
 import { getCategoryIcon, getCategoryLabel } from '@/services/supabase/groupEnhancementService';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 
 interface GroupCardProps {
   group: any;
@@ -12,6 +14,8 @@ interface GroupCardProps {
 
 export default function GroupCard({ group }: GroupCardProps) {
   const navigate = useNavigate();
+  const [isMember, setIsMember] = useState(false);
+  const [loading, setLoading] = useState(true);
   
   const progress = group.target_amount > 0 
     ? Math.min(100, (group.current_amount / group.target_amount) * 100)
@@ -20,8 +24,50 @@ export default function GroupCard({ group }: GroupCardProps) {
   const contributorCount = group.contributors?.length || 0;
   const remaining = Math.max(0, group.target_amount - (group.current_amount || 0));
 
+  useEffect(() => {
+    checkMembership();
+  }, [group.id]);
+
+  const checkMembership = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setIsMember(false);
+        setLoading(false);
+        return;
+      }
+
+      // Check if user is a contributor or creator
+      const isCreator = group.creator_id === user.id;
+      
+      if (isCreator) {
+        setIsMember(true);
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('contributors')
+        .select('id')
+        .eq('group_id', group.id)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      setIsMember(!!data);
+    } catch (error) {
+      console.error('Error checking membership:', error);
+      setIsMember(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleJoinClick = () => {
-    navigate(`/join/${group.id}`);
+    if (isMember) {
+      navigate(`/groups/${group.id}`);
+    } else {
+      navigate(`/join/${group.id}`);
+    }
   };
 
   const handleViewClick = () => {
@@ -112,13 +158,30 @@ export default function GroupCard({ group }: GroupCardProps) {
         >
           View Details
         </Button>
-        <Button 
-          className="flex-1 bg-green-600 hover:bg-green-700"
-          onClick={handleJoinClick}
-        >
-          Join Group
-          <ArrowRight className="ml-2 h-4 w-4" />
-        </Button>
+        {loading ? (
+          <Button 
+            className="flex-1"
+            disabled
+          >
+            Loading...
+          </Button>
+        ) : isMember ? (
+          <Button 
+            className="flex-1 bg-blue-600 hover:bg-blue-700"
+            onClick={handleJoinClick}
+          >
+            <CheckCircle className="mr-2 h-4 w-4" />
+            Already Joined
+          </Button>
+        ) : (
+          <Button 
+            className="flex-1 bg-green-600 hover:bg-green-700"
+            onClick={handleJoinClick}
+          >
+            Join Group
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        )}
       </CardFooter>
     </Card>
   );

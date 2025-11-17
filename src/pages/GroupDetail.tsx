@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Users, Target, TrendingUp, Calendar, Archive, ArchiveRestore } from 'lucide-react';
+import { ArrowLeft, Users, Target, TrendingUp, Calendar, Archive, ArchiveRestore, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSupabaseUser } from '@/contexts/SupabaseUserContext';
 import { useSupabaseContribution } from '@/contexts/SupabaseContributionContext';
@@ -357,13 +357,39 @@ export default function GroupDetail() {
         </Card>
 
         {/* Shareable Bank Account Card - Visible to ALL members */}
-        {(group.account_number || group.bank_details?.accountNumber) && (
+        {(group.account_number || group.bank_details?.accountNumber) ? (
           <ShareableBankCard
             groupName={group.name}
             accountNumber={group.account_number || group.bank_details?.accountNumber}
             bankName={group.bank_name || group.bank_details?.bankName || 'Sterling Bank'}
             accountName={group.account_name || group.bank_details?.accountName || group.name}
           />
+        ) : (
+          <Card className="p-6 border-2 border-dashed border-muted-foreground/30">
+            <div className="text-center space-y-3">
+              <div className="flex justify-center">
+                <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
+                  <Building2 className="h-6 w-6 text-muted-foreground" />
+                </div>
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg mb-1">Bank Account Not Set Up</h3>
+                <p className="text-sm text-muted-foreground">
+                  This group doesn't have a dedicated bank account yet. 
+                  {group.creator_id === user?.id ? ' Set up a virtual account to receive bank transfers.' : ' Contact the group creator to set up bank transfers.'}
+                </p>
+              </div>
+              {group.creator_id === user?.id && (
+                <Button 
+                  onClick={() => navigate('/wallet')}
+                  className="mt-2"
+                >
+                  <Building2 className="h-4 w-4 mr-2" />
+                  Set Up Bank Account
+                </Button>
+              )}
+            </div>
+          </Card>
         )}
 
         {/* Voting Section - Protected */}
