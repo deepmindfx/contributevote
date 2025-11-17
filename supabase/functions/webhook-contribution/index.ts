@@ -23,6 +23,21 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Verify Flutterwave webhook signature
+    const signature = req.headers.get('verif-hash');
+    const flutterwaveHash = Deno.env.get('FLUTTERWAVE_WEBHOOK_HASH');
+    
+    if (signature && flutterwaveHash && signature !== flutterwaveHash) {
+      console.error('Invalid webhook signature');
+      return new Response(JSON.stringify({
+        success: false,
+        message: 'Invalid signature'
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401
+      });
+    }
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -149,8 +164,19 @@ async function handleSuccessfulPayment(supabase: any, paymentData: any) {
       });
     }
 
-    // Check if this is a contribution payment (look for group_id in metadata)
-    const groupId = paymentData.meta?.group_id || paymentData.metadata?.group_id;
+    // Check if this is a contribution payment (look for group_id in metadata or tx_ref)
+    let groupId = paymentData.meta?.group_id || paymentData.metadata?.group_id;
+    
+    // If not in metadata, try to extract from tx_ref (format: GROUP_{groupId}_{timestamp})
+    const txRef = paymentData.tx_ref;
+    if (!groupId && txRef && txRef.startsWith('GROUP_')) {
+      const parts = txRef.split('_');
+      if (parts.length >= 2) {
+        groupId = parts[1]; // Extract the UUID part
+        console.log('✅ Extracted groupId from tx_ref:', groupId);
+      }
+    }
+    
     const isContribution = !!groupId;
 
     // Create transaction record
