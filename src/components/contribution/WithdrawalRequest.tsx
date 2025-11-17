@@ -10,6 +10,10 @@ import { useSupabaseUser } from '@/contexts/SupabaseUserContext';
 import { useSupabaseContribution } from '@/contexts/SupabaseContributionContext';
 import { Wallet, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { 
+  createWithdrawalRequest, 
+  processInstantWithdrawal 
+} from '@/services/supabase/withdrawalService';
 
 interface WithdrawalRequestProps {
   groupId: string;
@@ -57,16 +61,12 @@ export function WithdrawalRequest({ groupId }: WithdrawalRequestProps) {
       const groupHasVotingRights = group?.enable_voting_rights !== false;
 
       if (!groupHasVotingRights) {
-        // For non-voting groups, process withdrawal immediately
-        // Deduct from group balance and add to admin wallet
-        const { error: updateError } = await supabase.rpc('process_instant_withdrawal', {
-          p_group_id: groupId,
-          p_admin_id: user.id,
-          p_amount: withdrawalAmount,
-          p_purpose: purpose.trim()
-        });
+        // For non-voting groups, process withdrawal immediately using service
+        const result = await processInstantWithdrawal(groupId, withdrawalAmount, purpose.trim());
 
-        if (updateError) throw updateError;
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to process withdrawal');
+        }
 
         toast.success(`₦${withdrawalAmount.toLocaleString()} withdrawn successfully and added to your wallet!`);
         
@@ -79,27 +79,14 @@ export function WithdrawalRequest({ groupId }: WithdrawalRequestProps) {
         return;
       }
 
-      // For voting groups, create withdrawal request
-      // Calculate deadline (24 hours from now)
-      const deadline = new Date();
-      deadline.setHours(deadline.getHours() + 24);
+      // For voting groups, create withdrawal request using service
+      const result = await createWithdrawalRequest(groupId, withdrawalAmount, purpose.trim());
 
-      // Create withdrawal request
-      const { data, error } = await supabase
-        .from('withdrawal_requests')
-        .insert({
-          contribution_id: groupId,
-          requester_id: user.id,
-          amount: withdrawalAmount,
-          purpose: purpose.trim(),
-          status: 'pending',
-          deadline: deadline.toISOString(),
-          votes: []
-        })
-        .select()
-        .single();
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to create withdrawal request');
+      }
 
-      if (error) throw error;
+      const data = result.data;
 
       // Get all contributors for this group to notify them
       // @ts-ignore - Supabase type inference issue with deep queries

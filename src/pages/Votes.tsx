@@ -1,18 +1,21 @@
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 import { Badge } from "@/components/ui/badge";
-import { Check, X } from "lucide-react";
+import { Check, X, TrendingUp, Users } from "lucide-react";
 import { format, isValid } from "date-fns";
 import Header from "@/components/layout/Header";
 import MobileNav from "@/components/layout/MobileNav";
 import CountdownTimer from "@/components/ui/countdown-timer";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Progress } from "@/components/ui/progress";
+import { voteOnWithdrawal, checkWithdrawalVoting } from "@/services/supabase/withdrawalService";
+import { toast } from "sonner";
 
 const VotesPage = () => {
   const navigate = useNavigate();
@@ -71,8 +74,39 @@ const VotesPage = () => {
     setVoteRequests(formattedRequests);
   };
   
-  const handleVote = (requestId: string, voteValue: 'approve' | 'reject') => {
-    vote(requestId, voteValue);
+  const handleVote = async (requestId: string, voteValue: 'approve' | 'reject') => {
+    try {
+      // Convert vote value to boolean (approve = true, reject = false)
+      const voteBoolean = voteValue === 'approve';
+      
+      // Vote using the new service
+      const result = await voteOnWithdrawal(requestId, voteBoolean);
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to vote');
+      }
+      
+      // Show voting status
+      if (result.votingStatus) {
+        const { participation_rate, approval_rate, status } = result.votingStatus;
+        
+        if (status === 'approved' || status === 'executed') {
+          toast.success(`Withdrawal approved! ${participation_rate.toFixed(0)}% participated, ${approval_rate.toFixed(0)}% approved`);
+        } else if (status === 'rejected') {
+          toast.error('Withdrawal rejected - thresholds not met');
+        } else {
+          toast.success(`Vote recorded! Participation: ${participation_rate.toFixed(0)}%, Approval: ${approval_rate.toFixed(0)}%`);
+        }
+      } else {
+        toast.success('Vote recorded successfully!');
+      }
+      
+      // Refresh data
+      setUserVotes();
+    } catch (error) {
+      console.error('Error voting:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to vote');
+    }
   };
   
   return (
