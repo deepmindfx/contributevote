@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -8,10 +8,11 @@ import {
 } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Calendar, CreditCard, CheckCircle, Clock, Download, FileText } from 'lucide-react';
+import { Calendar, CreditCard, CheckCircle, Clock, Download, FileText, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { PDFGenerator } from '@/utils/pdfGenerator';
+import { ModernReceipt, useReceiptDownload, type ReceiptData } from '@/components/receipt/ModernReceipt';
 import { toast } from 'sonner';
 
 interface ContributionHistoryDialogProps {
@@ -34,6 +35,10 @@ export function ContributionHistoryDialog({
   const [contributions, setContributions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [selectedReceipt, setSelectedReceipt] = useState<ReceiptData | null>(null);
+  const receiptRef = useRef<HTMLDivElement>(null);
+  const { downloadAsImage, downloadAsPDF } = useReceiptDownload(receiptRef);
 
   useEffect(() => {
     if (open && contributorId) {
@@ -139,16 +144,52 @@ export function ContributionHistoryDialog({
   };
 
   const handleDownloadSingleReceipt = (contribution: any) => {
+    // Prepare receipt data
+    const receiptData: ReceiptData = {
+      refNumber: contribution.reference_id || `TX_${contribution.id.substring(0, 12)}`,
+      paymentTime: formatDate(contribution.created_at) + ', ' + formatTime(contribution.created_at),
+      paymentMethod: capitalizeFirst(contribution.payment_method || 'Unknown'),
+      senderName: contributorName,
+      amount: contribution.amount.toLocaleString(),
+      currency: '₦',
+      groupName: groupName,
+      description: contribution.description || undefined,
+    };
+
+    setSelectedReceipt(receiptData);
+    setShowReceiptModal(true);
+  };
+
+  const handleDownloadPDF = async () => {
     try {
       setIsGenerating(true);
-      PDFGenerator.generateSingleReceipt(contribution, contributorName, groupName);
-      toast.success('Receipt downloaded successfully!');
+      await downloadAsPDF();
+      toast.success('Receipt downloaded as PDF!');
+      setShowReceiptModal(false);
     } catch (error) {
-      console.error('Error generating receipt:', error);
-      toast.error('Failed to generate receipt');
+      console.error('Error downloading PDF:', error);
+      toast.error('Failed to download PDF');
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleDownloadImage = async () => {
+    try {
+      setIsGenerating(true);
+      await downloadAsImage();
+      toast.success('Receipt downloaded as image!');
+      setShowReceiptModal(false);
+    } catch (error) {
+      console.error('Error downloading image:', error);
+      toast.error('Failed to download image');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const capitalizeFirst = (str: string): string => {
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
   };
 
   const handleDownloadFullReport = () => {
@@ -299,6 +340,56 @@ export function ContributionHistoryDialog({
           )}
         </div>
       </DialogContent>
+
+      {/* Modern Receipt Modal */}
+      {showReceiptModal && selectedReceipt && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-center justify-center p-4"
+          onClick={() => setShowReceiptModal(false)}
+        >
+          <div
+            className="relative bg-slate-100 rounded-2xl shadow-lg w-full max-w-md p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowReceiptModal(false)}
+              className="absolute top-4 right-4 z-10 text-slate-400 hover:text-slate-800 transition-colors bg-white rounded-full p-2"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <ModernReceipt
+              ref={receiptRef}
+              data={selectedReceipt}
+              onDownload={() => {
+                // Show download options
+              }}
+            />
+
+            <div className="mt-4 flex flex-col gap-3 px-4">
+              <h3 className="text-lg font-bold text-center text-slate-800">Download Receipt</h3>
+              <p className="text-sm text-slate-500 text-center mb-2">
+                Choose your preferred format
+              </p>
+              <Button
+                onClick={handleDownloadPDF}
+                disabled={isGenerating}
+                className="w-full"
+              >
+                {isGenerating ? 'Generating...' : 'Download as PDF'}
+              </Button>
+              <Button
+                onClick={handleDownloadImage}
+                disabled={isGenerating}
+                variant="outline"
+                className="w-full"
+              >
+                {isGenerating ? 'Generating...' : 'Download as Image (PNG)'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </Dialog>
   );
 }
