@@ -3,7 +3,7 @@ import { ContributorService } from '@/services/supabase/contributorService';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Users, TrendingUp, Eye } from 'lucide-react';
+import { CheckCircle, Users, TrendingUp, Eye, Landmark } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ContributionHistoryDialog } from './ContributionHistoryDialog';
 import { Button } from '@/components/ui/button';
@@ -108,9 +108,16 @@ export function ContributorsList({ groupId }: ContributorsListProps) {
         {/* Contributors List */}
         <div className="space-y-2 md:space-y-3">
           {contributors.map((contributor) => {
-            const name = contributor.anonymous 
-              ? 'Anonymous' 
-              : contributor.profiles?.name || 'Unknown';
+            // For bank transfers, show sender name from metadata
+            const isBankTransfer = contributor.join_method === 'bank_transfer';
+            const senderName = contributor.metadata?.senderName;
+            
+            const name = isBankTransfer && senderName
+              ? senderName
+              : contributor.anonymous 
+                ? 'Anonymous' 
+                : contributor.profiles?.name || 'Unknown';
+            
             const initials = name.substring(0, 2).toUpperCase();
             
             return (
@@ -127,7 +134,14 @@ export function ContributorsList({ groupId }: ContributorsListProps) {
                 </Avatar>
                 
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm md:text-base truncate">{name}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-sm md:text-base truncate">{name}</p>
+                    {isBankTransfer && (
+                      <span title="Bank Transfer">
+                        <Landmark className="h-3 w-3 md:h-4 md:w-4 text-blue-600 flex-shrink-0" />
+                      </span>
+                    )}
+                  </div>
                   <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mt-1">
                     <p className="text-xs md:text-sm text-muted-foreground">
                       {contributor.contribution_count} contribution{contributor.contribution_count !== 1 ? 's' : ''}
@@ -136,6 +150,11 @@ export function ContributorsList({ groupId }: ContributorsListProps) {
                       <Badge variant="secondary" className="text-xs w-fit">
                         <CheckCircle className="h-3 w-3 mr-1" />
                         Can Vote
+                      </Badge>
+                    )}
+                    {isBankTransfer && !(contributor as any).has_voting_rights && (
+                      <Badge variant="outline" className="text-xs w-fit border-orange-300 text-orange-700">
+                        Pending Verification
                       </Badge>
                     )}
                   </div>
@@ -174,9 +193,11 @@ export function ContributorsList({ groupId }: ContributorsListProps) {
           onOpenChange={setDialogOpen}
           contributorId={selectedContributor.id}
           contributorName={
-            selectedContributor.anonymous
-              ? 'Anonymous'
-              : selectedContributor.profiles?.name || 'Unknown'
+            selectedContributor.join_method === 'bank_transfer' && selectedContributor.metadata?.senderName
+              ? selectedContributor.metadata.senderName
+              : selectedContributor.anonymous
+                ? 'Anonymous'
+                : selectedContributor.profiles?.name || 'Unknown'
           }
           groupId={groupId}
           groupName={groupName}

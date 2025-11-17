@@ -45,30 +45,57 @@ export function ContributionHistoryDialog({
     try {
       setLoading(true);
       
-      // Get contributor to find user_id
-      const { data: contributor } = await supabase
+      // Get contributor details
+      const { data: contributor, error: contributorError } = await supabase
         .from('contributors')
-        .select('user_id')
+        .select('user_id, join_method, metadata, total_contributed, contribution_count, joined_at')
         .eq('id', contributorId)
         .single();
 
-      if (!contributor?.user_id) {
+      if (contributorError || !contributor) {
         setContributions([]);
         return;
       }
 
-      // Get all transactions for this user in this group
-      // Include both 'contribution' (wallet) and 'deposit' (card/bank) types
-      const { data, error } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('user_id', contributor.user_id)
-        .eq('contribution_id', groupId)
-        .in('type', ['contribution', 'deposit'])
-        .order('created_at', { ascending: false });
+      // Cast to any to avoid TypeScript issues with dynamic fields
+      const contributorData = contributor as any;
 
-      if (error) throw error;
-      setContributions(data || []);
+      // For bank transfers without user_id, create a synthetic transaction from contributor data
+      if (!contributorData.user_id && contributorData.join_method === 'bank_transfer') {
+        // Bank transfer contributors don't have transactions linked to them
+        // Create a display entry from the contributor record
+        const syntheticTransaction = {
+          id: contributorId,
+          amount: contributorData.total_contributed,
+          created_at: contributorData.joined_at,
+          description: `Bank transfer from ${contributorData.metadata?.senderName || 'Unknown'}`,
+          payment_method: 'bank_transfer',
+          reference_id: `BANK_${contributorId.substring(0, 8)}`,
+          status: 'completed',
+          type: 'contribution',
+          metadata: contributorData.metadata,
+        };
+        setContributions([syntheticTransaction]);
+        return;
+      }
+
+      // For registered users, get all transactions
+      if (contributorData.user_id) {
+        // Get all transactions for this user in this group
+        // Include both 'contribution' (wallet) and 'deposit' (card/bank) types
+        const { data, error } = await supabase
+          .from('transactions')
+          .select('*')
+          .eq('user_id', contributorData.user_id)
+          .eq('contribution_id', groupId)
+          .in('type', ['contribution', 'deposit'])
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        setContributions(data || []);
+      } else {
+        setContributions([]);
+      }
     } catch (error) {
       console.error('Error loading contribution history:', error);
       setContributions([]);
@@ -227,13 +254,28 @@ export function ContributionHistoryDialog({
                 </div>
 
                 {contribution.payment_method && (
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span className="capitalize">{contribution.payment_method}</span>
-                    {contribution.reference_id && (
-                      <>
-                        <span>•</span>
-                        <span className="font-mono">{contribution.reference_id.substring(0, 16)}...</span>
-                      </>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span className="capitalize">{contribution.payment_method}</span>
+                      {contribution.reference_id && (
+                        <>
+                          <span>•</span>
+                          <span className="font-mono">{contribution.reference_id.substring(0, 16)}...</span>
+                        </>
+                      )}
+                    </div>
+                    {contribution.payment_method === 'bank_transfer' && contribution.metadata && (
+                      <div className="text-xs text-muted-foreground space-y-0.5">
+                        {contribution.metadata.senderName && (
+                          <div>Sender: {contribution.metadata.senderName}</div>
+                        )}
+                        {contribution.metadata.senderBank && (
+                          <div>Bank: {contribution.metadata.senderBank}</div>
+                        )}
+                        {contribution.metadata.accountNumber && (
+                          <div>Account: {contribution.metadata.accountNumber}</div>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}
