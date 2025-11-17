@@ -26,40 +26,68 @@ import StepIndicator from "./StepIndicator";
 // Define visibility type to fix TypeScript error
 type VisibilityType = "public" | "private" | "invite-only";
 
+const FORM_STORAGE_KEY = 'group_creation_form_data';
+const STEP_STORAGE_KEY = 'group_creation_step';
+
 const GroupForm = () => {
-  const [step, setStep] = useState(1);
-  const [isLoading, setIsLoading] = useState(false);
-  const [showFeeConfirmation, setShowFeeConfirmation] = useState(false);
-  const [eligibility, setEligibility] = useState<any>(null);
   const navigate = useNavigate();
   const { user } = useSupabaseUser();
   const { createNewContribution } = useSupabaseContribution();
   
-  // Form state
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    targetAmount: 0,
-    category: 'personal',
-    frequency: 'monthly' as 'daily' | 'weekly' | 'monthly' | 'one-time',
-    contributionAmount: 0,
-    startDate: '',
-    endDate: '',
-    votingThreshold: 60, // Default: 60% approval (fixed, not user-configurable)
-    privacy: 'private' as 'public' | 'private',
-    memberRoles: 'equal' as 'equal' | 'weighted', // Default: equal (fixed, not user-configurable)
-    enableVotingRights: true, // Default: true - contributors have voting rights
-    notifyContributions: true,
-    notifyVotes: true,
-    notifyUpdates: true,
-    // Fields for account creation
-    bvn: '',
-    accountReference: `GROUP_${Date.now()}`,
+  // Initialize state from localStorage if available
+  const [step, setStep] = useState(() => {
+    const savedStep = localStorage.getItem(STEP_STORAGE_KEY);
+    return savedStep ? parseInt(savedStep, 10) : 1;
+  });
+  
+  const [isLoading, setIsLoading] = useState(false);
+  const [showFeeConfirmation, setShowFeeConfirmation] = useState(false);
+  const [eligibility, setEligibility] = useState<any>(null);
+  
+  // Form state - restore from localStorage if available
+  const [formData, setFormData] = useState(() => {
+    const savedData = localStorage.getItem(FORM_STORAGE_KEY);
+    if (savedData) {
+      try {
+        return JSON.parse(savedData);
+      } catch (error) {
+        console.error('Error parsing saved form data:', error);
+      }
+    }
+    return {
+      name: '',
+      description: '',
+      targetAmount: 0,
+      category: 'personal',
+      frequency: 'monthly' as 'daily' | 'weekly' | 'monthly' | 'one-time',
+      contributionAmount: 0,
+      startDate: '',
+      endDate: '',
+      votingThreshold: 60,
+      privacy: 'private' as 'public' | 'private',
+      memberRoles: 'equal' as 'equal' | 'weighted',
+      enableVotingRights: true,
+      notifyContributions: true,
+      notifyVotes: true,
+      notifyUpdates: true,
+      bvn: '',
+      accountReference: `GROUP_${Date.now()}`,
+    };
   });
 
   const [validationErrors, setValidationErrors] = useState<{
     bvn?: string;
   }>({});
+
+  // Save form data to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem(FORM_STORAGE_KEY, JSON.stringify(formData));
+  }, [formData]);
+
+  // Save step to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem(STEP_STORAGE_KEY, step.toString());
+  }, [step]);
 
   // Check eligibility on mount
   useEffect(() => {
@@ -202,6 +230,10 @@ const GroupForm = () => {
         toast.success("Group created successfully! You can set up a bank account later from the group page.");
       }
       
+      // Clear localStorage after successful creation
+      localStorage.removeItem(FORM_STORAGE_KEY);
+      localStorage.removeItem(STEP_STORAGE_KEY);
+      
       // Small delay to ensure data is synced
       await new Promise(resolve => setTimeout(resolve, 500));
       
@@ -255,6 +287,18 @@ const GroupForm = () => {
   return (
     <>
       <Card className="shadow-none border-0 p-6">
+        {/* Auto-save notification */}
+        {(formData.name || formData.description || formData.targetAmount > 0) && (
+          <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 rounded-lg">
+            <p className="text-xs text-blue-800 dark:text-blue-200 flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              Your progress is automatically saved. You can safely refresh or come back later.
+            </p>
+          </div>
+        )}
+        
         <StepIndicator current={step} totalSteps={3} />
         {renderStep()}
       </Card>
