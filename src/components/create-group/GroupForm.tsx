@@ -64,7 +64,7 @@ const GroupForm = () => {
       startDate: '',
       endDate: '',
       votingThreshold: 60,
-      privacy: 'private' as 'public' | 'private',
+      privacy: 'public' as 'public' | 'private',
       memberRoles: 'equal' as 'equal' | 'weighted',
       enableVotingRights: true,
       notifyContributions: true,
