@@ -172,8 +172,34 @@ async function handleSuccessfulPayment(supabase: any, paymentData: any) {
     if (!groupId && txRef && txRef.startsWith('GROUP_')) {
       const parts = txRef.split('_');
       if (parts.length >= 2) {
-        groupId = parts[1]; // Extract the UUID part
-        console.log('✅ Extracted groupId from tx_ref:', groupId);
+        const extractedId = parts[1]; // Extract the UUID part
+        console.log('Extracted ID from tx_ref:', extractedId);
+        
+        // Verify if this is a valid group ID
+        const { data: group, error: groupError } = await supabase
+          .from('contribution_groups')
+          .select('id')
+          .eq('id', extractedId)
+          .single();
+        
+        if (group) {
+          groupId = extractedId;
+          console.log('✅ Confirmed as group ID:', groupId);
+        } else {
+          // Maybe it's a user ID, try to find their group
+          const { data: userGroup, error: userGroupError } = await supabase
+            .from('contribution_groups')
+            .select('id')
+            .eq('creator_id', extractedId)
+            .single();
+          
+          if (userGroup) {
+            groupId = userGroup.id;
+            console.log('✅ Found group by creator ID:', groupId);
+          } else {
+            console.log('❌ Could not find group for extracted ID:', extractedId);
+          }
+        }
       }
     }
     
