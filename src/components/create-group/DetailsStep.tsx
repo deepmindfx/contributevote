@@ -34,9 +34,10 @@ interface DetailsStepProps {
   };
   handleChange: (field: string, value: any) => void;
   goToNextStep: () => void;
+  onCancel?: () => void;
 }
 
-const DetailsStep = ({ formData, handleChange, goToNextStep }: DetailsStepProps) => {
+const DetailsStep = ({ formData, handleChange, goToNextStep, onCancel }: DetailsStepProps) => {
   const { user } = useSupabaseUser();
   const [eligibility, setEligibility] = useState<any>(null);
   const [isCheckingEligibility, setIsCheckingEligibility] = useState(false);
@@ -136,8 +137,17 @@ const DetailsStep = ({ formData, handleChange, goToNextStep }: DetailsStepProps)
           </Alert>
         )}
       </CardContent>
-      <CardFooter>
-        <Button onClick={goToNextStep} className="w-full">
+      <CardFooter className="flex gap-3">
+        {onCancel && (
+          <Button 
+            onClick={onCancel} 
+            variant="outline" 
+            className="flex-1"
+          >
+            Cancel
+          </Button>
+        )}
+        <Button onClick={goToNextStep} className="flex-1">
           Continue
         </Button>
       </CardFooter>

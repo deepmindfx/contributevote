@@ -170,6 +170,14 @@ const GroupForm = () => {
     setStep(step - 1);
   };
 
+  const handleCancel = () => {
+    // Clear saved form data
+    localStorage.removeItem(FORM_STORAGE_KEY);
+    localStorage.removeItem(STEP_STORAGE_KEY);
+    // Navigate back to dashboard
+    navigate('/dashboard');
+  };
+
   const handleCreateGroup = async () => {
     if (!validateStep(step)) {
       return;
@@ -256,7 +264,8 @@ const GroupForm = () => {
           <DetailsStep 
             formData={formData} 
             handleChange={handleChange} 
-            goToNextStep={goToNextStep} 
+            goToNextStep={goToNextStep}
+            onCancel={handleCancel}
           />
         );
       case 2:
