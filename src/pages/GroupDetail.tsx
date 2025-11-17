@@ -147,17 +147,20 @@ export default function GroupDetail() {
           console.error('Error saving account details:', updateError);
           toast.error('Failed to save bank account details');
         } else {
-          toast.success('Bank account created successfully! Refreshing...');
+          toast.success('Bank account created successfully!');
           setShowBvnDialog(false);
           
-          // Refresh the group data to show the new account
-          await refreshContributionData();
+          // Update the local group state with the new account details
+          setGroup((prevGroup: any) => ({
+            ...prevGroup,
+            account_number: accountData.responseBody.account_number,
+            account_name: group.name,
+            account_reference: accountData.responseBody.order_ref || accountData.responseBody.flw_ref,
+            account_details: accountData.responseBody
+          }));
           
-          // Small delay to ensure data is synced
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
-          // Reload the page to show the bank card
-          window.location.reload();
+          // Refresh the contribution data in the background
+          refreshContributionData();
         }
       } else {
         toast.error(accountData.message || 'Failed to create bank account');
