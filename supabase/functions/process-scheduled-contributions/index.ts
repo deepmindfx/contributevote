@@ -26,6 +26,7 @@ serve(async (req) => {
       recurring: { processed: 0, failed: 0 },
       scheduled: { processed: 0, failed: 0 },
       refunds: { processed: 0, failed: 0 },
+      withdrawals: { processed: 0, failed: 0 },
       mode: deadlinesOnly ? 'deadlines-only' : 'full',
     };
 
@@ -135,7 +136,36 @@ serve(async (req) => {
       }
     }
 
-    // 3. Process Refund Voting Deadlines (always run - but most refunds are instant now)
+    // 3. Process Withdrawal Voting (always run)
+    const { data: withdrawalsPending } = await supabaseClient
+      .from('withdrawal_requests')
+      .select('*')
+      .eq('status', 'pending');
+
+    if (withdrawalsPending) {
+      for (const withdrawal of withdrawalsPending) {
+        try {
+          // Check voting status and auto-approve/reject
+          const { data: votingResult, error: votingError } = await supabaseClient.rpc(
+            'check_withdrawal_voting',
+            {
+              p_withdrawal_id: withdrawal.id,
+            }
+          );
+
+          if (votingError) throw votingError;
+
+          if (votingResult && votingResult.success) {
+            results.withdrawals.processed++;
+          }
+        } catch (error) {
+          console.error(`Failed to check withdrawal ${withdrawal.id}:`, error);
+          results.withdrawals.failed++;
+        }
+      }
+    }
+
+    // 4. Process Refund Voting Deadlines (always run - but most refunds are instant now)
     const { data: refundsDue } = await supabaseClient
       .from('group_refund_requests')
       .select('*')
