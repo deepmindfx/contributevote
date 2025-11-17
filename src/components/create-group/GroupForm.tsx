@@ -223,8 +223,25 @@ const GroupForm = () => {
 
           console.log('Virtual account created:', accountData);
           
-          if (accountData.success) {
-            toast.success("Group created with bank account!");
+          if (accountData.success && accountData.responseBody) {
+            // Save account details to database
+            const { supabase } = await import('@/integrations/supabase/client');
+            const { error: updateError } = await supabase
+              .from('contribution_groups')
+              .update({
+                account_number: accountData.responseBody.account_number,
+                account_name: accountData.responseBody.account_number, // Use account number as name for now
+                account_reference: accountData.responseBody.order_ref || accountData.responseBody.flw_ref,
+                account_details: accountData.responseBody
+              })
+              .eq('id', groupId);
+
+            if (updateError) {
+              console.error('Error saving account details:', updateError);
+              toast.warning("Group created with bank account, but failed to save details. Please refresh the page.");
+            } else {
+              toast.success("Group created with bank account!");
+            }
           } else {
             toast.warning("Group created, but bank account setup failed. You can set it up later from the group page.");
           }

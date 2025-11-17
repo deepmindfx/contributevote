@@ -130,18 +130,35 @@ export default function GroupDetail() {
 
       console.log('Virtual account created:', accountData);
       
-      if (accountData.success) {
-        toast.success('Bank account created successfully! Refreshing...');
-        setShowBvnDialog(false);
-        
-        // Refresh the group data to show the new account
-        await refreshContributionData();
-        
-        // Small delay to ensure data is synced
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Reload the page to show the bank card
-        window.location.reload();
+      if (accountData.success && accountData.responseBody) {
+        // Save account details to database
+        const { supabase } = await import('@/integrations/supabase/client');
+        const { error: updateError } = await supabase
+          .from('contribution_groups')
+          .update({
+            account_number: accountData.responseBody.account_number,
+            account_name: accountData.responseBody.account_number,
+            account_reference: accountData.responseBody.order_ref || accountData.responseBody.flw_ref,
+            account_details: accountData.responseBody
+          })
+          .eq('id', group.id);
+
+        if (updateError) {
+          console.error('Error saving account details:', updateError);
+          toast.error('Failed to save bank account details');
+        } else {
+          toast.success('Bank account created successfully! Refreshing...');
+          setShowBvnDialog(false);
+          
+          // Refresh the group data to show the new account
+          await refreshContributionData();
+          
+          // Small delay to ensure data is synced
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Reload the page to show the bank card
+          window.location.reload();
+        }
       } else {
         toast.error(accountData.message || 'Failed to create bank account');
       }
