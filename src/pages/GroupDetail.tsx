@@ -137,7 +137,7 @@ export default function GroupDetail() {
           .from('contribution_groups')
           .update({
             account_number: accountData.responseBody.account_number,
-            account_name: accountData.responseBody.account_number,
+            account_name: group.name, // Use group name as account name
             account_reference: accountData.responseBody.order_ref || accountData.responseBody.flw_ref,
             account_details: accountData.responseBody
           })
@@ -417,7 +417,7 @@ export default function GroupDetail() {
           <ShareableBankCard
             groupName={group.name}
             accountNumber={group.account_number || group.bank_details?.accountNumber}
-            bankName={group.bank_name || group.bank_details?.bankName || 'Sterling Bank'}
+            bankName={group.account_details?.bank_name || group.bank_details?.bankName || 'Sterling Bank'}
             accountName={group.account_name || group.bank_details?.accountName || group.name}
           />
         ) : (

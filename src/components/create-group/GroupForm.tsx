@@ -236,7 +236,7 @@ const GroupForm = () => {
               .from('contribution_groups')
               .update({
                 account_number: accountData.responseBody.account_number,
-                account_name: accountData.responseBody.account_number, // Use account number as name for now
+                account_name: formData.name, // Use group name as account name
                 account_reference: accountData.responseBody.order_ref || accountData.responseBody.flw_ref,
                 account_details: accountData.responseBody
               })
