@@ -1,8 +1,8 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ThumbsUp, ThumbsDown, Clock, Users, CheckCircle2, XCircle, Activity, Wallet, AlertCircle } from "lucide-react";
+import { ArrowLeft, ThumbsUp, ThumbsDown, Clock, Users, CheckCircle2, XCircle, Activity, Wallet, AlertCircle, ChevronLeft, ChevronRight, Filter } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
@@ -12,10 +12,11 @@ import Header from "@/components/layout/Header";
 import MobileNav from "@/components/layout/MobileNav";
 import CountdownTimer from "@/components/ui/countdown-timer";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Progress } from "@/components/ui/progress";
 import { voteOnWithdrawal } from "@/services/supabase/withdrawalService";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
+const ITEMS_PER_PAGE = 5;
 
 const VotesPage = () => {
   const navigate = useNavigate();
@@ -23,6 +24,8 @@ const VotesPage = () => {
   const { contributions, withdrawalRequests, refreshContributionData } = useSupabaseContribution();
   const [voteRequests, setVoteRequests] = useState<any[]>([]);
   const [pendingVoteId, setPendingVoteId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
+  const [historyPage, setHistoryPage] = useState(1);
   const isMobile = useIsMobile();
   
   useEffect(() => {
@@ -46,7 +49,6 @@ const VotesPage = () => {
 
   const setUserVotes = () => {
     const formattedRequests = withdrawalRequests
-      .filter(request => ['pending', 'approved', 'rejected', 'expired', 'executed'].includes(request.status))
       .map(request => {
         const contribution = contributions.find(c => c.id === request.contribution_id);
         const hasContributed = contribution ? true : false;
@@ -56,9 +58,6 @@ const VotesPage = () => {
         const userVoteData = votesArray.find((v: any) => v.user_id === user?.id);
         const userVote = userVoteData ? (userVoteData.vote === true ? 'approve' : 'reject') : undefined;
         
-        // Calculate stats
-        // Note: In a real app, total voters should come from the group member count
-        // For now, we'll estimate based on votes or some mock data if available
         const totalVotes = votesArray.length;
         const approveVotes = votesArray.filter((v: any) => v.vote === true).length;
         const rejectVotes = votesArray.filter((v: any) => v.vote === false).length;
@@ -89,13 +88,35 @@ const VotesPage = () => {
         };
       });
     
-    // Sort newest first
-    formattedRequests.sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
-
+    // Sort logic handled in filtered view
     setVoteRequests(formattedRequests);
   };
+
+  const filteredRequests = useMemo(() => {
+    const requests = activeTab === 'active'
+      ? voteRequests.filter(r => r.status === 'pending')
+      : voteRequests.filter(r => ['approved', 'rejected', 'expired', 'executed'].includes(r.status));
+
+    // Sort active by deadline (soonest first), history by creation date (newest first)
+    return requests.sort((a, b) => {
+      if (activeTab === 'active') {
+        // Sort by deadline ascending (soonest expiring first)
+        return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+      } else {
+        // Sort by creation date descending (newest first)
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+    });
+  }, [voteRequests, activeTab]);
+
+  // Pagination for history
+  const paginatedHistory = useMemo(() => {
+    if (activeTab === 'active') return filteredRequests;
+    const startIndex = (historyPage - 1) * ITEMS_PER_PAGE;
+    return filteredRequests.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredRequests, activeTab, historyPage]);
+
+  const totalHistoryPages = Math.ceil(filteredRequests.length / ITEMS_PER_PAGE);
   
   const handleVote = async (requestId: string, voteValue: 'approve' | 'reject') => {
     if (!user) {
@@ -103,9 +124,7 @@ const VotesPage = () => {
       return;
     }
 
-    if (pendingVoteId) {
-      return;
-    }
+    if (pendingVoteId) return;
 
     const previousRequests = voteRequests;
     setPendingVoteId(requestId);
@@ -122,11 +141,9 @@ const VotesPage = () => {
         };
 
         const currentVotes = Array.isArray(request.votes) ? request.votes : [];
-        // Remove existing vote if any (though logic prevents double voting usually)
         const filteredVotes = currentVotes.filter((v: any) => v.user_id !== user.id);
         const newVotes = [...filteredVotes, newVote];
 
-        // Recalculate stats optimistically
         const totalVotes = newVotes.length;
         const approveVotes = newVotes.filter((v: any) => v.vote === true).length;
         const rejectVotes = newVotes.filter((v: any) => v.vote === false).length;
@@ -159,14 +176,8 @@ const VotesPage = () => {
       
       if (result.votingStatus) {
         const { participation_rate, approval_rate, status } = result.votingStatus;
-        const participationText =
-          typeof participation_rate === 'number' && Number.isFinite(participation_rate)
-            ? `${participation_rate.toFixed(0)}%`
-            : null;
-        const approvalText =
-          typeof approval_rate === 'number' && Number.isFinite(approval_rate)
-            ? `${approval_rate.toFixed(0)}%`
-            : null;
+        const participationText = typeof participation_rate === 'number' ? `${participation_rate.toFixed(0)}%` : null;
+        const approvalText = typeof approval_rate === 'number' ? `${approval_rate.toFixed(0)}%` : null;
 
         if (status === 'approved' || status === 'executed') {
           if (participationText && approvalText) {
@@ -176,10 +187,8 @@ const VotesPage = () => {
           }
         } else if (status === 'rejected') {
           toast.error('Withdrawal rejected - thresholds not met');
-        } else if (participationText && approvalText) {
-          toast.success(`Vote recorded! Participation: ${participationText}, Approval: ${approvalText}`);
         } else {
-          toast.success('Vote recorded successfully!');
+          toast.success(`Vote recorded! Participation: ${participationText || '0%'}, Approval: ${approvalText || '0%'}`);
         }
       } else {
         toast.success('Vote recorded successfully!');
@@ -188,7 +197,6 @@ const VotesPage = () => {
       await refreshContributionData();
       setUserVotes();
     } catch (error) {
-      // Revert optimistic update
       setVoteRequests(previousRequests);
       console.error('Error voting:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to vote');
@@ -236,26 +244,63 @@ const VotesPage = () => {
           </Button>
         </div>
 
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Governance</h1>
-          <p className="text-muted-foreground mt-1">Vote on withdrawal requests from your groups.</p>
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">Governance</h1>
+            <p className="text-muted-foreground mt-1">Vote on withdrawal requests from your groups.</p>
+          </div>
+
+          <div className="bg-muted/50 p-1 rounded-lg flex gap-1">
+            <Button
+              variant={activeTab === 'active' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setActiveTab('active')}
+              className={cn("rounded-md transition-all", activeTab === 'active' && "bg-white text-foreground shadow-sm hover:bg-white/90 dark:bg-zinc-800 dark:text-white")}
+            >
+              Active Votes
+              {voteRequests.filter(r => r.status === 'pending').length > 0 && (
+                <Badge variant="secondary" className="ml-2 bg-primary/10 text-primary hover:bg-primary/20 h-5 px-1.5">
+                  {voteRequests.filter(r => r.status === 'pending').length}
+                </Badge>
+              )}
+            </Button>
+            <Button
+              variant={activeTab === 'history' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => {
+                setActiveTab('history');
+                setHistoryPage(1);
+              }}
+              className={cn("rounded-md transition-all", activeTab === 'history' && "bg-white text-foreground shadow-sm hover:bg-white/90 dark:bg-zinc-800 dark:text-white")}
+            >
+              History
+            </Button>
+          </div>
         </div>
 
-        {voteRequests.length === 0 ? (
+        {paginatedHistory.length === 0 ? (
           <Card className="border-dashed border-2 bg-muted/30 shadow-none">
             <CardContent className="flex flex-col items-center justify-center py-16 text-center">
               <div className="bg-muted p-4 rounded-full mb-4">
-                <CheckCircle2 className="h-8 w-8 text-muted-foreground" />
+                {activeTab === 'active' ? (
+                  <CheckCircle2 className="h-8 w-8 text-muted-foreground" />
+                ) : (
+                  <Filter className="h-8 w-8 text-muted-foreground" />
+                )}
               </div>
-              <h3 className="font-semibold text-lg mb-1">All Caught Up!</h3>
+              <h3 className="font-semibold text-lg mb-1">
+                {activeTab === 'active' ? 'All Caught Up!' : 'No History'}
+              </h3>
               <p className="text-muted-foreground max-w-xs">
-                There are no pending withdrawal requests requiring your vote at the moment.
+                {activeTab === 'active' 
+                  ? "There are no pending withdrawal requests requiring your vote at the moment."
+                  : "You haven't participated in any past votes yet."}
               </p>
             </CardContent>
           </Card>
         ) : (
           <div className="space-y-6">
-            {voteRequests.map(request => (
+            {paginatedHistory.map(request => (
               <Card 
                 key={request.requestId} 
                 className={cn(
@@ -405,6 +450,31 @@ const VotesPage = () => {
                 </CardContent>
               </Card>
             ))}
+
+            {/* Pagination for History Tab */}
+            {activeTab === 'history' && totalHistoryPages > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-8">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
+                  disabled={historyPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  Page {historyPage} of {totalHistoryPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setHistoryPage(p => Math.min(totalHistoryPages, p + 1))}
+                  disabled={historyPage === totalHistoryPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </main>

@@ -1,12 +1,24 @@
-import { useEffect, useState } from 'react';
+
+import { useEffect, useState, useMemo } from 'react';
 import { ContributorService } from '@/services/supabase/contributorService';
-import { Card } from '@/components/ui/card';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Users, TrendingUp, Eye, Landmark } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { 
+  Users, 
+  Search, 
+  TrendingUp, 
+  ShieldCheck, 
+  Clock, 
+  ArrowRight, 
+  Wallet, 
+  Landmark 
+} from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ContributionHistoryDialog } from './ContributionHistoryDialog';
-import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface ContributorsListProps {
   groupId: string;
@@ -15,11 +27,11 @@ interface ContributorsListProps {
 export function ContributorsList({ groupId }: ContributorsListProps) {
   const [contributors, setContributors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [totalAmount, setTotalAmount] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedContributor, setSelectedContributor] = useState<any>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [groupName, setGroupName] = useState('Group');
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadContributors(true);
@@ -33,173 +45,194 @@ export function ContributorsList({ groupId }: ContributorsListProps) {
 
   const loadContributors = async (isInitialLoad = false) => {
     try {
-      if (isInitialLoad) {
-        setLoading(true);
-      } else {
-        setRefreshing(true);
-      }
+      if (isInitialLoad) setLoading(true);
+      else setRefreshing(true);
+
       const data = await ContributorService.getGroupContributors(groupId);
       setContributors(data);
       
-      // Calculate total
-      const total = data.reduce((sum: number, c: any) => 
-        sum + (c.total_contributed || 0), 0
-      );
-      setTotalAmount(total);
-      
-      // Fetch group name
-      const { supabase } = await import('@/integrations/supabase/client');
-      const { data: groupData } = await supabase
-        .from('contribution_groups')
-        .select('name')
-        .eq('id', groupId)
-        .single();
-      
-      if (groupData) {
-        setGroupName(groupData.name);
+      // Fetch group name on initial load only
+      if (isInitialLoad) {
+        const { supabase } = await import('@/integrations/supabase/client');
+        const { data: groupData } = await supabase
+          .from('contribution_groups')
+          .select('name')
+          .eq('id', groupId)
+          .single();
+        
+        if (groupData) {
+          setGroupName(groupData.name);
+        }
       }
     } catch (error) {
       console.error('Error loading contributors:', error);
     } finally {
-      if (isInitialLoad) {
-        setLoading(false);
-      } else {
-        setRefreshing(false);
-      }
+      if (isInitialLoad) setLoading(false);
+      else setRefreshing(false);
     }
   };
 
+  const filteredContributors = useMemo(() => {
+    if (!searchQuery) return contributors;
+    const lowerQuery = searchQuery.toLowerCase();
+    return contributors.filter(c => {
+      const name = c.metadata?.senderName || c.profiles?.name || 'Anonymous';
+      return name.toLowerCase().includes(lowerQuery);
+    });
+  }, [contributors, searchQuery]);
+
+  const totalAmount = useMemo(() => {
+    return contributors.reduce((sum, c) => sum + (c.total_contributed || 0), 0);
+  }, [contributors]);
+
   if (loading) {
     return (
-      <Card className="p-4 md:p-6">
-        <div className="space-y-3 md:space-y-4">
-          <Skeleton className="h-6 md:h-8 w-32 md:w-48" />
-          <Skeleton className="h-16 md:h-20 w-full" />
-          <Skeleton className="h-16 md:h-20 w-full" />
-          <Skeleton className="h-16 md:h-20 w-full" />
-        </div>
-      </Card>
-    );
-  }
-
-  if (contributors.length === 0) {
-    return (
-      <Card className="p-4 md:p-6">
-        <div className="text-center py-6 md:py-8">
-          <Users className="h-10 w-10 md:h-12 md:w-12 mx-auto text-muted-foreground mb-3 md:mb-4" />
-          <p className="text-sm md:text-base text-muted-foreground">No contributors yet</p>
-          <p className="text-xs md:text-sm text-muted-foreground mt-2">
-            Be the first to contribute to this group!
-          </p>
-        </div>
+      <Card className="border-none shadow-sm bg-white/50 dark:bg-black/20 backdrop-blur-sm">
+        <CardHeader>
+          <Skeleton className="h-8 w-48 mb-2" />
+          <Skeleton className="h-4 w-32" />
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="flex items-center gap-4">
+              <Skeleton className="h-12 w-12 rounded-full" />
+              <div className="space-y-2 flex-1">
+                <Skeleton className="h-4 w-1/3" />
+                <Skeleton className="h-3 w-1/4" />
+              </div>
+            </div>
+          ))}
+        </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card className="p-4 md:p-6">
-      <div className="space-y-4 md:space-y-6">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <h3 className="text-base md:text-lg font-semibold flex items-center gap-2">
-              <Users className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0" />
-              <span className="truncate">Contributors ({contributors.length})</span>
-            </h3>
-            <p className="text-xs md:text-sm text-muted-foreground mt-1">
-              Total: ₦{totalAmount.toLocaleString()}
+    <Card className="glass-card overflow-hidden border border-border/50 shadow-md transition-all duration-300 hover:shadow-lg">
+      <CardHeader className="pb-4 border-b border-border/5 bg-muted/20">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <div className="p-2 bg-primary/10 rounded-xl">
+                <Users className="h-5 w-5 text-primary" />
+              </div>
+              Contributors
+              <Badge variant="secondary" className="ml-2 font-normal">
+                {contributors.length}
+              </Badge>
+            </CardTitle>
+            <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+              <TrendingUp className="h-4 w-4 text-emerald-500" />
+              <span>Total Raised:</span>
+              <span className="font-semibold text-foreground">₦{totalAmount.toLocaleString()}</span>
+              {refreshing && <span className="text-xs animate-pulse ml-2 text-primary">Updating...</span>}
+            </div>
+          </div>
+
+          <div className="relative w-full md:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input 
+              placeholder="Search contributors..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 bg-background/50 border-border/50 focus:bg-background transition-all"
+            />
+          </div>
+        </div>
+      </CardHeader>
+
+      <CardContent className="p-0">
+        {filteredContributors.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+            <div className="h-16 w-16 bg-muted/50 rounded-full flex items-center justify-center mb-4">
+              <Users className="h-8 w-8 text-muted-foreground/50" />
+            </div>
+            <h3 className="font-semibold text-lg text-foreground">No contributors found</h3>
+            <p className="text-muted-foreground text-sm max-w-xs mt-1">
+              {searchQuery ? "Try adjusting your search terms." : "Be the first to contribute to this group!"}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            {refreshing && (
-              <span className="text-xs text-muted-foreground">Refreshing...</span>
-            )}
-            <TrendingUp className="h-4 w-4 md:h-5 md:w-5 text-green-600 flex-shrink-0" />
+        ) : (
+          <div className="divide-y divide-border/50">
+            {filteredContributors.map((contributor) => {
+              const isBankTransfer = contributor.join_method === 'bank_transfer';
+              const senderName = contributor.metadata?.senderName;
+              const name = isBankTransfer && senderName
+                ? senderName
+                : contributor.anonymous 
+                  ? 'Anonymous' 
+                  : contributor.profiles?.name || 'Unknown';
+              const initials = name.substring(0, 2).toUpperCase();
+              const hasVotingRights = (contributor as any).has_voting_rights;
+
+              return (
+                <div
+                  key={contributor.id}
+                  className="group flex items-center justify-between p-4 hover:bg-muted/30 transition-colors cursor-pointer relative overflow-hidden"
+                  onClick={() => {
+                    setSelectedContributor(contributor);
+                    setDialogOpen(true);
+                  }}
+                >
+                  {/* Hover Highlight Line */}
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+
+                  <div className="flex items-center gap-4 min-w-0">
+                    <Avatar className="h-10 w-10 border border-border/50 shadow-sm">
+                      <AvatarImage src={contributor.profiles?.avatar_url} />
+                      <AvatarFallback className="bg-primary/5 text-primary font-medium text-xs">
+                        {initials}
+                      </AvatarFallback>
+                    </Avatar>
+                    
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-sm truncate text-foreground">
+                          {name}
+                        </p>
+                        {hasVotingRights && (
+                          <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" fill="currentColor" fillOpacity={0.2} />
+                        )}
+                      </div>
+                      
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          {isBankTransfer ? <Landmark className="h-3 w-3" /> : <Wallet className="h-3 w-3" />}
+                          {contributor.contribution_count} contribution{contributor.contribution_count !== 1 ? 's' : ''}
+                        </span>
+                        {isBankTransfer && !hasVotingRights && (
+                          <Badge variant="outline" className="h-4 px-1 text-[10px] border-amber-500/30 text-amber-600 bg-amber-50 dark:bg-amber-900/10">
+                            <Clock className="h-2.5 w-2.5 mr-1" /> Pending
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <p className="font-bold text-sm text-foreground">
+                        ₦{(contributor.total_contributed || 0).toLocaleString()}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date((contributor as any).joined_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                      </p>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0"
+                    >
+                      <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        </div>
+        )}
+      </CardContent>
 
-        {/* Contributors List */}
-        <div className="space-y-2 md:space-y-3">
-          {contributors.map((contributor) => {
-            // For bank transfers, show sender name from metadata
-            const isBankTransfer = contributor.join_method === 'bank_transfer';
-            const senderName = contributor.metadata?.senderName;
-            
-            const name = isBankTransfer && senderName
-              ? senderName
-              : contributor.anonymous 
-                ? 'Anonymous' 
-                : contributor.profiles?.name || 'Unknown';
-            
-            const initials = name.substring(0, 2).toUpperCase();
-            
-            return (
-              <div
-                key={contributor.id}
-                className="flex items-start sm:items-center gap-2 sm:gap-3 p-3 md:p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors cursor-pointer group"
-                onClick={() => {
-                  setSelectedContributor(contributor);
-                  setDialogOpen(true);
-                }}
-              >
-                <Avatar className="h-8 w-8 md:h-10 md:w-10 flex-shrink-0">
-                  <AvatarFallback className="text-xs md:text-sm">{initials}</AvatarFallback>
-                </Avatar>
-                
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium text-sm md:text-base truncate">{name}</p>
-                    {isBankTransfer && (
-                      <span title="Bank Transfer">
-                        <Landmark className="h-3 w-3 md:h-4 md:w-4 text-blue-600 flex-shrink-0" />
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mt-1">
-                    <p className="text-xs md:text-sm text-muted-foreground">
-                      {contributor.contribution_count} contribution{contributor.contribution_count !== 1 ? 's' : ''}
-                    </p>
-                    {(contributor as any).has_voting_rights && (
-                      <Badge variant="secondary" className="text-xs w-fit">
-                        <CheckCircle className="h-3 w-3 mr-1" />
-                        Can Vote
-                      </Badge>
-                    )}
-                    {isBankTransfer && !(contributor as any).has_voting_rights && (
-                      <Badge variant="outline" className="text-xs w-fit border-orange-300 text-orange-700">
-                        Pending Verification
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                  <p className="font-semibold text-green-600 text-sm md:text-base whitespace-nowrap">
-                    ₦{(contributor.total_contributed || 0).toLocaleString()}
-                  </p>
-                  <p className="text-xs text-muted-foreground hidden sm:block">
-                    {new Date((contributor as any).joined_at).toLocaleDateString()}
-                  </p>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 md:h-8 md:w-8 sm:opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedContributor(contributor);
-                      setDialogOpen(true);
-                    }}
-                  >
-                    <Eye className="h-3 w-3 md:h-4 md:w-4" />
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Contribution History Dialog */}
       {selectedContributor && (
         <ContributionHistoryDialog
           open={dialogOpen}
