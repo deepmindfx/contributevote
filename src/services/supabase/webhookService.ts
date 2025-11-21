@@ -40,6 +40,10 @@ export class WebhookService {
       )
 
       if (!exists) {
+        // Update user wallet balance
+        const newBalance = (user.wallet_balance || 0) + paymentData.amount
+        await UserService.updateWalletBalance(user.id, newBalance)
+
         // Create transaction record
         await TransactionService.createTransaction({
           user_id: user.id,
@@ -55,13 +59,11 @@ export class WebhookService {
             paymentType: paymentData.payment_type,
             currency: paymentData.currency,
             customerEmail: paymentData.customer?.email,
-            customerName: paymentData.customer?.name
+            customerName: paymentData.customer?.name,
+            balance_before: user.wallet_balance || 0,
+            balance_after: newBalance
           }
         })
-
-        // Update user wallet balance
-        const newBalance = (user.wallet_balance || 0) + paymentData.amount
-        await UserService.updateWalletBalance(user.id, newBalance)
 
         console.log(`Updated wallet balance for ${user.email}: +${paymentData.amount}`)
       }

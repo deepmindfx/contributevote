@@ -158,29 +158,32 @@ export class WalletService {
           );
 
           if (!exists) {
-            // Create new transaction record
-            await TransactionService.createTransaction({
-              user_id: userId,
-              type: 'deposit',
-              amount: transaction.amount,
-              description: `Deposit via bank transfer (${transaction.bankName || 'Bank'})`,
-              reference_id: transaction.paymentReference,
-              payment_method: 'bank_transfer',
-              status: 'completed',
-              metadata: {
-                senderName: transaction.senderName || transaction.paymentDescription || "Bank Transfer",
-                bankName: transaction.bankName || "",
-                narration: transaction.narration || transaction.paymentDescription || "",
-                transactionReference: transaction.transactionReference || "",
-                paymentReference: transaction.paymentReference || "",
-              }
-            });
-
             // Update user's wallet balance
             const user = await UserService.getUserById(userId);
             if (user) {
-              const newBalance = (user.wallet_balance || 0) + transaction.amount;
+              const balanceBefore = user.wallet_balance || 0;
+              const newBalance = balanceBefore + transaction.amount;
               await UserService.updateWalletBalance(userId, newBalance);
+
+              // Create new transaction record with balance snapshots
+              await TransactionService.createTransaction({
+                user_id: userId,
+                type: 'deposit',
+                amount: transaction.amount,
+                description: `Deposit via bank transfer (${transaction.bankName || 'Bank'})`,
+                reference_id: transaction.paymentReference,
+                payment_method: 'bank_transfer',
+                status: 'completed',
+                metadata: {
+                  senderName: transaction.senderName || transaction.paymentDescription || "Bank Transfer",
+                  bankName: transaction.bankName || "",
+                  narration: transaction.narration || transaction.paymentDescription || "",
+                  transactionReference: transaction.transactionReference || "",
+                  paymentReference: transaction.paymentReference || "",
+                  balance_before: balanceBefore,
+                  balance_after: newBalance
+                }
+              });
               
               // Trigger a refresh in the UI by updating localStorage
               const currentUserData = localStorage.getItem('currentUser');

@@ -69,11 +69,19 @@ export function ContributeButton({ groupId, groupName, onSuccess }: ContributeBu
       );
 
       if (result.success) {
+        const balanceBefore = walletBalance;
+        const balanceAfter = result.new_balance;
+
         // Refresh the user data to ensure balance is synced correctly
         await refreshCurrentUser();
         
         setIsOpen(false);
         setAmount('');
+        
+        toast.success('Contribution successful!', {
+          description: `Balance: ₦${balanceBefore.toLocaleString()} → ₦${balanceAfter?.toLocaleString()}. You now have voting rights!`
+        });
+
         onSuccess?.();
       }
     } catch (error) {

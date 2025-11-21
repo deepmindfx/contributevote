@@ -216,6 +216,21 @@ const TransactionHistory = ({
               </div>
               
               <div className="space-y-3">
+                {(selectedTransaction.metaData?.balance_before !== undefined || selectedTransaction.metadata?.balance_before !== undefined) && (
+                   <div className="py-2 border-b bg-slate-50 dark:bg-slate-900 px-3 -mx-3 rounded mb-2">
+                    <p className="text-xs text-muted-foreground mb-1">Wallet Balance</p>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">
+                        ₦{(selectedTransaction.metaData?.balance_before ?? selectedTransaction.metadata?.balance_before).toLocaleString()}
+                      </span>
+                      <ArrowRight className="h-3 w-3 text-muted-foreground mx-2" />
+                      <span className="font-medium">
+                        ₦{(selectedTransaction.metaData?.balance_after ?? selectedTransaction.metadata?.balance_after).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex justify-between py-2 border-b">
                   <span className="text-muted-foreground">Status</span>
                   <span className="font-medium capitalize">{selectedTransaction.status || "completed"}</span>
