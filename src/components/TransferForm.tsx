@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { Input } from '@/components/ui/input';
 import html2canvas from 'html2canvas';
+import { ApiService } from '@/services/supabase/apiService';
 
 interface Bank {
   code: string;
@@ -91,16 +92,16 @@ export default function TransferForm() {
   useEffect(() => {
     const fetchBanks = async () => {
       try {
-        const response = await fetch('/api/banks');
-        const data = await response.json();
+        const response = await ApiService.getBanks();
         // Add our test bank
         const banksWithTest = [
           { name: "Ali Bank Test", code: "TEST001" },
-          ...data.data
+          ...(response.data || [])
         ];
         setBanks(banksWithTest);
         setFilteredBanks(banksWithTest);
       } catch (error) {
+        console.error('Error fetching banks:', error);
         toast.error('Failed to fetch banks');
       } finally {
         setIsLoadingBanks(false);
@@ -134,14 +135,13 @@ export default function TransferForm() {
     setIsValidatingAccount(true);
     setAccountError(null);
     try {
-      const response = await fetch(`/api/resolve-account?bankCode=${bankCode}&accountNumber=${accountNumber}`);
-      const data = await response.json();
+      const response = await ApiService.resolveAccount(bankCode, accountNumber);
       
-      if (!data.success) {
-        throw new Error(data.message || 'Failed to validate account');
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to validate account');
       }
       
-      return data.data;
+      return response.data;
     } catch (error: any) {
       console.error('Account validation error:', error);
       setAccountError(error.message || 'Failed to validate account. Please try again.');
@@ -279,23 +279,14 @@ export default function TransferForm() {
       const accountData = await validateAccount(transferData.bankCode, transferData.accountNumber);
       
       // Proceed with transfer
-      const response = await fetch('/api/transfer', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...transferData,
-          currency: 'NGN',
-          beneficiaryName: accountData.account_name
-        }),
+      const result = await ApiService.processTransfer({
+        amount: transferData.amount,
+        accountNumber: transferData.accountNumber,
+        bankCode: transferData.bankCode,
+        beneficiaryName: accountData.account_name,
+        currency: 'NGN',
+        narration: transferData.narration
       });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || 'Transfer failed');
-      }
 
       if (result.status === 'success' && result.data) {
         // Save transaction to history

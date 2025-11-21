@@ -77,6 +77,7 @@ import AllGroups from "./pages/AllGroups";
 import JoinGroup from "./pages/JoinGroup";
 import TransferForm from "./components/TransferForm";
 import PaymentCallback from "./pages/PaymentCallback";
+import TestTransferAPI from "./pages/TestTransferAPI";
 
 const queryClient = new QueryClient();
 
@@ -209,6 +210,13 @@ const AppRoutes = () => {
       <Route path="/transfer" element={
         <ProtectedRoute>
           <TransferForm />
+        </ProtectedRoute>
+      } />
+      
+      {/* Test Transfer API Route - Development only */}
+      <Route path="/test-transfer-api" element={
+        <ProtectedRoute>
+          <TestTransferAPI />
         </ProtectedRoute>
       } />
       

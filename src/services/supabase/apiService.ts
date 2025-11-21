@@ -9,11 +9,14 @@ export class SupabaseApiService {
   // Get Nigerian banks
   static async getBanks() {
     try {
-      const { data, error } = await supabase.functions.invoke('flutterwave-banks', {
-        method: 'GET'
-      });
+      const { data, error } = await supabase.functions.invoke('flutterwave-banks');
 
       if (error) throw error;
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to fetch banks');
+      }
+      
       return data;
     } catch (error) {
       console.error('Error fetching banks:', error);
@@ -25,14 +28,18 @@ export class SupabaseApiService {
   static async resolveAccount(bankCode: string, accountNumber: string) {
     try {
       const { data, error } = await supabase.functions.invoke('flutterwave-resolve-account', {
-        method: 'GET',
-        body: new URLSearchParams({
-          bankCode,
-          accountNumber
-        })
+        body: {
+          account_bank: bankCode,
+          account_number: accountNumber
+        }
       });
 
       if (error) throw error;
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to resolve account');
+      }
+      
       return data;
     } catch (error) {
       console.error('Error resolving account:', error);
@@ -51,11 +58,22 @@ export class SupabaseApiService {
   }) {
     try {
       const { data, error } = await supabase.functions.invoke('flutterwave-transfer', {
-        method: 'POST',
-        body: transferData
+        body: {
+          account_bank: transferData.bankCode,
+          account_number: transferData.accountNumber,
+          amount: transferData.amount,
+          currency: transferData.currency,
+          beneficiary_name: transferData.beneficiaryName,
+          narration: transferData.narration
+        }
       });
 
       if (error) throw error;
+      
+      if (data.status !== 'success') {
+        throw new Error(data.message || 'Transfer failed');
+      }
+      
       return data;
     } catch (error) {
       console.error('Error processing transfer:', error);

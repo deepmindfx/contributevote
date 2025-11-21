@@ -20,10 +20,18 @@ export class SyncService {
       let calculatedBalance = 0
       transactions.forEach(transaction => {
         if (transaction.status === 'completed') {
-          if (transaction.type === 'deposit') {
-            calculatedBalance += Number(transaction.amount)
-          } else if (transaction.type === 'withdrawal') {
-            calculatedBalance -= Number(transaction.amount)
+          switch (transaction.type) {
+            case 'deposit':
+            case 'refund':
+              calculatedBalance += Number(transaction.amount)
+              break
+            case 'withdrawal':
+            case 'contribution':
+            case 'payment':
+            case 'transfer':
+            case 'vote':
+              calculatedBalance -= Number(transaction.amount)
+              break
           }
         }
       })
