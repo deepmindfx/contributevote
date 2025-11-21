@@ -347,10 +347,13 @@ export function SupabaseContributionProvider({ children }: { children: ReactNode
         throw new Error('You have already voted on this request');
       }
 
+      // Convert string vote to boolean (approve = true, reject = false)
+      const voteBoolean = voteValue === 'approve';
+
       // Add the vote
       const newVote = {
         user_id: user.id,
-        vote: voteValue,
+        vote: voteBoolean,
         voted_at: new Date().toISOString()
       };
 
@@ -364,9 +367,21 @@ export function SupabaseContributionProvider({ children }: { children: ReactNode
 
       if (updateError) throw updateError;
 
+      // Record the vote as a transaction for activity history
+      const { error: recordError } = await supabase.rpc('record_withdrawal_vote', {
+        p_withdrawal_id: requestId,
+        p_user_id: user.id,
+        p_vote: voteBoolean
+      });
+
+      if (recordError) {
+        console.error('Error recording vote transaction:', recordError);
+        // Don't fail the vote operation if transaction recording fails
+      }
+
       // Check if voting threshold is met
-      const approveVotes = updatedVotes.filter((v: any) => v.vote === 'approve').length;
-      const rejectVotes = updatedVotes.filter((v: any) => v.vote === 'reject').length;
+      const approveVotes = updatedVotes.filter((v: any) => v.vote === true).length;
+      const rejectVotes = updatedVotes.filter((v: any) => v.vote === false).length;
 
       // Get the contribution group to check voting threshold
       const { data: group } = await supabase

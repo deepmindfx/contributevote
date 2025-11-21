@@ -112,6 +112,18 @@ export async function voteOnWithdrawal(
 
     if (updateError) throw updateError;
 
+    // Record the vote as a transaction for activity history
+    const { error: recordError } = await supabase.rpc('record_withdrawal_vote', {
+      p_withdrawal_id: withdrawalId,
+      p_user_id: userId,
+      p_vote: vote
+    });
+
+    if (recordError) {
+      console.error('Error recording vote transaction:', recordError);
+      // Don't fail the vote operation if transaction recording fails
+    }
+
     // Check voting status and auto-approve/reject if thresholds met
     const votingStatus = await checkWithdrawalVoting(withdrawalId);
 
