@@ -15,25 +15,29 @@ interface ContributorsListProps {
 export function ContributorsList({ groupId }: ContributorsListProps) {
   const [contributors, setContributors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [totalAmount, setTotalAmount] = useState(0);
   const [selectedContributor, setSelectedContributor] = useState<any>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [groupName, setGroupName] = useState('Group');
 
   useEffect(() => {
-    loadContributors();
+    loadContributors(true);
     
-    // Set up interval to refresh contributors every 10 seconds
     const interval = setInterval(() => {
-      loadContributors();
+      loadContributors(false);
     }, 10000);
     
     return () => clearInterval(interval);
   }, [groupId]);
 
-  const loadContributors = async () => {
+  const loadContributors = async (isInitialLoad = false) => {
     try {
-      setLoading(true);
+      if (isInitialLoad) {
+        setLoading(true);
+      } else {
+        setRefreshing(true);
+      }
       const data = await ContributorService.getGroupContributors(groupId);
       setContributors(data);
       
@@ -57,7 +61,11 @@ export function ContributorsList({ groupId }: ContributorsListProps) {
     } catch (error) {
       console.error('Error loading contributors:', error);
     } finally {
-      setLoading(false);
+      if (isInitialLoad) {
+        setLoading(false);
+      } else {
+        setRefreshing(false);
+      }
     }
   };
 
@@ -102,7 +110,12 @@ export function ContributorsList({ groupId }: ContributorsListProps) {
               Total: ₦{totalAmount.toLocaleString()}
             </p>
           </div>
-          <TrendingUp className="h-4 w-4 md:h-5 md:w-5 text-green-600 flex-shrink-0" />
+          <div className="flex items-center gap-2">
+            {refreshing && (
+              <span className="text-xs text-muted-foreground">Refreshing...</span>
+            )}
+            <TrendingUp className="h-4 w-4 md:h-5 md:w-5 text-green-600 flex-shrink-0" />
+          </div>
         </div>
 
         {/* Contributors List */}

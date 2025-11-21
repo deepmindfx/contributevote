@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode, useCallback,
 import { ContributionService } from '@/services/supabase/contributionService';
 import { TransactionService } from '@/services/supabase/transactionService';
 import { SyncService } from '@/services/supabase/syncService';
+import { voteOnWithdrawal as voteOnWithdrawalService } from '@/services/supabase/withdrawalService';
 import { Database } from '@/integrations/supabase/types';
 import { useSupabaseUser } from './SupabaseUserContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -78,7 +79,10 @@ export function SupabaseContributionProvider({ children }: { children: ReactNode
         console.error('Error loading withdrawal requests:', requestsError);
         setWithdrawalRequests([]);
       } else {
-        setWithdrawalRequests(requests || []);
+        const sortedRequests = (requests || []).sort(
+          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        setWithdrawalRequests(sortedRequests);
       }
     } catch (error) {
       console.error('Error refreshing contribution data:', error);
@@ -328,81 +332,10 @@ export function SupabaseContributionProvider({ children }: { children: ReactNode
     if (!user) throw new Error('User not authenticated');
 
     try {
-      // Get the withdrawal request
-      const { data: request, error: fetchError } = await supabase
-        .from('withdrawal_requests')
-        .select('*')
-        .eq('id', requestId)
-        .single();
+      const result = await voteOnWithdrawalService(requestId, voteValue === 'approve');
 
-      if (fetchError) throw fetchError;
-      if (!request) throw new Error('Withdrawal request not found');
-
-      // Check if user has already voted
-      const votes = (request.votes as any) || [];
-      const votesArray = Array.isArray(votes) ? votes : [];
-      const hasVoted = votesArray.some((v: any) => v.user_id === user.id);
-
-      if (hasVoted) {
-        throw new Error('You have already voted on this request');
-      }
-
-      // Convert string vote to boolean (approve = true, reject = false)
-      const voteBoolean = voteValue === 'approve';
-
-      // Add the vote
-      const newVote = {
-        user_id: user.id,
-        vote: voteBoolean,
-        voted_at: new Date().toISOString()
-      };
-
-      const updatedVotes = [...votesArray, newVote];
-
-      // Update the withdrawal request with the new vote
-      const { error: updateError } = await supabase
-        .from('withdrawal_requests')
-        .update({ votes: updatedVotes })
-        .eq('id', requestId);
-
-      if (updateError) throw updateError;
-
-      // Record the vote as a transaction for activity history
-      const { error: recordError } = await supabase.rpc('record_withdrawal_vote', {
-        p_withdrawal_id: requestId,
-        p_user_id: user.id,
-        p_vote: voteBoolean
-      });
-
-      if (recordError) {
-        console.error('Error recording vote transaction:', recordError);
-        // Don't fail the vote operation if transaction recording fails
-      }
-
-      // Check if voting threshold is met
-      const approveVotes = updatedVotes.filter((v: any) => v.vote === true).length;
-      const rejectVotes = updatedVotes.filter((v: any) => v.vote === false).length;
-
-      // Get the contribution group to check voting threshold
-      const { data: group } = await supabase
-        .from('contribution_groups')
-        .select('voting_threshold')
-        .eq('id', request.contribution_id)
-        .single();
-
-      const threshold = group?.voting_threshold || 1;
-
-      // Update status if threshold is met
-      if (approveVotes >= threshold) {
-        await supabase
-          .from('withdrawal_requests')
-          .update({ status: 'approved' })
-          .eq('id', requestId);
-      } else if (rejectVotes >= threshold) {
-        await supabase
-          .from('withdrawal_requests')
-          .update({ status: 'rejected' })
-          .eq('id', requestId);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to submit vote');
       }
 
       await refreshContributionData();

@@ -145,21 +145,16 @@ const CountdownTimer: React.FC<CountdownTimerProps> = ({
         
         {/* Text in center */}
         <div className="absolute inset-0 flex items-center justify-center text-center">
-          <div>
-            <div className={`font-bold text-${fontSize}`}>
-              {timeLeft.hours}h:{String(timeLeft.minutes).padStart(2, '0')}m
-              <br />
-              {String(timeLeft.seconds).padStart(2, '0')}s
-            </div>
+          <div className={`font-bold text-${fontSize} whitespace-nowrap leading-tight`}>
+            {`${timeLeft.hours}h:${String(timeLeft.minutes).padStart(2, '0')}m ${String(timeLeft.seconds).padStart(2, '0')}s`}
           </div>
         </div>
       </div>
       
       {showLabel && (
-        <div className="mt-1 text-xs text-amber-500 flex items-center">
+        <div className="mt-1 text-xs text-amber-500 flex items-center whitespace-nowrap">
           <span className="inline-block w-2 h-2 bg-amber-500 rounded-full mr-1"></span>
-          Ends in {timeLeft.hours > 0 ? `${timeLeft.hours}h ` : ''}
-          {timeLeft.minutes > 0 ? `${timeLeft.minutes}m` : ''}
+          Ends in {timeLeft.hours}h {String(timeLeft.minutes).padStart(2, '0')}m
         </div>
       )}
     </div>

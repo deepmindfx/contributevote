@@ -89,12 +89,10 @@ const VotesPage = () => {
         };
       });
     
-    // Sort: Pending first, then by date
-    formattedRequests.sort((a, b) => {
-      if (a.status === 'pending' && b.status !== 'pending') return -1;
-      if (a.status !== 'pending' && b.status === 'pending') return 1;
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    });
+    // Sort newest first
+    formattedRequests.sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
 
     setVoteRequests(formattedRequests);
   };
@@ -161,13 +159,27 @@ const VotesPage = () => {
       
       if (result.votingStatus) {
         const { participation_rate, approval_rate, status } = result.votingStatus;
-        
+        const participationText =
+          typeof participation_rate === 'number' && Number.isFinite(participation_rate)
+            ? `${participation_rate.toFixed(0)}%`
+            : null;
+        const approvalText =
+          typeof approval_rate === 'number' && Number.isFinite(approval_rate)
+            ? `${approval_rate.toFixed(0)}%`
+            : null;
+
         if (status === 'approved' || status === 'executed') {
-          toast.success(`Withdrawal approved! ${participation_rate.toFixed(0)}% participated, ${approval_rate.toFixed(0)}% approved`);
+          if (participationText && approvalText) {
+            toast.success(`Withdrawal approved! ${participationText} participated, ${approvalText} approved`);
+          } else {
+            toast.success('Withdrawal approved!');
+          }
         } else if (status === 'rejected') {
           toast.error('Withdrawal rejected - thresholds not met');
+        } else if (participationText && approvalText) {
+          toast.success(`Vote recorded! Participation: ${participationText}, Approval: ${approvalText}`);
         } else {
-          toast.success(`Vote recorded! Participation: ${participation_rate.toFixed(0)}%, Approval: ${approval_rate.toFixed(0)}%`);
+          toast.success('Vote recorded successfully!');
         }
       } else {
         toast.success('Vote recorded successfully!');

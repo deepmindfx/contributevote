@@ -1,3 +1,4 @@
+import { supabase } from '@/integrations/supabase/client'
 import { UserService } from './userService'
 import { ContributionService } from './contributionService'
 import { TransactionService } from './transactionService'
@@ -49,11 +50,29 @@ export class SyncService {
         totalContributed += Number((contributor as any).total_contributed || 0)
       })
 
+      // Calculate total executed withdrawals (voting + instant)
+      let totalWithdrawn = 0
+      const { data: withdrawals, error: withdrawalError } = await supabase
+        .from('withdrawal_requests')
+        .select('amount, status')
+        .eq('contribution_id', contributionId)
+        .in('status', ['approved', 'executed'])
+
+      if (withdrawalError) {
+        console.error('Error fetching withdrawals for sync:', withdrawalError)
+      } else {
+        withdrawals?.forEach(withdrawal => {
+          totalWithdrawn += Number(withdrawal.amount || 0)
+        })
+      }
+
+      const recalculatedBalance = Math.max(totalContributed - totalWithdrawn, 0)
+
       // Update group's current amount if it doesn't match
-      if (Math.abs((contribution.current_amount || 0) - totalContributed) > 0.01) {
-        console.log(`Updating group amount from ${contribution.current_amount} to ${totalContributed}`)
+      if (Math.abs((contribution.current_amount || 0) - recalculatedBalance) > 0.01) {
+        console.log(`Updating group amount from ${contribution.current_amount} to ${recalculatedBalance}`)
         await ContributionService.updateContributionGroup(contributionId, {
-          current_amount: totalContributed
+          current_amount: recalculatedBalance
         })
       }
 

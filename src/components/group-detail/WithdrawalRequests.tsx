@@ -58,6 +58,12 @@ const WithdrawalRequests = ({
     pingMembersForVote(requestId);
   };
 
+  const sortedRequests = [...contributionRequests].sort((a, b) => {
+    const aDate = new Date(a.createdAt).getTime();
+    const bDate = new Date(b.createdAt).getTime();
+    return bDate - aDate;
+  });
+
   return (
     <Card className="glass-card animate-slide-up">
       <CardHeader>
@@ -71,7 +77,7 @@ const WithdrawalRequests = ({
           </div>
         ) : (
           <div className="space-y-4">
-            {contributionRequests.map(request => (
+            {sortedRequests.map(request => (
               <Card key={request.id} className={`overflow-hidden ${
                 request.status === 'pending' ? 'border-amber-200 dark:border-amber-800' : 
                 request.status === 'approved' ? 'border-green-200 dark:border-green-800' : 
