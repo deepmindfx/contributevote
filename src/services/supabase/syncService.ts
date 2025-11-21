@@ -13,36 +13,11 @@ export class SyncService {
       const user = await UserService.getUserById(userId)
       if (!user) return null
 
-      // Get user's transactions
-      const transactions = await TransactionService.getUserTransactions(userId)
+      // IMPORTANT: We should NOT recalculate balance from all transactions
+      // because the database functions already handle balance updates atomically.
+      // The wallet balance in the profiles table is the source of truth.
       
-      // Calculate wallet balance from transactions
-      let calculatedBalance = 0
-      transactions.forEach(transaction => {
-        if (transaction.status === 'completed') {
-          switch (transaction.type) {
-            case 'deposit':
-            case 'refund':
-              calculatedBalance += Number(transaction.amount)
-              break
-            case 'withdrawal':
-            case 'contribution':
-            case 'payment':
-            case 'transfer':
-            case 'vote':
-              calculatedBalance -= Number(transaction.amount)
-              break
-          }
-        }
-      })
-
-      // Update wallet balance if it doesn't match
-      if (Math.abs((user.wallet_balance || 0) - calculatedBalance) > 0.01) {
-        console.log(`Updating wallet balance from ${user.wallet_balance} to ${calculatedBalance}`)
-        await UserService.updateWalletBalance(userId, calculatedBalance)
-      }
-
-      // Check for new virtual account transactions
+      // Only check for new virtual account transactions (bank deposits)
       const virtualAccount = await WalletService.getVirtualAccount(userId)
       if (virtualAccount?.accountReference) {
         await WalletService.getVirtualAccountTransactions(virtualAccount.accountReference, userId)
@@ -136,23 +111,9 @@ export class SyncService {
 
       const errors: string[] = []
 
-      // Check wallet balance consistency
-      const transactions = await TransactionService.getUserTransactions(userId)
-      let calculatedBalance = 0
-      
-      transactions.forEach(transaction => {
-        if (transaction.status === 'completed') {
-          if (transaction.type === 'deposit') {
-            calculatedBalance += Number(transaction.amount)
-          } else if (transaction.type === 'withdrawal') {
-            calculatedBalance -= Number(transaction.amount)
-          }
-        }
-      })
-
-      if (Math.abs((user.wallet_balance || 0) - calculatedBalance) > 0.01) {
-        errors.push(`Wallet balance mismatch: stored=${user.wallet_balance}, calculated=${calculatedBalance}`)
-      }
+      // Note: We no longer validate wallet balance against transactions
+      // because the profiles.wallet_balance is the source of truth.
+      // It's updated atomically by database functions during transactions.
 
       // Check contribution group consistency
       const userContributions = await ContributionService.getUserContributionGroups(userId)
@@ -170,7 +131,7 @@ export class SyncService {
         valid: errors.length === 0,
         errors,
         user,
-        calculatedBalance,
+        currentBalance: user.wallet_balance || 0,
         contributions: userContributions
       }
     } catch (error) {
