@@ -57,12 +57,13 @@ const AuthForm = () => {
         return;
       }
 
-      toast.success("Login successful!");
+      toast.success("Login successful! Redirecting...");
       
-      // Wait a bit for the auth state to propagate
+      // Wait for auth state to fully propagate, then navigate
       setTimeout(() => {
-        navigate(returnUrl);
-      }, 500);
+        console.log('AuthForm: navigating to', returnUrl);
+        navigate(returnUrl, { replace: true });
+      }, 1000);
     } catch (error: any) {
       toast.error(error.message || "An error occurred during login");
     } finally {
