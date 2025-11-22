@@ -276,6 +276,20 @@ export const WalletContributionService = {
     partialPercentage?: number
   ): Promise<GroupRefundRequest | null> {
     try {
+      // Ensure requester is the group creator
+      const { data: group, error: groupError } = await supabase
+        .from('contribution_groups')
+        .select('creator_id, name')
+        .eq('id', groupId)
+        .single();
+
+      if (groupError) throw groupError;
+
+      if (!group || group.creator_id !== requesterId) {
+        toast.error('Only the group creator can request a refund.');
+        return null;
+      }
+
       // Get total eligible voters
       const { data: contributors } = await supabase
         .from('contributors')
@@ -284,6 +298,11 @@ export const WalletContributionService = {
         .eq('has_voting_rights', true);
 
       const totalEligibleVoters = contributors?.length || 0;
+
+      if (totalEligibleVoters === 0) {
+        toast.error('No eligible voters found. Contributors must have voting rights.');
+        return null;
+      }
 
       // Set voting deadline (7 days from now)
       const votingDeadline = new Date();
@@ -313,7 +332,7 @@ export const WalletContributionService = {
       return data as GroupRefundRequest;
     } catch (error) {
       console.error('Error creating refund request:', error);
-      toast.error('Failed to create refund request');
+      toast.error(error instanceof Error ? error.message : 'Failed to create refund request');
       return null;
     }
   },
@@ -337,6 +356,24 @@ export const WalletContributionService = {
 
       if (fetchError) throw fetchError;
 
+      // Ensure voter has rights within this group
+      const { data: contributor, error: contributorError } = await supabase
+        .from('contributors')
+        .select('has_voting_rights')
+        .eq('group_id', (request as any).group_id)
+        .eq('user_id', userId)
+        .single();
+
+      if (contributorError || !contributor) {
+        toast.error('Only verified contributors can vote on refunds');
+        return false;
+      }
+
+      if (!contributor.has_voting_rights) {
+        toast.error('You do not have voting rights in this group');
+        return false;
+      }
+
       // Check if user already voted
       const votes = (request as any).votes || [];
       const existingVote = votes.find((v: any) => v.user_id === userId);
@@ -353,13 +390,13 @@ export const WalletContributionService = {
       const totalVotes = newVotes.length;
 
       // Governance Rules
-      const totalEligibleVoters = (request as any).total_eligible_voters;
+      const totalEligibleVoters = (request as any).total_eligible_voters || 0;
       const APPROVAL_THRESHOLD = 60; // 60% of voters must approve
       const PARTICIPATION_THRESHOLD = 70; // 70% of contributors must vote
 
-      // Calculate percentages
-      const participationRate = (totalVotes / totalEligibleVoters) * 100;
-      const approvalRate = (votesFor / totalVotes) * 100;
+      // Calculate percentages safely
+      const participationRate = totalEligibleVoters > 0 ? (totalVotes / totalEligibleVoters) * 100 : 0;
+      const approvalRate = totalVotes > 0 ? (votesFor / totalVotes) * 100 : 0;
 
       // Check if thresholds met (early approval)
       let newStatus = 'pending';

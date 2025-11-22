@@ -16,6 +16,7 @@ import { RecurringContributionDialog } from '@/components/contribution/Recurring
 import { ScheduledContributionDialog } from '@/components/contribution/ScheduledContributionDialog';
 import { GroupRefundDialog } from '@/components/contribution/GroupRefundDialog';
 import { RefundRequestsCard } from '@/components/contribution/RefundRequestsCard';
+import { GroupActivityTimeline } from '@/components/contribution/GroupActivityTimeline';
 import { ContributorsList } from '@/components/contribution/ContributorsList';
 import { GroupAdminPanel } from '@/components/contribution/GroupAdminPanel';
 import { VotingRightsGuard } from '@/components/contribution/VotingRightsGuard';
@@ -38,6 +39,8 @@ export default function GroupDetail() {
   const [isArchiving, setIsArchiving] = useState(false);
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
   const [showBvnDialog, setShowBvnDialog] = useState(false);
+
+  const isCreator = group?.creator_id === user?.id;
 
   useEffect(() => {
     const fetchGroup = async () => {
@@ -315,7 +318,7 @@ export default function GroupDetail() {
                 
                 {/* Secondary Actions - Only for members with voting rights */}
                 {isActive && canVote && (
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
                     <RecurringContributionDialog
                       groupId={id!}
                       groupName={group.name}
@@ -326,6 +329,18 @@ export default function GroupDetail() {
                       groupName={group.name}
                       onSuccess={handleContributeSuccess}
                     />
+                    {isCreator && (
+                      <GroupRefundDialog
+                        groupId={id!}
+                        groupName={group.name}
+                        onSuccess={handleContributeSuccess}
+                      />
+                    )}
+                  </div>
+                )}
+                
+                {isActive && !canVote && isCreator && (
+                  <div className="pt-2">
                     <GroupRefundDialog
                       groupId={id!}
                       groupName={group.name}
@@ -475,6 +490,9 @@ export default function GroupDetail() {
 
         {/* Refund Requests - Shows voting interface if any refund requests exist */}
         <RefundRequestsCard groupId={id!} />
+
+        {/* Group Activity Timeline */}
+        <GroupActivityTimeline groupId={id!} />
 
         {/* Contributors List */}
         <ContributorsList groupId={id!} />
