@@ -7,7 +7,7 @@ import { WalletContributionService, GroupRefundRequest } from '@/services/supaba
 import { useSupabaseUser } from '@/contexts/SupabaseUserContext';
 import { ThumbsUp, ThumbsDown, Clock, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 
 interface RefundRequestsCardProps {
   groupId: string;
