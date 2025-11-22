@@ -414,7 +414,10 @@ export const WalletContributionService = {
         })
         .eq('id', refundRequestId);
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error('Update error details:', updateError);
+        throw updateError;
+      }
 
       if (newStatus === 'approved') {
         toast.success('🎉 Refund request approved!', {
@@ -431,7 +434,10 @@ export const WalletContributionService = {
       return true;
     } catch (error) {
       console.error('Error voting on refund:', error);
-      toast.error('Failed to record vote');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error('Failed to record vote', {
+        description: errorMessage
+      });
       return false;
     }
   },
