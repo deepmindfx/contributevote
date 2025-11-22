@@ -25,14 +25,16 @@ export function GroupRefundDialog({ groupId, groupName, onSuccess }: GroupRefund
   const [isProcessing, setIsProcessing] = useState(false);
   const { user } = useSupabaseUser();
 
+  const MIN_REASON_LENGTH = 20;
+
   const handleCreateRequest = async () => {
     if (!reason.trim()) {
       toast.error('Please provide a reason for the refund');
       return;
     }
 
-    if (reason.length < 20) {
-      toast.error('Please provide a more detailed reason (at least 20 characters)');
+    if (reason.length < MIN_REASON_LENGTH) {
+      toast.error(`Please provide a more detailed reason (at least ${MIN_REASON_LENGTH} characters)`);
       return;
     }
 
@@ -152,7 +154,7 @@ export function GroupRefundDialog({ groupId, groupName, onSuccess }: GroupRefund
               className="resize-none"
             />
             <p className="text-xs text-muted-foreground">
-              {reason.length}/20 characters minimum
+              {reason.length}/{MIN_REASON_LENGTH} characters minimum
             </p>
           </div>
 
@@ -209,7 +211,7 @@ export function GroupRefundDialog({ groupId, groupName, onSuccess }: GroupRefund
           {/* Create Button */}
           <Button
             onClick={handleCreateRequest}
-            disabled={isProcessing || !reason.trim() || reason.length < 20}
+            disabled={isProcessing || !reason.trim()}
             className="w-full"
             size="lg"
             variant="destructive"
