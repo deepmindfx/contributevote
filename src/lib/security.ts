@@ -6,7 +6,7 @@ export const SECURITY_CONSTANTS = {
   MAX_DAILY_TRANSACTIONS: 50,
   MAX_WITHDRAWAL_AMOUNT: 5000000,
   PIN_LENGTH: 4,
-  SESSION_TIMEOUT: 4 * 60 * 60 * 1000, // 4 hours
+  SESSION_TIMEOUT: 30 * 60 * 1000, // 30 minutes
 } as const;
 
 // Input sanitization

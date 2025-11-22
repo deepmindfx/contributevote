@@ -1,61 +1,10 @@
-import { createContext, useContext, useEffect, useState, ReactNode, useRef, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { UserService } from '@/services/supabase/userService';
 import { SyncService } from '@/services/supabase/syncService';
 import { Database } from '@/integrations/supabase/types';
 import { supabase } from '@/integrations/supabase/client';
-import { SECURITY_CONSTANTS } from '@/lib/security';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
-
-type SessionMetadata = {
-  lastActivity: number;
-  expiresAt: number;
-};
-
-const USER_STORAGE_KEY = 'currentUser';
-const SESSION_METADATA_KEY = 'auth_session_metadata_v1';
-const SESSION_ACTIVITY_WRITE_INTERVAL = 60 * 1000; // 1 minute throttling for storage writes
-const SESSION_TIMEOUT_MS = (() => {
-  const envMinutes = Number(import.meta.env.VITE_SESSION_TIMEOUT_MINUTES);
-  if (!Number.isNaN(envMinutes) && envMinutes > 0) {
-    return envMinutes * 60 * 1000;
-  }
-  return SECURITY_CONSTANTS.SESSION_TIMEOUT;
-})();
-
-const ACTIVITY_EVENTS: (keyof WindowEventMap)[] = ['click', 'keydown', 'touchstart', 'focus'];
-
-const hasBrowserStorage = () =>
-  typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
-
-const readStoredUserProfile = (): Profile | null => {
-  if (!hasBrowserStorage()) return null;
-  const cached = window.localStorage.getItem(USER_STORAGE_KEY);
-  if (!cached) return null;
-  try {
-    return JSON.parse(cached) as Profile;
-  } catch (error) {
-    console.warn('Failed to parse cached user profile, clearing storage', error);
-    window.localStorage.removeItem(USER_STORAGE_KEY);
-    return null;
-  }
-};
-
-const readStoredSessionMetadata = (): SessionMetadata | null => {
-  if (!hasBrowserStorage()) return null;
-  const raw = window.localStorage.getItem(SESSION_METADATA_KEY);
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    if (typeof parsed.lastActivity === 'number' && typeof parsed.expiresAt === 'number') {
-      return parsed as SessionMetadata;
-    }
-  } catch (error) {
-    console.warn('Failed to parse session metadata, clearing storage', error);
-  }
-  window.localStorage.removeItem(SESSION_METADATA_KEY);
-  return null;
-};
 
 interface SupabaseUserContextType {
   user: Profile | null;
@@ -73,7 +22,7 @@ interface SupabaseUserContextType {
   getUserByEmail: (email: string) => Promise<Profile | null>;
   getUserByPhone: (phone: string) => Promise<Profile | null>;
   verifyUser: (userId: string) => Promise<void>;
-  logout: () => Promise<void>;
+  logout: () => void;
   login: (email: string, password: string) => Promise<{ success: boolean; user?: Profile; error?: string }>;
   register: (userData: { name: string; email: string; phone?: string }) => Promise<{ success: boolean; user?: Profile; error?: string }>;
   signIn: (email: string, password: string) => Promise<{ error?: { message: string } }>;
@@ -83,143 +32,12 @@ interface SupabaseUserContextType {
 const SupabaseUserContext = createContext<SupabaseUserContextType | undefined>(undefined);
 
 export function SupabaseUserProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<Profile | null>(() => readStoredUserProfile());
+  const [user, setUser] = useState<Profile | null>(null);
   const [users, setUsers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sessionMetadata, setSessionMetadata] = useState<SessionMetadata | null>(() =>
-    readStoredSessionMetadata()
-  );
-  const sessionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastActivityRef = useRef<number>(sessionMetadata?.lastActivity ?? 0);
 
   const isAuthenticated = !!user;
   const isAdmin = user?.role === 'admin';
-
-  const clearSessionTimer = useCallback(() => {
-    if (sessionTimeoutRef.current) {
-      clearTimeout(sessionTimeoutRef.current);
-      sessionTimeoutRef.current = null;
-    }
-  }, []);
-
-  const persistSessionMetadata = useCallback((metadata: SessionMetadata | null) => {
-    setSessionMetadata(metadata);
-    if (!hasBrowserStorage()) return;
-    if (!metadata) {
-      window.localStorage.removeItem(SESSION_METADATA_KEY);
-      return;
-    }
-    window.localStorage.setItem(SESSION_METADATA_KEY, JSON.stringify(metadata));
-  }, []);
-
-  const clearSessionState = useCallback(() => {
-    setUser(null);
-    clearSessionTimer();
-    if (hasBrowserStorage()) {
-      window.localStorage.removeItem(USER_STORAGE_KEY);
-    }
-    persistSessionMetadata(null);
-  }, [clearSessionTimer, persistSessionMetadata]);
-
-  const logout = useCallback(async () => {
-    try {
-      await supabase.auth.signOut();
-    } catch (error) {
-      console.error('Error logging out:', error);
-    } finally {
-      clearSessionState();
-    }
-  }, [clearSessionState]);
-
-  const handleSessionExpiry = useCallback(
-    async (reason: 'timeout' | 'expired_on_load') => {
-      console.warn('Auth session ended', { reason });
-      await logout();
-    },
-    [logout]
-  );
-
-  const scheduleSessionTimeout = useCallback(
-    (expiresAt: number | null) => {
-      if (!expiresAt || typeof window === 'undefined') return;
-      clearSessionTimer();
-      const delay = Math.max(expiresAt - Date.now(), 0);
-      sessionTimeoutRef.current = window.setTimeout(() => {
-        handleSessionExpiry('timeout');
-      }, delay);
-    },
-    [clearSessionTimer, handleSessionExpiry]
-  );
-
-  const refreshSessionActivity = useCallback(
-    (force = false) => {
-      if (!user) return;
-      const now = Date.now();
-      if (!force && now - lastActivityRef.current < SESSION_ACTIVITY_WRITE_INTERVAL) {
-        return;
-      }
-      lastActivityRef.current = now;
-      const metadata: SessionMetadata = {
-        lastActivity: now,
-        expiresAt: now + SESSION_TIMEOUT_MS
-      };
-      persistSessionMetadata(metadata);
-      scheduleSessionTimeout(metadata.expiresAt);
-    },
-    [user, persistSessionMetadata, scheduleSessionTimeout]
-  );
-
-  useEffect(() => {
-    if (!sessionMetadata?.expiresAt) {
-      clearSessionTimer();
-      return;
-    }
-
-    if (sessionMetadata.expiresAt <= Date.now()) {
-      handleSessionExpiry('expired_on_load');
-      return;
-    }
-
-    scheduleSessionTimeout(sessionMetadata.expiresAt);
-
-    return () => {
-      clearSessionTimer();
-    };
-  }, [sessionMetadata?.expiresAt, scheduleSessionTimeout, handleSessionExpiry, clearSessionTimer]);
-
-  useEffect(() => {
-    if (!user?.id) {
-      if (sessionMetadata) {
-        persistSessionMetadata(null);
-      }
-      clearSessionTimer();
-      return;
-    }
-
-    refreshSessionActivity(true);
-  }, [user?.id, sessionMetadata, refreshSessionActivity, persistSessionMetadata, clearSessionTimer]);
-
-  useEffect(() => {
-    if (!user) {
-      clearSessionTimer();
-      return;
-    }
-
-    const activityHandler = () => refreshSessionActivity();
-    const visibilityHandler = () => {
-      if (document.visibilityState === 'visible') {
-        refreshSessionActivity(true);
-      }
-    };
-
-    ACTIVITY_EVENTS.forEach(event => window.addEventListener(event, activityHandler));
-    document.addEventListener('visibilitychange', visibilityHandler);
-
-    return () => {
-      ACTIVITY_EVENTS.forEach(event => window.removeEventListener(event, activityHandler));
-      document.removeEventListener('visibilitychange', visibilityHandler);
-    };
-  }, [user, refreshSessionActivity, clearSessionTimer]);
 
   // Load user data on mount and set up auth listener
   useEffect(() => {
@@ -285,12 +103,12 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
             if (profile && mounted) {
               console.log('Setting user profile:', profile.email);
               setUser(profile);
-              localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(profile));
+              localStorage.setItem('currentUser', JSON.stringify(profile));
             }
           } catch (error) {
             console.error('Error fetching user profile:', error);
             // If profile fetch fails, try to use cached data
-            const cachedUser = localStorage.getItem(USER_STORAGE_KEY);
+            const cachedUser = localStorage.getItem('currentUser');
             if (cachedUser && mounted) {
               try {
                 const parsedUser = JSON.parse(cachedUser);
@@ -364,12 +182,12 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
           if (profile && mounted) {
             console.log('Profile loaded successfully:', profile.email);
             setUser(profile);
-            localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(profile));
+            localStorage.setItem('currentUser', JSON.stringify(profile));
           }
         } catch (error) {
           console.error('Error fetching user profile after sign in:', error);
           // Try cached data as fallback
-          const cachedUser = localStorage.getItem(USER_STORAGE_KEY);
+          const cachedUser = localStorage.getItem('currentUser');
           if (cachedUser && mounted) {
             try {
               const parsedUser = JSON.parse(cachedUser);
@@ -383,7 +201,7 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
                   if (freshProfile && mounted) {
                     console.log('Refreshed profile with fresh data');
                     setUser(freshProfile);
-                    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(freshProfile));
+                    localStorage.setItem('currentUser', JSON.stringify(freshProfile));
                   }
                 } catch (refreshError) {
                   console.log('Background refresh failed, real-time will sync');
@@ -401,7 +219,8 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
         }
       } else if (event === 'SIGNED_OUT' && mounted) {
         console.log('User signed out');
-        clearSessionState();
+        setUser(null);
+        localStorage.removeItem('currentUser');
         setLoading(false);
       } else if (event === 'INITIAL_SESSION') {
         // Initial session is handled in initializeAuth
@@ -436,7 +255,7 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
         (payload) => {
           const updatedProfile = payload.new as Profile;
           setUser(updatedProfile);
-          localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedProfile));
+          localStorage.setItem('currentUser', JSON.stringify(updatedProfile));
         }
       )
       .subscribe();
@@ -487,7 +306,7 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
         const freshUser = await SyncService.syncUserData(user.id);
         if (freshUser) {
           setUser(freshUser);
-          localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(freshUser));
+          localStorage.setItem('currentUser', JSON.stringify(freshUser));
         }
       }
     } catch (error) {
@@ -503,7 +322,7 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
       
       if (foundUser) {
         setUser(foundUser);
-        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(foundUser));
+        localStorage.setItem('currentUser', JSON.stringify(foundUser));
         return { success: true, user: foundUser };
       } else {
         return { success: false, error: 'User not found' };
@@ -542,7 +361,7 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
       });
 
       setUser(newUser);
-      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(newUser));
+      localStorage.setItem('currentUser', JSON.stringify(newUser));
       await refreshUserData();
       
       return { success: true, user: newUser };
@@ -558,7 +377,7 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
     try {
       const updatedUser = await UserService.updateUser(user.id, userData);
       setUser(updatedUser);
-      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser));
+      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
       await refreshUserData();
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -638,6 +457,24 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const logout = async () => {
+    try {
+      // Sign out from Supabase Auth
+      await supabase.auth.signOut();
+      
+      // Clear local state
+      setUser(null);
+      localStorage.removeItem('currentUser');
+      
+      console.log('User logged out successfully');
+    } catch (error) {
+      console.error('Error logging out:', error);
+      // Still clear local state even if signOut fails
+      setUser(null);
+      localStorage.removeItem('currentUser');
+    }
+  };
+
   // Proper Supabase Auth functions
   const signIn = async (email: string, password: string) => {
     try {
@@ -651,8 +488,15 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
         return { error: { message: error.message } };
       }
 
-      // The onAuthStateChange listener will handle setting the user
-      // Just return success here
+      if (data.user) {
+        // Fetch user profile from profiles table
+        const profile = await UserService.getUserById(data.user.id);
+        if (profile) {
+          setUser(profile);
+          localStorage.setItem('currentUser', JSON.stringify(profile));
+        }
+      }
+
       return { error: null };
     } catch (error: any) {
       return { error: { message: error.message || 'Login failed' } };

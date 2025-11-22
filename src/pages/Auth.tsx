@@ -5,25 +5,15 @@ import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { useNavigate } from "react-router-dom";
 
 const Auth = () => {
-  const { isAuthenticated, loading } = useSupabaseUser();
+  const { isAuthenticated } = useSupabaseUser();
   const navigate = useNavigate();
 
-  // Redirect if already authenticated (only run once on mount)
+  // Redirect if already authenticated
   useEffect(() => {
-    if (!loading && isAuthenticated) {
-      console.log('Auth page: redirecting authenticated user to dashboard');
-      navigate('/dashboard', { replace: true });
+    if (isAuthenticated) {
+      navigate('/dashboard');
     }
-  }, [isAuthenticated, loading, navigate]);
-
-  // Don't show auth form if user is already authenticated
-  if (!loading && isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
+  }, [isAuthenticated, navigate]);
 
   return (
     <div className="min-h-screen flex flex-col">
