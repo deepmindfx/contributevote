@@ -33,7 +33,7 @@ export const createUserReservedAccount = async (
     
     // Validate ID information
     if (!idType || !idNumber) {
-      toast.error("BVN or NIN is required to create a virtual account");
+      toast.error("BVN is required to create a virtual account");
       return null;
     }
     

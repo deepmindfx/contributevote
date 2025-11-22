@@ -39,8 +39,33 @@ export default function GroupDetail() {
   const [isArchiving, setIsArchiving] = useState(false);
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
   const [showBvnDialog, setShowBvnDialog] = useState(false);
+  const [userBvn, setUserBvn] = useState<string | null>(null);
 
   const isCreator = group?.creator_id === user?.id;
+
+  // Fetch user's BVN from profile
+  useEffect(() => {
+    const fetchUserBvn = async () => {
+      if (user?.id) {
+        try {
+          const { supabase } = await import('@/integrations/supabase/client');
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('bvn')
+            .eq('id', user.id)
+            .single();
+
+          if (!error && data?.bvn) {
+            setUserBvn(data.bvn);
+          }
+        } catch (error) {
+          console.error('Error fetching user BVN:', error);
+        }
+      }
+    };
+
+    fetchUserBvn();
+  }, [user?.id]);
 
   useEffect(() => {
     const fetchGroup = async () => {
@@ -124,6 +149,16 @@ export default function GroupDetail() {
   const handleSetupBankAccount = async (bvn: string) => {
     setIsCreatingAccount(true);
     try {
+      // Save BVN to user profile if not already saved
+      if (!userBvn && bvn) {
+        const { supabase } = await import('@/integrations/supabase/client');
+        await supabase
+          .from('profiles')
+          .update({ bvn: bvn })
+          .eq('id', user.id);
+        setUserBvn(bvn); // Update local state
+      }
+
       const accountData = await createGroupVirtualAccount({
         email: user.email,
         bvn: bvn,
@@ -509,6 +544,7 @@ export default function GroupDetail() {
         onOpenChange={setShowBvnDialog}
         onSubmit={handleSetupBankAccount}
         isLoading={isCreatingAccount}
+        initialBvn={userBvn}
       />
     </div>
   );

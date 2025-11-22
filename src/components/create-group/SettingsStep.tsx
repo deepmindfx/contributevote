@@ -122,39 +122,54 @@ const SettingsStep = ({
           )}
         </div>
         
-        {/* BVN input section */}
+        {/* BVN input section - Show different UI based on whether BVN exists */}
         <div className="space-y-2 p-4 bg-muted/40 rounded-lg border">
           <div className="flex items-start gap-2">
             <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5" />
             <div>
               <h3 className="text-sm font-medium">Account Information</h3>
               <p className="text-sm text-muted-foreground">
-                We need your BVN to create a dedicated account for this group. 
-                This is required by our payment provider for verification purposes.
+                {formData.bvn 
+                  ? "We'll use your saved BVN to create a dedicated account for this group."
+                  : "We need your BVN to create a dedicated account for this group. This is required by our payment provider for verification purposes."}
               </p>
             </div>
           </div>
           
-          <div className="space-y-2 mt-3">
-            <Label htmlFor="bvn" className="text-sm">Bank Verification Number (BVN)</Label>
-            <Input 
-              id="bvn" 
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              maxLength={11}
-              placeholder="Enter your 11-digit BVN"
-              value={formData.bvn}
-              onChange={(e) => handleChange('bvn', e.target.value)}
-              className={validationErrors.bvn ? "border-red-500" : ""}
-            />
-            {validationErrors.bvn && (
-              <p className="text-xs text-red-500">{validationErrors.bvn}</p>
-            )}
-            <p className="text-xs text-muted-foreground">
-              Your BVN is used only for verification and to create the account. It is not stored after verification.
-            </p>
-          </div>
+          {formData.bvn ? (
+            // Show that BVN is already available
+            <div className="mt-3 p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg">
+              <div className="flex items-center gap-2 text-green-800 dark:text-green-200">
+                <Check className="h-4 w-4" />
+                <span className="text-sm font-medium">BVN Retrieved from Your Profile</span>
+              </div>
+              <p className="text-xs text-green-700 dark:text-green-300 mt-1">
+                Your saved BVN (ending in ****{formData.bvn.slice(-4)}) will be used to set up the group account.
+              </p>
+            </div>
+          ) : (
+            // Show input field if BVN doesn't exist
+            <div className="space-y-2 mt-3">
+              <Label htmlFor="bvn" className="text-sm">Bank Verification Number (BVN)</Label>
+              <Input 
+                id="bvn" 
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={11}
+                placeholder="Enter your 11-digit BVN"
+                value={formData.bvn}
+                onChange={(e) => handleChange('bvn', e.target.value)}
+                className={validationErrors.bvn ? "border-red-500" : ""}
+              />
+              {validationErrors.bvn && (
+                <p className="text-xs text-red-500">{validationErrors.bvn}</p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Your BVN will be saved to your profile for future use and is used only for verification.
+              </p>
+            </div>
+          )}
         </div>
         
         <div className="space-y-2">

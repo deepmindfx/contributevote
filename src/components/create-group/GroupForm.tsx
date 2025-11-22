@@ -85,6 +85,32 @@ const GroupForm = () => {
     bvn?: string;
   }>({});
 
+  // Fetch BVN from user profile on mount
+  useEffect(() => {
+    const fetchUserBvn = async () => {
+      if (user?.id && !formData.bvn) {
+        try {
+          // Fetch user profile to get stored BVN
+          const { supabase } = await import('@/integrations/supabase/client');
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('bvn')
+            .eq('id', user.id)
+            .single();
+
+          if (!error && data?.bvn) {
+            // Auto-populate BVN from user profile
+            setFormData(prev => ({ ...prev, bvn: data.bvn }));
+          }
+        } catch (error) {
+          console.error('Error fetching user BVN:', error);
+        }
+      }
+    };
+
+    fetchUserBvn();
+  }, [user?.id]);
+
   // Save form data to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem(FORM_STORAGE_KEY, JSON.stringify(formData));

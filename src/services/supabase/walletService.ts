@@ -94,8 +94,9 @@ export class WalletService {
         createdAt: new Date().toISOString()
       };
 
-      // Store virtual account details in user profile
+      // Store virtual account details in user profile AND save BVN for future use
       await UserService.updateUser(userId, {
+        bvn: idNumber, // Save BVN to profile for reuse in group creation
         preferences: {
           ...user.preferences as any,
           virtualAccount: reservedAccount

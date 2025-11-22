@@ -15,20 +15,15 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-// Form schema for validation
+// Form schema for validation - BVN only
 const idFormSchema = z.object({
-  idType: z.enum(["bvn", "nin"], {
-    required_error: "Please select an ID type",
-  }),
   idNumber: z.string()
-    .min(10, "ID number must be at least 10 digits")
-    .max(11, "ID number cannot exceed 11 digits")
-    .regex(/^\d+$/, "ID number must contain only digits"),
+    .length(11, "BVN must be exactly 11 digits")
+    .regex(/^\d+$/, "BVN must contain only digits"),
 });
 
 // Define the interface for the form data
 interface IdFormData {
-  idType: "bvn" | "nin";
   idNumber: string;
 }
 
@@ -43,7 +38,6 @@ const ReservedAccount = () => {
   const form = useForm<IdFormData>({
     resolver: zodResolver(idFormSchema),
     defaultValues: {
-      idType: "bvn",
       idNumber: "",
     },
   });
@@ -79,7 +73,8 @@ const ReservedAccount = () => {
       // Close the ID form dialog after submission
       setShowIdForm(false);
       
-      const result = await WalletService.createVirtualAccount(user.id, values.idType, values.idNumber);
+      // Always use "bvn" as the ID type since we only support BVN in the UI
+      const result = await WalletService.createVirtualAccount(user.id, "bvn", values.idNumber);
       if (result) {
         console.log("Reserved account created:", result);
         setAccountDetails(result);
@@ -167,13 +162,13 @@ const ReservedAccount = () => {
                 Create Virtual Account
               </Button>
               
-              {/* BVN/NIN Input Dialog */}
+              {/* BVN Input Dialog */}
               <Dialog open={showIdForm} onOpenChange={setShowIdForm}>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Provide Identification</DialogTitle>
+                    <DialogTitle>Provide Your BVN</DialogTitle>
                     <DialogDescription>
-                      We need your BVN or NIN to create your virtual account. This information is required by financial regulations.
+                      We need your Bank Verification Number (BVN) to create your virtual account. This is required by financial regulations for identity verification.
                     </DialogDescription>
                   </DialogHeader>
                   
@@ -181,56 +176,32 @@ const ReservedAccount = () => {
                     <form onSubmit={form.handleSubmit(onSubmitIdForm)} className="space-y-4">
                       <FormField
                         control={form.control}
-                        name="idType"
-                        render={({ field }) => (
-                          <FormItem className="space-y-3">
-                            <FormLabel>ID Type</FormLabel>
-                            <RadioGroup 
-                              onValueChange={field.onChange} 
-                              defaultValue={field.value}
-                              className="flex flex-col space-y-1"
-                            >
-                              <FormItem className="flex items-center space-x-3 space-y-0">
-                                <FormControl>
-                                  <RadioGroupItem value="bvn" />
-                                </FormControl>
-                                <FormLabel className="font-normal">
-                                  Bank Verification Number (BVN)
-                                </FormLabel>
-                              </FormItem>
-                              <FormItem className="flex items-center space-x-3 space-y-0">
-                                <FormControl>
-                                  <RadioGroupItem value="nin" />
-                                </FormControl>
-                                <FormLabel className="font-normal">
-                                  National Identification Number (NIN)
-                                </FormLabel>
-                              </FormItem>
-                            </RadioGroup>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
                         name="idNumber"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>ID Number</FormLabel>
+                            <FormLabel>Bank Verification Number (BVN)</FormLabel>
                             <FormControl>
                               <Input 
-                                placeholder={field.value === "bvn" ? "Enter your 11-digit BVN" : "Enter your NIN"}
+                                type="text"
+                                inputMode="numeric"
+                                maxLength={11}
+                                placeholder="Enter your 11-digit BVN"
                                 {...field}
                               />
                             </FormControl>
                             <FormDescription>
-                              Your information is encrypted and secure.
+                              Your BVN will be saved securely and used for future transactions.
                             </FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
+                      
+                      <div className="p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 rounded-lg">
+                        <p className="text-xs text-blue-900 dark:text-blue-200">
+                          <strong>Don't know your BVN?</strong> Dial <strong>*565*0#</strong> from your registered phone number to retrieve it.
+                        </p>
+                      </div>
                       
                       <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => setShowIdForm(false)}>

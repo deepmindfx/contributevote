@@ -171,6 +171,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          bvn: string | null
           created_at: string | null
           email: string | null
           id: string
@@ -183,6 +184,7 @@ export type Database = {
           wallet_balance: number | null
         }
         Insert: {
+          bvn?: string | null
           created_at?: string | null
           email?: string | null
           id: string
@@ -195,6 +197,7 @@ export type Database = {
           wallet_balance?: number | null
         }
         Update: {
+          bvn?: string | null
           created_at?: string | null
           email?: string | null
           id?: string
