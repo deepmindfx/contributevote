@@ -7,6 +7,7 @@ import { WalletContributionService, GroupRefundRequest } from '@/services/supaba
 import { useSupabaseUser } from '@/contexts/SupabaseUserContext';
 import { ThumbsUp, ThumbsDown, Clock, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase';
 
 interface RefundRequestsCardProps {
   groupId: string;
@@ -20,6 +21,29 @@ export function RefundRequestsCard({ groupId }: RefundRequestsCardProps) {
 
   useEffect(() => {
     loadRequests();
+
+    // Set up real-time subscription for refund requests
+    const channel = supabase
+      .channel(`refund_requests_${groupId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'group_refund_requests',
+          filter: `group_id=eq.${groupId}`,
+        },
+        (payload) => {
+          console.log('Refund request update:', payload);
+          // Reload requests when any change occurs
+          loadRequests();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [groupId]);
 
   const loadRequests = async () => {
@@ -35,11 +59,37 @@ export function RefundRequestsCard({ groupId }: RefundRequestsCardProps) {
       return;
     }
 
+    // Optimistic UI update
     setVotingOn(requestId);
+    
+    // Update the local state immediately
+    setRequests((prevRequests) =>
+      prevRequests.map((req) => {
+        if (req.id === requestId) {
+          const newVotes = [
+            ...req.votes,
+            { user_id: user.id, vote, voted_at: new Date().toISOString() }
+          ];
+          const votesFor = newVotes.filter((v: any) => v.vote === 'for').length;
+          const votesAgainst = newVotes.filter((v: any) => v.vote === 'against').length;
+          
+          return {
+            ...req,
+            votes: newVotes,
+            total_votes_for: votesFor,
+            total_votes_against: votesAgainst,
+          };
+        }
+        return req;
+      })
+    );
+
+    // Submit the vote to the backend
     const success = await WalletContributionService.voteOnRefund(requestId, user.id, vote);
     
-    if (success) {
-      await loadRequests(); // Refresh to show updated votes
+    if (!success) {
+      // Revert optimistic update if vote failed
+      await loadRequests();
     }
     
     setVotingOn(null);
@@ -57,8 +107,15 @@ export function RefundRequestsCard({ groupId }: RefundRequestsCardProps) {
   };
 
   const getVotePercentage = (request: GroupRefundRequest) => {
-    if (request.total_eligible_voters === 0) return 0;
-    return (request.total_votes_for / request.total_eligible_voters) * 100;
+    if (!request.total_eligible_voters || request.total_eligible_voters === 0) return 0;
+    if (!request.votes || request.votes.length === 0) return 0;
+    return (request.total_votes_for / request.votes.length) * 100;
+  };
+
+  const getParticipationPercentage = (request: GroupRefundRequest) => {
+    if (!request.total_eligible_voters || request.total_eligible_voters === 0) return 0;
+    if (!request.votes) return 0;
+    return (request.votes.length / request.total_eligible_voters) * 100;
   };
 
   const getDaysRemaining = (deadline: string) => {
@@ -179,27 +236,29 @@ export function RefundRequestsCard({ groupId }: RefundRequestsCardProps) {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground font-medium">
-                        📊 Participation: {request.votes.length} of {request.total_eligible_voters} voted
+                        📊 Participation: {request.votes?.length || 0} of {request.total_eligible_voters} voted
                       </span>
                       <span className={`font-bold ${
-                        (request.votes.length / request.total_eligible_voters * 100) >= 70 
+                        getParticipationPercentage(request) >= 70 
                           ? 'text-green-600' 
                           : 'text-orange-600'
                       }`}>
-                        {((request.votes.length / request.total_eligible_voters) * 100).toFixed(0)}%
+                        {typeof getParticipationPercentage(request) === 'number' && Number.isFinite(getParticipationPercentage(request))
+                          ? getParticipationPercentage(request).toFixed(0)
+                          : '0'}%
                       </span>
                     </div>
                     <Progress 
-                      value={(request.votes.length / request.total_eligible_voters) * 100} 
+                      value={getParticipationPercentage(request)} 
                       className="h-2"
                     />
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span>Need 70% to proceed</span>
-                      {(request.votes.length / request.total_eligible_voters * 100) >= 70 ? (
+                      {getParticipationPercentage(request) >= 70 ? (
                         <span className="text-green-600 font-medium">✓ Threshold met</span>
                       ) : (
                         <span className="text-orange-600">
-                          {Math.ceil(request.total_eligible_voters * 0.7) - request.votes.length} more needed
+                          {Math.ceil(request.total_eligible_voters * 0.7) - (request.votes?.length || 0)} more needed
                         </span>
                       )}
                     </div>
@@ -209,14 +268,16 @@ export function RefundRequestsCard({ groupId }: RefundRequestsCardProps) {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground font-medium">
-                        ✅ Approval: {request.total_votes_for} of {request.votes.length} voted "For"
+                        ✅ Approval: {request.total_votes_for || 0} of {request.votes?.length || 0} voted "For"
                       </span>
                       <span className={`font-bold ${
                         votePercentage >= 60 
                           ? 'text-green-600' 
                           : 'text-orange-600'
                       }`}>
-                        {votePercentage.toFixed(0)}%
+                        {typeof votePercentage === 'number' && Number.isFinite(votePercentage)
+                          ? votePercentage.toFixed(0)
+                          : '0'}%
                       </span>
                     </div>
                     <Progress value={votePercentage} className="h-2" />
@@ -226,14 +287,14 @@ export function RefundRequestsCard({ groupId }: RefundRequestsCardProps) {
                         <span className="text-green-600 font-medium">✓ Threshold met</span>
                       ) : (
                         <span className="text-orange-600">
-                          {Math.ceil(request.votes.length * 0.6) - request.total_votes_for} more "For" votes needed
+                          {Math.ceil((request.votes?.length || 0) * 0.6) - (request.total_votes_for || 0)} more "For" votes needed
                         </span>
                       )}
                     </div>
                   </div>
 
                   {/* Status Summary */}
-                  {(request.votes.length / request.total_eligible_voters * 100) >= 70 && votePercentage >= 60 && (
+                  {getParticipationPercentage(request) >= 70 && votePercentage >= 60 && (
                     <div className="bg-green-50 dark:bg-green-950 p-3 rounded-lg border border-green-200 dark:border-green-800">
                       <p className="text-sm text-green-800 dark:text-green-200 font-medium flex items-center gap-2">
                         <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
