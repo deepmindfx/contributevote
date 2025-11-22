@@ -5,15 +5,15 @@ import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { useNavigate } from "react-router-dom";
 
 const Auth = () => {
-  const { isAuthenticated } = useSupabaseUser();
+  const { isAuthenticated, loading } = useSupabaseUser();
   const navigate = useNavigate();
 
   // Redirect if already authenticated
   useEffect(() => {
-    if (isAuthenticated) {
+    if (!loading && isAuthenticated) {
       navigate('/dashboard');
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, loading, navigate]);
 
   return (
     <div className="min-h-screen flex flex-col">

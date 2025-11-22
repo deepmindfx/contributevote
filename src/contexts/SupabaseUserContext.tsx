@@ -651,15 +651,8 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
         return { error: { message: error.message } };
       }
 
-      if (data.user) {
-        // Fetch user profile from profiles table
-        const profile = await UserService.getUserById(data.user.id);
-        if (profile) {
-          setUser(profile);
-          localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(profile));
-        }
-      }
-
+      // The onAuthStateChange listener will handle setting the user
+      // Just return success here
       return { error: null };
     } catch (error: any) {
       return { error: { message: error.message || 'Login failed' } };
