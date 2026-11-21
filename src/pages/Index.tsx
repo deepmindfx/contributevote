@@ -1,4 +1,4 @@
-import { ArrowDownLeft, ArrowLeftRight, Bell, Home, Plus, SendHorizontal, UserRound, Users, Vote, Wallet } from "lucide-react";
+import { ArrowDownLeft, ArrowLeftRight, Bell, Building2, Clock, Home, Plus, SendHorizontal, UserRound, Users, Vote, Wallet } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { collectipayMark as logo } from "@/components/layout/navigationItems";
@@ -15,18 +15,24 @@ function ProductPreview() {
     <figure className="landing-preview" aria-label="CollectiPay dashboard preview with example balances and a group savings goal">
       <div className="landing-phone" aria-hidden="true">
         <div className="landing-phone-top">
-          <span><img src={logo} alt="" /> CollectiPay</span>
-          <Bell size={15} />
+          <span className="landing-demo-avatar">AO</span>
+          <div><strong>Hi, Amara</strong><small>CollectiPay</small></div>
+          <span className="landing-demo-bell"><Bell size={14} /></span>
+        </div>
+        <div className="landing-demo-wallet">
+          <div className="landing-demo-balance-meta">
+            <span>Available balance</span>
+            <div><strong>₦ NGN</strong><span>$ USD</span></div>
+          </div>
+          <strong>₦75,000.00</strong>
         </div>
         <div className="landing-phone-body">
-          <p className="landing-demo-greeting">Hi, Amara</p>
-          <div className="landing-demo-wallet">
-            <span>Available balance</span>
-            <strong>₦75,000.00</strong>
-            <div className="landing-demo-actions">
-              <span><Plus size={13} /> Add money</span>
-              <span><SendHorizontal size={12} /> Send</span>
-            </div>
+          <div className="landing-demo-section"><strong>Quick actions</strong></div>
+          <div className="landing-demo-actions">
+            <span><Plus size={14} /> Add money</span>
+            <span><SendHorizontal size={14} /> Send</span>
+            <span><Building2 size={14} /> Bank</span>
+            <span><Clock size={14} /> History</span>
           </div>
           <div className="landing-demo-section"><strong>My groups</strong><span>View all</span></div>
           <div className="landing-demo-group">
@@ -77,10 +83,10 @@ export default function Index() {
       <main>
         <section className="landing-hero landing-width" aria-labelledby="landing-title">
           <div className="landing-intro">
-            <h1 id="landing-title">Save together.<br /><span>Decide together.</span></h1>
-            <p>Collect money for a shared goal, track every contribution, and give members a say in how group funds are used.</p>
+            <h1 id="landing-title">Save as a group.<br /><span>Decide together.</span></h1>
+            <p>Bring your wallet, group contributions, and withdrawal votes together in one place.</p>
             <div className="landing-actions">
-              <Link to={startPath} className="landing-button landing-button-primary">{isAuthenticated ? "Create a group" : "Open an account"}</Link>
+              <Link to={startPath} className="landing-button landing-button-primary">{isAuthenticated ? "Create a group" : "Create an account"}</Link>
               <Link to="/discover" className="landing-button landing-button-secondary">Explore groups</Link>
             </div>
           </div>

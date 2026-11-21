@@ -14,7 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { collectipayMark, getWorkspaceLink, workspaceLinks } from "./navigationItems";
 
-export default function Header({ mobileGreeting }: { mobileGreeting?: string } = {}) {
+export default function Header({ mobileGreeting, mobilePanel }: { mobileGreeting?: string; mobilePanel?: boolean } = {}) {
   const {
     user, isAuthenticated, isAdmin, logout, notifications, unreadNotificationCount,
     markNotificationRead, markAllNotificationsRead, updateProfile,
@@ -50,7 +50,7 @@ export default function Header({ mobileGreeting }: { mobileGreeting?: string } =
   };
 
   return (
-    <header className={mobileGreeting ? "app-header app-header-wallet" : "app-header"}>
+    <header className={mobileGreeting ? "app-header app-header-wallet" : mobilePanel ? "app-header app-header-panel" : "app-header"}>
       <div className="app-header-inner">
         <Link to={isAuthenticated ? "/dashboard" : "/"} className="app-brand">
           <img src={collectipayMark} alt="" width="32" height="32" />

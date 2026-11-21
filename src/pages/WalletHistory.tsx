@@ -10,7 +10,7 @@ import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 import { format, isValid, parseISO } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
-import { Switch } from "@/components/ui/switch";
+import { CurrencySelector } from "@/components/wallet/CurrencySelector";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { WalletService } from "@/services/supabase/walletService";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -122,11 +122,6 @@ const WalletHistory = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [virtualAccount?.accountReference, user?.id, activeTab]);
-  
-  // Fixed toggle currency function
-  const toggleCurrency = () => {
-    setCurrencyType(prevType => prevType === "NGN" ? "USD" : "NGN");
-  };
   
   // Filter and deduplicate transactions
   const uniqueFilteredTransactions = useMemo(() => {
@@ -240,7 +235,7 @@ const WalletHistory = () => {
           </TabsList>
           
           <TabsContent value="app" className="m-0 mt-6">
-            <div className="flex justify-between items-center mb-4">
+            <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
               <div className="flex flex-wrap gap-2">
                 <Button 
                   variant={filter === "all" ? "default" : "outline"} 
@@ -300,16 +295,7 @@ const WalletHistory = () => {
                 </Button>
               </div>
               
-              {/* Currency Toggle - Fixed to work correctly */}
-              <div className="flex items-center bg-green-600/30 dark:bg-green-600/50 rounded-full px-3 py-1.5 cursor-pointer" onClick={toggleCurrency}>
-                <span className={`text-xs ${currencyType === 'NGN' ? 'text-foreground' : 'text-muted-foreground'}`}>NGN</span>
-                <Switch 
-                  checked={currencyType === "USD"}
-                  onCheckedChange={toggleCurrency}
-                  className="mx-1.5 data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-green-500"
-                />
-                <span className={`text-xs ${currencyType === 'USD' ? 'text-foreground' : 'text-muted-foreground'}`}>USD</span>
-              </div>
+              <CurrencySelector value={currencyType} onChange={setCurrencyType} />
             </div>
             
             <Card>

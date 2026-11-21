@@ -1,262 +1,130 @@
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
+import { Eye, EyeOff, MailCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { toast } from "sonner";
-import { Mail, Phone, User, Lock } from "lucide-react";
-import { useNavigate, useLocation } from "react-router-dom";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 
-const AuthForm = () => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [loginData, setLoginData] = useState({
-    email: "",
-    password: ""
-  });
-  const [registerData, setRegisterData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    password: ""
-  });
-  
-  const navigate = useNavigate();
-  const location = useLocation();
+type AuthMode = "signin" | "signup";
+
+function PasswordField({ id, value, onChange, creating = false }: {
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+  creating?: boolean;
+}) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={id}>Password</Label>
+      <div className="relative">
+        <Input
+          id={id}
+          name="password"
+          type={visible ? "text" : "password"}
+          autoComplete={creating ? "new-password" : "current-password"}
+          required
+          minLength={creating ? 8 : undefined}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="h-12 pr-12"
+          aria-describedby={creating ? id + "-hint" : undefined}
+        />
+        <Button type="button" variant="ghost" size="icon" className="absolute inset-y-0 right-0 h-12 w-12" aria-label={visible ? "Hide password" : "Show password"} onClick={() => setVisible(!visible)}>
+          {visible ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+        </Button>
+      </div>
+      {creating && <p id={id + "-hint"} className="text-sm text-muted-foreground">Use at least 8 characters.</p>}
+    </div>
+  );
+}
+
+export default function AuthForm({ mode, onModeChange }: { mode: AuthMode; onModeChange: (mode: AuthMode) => void }) {
   const { signIn, signUp } = useSupabaseUser();
+  const [login, setLogin] = useState({ email: "", password: "" });
+  const [registration, setRegistration] = useState({ name: "", email: "", phone: "", password: "" });
+  const [pending, setPending] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [registrationEmail, setRegistrationEmail] = useState("");
 
-  // Get return URL from router state or ?redirect= query parameter (only allow safe relative paths)
-  const searchParams = new URLSearchParams(location.search);
-  const redirectParam = searchParams.get("redirect");
-  const safeRedirect =
-    redirectParam && redirectParam.startsWith("/") && !redirectParam.startsWith("//")
-      ? redirectParam
-      : null;
-  const { state } = location;
-  const returnUrl = (state as any)?.returnUrl || safeRedirect || "/dashboard";
-  
-  const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setLoginData(prev => ({ ...prev, [name]: value }));
-  };
-  
-  const handleRegisterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setRegisterData(prev => ({ ...prev, [name]: value }));
-  };
-  
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (pending) return;
+    setPending(true);
+    setErrorMessage("");
 
     try {
-      // Simple validation
-      if (!loginData.email || !loginData.password) {
-        toast.error("Please fill in all fields");
-        return;
+      if (mode === "signup") {
+        const name = registration.name.trim();
+        if (!name) {
+          setErrorMessage("Enter your full name.");
+          return;
+        }
+        const { error } = await signUp(registration.email, registration.password, { name, phone: registration.phone.trim() });
+        if (error) setErrorMessage(error.message || "Registration failed.");
+        else setRegistrationEmail(registration.email.trim());
+      } else {
+        const { error } = await signIn(login.email, login.password);
+        if (error) setErrorMessage(error.message || "Sign-in failed.");
       }
-
-      const { error } = await signIn(loginData.email, loginData.password);
-      
-      if (error) {
-        toast.error(error.message || "Login failed");
-        return;
-      }
-
-      toast.success("Login successful!");
-      
-      // Navigate immediately - the auth context will handle the state
-      navigate(returnUrl);
-    } catch (error: any) {
-      toast.error(error.message || "An error occurred during login");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Something went wrong. Please try again.");
     } finally {
-      setIsLoading(false);
+      setPending(false);
     }
-  };
-  
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-
-    try {
-      // Simple validation
-      if (!registerData.name || !registerData.email || !registerData.password) {
-        toast.error("Please fill in all required fields");
-        return;
-      }
-
-      if (registerData.password.length < 8) {
-        toast.error("Password must be at least 8 characters long");
-        return;
-      }
-
-      const { error } = await signUp(registerData.email, registerData.password, {
-        name: registerData.name,
-        phone: registerData.phone
-      });
-      
-      if (error) {
-        toast.error(error.message || "Registration failed");
-        return;
-      }
-
-      toast.success("Registration successful! Please check your email to verify your account.");
-      // Don't navigate immediately - user needs to verify email first
-    } catch (error: any) {
-      toast.error(error.message || "An error occurred during registration");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  }
 
   return (
-    <Card className="mx-auto w-full max-w-md rounded-2xl p-2 shadow-sm">
-      <Tabs defaultValue={searchParams.get("mode") === "signup" ? "register" : "login"} className="w-full">
+    <div className="rounded-[1.35rem] border bg-card p-4 shadow-sm sm:p-5">
+      <Tabs value={mode} onValueChange={(value) => {
+        setErrorMessage("");
+        onModeChange(value === "signup" ? "signup" : "signin");
+      }}>
         <TabsList className="app-segmented grid w-full grid-cols-2" aria-label="Account access">
-          <TabsTrigger value="login">Sign in</TabsTrigger>
-          <TabsTrigger value="register">Create account</TabsTrigger>
+          <TabsTrigger value="signin" disabled={pending}>Sign in</TabsTrigger>
+          <TabsTrigger value="signup" disabled={pending}>Sign up</TabsTrigger>
         </TabsList>
-        
-        <TabsContent value="login">
-          <form onSubmit={handleLogin}>
-            <CardContent className="space-y-4 px-4 pb-4 pt-3 sm:px-5">
-              <div className="space-y-2">
-                <label htmlFor="email" className="text-sm font-medium">Email</label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    placeholder="Enter your email"
-                    value={loginData.email}
-                    onChange={handleLoginChange}
-                    className="pl-10"
-                    required
-                  />
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <label htmlFor="password" className="text-sm font-medium">Password</label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="password"
-                    name="password"
-                    type="password"
-                    autoComplete="current-password"
-                    placeholder="Enter your password"
-                    value={loginData.password}
-                    onChange={handleLoginChange}
-                    className="pl-10"
-                    required
-                  />
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter className="px-4 pb-4 sm:px-5">
-              <Button 
-                type="submit" 
-                className="h-11 w-full rounded-xl"
-                disabled={isLoading}
-              >
-                {isLoading ? "Signing in..." : "Sign In"}
-              </Button>
-            </CardFooter>
+        <TabsContent value="signin">
+          <form onSubmit={handleSubmit} className="space-y-4 pt-3" aria-label="Sign in">
+            <div className="space-y-2">
+              <Label htmlFor="login-email">Email address</Label>
+              <Input id="login-email" name="email" type="email" autoComplete="email" required value={login.email} onChange={(event) => setLogin({ ...login, email: event.target.value })} className="h-12" />
+            </div>
+            <PasswordField id="login-password" value={login.password} onChange={(password) => setLogin({ ...login, password })} />
+            {errorMessage && <p className="text-sm text-destructive" role="alert">{errorMessage}</p>}
+            <Button className="h-12 w-full" type="submit" disabled={pending}>{pending ? "Signing in…" : "Sign in"}</Button>
           </form>
         </TabsContent>
-        
-        <TabsContent value="register">
-          <form onSubmit={handleRegister}>
-            <CardContent className="space-y-4 px-4 pb-4 pt-3 sm:px-5">
+        <TabsContent value="signup">
+          {registrationEmail ? (
+            <div className="space-y-3 py-4" role="status">
+              <MailCheck size={27} className="text-primary" aria-hidden="true" />
+              <h2 className="app-section-title">Check your inbox</h2>
+              <p className="break-words text-sm text-muted-foreground">Confirm your email using the link sent to {registrationEmail}.</p>
+              <Button variant="outline" onClick={() => onModeChange("signin")}>Back to sign in</Button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4 pt-3" aria-label="Sign up">
               <div className="space-y-2">
-                <label htmlFor="name" className="text-sm font-medium">Full Name</label>
-                <div className="relative">
-                  <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="name"
-                    name="name"
-                    autoComplete="name"
-                    type="text"
-                    placeholder="Enter your full name"
-                    value={registerData.name}
-                    onChange={handleRegisterChange}
-                    className="pl-10"
-                    required
-                  />
-                </div>
+                <Label htmlFor="signup-name">Full name</Label>
+                <Input id="signup-name" name="name" autoComplete="name" required value={registration.name} onChange={(event) => setRegistration({ ...registration, name: event.target.value })} className="h-12" />
               </div>
-              
               <div className="space-y-2">
-                <label htmlFor="register-email" className="text-sm font-medium">Email</label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="register-email"
-                    name="email"
-                    autoComplete="email"
-                    type="email"
-                    placeholder="Enter your email"
-                    value={registerData.email}
-                    onChange={handleRegisterChange}
-                    className="pl-10"
-                    required
-                  />
-                </div>
+                <Label htmlFor="signup-email">Email address</Label>
+                <Input id="signup-email" name="email" type="email" autoComplete="email" required value={registration.email} onChange={(event) => setRegistration({ ...registration, email: event.target.value })} className="h-12" />
               </div>
-              
               <div className="space-y-2">
-                <label htmlFor="phone" className="text-sm font-medium">Phone (Optional)</label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="phone"
-                    name="phone"
-                    autoComplete="tel"
-                    type="tel"
-                    placeholder="Enter your phone number"
-                    value={registerData.phone}
-                    onChange={handleRegisterChange}
-                    className="pl-10"
-                  />
-                </div>
+                <Label htmlFor="signup-phone">Phone number <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                <Input id="signup-phone" name="phone" type="tel" autoComplete="tel" value={registration.phone} onChange={(event) => setRegistration({ ...registration, phone: event.target.value })} className="h-12" />
               </div>
-              
-              <div className="space-y-2">
-                <label htmlFor="register-password" className="text-sm font-medium">Password</label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="register-password"
-                    name="password"
-                    autoComplete="new-password"
-                    type="password"
-                    placeholder="Create a password (min 8 characters)"
-                    value={registerData.password}
-                    onChange={handleRegisterChange}
-                    className="pl-10"
-                    required
-                    minLength={8}
-                  />
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter className="px-4 pb-4 sm:px-5">
-              <Button 
-                type="submit" 
-                className="h-11 w-full rounded-xl"
-                disabled={isLoading}
-              >
-                {isLoading ? "Creating account..." : "Create Account"}
-              </Button>
-            </CardFooter>
-          </form>
+              <PasswordField id="signup-password" value={registration.password} onChange={(password) => setRegistration({ ...registration, password })} creating />
+              {errorMessage && <p className="text-sm text-destructive" role="alert">{errorMessage}</p>}
+              <Button className="h-12 w-full" type="submit" disabled={pending}>{pending ? "Creating account…" : "Create account"}</Button>
+            </form>
+          )}
         </TabsContent>
       </Tabs>
-    </Card>
+    </div>
   );
-};
-
-export default AuthForm;
+}

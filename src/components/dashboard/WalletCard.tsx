@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { WalletService } from "@/services/supabase/walletService";
 import WalletActions from "@/components/dashboard/wallet/WalletActions";
+import { CurrencySelector } from "@/components/wallet/CurrencySelector";
 import { useBalanceUpdates } from "@/hooks/useBalanceUpdates";
 
 const WalletCard = ({ onOpenBankAccount, isDepositOpen, setIsDepositOpen }: {
@@ -53,11 +54,6 @@ const WalletCard = ({ onOpenBankAccount, isDepositOpen, setIsDepositOpen }: {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  // Toggle currency function - make the entire container clickable
-  const toggleCurrency = () => {
-    setCurrencyType(prev => prev === "NGN" ? "USD" : "NGN");
   };
 
   // Helper to get metadata field (handles both camelCase and snake_case)
@@ -200,7 +196,7 @@ const WalletCard = ({ onOpenBankAccount, isDepositOpen, setIsDepositOpen }: {
   return (
     <Card className="dashboard-wallet-card overflow-hidden rounded-[1.35rem]">
       <div className="wallet-overview px-5 pb-7 pt-4 sm:px-7 sm:pb-9 sm:pt-5">
-        <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
           <div className="flex min-w-0 items-center gap-0.5">
             <p className="text-sm font-medium text-white/90">Available balance</p>
             <Button
@@ -213,19 +209,13 @@ const WalletCard = ({ onOpenBankAccount, isDepositOpen, setIsDepositOpen }: {
               {showBalance ? <EyeOff size={17} /> : <Eye size={17} />}
             </Button>
           </div>
-          <button
-            type="button"
-            onClick={toggleCurrency}
-            aria-label={`Show balance in ${currencyType === "NGN" ? "USD" : "NGN"}`}
-            className="min-h-11 shrink-0 rounded-xl border border-white/25 bg-white/5 px-3 text-sm font-semibold hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-          >
-            {currencyType}
-          </button>
+          <CurrencySelector value={currencyType} onChange={setCurrencyType} onDark />
         </div>
         <div className="min-w-0">
           <p className="break-words text-[clamp(1.875rem,7.6vw,3.3rem)] font-semibold leading-tight tracking-[-.06em] tabular-nums">
             {showBalance ? getFormattedBalance() : `${currencyType === "NGN" ? "₦" : "$"}•••••••`}
           </p>
+          {currencyType === "USD" && showBalance && <p className="mt-1 text-sm text-white/80">Approximate USD equivalent</p>}
         </div>
       </div>
       <CardContent className="dashboard-wallet-content p-0">

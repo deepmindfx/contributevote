@@ -147,7 +147,7 @@ Powered by CollectiPay — https://collectipay.com.ng`;
   return (
     <Card ref={cardRef} className="overflow-hidden rounded-[1.35rem] border bg-card shadow-sm">
       {/* Header Row */}
-      <div className="flex items-center justify-between gap-3 border-b px-5 py-4">
+      <div className="flex items-center justify-between gap-2 border-b px-3 py-4 sm:px-5">
         <div className="flex min-w-0 items-center gap-3">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent text-primary">
             <Building2 className="h-5 w-5" />
@@ -166,14 +166,14 @@ Powered by CollectiPay — https://collectipay.com.ng`;
       </div>
 
       {/* Body */}
-      <div className="space-y-4 p-5">
+      <div className="space-y-4 p-3 sm:p-5">
         {/* Tap-to-copy Account Number Hero Box */}
-        <div className="flex items-center justify-between gap-3 rounded-2xl border bg-accent/45 px-4 py-3.5">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border bg-accent/45 px-3 py-3.5 sm:px-4">
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               Account Number
             </p>
-            <p className="mt-0.5 font-mono text-2xl font-bold tracking-[0.06em] text-foreground tabular-nums">
+            <p className="mt-0.5 break-all font-mono text-lg font-bold tracking-[0.06em] text-foreground tabular-nums sm:text-2xl">
               {accountNumber}
             </p>
           </div>

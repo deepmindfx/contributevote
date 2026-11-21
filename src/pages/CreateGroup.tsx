@@ -1,36 +1,25 @@
-
 import Header from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { ChevronLeft } from "lucide-react";
+import { Link } from "react-router-dom";
 import GroupForm from "@/components/create-group/GroupForm";
 
-const CreateGroup = () => {
-  const navigate = useNavigate();
-
+export default function CreateGroup() {
   return (
-    <div className="min-h-screen">
-      <Header />
-      
-      <main className="app-page max-w-3xl">
-        <div className="mb-6 animate-fade-in">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="mb-2"
-            onClick={() => navigate("/dashboard")}
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Dashboard
+    <div className="min-h-dvh">
+      <Header mobilePanel />
+      <main className="app-page app-panel-page max-w-2xl">
+        <section className="app-panel-hero" aria-labelledby="create-group-title">
+          <Button asChild variant="ghost" className="app-panel-secondary mb-4 gap-1">
+            <Link to="/all-groups"><ChevronLeft size={18} aria-hidden="true" /> My groups</Link>
           </Button>
-          <h1 className="app-page-title">Create a group</h1>
-          <p className="mt-1 text-muted-foreground">Choose a goal, contribution schedule, and privacy settings.</p>
+          <h1 id="create-group-title" className="app-page-title">Create a group</h1>
+          <p className="panel-kicker mt-2">Save together for something that matters.</p>
+        </section>
+        <div className="app-panel-body">
+          <GroupForm />
         </div>
-        
-        <GroupForm />
       </main>
     </div>
   );
-};
-
-export default CreateGroup;
+}

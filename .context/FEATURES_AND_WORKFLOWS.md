@@ -14,9 +14,9 @@
 - **Outbound Bank Transfer** (`/transfer`): Fetches Nigerian banks (`flutterwave-banks`), resolves beneficiary name (`flutterwave-resolve-account`), verifies user's 4-digit PIN, calculates fee (`₦10.75` ≤ `₦5,000`, `₦26.50` > `₦5,000`), and calls `flutterwave-transfer` (which debits wallet with optimistic concurrency lock, rolls back on API failure, and logs a `transfer` transaction). Failed async payouts are auto-refunded by `webhook-contribution`.
 
 ## 3. Contribution Groups & Quota
-- **Creation Wizard** (`/create-group`, `GroupForm`): 3 steps (Details with 19 categories → Schedule & contribution amount → Privacy, voting rights toggle, and BVN auto-filled from `profiles.bvn`).
+- **Creation Wizard** (`/create-group`, `GroupForm`): Set a group name and savings goal, then choose privacy and withdrawal approval. Schedule, contribution amount, category, and description are optional. New groups default to a weekly schedule starting when the group is created.
 - **Free Quota**: First 3 groups are free; subsequent groups require confirmation and deduct `₦500` atomically via `create_group_with_fee_check`.
-- **Dedicated Group Bank Account**: Created via `flutterwave-virtual-account` (`tx_ref: GROUP_<id>_<ts>`) and saved on `contribution_groups` (`account_number`, `account_name`, `bank_name`, `account_reference`, `account_details`). Can also be provisioned later from `/groups/:id`.
+- **Dedicated Group Bank Account**: The creator can select **Bank setup** from `/groups/:id` after creating the group. Flutterwave verifies the account with the creator’s BVN and the app saves the returned details on `contribution_groups` (`account_number`, `account_name`, `bank_name`, `account_reference`, `account_details`).
 - **Archiving**: Creators can archive/unarchive groups via `archive_group` / `unarchive_group`; archived groups are hidden unless "Show Archived" is toggled.
 
 ## 4. Funding a Group & Voting Rights Model

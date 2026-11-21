@@ -1,245 +1,94 @@
-import React, { useState, useEffect } from "react";
-import { Card } from "@/components/ui/card";
-import { toast } from "sonner";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { createGroupVirtualAccount } from "@/services/flutterwave/virtualAccounts";
+import { toast } from "sonner";
+import { Card } from "@/components/ui/card";
+import BrandLoader from "@/components/ui/BrandLoader";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
-import { createGroupWithFee, checkGroupCreationEligibility } from '@/services/supabase/groupEnhancementService';
+import { checkGroupCreationEligibility, createGroupWithFee } from "@/services/supabase/groupEnhancementService";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-
-// Import Step Components
-import DetailsStep from "./DetailsStep";
-import ScheduleStep from "./ScheduleStep";
+import DetailsStep, { getDetailsError } from "./DetailsStep";
+import type { GroupDetails } from "./DetailsStep";
 import SettingsStep from "./SettingsStep";
+import type { GroupSettings } from "./SettingsStep";
 import StepIndicator from "./StepIndicator";
-import BrandLoader from "@/components/ui/BrandLoader";
 
-// Define visibility type to fix TypeScript error
-type VisibilityType = "public" | "private" | "invite-only";
+const FORM_STORAGE_KEY = "group_creation_form_data";
+const STEP_STORAGE_KEY = "group_creation_step";
+type GroupDraft = GroupDetails & GroupSettings & { votingThreshold: number };
+type Step = "goal" | "settings";
 
-const FORM_STORAGE_KEY = 'group_creation_form_data';
-const STEP_STORAGE_KEY = 'group_creation_step';
+function readDraft(): GroupDraft {
+  let saved: Partial<GroupDraft> = {};
+  try {
+    saved = JSON.parse(localStorage.getItem(FORM_STORAGE_KEY) || "{}") ?? {};
+  } catch {
+    // Start a fresh draft if saved data cannot be read.
+  }
 
-const GroupForm = () => {
+  return {
+    name: saved.name ?? "",
+    description: saved.description ?? "",
+    targetAmount: String(saved.targetAmount || ""),
+    contributionAmount: String(saved.contributionAmount || ""),
+    category: saved.category || "personal",
+    frequency: saved.frequency || "weekly",
+    startDate: saved.startDate ?? "",
+    endDate: saved.endDate ?? "",
+    privacy: saved.privacy === "private" ? "private" : "public",
+    enableVotingRights: saved.enableVotingRights !== false,
+    votingThreshold: saved.votingThreshold || 60,
+  };
+}
+
+export default function GroupForm() {
   const navigate = useNavigate();
   const { user, refreshCurrentUser } = useSupabaseUser();
   const { refreshContributionData } = useSupabaseContribution();
-  
-  // Initialize state from localStorage if available
-  const [step, setStep] = useState(() => {
+  const progressHeading = useRef<HTMLDivElement>(null);
+  const submitPending = useRef(false);
+  const [formData, setFormData] = useState(readDraft);
+  const [step, setStep] = useState<Step>(() => {
     const savedStep = localStorage.getItem(STEP_STORAGE_KEY);
-    return savedStep ? parseInt(savedStep, 10) : 1;
+    return (savedStep === "settings" || savedStep === "3") && !getDetailsError(formData) ? "settings" : "goal";
   });
-  
-  const [isLoading, setIsLoading] = useState(false);
-  const [creationStage, setCreationStage] = useState<"creating" | "account" | "syncing">("creating");
+  const [checkingFee, setCheckingFee] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [showFeeConfirmation, setShowFeeConfirmation] = useState(false);
-  const [eligibility, setEligibility] = useState<any>(null);
-  
-  // Form state - restore from localStorage if available
-  const [formData, setFormData] = useState(() => {
-    const savedData = localStorage.getItem(FORM_STORAGE_KEY);
-    if (savedData) {
-      try {
-        const parsed = JSON.parse(savedData);
-        // Ensure defaults are set for new fields
-        return {
-          ...parsed,
-          frequency: parsed.frequency || 'daily',
-          privacy: parsed.privacy || 'public',
-        };
-      } catch (error) {
-        console.error('Error parsing saved form data:', error);
-      }
-    }
-    return {
-      name: '',
-      description: '',
-      targetAmount: 0,
-      category: 'personal',
-      frequency: 'daily' as 'daily' | 'weekly' | 'monthly' | 'one-time',
-      contributionAmount: 0,
-      startDate: '',
-      endDate: '',
-      votingThreshold: 60,
-      privacy: 'public' as 'public' | 'private',
-      memberRoles: 'equal' as 'equal' | 'weighted',
-      enableVotingRights: true,
-      notifyContributions: true,
-      notifyVotes: true,
-      notifyUpdates: true,
-      bvn: '',
-      accountReference: `GROUP_${Date.now()}`,
-    };
-  });
+  const stepNumber = step === "goal" ? 1 : 2;
 
-  const [validationErrors, setValidationErrors] = useState<{
-    bvn?: string;
-  }>({});
-
-  // Fetch BVN from user profile on mount
-  useEffect(() => {
-    const fetchUserBvn = async () => {
-      if (user?.id && !formData.bvn) {
-        try {
-          // Fetch user profile to get stored BVN
-          const { supabase } = await import('@/integrations/supabase/client');
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('bvn')
-            .eq('id', user.id)
-            .single();
-
-          if (!error && data?.bvn) {
-            // Auto-populate BVN from user profile
-            setFormData(prev => ({ ...prev, bvn: data.bvn }));
-          }
-        } catch (error) {
-          console.error('Error fetching user BVN:', error);
-        }
-      }
-    };
-
-    fetchUserBvn();
-  }, [user?.id]);
-
-  // Save form data to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem(FORM_STORAGE_KEY, JSON.stringify(formData));
   }, [formData]);
 
-  // Save step to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem(STEP_STORAGE_KEY, step.toString());
+    localStorage.setItem(STEP_STORAGE_KEY, step);
   }, [step]);
 
-  // Check eligibility on mount
-  useEffect(() => {
-    if (user?.id) {
-      checkEligibility();
-    }
-  }, [user]);
-
-  const checkEligibility = async () => {
-    try {
-      const result = await checkGroupCreationEligibility(user.id);
-      setEligibility(result);
-    } catch (error) {
-      console.error('Error checking eligibility:', error);
-    }
+  const update = <K extends keyof GroupDraft>(field: K, value: GroupDraft[K]) => {
+    setFormData((previous) => ({ ...previous, [field]: value }));
   };
 
-  const handleChange = (field: string, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    
-    // Clear validation errors when field is updated
-    if (validationErrors[field as keyof typeof validationErrors]) {
-      setValidationErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors[field as keyof typeof validationErrors];
-        return newErrors;
-      });
-    }
-  };
-
-  const validateStep = (currentStep: number) => {
-    if (currentStep === 1) {
-      if (!formData.name.trim()) {
-        toast.error("Group name is required");
-        return false;
-      }
-      if (formData.targetAmount <= 0) {
-        toast.error("Target amount must be greater than zero");
-        return false;
-      }
-    } else if (currentStep === 2) {
-      if (formData.contributionAmount <= 0) {
-        toast.error("Contribution amount must be greater than zero");
-        return false;
-      }
-      if (!formData.startDate) {
-        toast.error("Start date is required");
-        return false;
-      }
-    } else if (currentStep === 3) {
-      // Validate BVN if we're on the settings step
-      const errors: {bvn?: string} = {};
-      
-      if (!formData.bvn.trim()) {
-        errors.bvn = "BVN is required to create a dedicated account for the group";
-      } else if (formData.bvn.length !== 11 || !/^\d+$/.test(formData.bvn)) {
-        errors.bvn = "BVN must be 11 digits";
-      }
-      
-      if (Object.keys(errors).length > 0) {
-        setValidationErrors(errors);
-        return false;
-      }
-    }
-    
-    return true;
-  };
-
-  const goToNextStep = () => {
-    if (!validateStep(step)) {
-      return;
-    }
-    
-    window.scrollTo(0, 0);
-    setStep(step + 1);
-  };
-
-  const goToPreviousStep = () => {
-    window.scrollTo(0, 0);
-    setStep(step - 1);
-  };
-
-  const handleCancel = () => {
-    // Clear saved form data
-    localStorage.removeItem(FORM_STORAGE_KEY);
-    localStorage.removeItem(STEP_STORAGE_KEY);
-    // Navigate back to dashboard
-    navigate('/dashboard');
-  };
-
-  const handleCreateGroup = async () => {
-    if (!validateStep(step)) {
-      return;
-    }
-
-    // Check if fee is required and show confirmation
-    if (eligibility && !eligibility.can_create_free) {
-      setShowFeeConfirmation(true);
-      return;
-    }
-
-    // Proceed with creation
-    await createGroup();
+  const moveToStep = (next: Step) => {
+    setStep(next);
+    requestAnimationFrame(() => {
+      progressHeading.current?.scrollIntoView({ block: "start" });
+      progressHeading.current?.focus({ preventScroll: true });
+    });
   };
 
   const createGroup = async () => {
-    if (!user) {
-      toast.error("Please log in to create a group");
-      return;
-    }
+    if (!user) return;
 
-    setCreationStage("creating");
-    setIsLoading(true);
-
+    setCreating(true);
+    setShowFeeConfirmation(false);
     try {
       const result = await createGroupWithFee(user.id, {
-        name: formData.name,
-        description: formData.description,
+        name: formData.name.trim(),
+        description: formData.description.trim(),
         target_amount: Number(formData.targetAmount),
         category: formData.category,
         frequency: formData.frequency,
@@ -247,207 +96,89 @@ const GroupForm = () => {
         enable_voting_rights: formData.enableVotingRights,
         contribution_amount: Number(formData.contributionAmount) || null,
         start_date: formData.startDate ? new Date(formData.startDate).toISOString() : null,
-        end_date: formData.endDate ? new Date(formData.endDate).toISOString() : null,
-        voting_threshold: Number(formData.votingThreshold) || 60,
+        end_date: formData.endDate ? new Date(formData.endDate + "T23:59:59").toISOString() : null,
+        voting_threshold: formData.votingThreshold,
       });
 
       if (!result?.success) {
-        toast.error(result?.message || result?.error || "Failed to create group");
+        toast.error(result?.message || result?.error || "Couldn’t create the group. Try again.");
         return;
-      }
-
-      const groupId = result.group_id;
-
-      // Persist BVN on profile for reuse if not already stored
-      if (formData.bvn && formData.bvn.length === 11 && !user.bvn) {
-        const { supabase } = await import('@/integrations/supabase/client');
-        await supabase.from('profiles').update({ bvn: formData.bvn }).eq('id', user.id);
-      }
-
-      if (groupId && formData.bvn && formData.bvn.length === 11) {
-        setCreationStage("account");
-        try {
-          const accountData = await createGroupVirtualAccount({
-            email: user.email || '',
-            bvn: formData.bvn,
-            groupName: formData.name,
-            groupId: groupId,
-          });
-
-          if (accountData.success && accountData.responseBody) {
-            const { supabase } = await import('@/integrations/supabase/client');
-            const { error: updateError } = await supabase
-              .from('contribution_groups')
-              .update({
-                account_number: accountData.responseBody.account_number,
-                account_name: formData.name,
-                bank_name: accountData.responseBody.bank_name || null,
-                account_reference: accountData.responseBody.order_ref || accountData.responseBody.flw_ref,
-                account_details: accountData.responseBody
-              })
-              .eq('id', groupId);
-
-            if (updateError) {
-              console.error('Error saving account details:', updateError);
-              toast.warning("Group created with bank account, but failed to save details. Please refresh the page.");
-            } else {
-              toast.success("Group created with bank account!");
-            }
-          } else {
-            toast.warning("Group created, but bank account setup failed. You can set it up later from the group page.");
-          }
-        } catch (accountError) {
-          console.error('Error creating virtual account:', accountError);
-          toast.warning("Group created, but bank account setup failed. You can set it up later from the group page.");
-        }
-      } else {
-        toast.success(result.message || "Group created successfully!");
       }
 
       localStorage.removeItem(FORM_STORAGE_KEY);
       localStorage.removeItem(STEP_STORAGE_KEY);
-
-      setCreationStage("syncing");
-      await Promise.all([refreshCurrentUser(), refreshContributionData()]);
-      navigate(groupId ? `/groups/${groupId}` : "/dashboard");
+      toast.success(result.message || "Group created.");
+      await Promise.allSettled([refreshCurrentUser(), refreshContributionData()]);
+      navigate(result.group_id ? "/groups/" + result.group_id : "/all-groups", { replace: true });
     } catch (error) {
       console.error("Error creating group:", error);
-      toast.error(`Failed to create group: ${error instanceof Error ? error.message : "Unknown error"}`);
+      toast.error("Couldn’t create the group. Try again.");
     } finally {
-      setIsLoading(false);
-      setShowFeeConfirmation(false);
+      setCreating(false);
     }
   };
 
-  // Render the appropriate step
-  const renderStep = () => {
-    switch (step) {
-      case 1:
-        return (
-          <DetailsStep 
-            formData={formData} 
-            handleChange={handleChange} 
-            goToNextStep={goToNextStep}
-            onCancel={handleCancel}
-          />
-        );
-      case 2:
-        return (
-          <ScheduleStep 
-            formData={formData} 
-            handleChange={handleChange} 
-            goToNextStep={goToNextStep} 
-            goToPreviousStep={goToPreviousStep} 
-          />
-        );
-      case 3:
-        return (
-          <SettingsStep 
-            formData={formData} 
-            handleChange={handleChange} 
-            handleCreateGroup={handleCreateGroup} 
-            goToPreviousStep={goToPreviousStep} 
-            isLoading={isLoading}
-            validationErrors={validationErrors}
-          />
-        );
-      default:
-        return null;
+  const submit = async () => {
+    if (!user || submitPending.current) return;
+
+    submitPending.current = true;
+    setCheckingFee(true);
+    try {
+      const eligibility = await checkGroupCreationEligibility(user.id);
+      if (eligibility?.can_create_free === true) await createGroup();
+      else if (eligibility?.can_create_free === false) setShowFeeConfirmation(true);
+      else throw new Error("Group creation eligibility unavailable");
+    } catch (error) {
+      console.error("Error checking group creation fee:", error);
+      toast.error("Couldn’t check the group creation fee. Try again.");
+    } finally {
+      setCheckingFee(false);
+      submitPending.current = false;
     }
   };
 
-  const creationCopy = {
-    creating: {
-      badge: "Step 1 of 3",
-      message: `Creating ${formData.name || "your group"}`,
-      submessage: "Setting up your contribution pool and voting governance…",
-    },
-    account: {
-      badge: "Step 2 of 3",
-      message: "Generating bank account",
-      submessage: `Issuing a dedicated account number for ${formData.name || "your group"}…`,
-    },
-    syncing: {
-      badge: "Step 3 of 3",
-      message: "Opening your group",
-      submessage: "Finalizing balances and syncing your workspace…",
-    },
-  }[creationStage];
+  const confirmFee = async () => {
+    if (submitPending.current) return;
+    submitPending.current = true;
+    try {
+      await createGroup();
+    } finally {
+      submitPending.current = false;
+    }
+  };
 
   return (
     <>
-      {isLoading && (
-        <BrandLoader
-          variant="overlay"
-          badge={creationCopy.badge}
-          message={creationCopy.message}
-          submessage={creationCopy.submessage}
-        />
-      )}
-      <Card className="rounded-2xl p-4 shadow-sm sm:p-6">
-        {/* Auto-save notification */}
-        {(formData.name || formData.description || formData.targetAmount > 0) && (
-          <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 rounded-lg">
-            <p className="text-xs text-blue-800 dark:text-blue-200 flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              Your progress is automatically saved. You can safely refresh or come back later.
-            </p>
+      {creating && <BrandLoader variant="overlay" message="Creating your group" submessage="Your group page will open once it’s ready." />}
+      <Card className="group-form-shell min-w-0 rounded-[1.35rem] shadow-sm">
+        <div ref={progressHeading} tabIndex={-1} className="group-form-heading scroll-mt-20 rounded-t-[1.35rem] border-b bg-muted/40 py-3">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm">
+            <p className="font-semibold">Step {stepNumber} of 2</p>
+            {formData.name && <p className="text-muted-foreground">Draft saved</p>}
           </div>
+          <StepIndicator currentStep={stepNumber} />
+        </div>
+        {step === "goal" ? (
+          <DetailsStep formData={formData} handleChange={update} onContinue={() => moveToStep("settings")} />
+        ) : (
+          <SettingsStep formData={formData} onPrivacyChange={(privacy) => update("privacy", privacy)} onVotingChange={(enabled) => update("enableVotingRights", enabled)} onBack={() => moveToStep("goal")} onSubmit={submit} pending={checkingFee || creating} />
         )}
-        
-        <StepIndicator currentStep={step} />
-        {renderStep()}
       </Card>
 
-      {/* Fee Confirmation Dialog */}
       <AlertDialog open={showFeeConfirmation} onOpenChange={setShowFeeConfirmation}>
-        <AlertDialogContent>
+        <AlertDialogContent className="w-[calc(100%-2rem)] max-w-md rounded-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <span className="text-2xl">⚠️</span>
-              Confirm Group Creation Fee
-            </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-4">
-              <div className="bg-yellow-50 dark:bg-yellow-950/30 border-2 border-yellow-200 dark:border-yellow-900 rounded-lg p-4">
-                <p className="text-yellow-900 dark:text-yellow-200 font-semibold mb-2">
-                  ⚠️ Payment Required
-                </p>
-                <p className="text-yellow-800 dark:text-yellow-300 text-sm">
-                  You've used all 3 free group creations. A fee of <strong className="text-orange-600 text-lg">₦500</strong> will be <strong>deducted from your wallet balance</strong> to create this group.
-                </p>
-              </div>
-
-              <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 rounded-lg p-3">
-                <p className="font-medium mb-2 text-blue-900 dark:text-blue-200">What you get:</p>
-                <ul className="list-disc list-inside space-y-1 text-sm text-blue-800 dark:text-blue-300">
-                  <li>Dedicated bank account for the group</li>
-                  <li>Full admin controls</li>
-                  <li>Unlimited members</li>
-                  <li>Voting and governance features</li>
-                </ul>
-              </div>
-
-              <p className="text-sm text-muted-foreground">
-                By clicking "Confirm & Pay ₦500", you authorize this deduction from your wallet.
-              </p>
+            <AlertDialogTitle>Confirm the ₦500 group fee</AlertDialogTitle>
+            <AlertDialogDescription>
+              You’ve used your three free groups. Creating this group will deduct ₦500 from your wallet.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={createGroup}
-              disabled={isLoading}
-              className="bg-orange-600 hover:bg-orange-700"
-            >
-              {isLoading ? "Processing..." : "Confirm & Pay ₦500"}
-            </AlertDialogAction>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmFee}>Create group · ₦500</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </>
   );
-};
-
-export default GroupForm;
+}

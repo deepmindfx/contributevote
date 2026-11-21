@@ -5,6 +5,8 @@ import BrandLoader from "@/components/ui/BrandLoader";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -18,7 +20,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Plus,
-  Archive,
+  Compass,
+  SlidersHorizontal,
   Globe,
   Lock,
 } from "lucide-react";
@@ -31,7 +34,6 @@ import {
   getCategoryIcon,
   getCategoryLabel,
 } from "@/services/supabase/groupEnhancementService";
-import { cn } from "@/lib/utils";
 
 const ITEMS_PER_PAGE = 9;
 
@@ -42,41 +44,37 @@ const AllGroups = () => {
   const [showArchived, setShowArchived] = useState(false);
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [sortedContributions, setSortedContributions] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+  const userId = user?.id;
 
   useEffect(() => {
-    if (user?.id) {
-      fetchGroups();
-    }
-  }, [user, sortBy, showArchived, filterCategory, contributions]);
+    if (!userId) return;
+    let active = true;
+    setIsLoading(true);
+    const useFallback = () => {
+      setSortedContributions(contributions.filter((group) =>
+        (showArchived || !group.archived) && (filterCategory === "all" || group.category === filterCategory),
+      ));
+      setIsLoading(false);
+    };
+    const timeout = window.setTimeout(useFallback, 10000);
+    void getGroupsSorted(userId, { sortBy, showArchived, category: filterCategory })
+      .then((groups) => { if (active) setSortedContributions(groups); })
+      .catch(() => { if (active) useFallback(); })
+      .finally(() => {
+        window.clearTimeout(timeout);
+        if (active) setIsLoading(false);
+      });
+    return () => {
+      active = false;
+      window.clearTimeout(timeout);
+    };
+  }, [userId, sortBy, showArchived, filterCategory, contributions]);
 
   useEffect(() => {
     setCurrentPage(1);
   }, [sortBy, showArchived, filterCategory]);
-
-  const fetchGroups = async () => {
-    setIsLoading(true);
-    try {
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Request timeout")), 10000)
-      );
-
-      const groupsPromise = getGroupsSorted(user.id, {
-        sortBy,
-        showArchived,
-        category: filterCategory,
-      });
-
-      const groups = (await Promise.race([groupsPromise, timeoutPromise])) as any;
-      setSortedContributions(groups);
-    } catch (error) {
-      console.error("Error fetching groups:", error);
-      setSortedContributions(contributions);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   // Portfolio metrics across active groups
   const portfolioStats = useMemo(() => {
@@ -118,122 +116,86 @@ const AllGroups = () => {
 
   return (
     <div className="min-h-screen">
-      <Header />
+      <Header mobilePanel />
 
-      <main className="app-page max-w-5xl space-y-5">
-        {/* Page Header */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="app-page-title">My groups</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Manage your shared pools, progress, and group governance.
-            </p>
+      <main className="app-page app-panel-page max-w-5xl">
+        <section className="app-panel-hero" aria-labelledby="my-groups-heading">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <h1 id="my-groups-heading" className="app-page-title">My groups</h1>
+            <div className="flex flex-wrap gap-2">
+              <Button asChild variant="ghost" className="app-panel-secondary">
+                <Link to="/discover"><Compass size={17} aria-hidden="true" /> Discover</Link>
+              </Button>
+              <Button asChild className="app-panel-primary">
+                <Link to="/create-group"><Plus size={17} aria-hidden="true" /> New group</Link>
+              </Button>
+            </div>
           </div>
-          <Button asChild className="h-11 rounded-xl font-semibold">
-            <Link to="/create-group">
-              <Plus className="mr-1.5 h-4 w-4" />
-              New group
-            </Link>
-          </Button>
-        </div>
-
-        {/* Native Portfolio Summary Banner */}
-        {!isLoading && portfolioStats.count > 0 && (
-          <section className="group-vault-hero rounded-[1.5rem] p-5 shadow-sm sm:p-6">
-            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-[0.1em] text-[#a9ccb9]">
-                  Total Pooled ({portfolioStats.count} active{" "}
-                  {portfolioStats.count === 1 ? "group" : "groups"})
+          {!isLoading && portfolioStats.count > 0 && (
+            <div className="mt-5">
+              <p className="panel-kicker text-sm font-medium">Raised across {portfolioStats.count} listed {portfolioStats.count === 1 ? "group" : "groups"}</p>
+              <div className="mt-1 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                <p className="text-[clamp(1.9rem,6vw,2.8rem)] font-semibold leading-tight tracking-[-.055em] tabular-nums break-words">
+                  ₦{portfolioStats.totalPooled.toLocaleString()}
                 </p>
-                <div className="mt-1 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-                  <span className="text-3xl font-extrabold tracking-[-0.045em] text-white tabular-nums sm:text-4xl">
-                    ₦{portfolioStats.totalPooled.toLocaleString()}
-                  </span>
-                  <span className="text-sm text-[#b9d9c8] tabular-nums">
-                    of ₦{portfolioStats.totalTarget.toLocaleString()} combined target
-                  </span>
-                </div>
+                <p className="panel-kicker text-sm tabular-nums">of ₦{portfolioStats.totalTarget.toLocaleString()} combined goal</p>
               </div>
-              <span className="self-start rounded-full bg-[#dbf5b4] px-3 py-1 text-xs font-bold text-[#0c3027] tabular-nums sm:self-end">
-                {portfolioStats.overallProgress}% funded
-              </span>
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/15" role="progressbar" aria-label="Combined funding progress" aria-valuenow={portfolioStats.overallProgress}>
+                <div className="h-full rounded-full bg-[#dcf6b8]" style={{ width: portfolioStats.overallProgress + "%" }} />
+              </div>
             </div>
-            <div className="mt-3.5 h-2 w-full overflow-hidden rounded-full bg-white/14">
-              <div
-                className="h-full rounded-full bg-[#dbf5b4] transition-all duration-500"
-                style={{ width: `${portfolioStats.overallProgress}%` }}
-              />
-            </div>
-          </section>
-        )}
+          )}
+        </section>
 
-        {/* Native Filter Bar: Scrollable Category Pills + Compact Controls */}
-        <div className="space-y-3">
-          <div className="-mx-1 flex items-center gap-2 overflow-x-auto px-1 pb-1">
-            <button
-              type="button"
-              onClick={() => setFilterCategory("all")}
-              className={cn(
-                "inline-flex min-h-9 shrink-0 items-center rounded-full border px-3.5 text-xs font-semibold transition-colors",
-                filterCategory === "all"
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-            >
-              All categories
-            </button>
-            {CATEGORIES.map((cat) => (
-              <button
-                key={cat.value}
-                type="button"
-                onClick={() => setFilterCategory(cat.value)}
-                className={cn(
-                  "inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-xs font-semibold transition-colors",
-                  filterCategory === cat.value
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
-                )}
-              >
-                <span aria-hidden="true">{cat.icon}</span>
-                {cat.label}
-              </button>
-            ))}
-          </div>
-
+        <div className="app-panel-body space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs font-medium text-muted-foreground">
-              {sortedContributions.length}{" "}
-              {sortedContributions.length === 1 ? "group" : "groups"}
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setShowArchived((v) => !v)}
-                className={cn(
-                  "inline-flex h-9 items-center gap-1.5 rounded-xl border px-3 text-xs font-semibold transition-colors",
-                  showArchived
-                    ? "border-primary/40 bg-accent text-accent-foreground"
-                    : "border-border bg-card text-muted-foreground hover:bg-muted"
-                )}
-              >
-                <Archive className="h-3.5 w-3.5" />
-                Archived
-              </button>
-
-              <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
-                <SelectTrigger className="h-9 w-[148px] rounded-xl text-xs font-semibold" aria-label="Sort groups">
-                  <SelectValue placeholder="Sort by" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="date">Newest first</SelectItem>
-                  <SelectItem value="progress">Most funded</SelectItem>
-                  <SelectItem value="category">By category</SelectItem>
-                </SelectContent>
-              </Select>
+            <div>
+              <h2 className="app-section-title">Your groups</h2>
+              {filterCategory !== "all" && <p className="text-sm text-muted-foreground">{getCategoryLabel(filterCategory)}</p>}
             </div>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="gap-2">
+                  <SlidersHorizontal size={16} aria-hidden="true" /> Filters
+                  {(filterCategory !== "all" || sortBy !== "date" || showArchived) && <span className="h-2 w-2 rounded-full bg-primary" aria-label="Filters applied" />}
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Sort and filter groups</DialogTitle>
+                  <DialogDescription className="sr-only">Choose which groups to show and how to order them.</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label htmlFor="group-category-filter" className="text-sm font-medium">Category</label>
+                    <Select value={filterCategory} onValueChange={setFilterCategory}>
+                      <SelectTrigger id="group-category-filter"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All categories</SelectItem>
+                        {CATEGORIES.map((category) => <SelectItem key={category.value} value={category.value}>{category.icon} {category.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label htmlFor="group-sort-order" className="text-sm font-medium">Sort by</label>
+                    <Select value={sortBy} onValueChange={(value) => setSortBy(value as typeof sortBy)}>
+                      <SelectTrigger id="group-sort-order"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="date">Newest first</SelectItem>
+                        <SelectItem value="progress">Most funded</SelectItem>
+                        <SelectItem value="category">By category</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border px-3 text-sm font-medium">
+                    <Checkbox checked={showArchived} onCheckedChange={(value) => setShowArchived(value === true)} />
+                    Include archived groups
+                  </label>
+                </div>
+                <DialogClose asChild><Button className="w-full">Show groups</Button></DialogClose>
+              </DialogContent>
+            </Dialog>
           </div>
-        </div>
 
         {/* Content */}
         {isLoading ? (
@@ -244,11 +206,11 @@ const AllGroups = () => {
               <Users className="h-7 w-7" />
             </div>
             <h3 className="text-lg font-bold tracking-tight">
-              {showArchived ? "No archived groups" : "No groups match this filter"}
+              {filterCategory === "all" ? "No groups to show" : "No groups in this category"}
             </h3>
             <p className="mx-auto mt-1.5 max-w-sm text-sm text-muted-foreground">
               {showArchived
-                ? "Archived groups you restore or hide will appear here."
+                ? "Archived groups are included in this view."
                 : "Create your first shared savings pool or discover open community groups."}
             </p>
             {!showArchived && (
@@ -267,7 +229,7 @@ const AllGroups = () => {
           </Card>
         ) : (
           <>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {currentGroups.map((contribution) => {
                 const currentAmount = Number(contribution.current_amount || 0);
                 const targetAmount = Number(contribution.target_amount || 0);
@@ -383,7 +345,7 @@ const AllGroups = () => {
                   {sortedContributions.length} groups
                 </p>
 
-                <div className="flex items-center gap-1.5">
+                <div className="flex flex-wrap items-center justify-center gap-1.5">
                   <Button
                     variant="outline"
                     size="sm"
@@ -445,6 +407,7 @@ const AllGroups = () => {
             )}
           </>
         )}
+        </div>
       </main>
     </div>
   );

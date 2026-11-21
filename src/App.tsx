@@ -102,9 +102,10 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
 // Auth guard to keep logged out users from accessing protected routes
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useSupabaseUser();
+  const { pathname, search, hash } = useLocation();
   
   if (!isAuthenticated) {
-    return <Navigate to="/auth" replace />;
+    return <Navigate to="/auth" replace state={{ returnUrl: pathname + search + hash }} />;
   }
   
   return <>{children}</>;
@@ -261,7 +262,7 @@ const AppRoutes = () => {
   );
 
   return isWorkspace ? (
-    <div className="app-workspace">
+    <div className={pathname.replace(/\/$/, "") === "/create-group" ? "app-workspace app-workspace--focused" : "app-workspace"}>
       <WorkspaceNavigation />
       {routes}
     </div>

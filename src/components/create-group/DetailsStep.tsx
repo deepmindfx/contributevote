@@ -1,158 +1,131 @@
-
-import React, { useEffect, useState } from "react";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
+import { useRef, useState } from "react";
+import type { FormEvent } from "react";
+import { ArrowRight, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { 
-  CATEGORIES, 
-  checkGroupCreationEligibility 
-} from '@/services/supabase/groupEnhancementService';
-import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
+import { CardContent, CardFooter, CardHeader, CardDescription } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { CATEGORIES } from "@/services/supabase/groupEnhancementService";
 
-interface DetailsStepProps {
-  formData: {
-    name: string;
-    description: string;
-    targetAmount: number;
-    category: string;
-  };
-  handleChange: (field: string, value: any) => void;
-  goToNextStep: () => void;
-  onCancel?: () => void;
-}
-
-const DetailsStep = ({ formData, handleChange, goToNextStep, onCancel }: DetailsStepProps) => {
-  const { user } = useSupabaseUser();
-  const [eligibility, setEligibility] = useState<any>(null);
-  const [isCheckingEligibility, setIsCheckingEligibility] = useState(false);
-
-  useEffect(() => {
-    if (user?.id) {
-      checkEligibility();
-    }
-  }, [user]);
-
-  const checkEligibility = async () => {
-    setIsCheckingEligibility(true);
-    try {
-      const result = await checkGroupCreationEligibility(user.id);
-      setEligibility(result);
-    } catch (error) {
-      console.error('Error checking eligibility:', error);
-    } finally {
-      setIsCheckingEligibility(false);
-    }
-  };
-
-  return (
-    <>
-      <CardHeader>
-        <CardTitle>Group Details</CardTitle>
-        <CardDescription>Provide information about your contribution group</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="name">Group Name</Label>
-          <Input 
-            id="name" 
-            placeholder="E.g., Wedding Fund, Business Launch" 
-            value={formData.name}
-            onChange={(e) => handleChange('name', e.target.value)}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="description">Description</Label>
-          <Textarea 
-            id="description" 
-            placeholder="Describe the purpose of this group" 
-            rows={4}
-            value={formData.description}
-            onChange={(e) => handleChange('description', e.target.value)}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="target">Target Amount</Label>
-          <div className="relative">
-            <span className="absolute left-3 top-2.5 text-muted-foreground">₦</span>
-            <Input 
-              id="target" 
-              type="number" 
-              className="pl-8" 
-              placeholder="0.00"
-              value={formData.targetAmount || ''}
-              onChange={(e) => handleChange('targetAmount', Number(e.target.value))}
-            />
-          </div>
-          <p className="text-sm text-muted-foreground">Set a goal for your group contributions</p>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="category">Category</Label>
-          <Select 
-            defaultValue={formData.category}
-            onValueChange={(value) => handleChange('category', value)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select category" />
-            </SelectTrigger>
-            <SelectContent>
-              {CATEGORIES.map((cat) => (
-                <SelectItem key={cat.value} value={cat.value}>
-                  {cat.icon} {cat.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        
-        {/* Fee Warning */}
-        {!isCheckingEligibility && eligibility && !eligibility.can_create_free && (
-          <Alert className="border-orange-200 bg-orange-50 dark:bg-orange-950">
-            <AlertDescription className="text-orange-800 dark:text-orange-200">
-              ⚠️ Group creation fee: ₦500 (You've used all 3 free groups)
-            </AlertDescription>
-          </Alert>
-        )}
-        
-        {isCheckingEligibility && (
-          <Alert>
-            <AlertDescription>
-              Checking eligibility...
-            </AlertDescription>
-          </Alert>
-        )}
-      </CardContent>
-      <CardFooter className="flex gap-3">
-        {onCancel && (
-          <Button 
-            onClick={onCancel} 
-            variant="outline" 
-            className="flex-1"
-          >
-            Cancel
-          </Button>
-        )}
-        <Button onClick={goToNextStep} className="flex-1">
-          Continue
-        </Button>
-      </CardFooter>
-    </>
-  );
+export type GroupDetails = {
+  name: string;
+  targetAmount: string;
+  contributionAmount: string;
+  description: string;
+  category: string;
+  frequency: string;
+  startDate: string;
+  endDate: string;
 };
 
-export default DetailsStep;
+export function getDetailsError(data: GroupDetails) {
+  if (!data.name.trim()) return { field: "group-name", message: "Enter a group name." };
+  if (!Number.isFinite(Number(data.targetAmount)) || Number(data.targetAmount) <= 0) {
+    return { field: "group-goal", message: "Enter a goal greater than ₦0." };
+  }
+  if (data.contributionAmount && (!Number.isFinite(Number(data.contributionAmount)) || Number(data.contributionAmount) <= 0)) {
+    return { field: "group-amount", message: "Enter an amount greater than ₦0, or leave this blank." };
+  }
+  if (data.startDate && data.endDate && data.endDate < data.startDate) {
+    return { field: "group-end", message: "Choose an end date on or after the start date." };
+  }
+  return null;
+}
+
+interface DetailsStepProps {
+  formData: GroupDetails;
+  handleChange: (field: keyof GroupDetails, value: string) => void;
+  onContinue: () => void;
+}
+
+export default function DetailsStep({ formData, handleChange, onContinue }: DetailsStepProps) {
+  const [error, setError] = useState<ReturnType<typeof getDetailsError>>(null);
+  const advanced = useRef<HTMLDetailsElement>(null);
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const nextError = getDetailsError(formData);
+    setError(nextError);
+    if (!nextError) {
+      onContinue();
+      return;
+    }
+    if (nextError.field === "group-end" && advanced.current) advanced.current.open = true;
+    const field = event.currentTarget.elements.namedItem(nextError.field);
+    if (field instanceof HTMLElement) field.focus();
+  };
+
+  const fieldError = (id: string) => ({
+    "aria-invalid": error?.field === id,
+    "aria-describedby": error?.field === id ? "group-goal-error" : undefined,
+  });
+
+  return (
+    <form onSubmit={handleSubmit} onChange={() => setError(null)} noValidate>
+      <CardHeader className="group-form-heading py-4">
+        <h2 className="text-xl font-semibold tracking-tight">Set a goal</h2>
+        <CardDescription>Give your group a name and a target to save toward.</CardDescription>
+      </CardHeader>
+      <CardContent className="group-form-fields space-y-4 pb-5">
+        <div className="space-y-2">
+          <Label htmlFor="group-name">Group name</Label>
+          <Input id="group-name" name="group-name" placeholder="e.g. Family travel fund" required value={formData.name} onChange={(event) => handleChange("name", event.target.value)} {...fieldError("group-name")} />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="min-w-0 space-y-2">
+            <Label htmlFor="group-goal">Savings goal (₦)</Label>
+            <Input id="group-goal" name="group-goal" type="number" inputMode="decimal" min="0.01" step="any" placeholder="0.00" required value={formData.targetAmount} onChange={(event) => handleChange("targetAmount", event.target.value)} {...fieldError("group-goal")} />
+          </div>
+          <div className="min-w-0 space-y-2">
+            <Label htmlFor="group-amount">Amount per member (₦) <span className="font-normal text-muted-foreground">· Optional</span></Label>
+            <Input id="group-amount" name="group-amount" type="number" inputMode="decimal" min="0.01" step="any" placeholder="0.00" value={formData.contributionAmount} onChange={(event) => handleChange("contributionAmount", event.target.value)} {...fieldError("group-amount")} />
+          </div>
+        </div>
+
+        <details ref={advanced} className="rounded-xl border">
+          <summary className="app-disclosure px-3">
+            <span>
+              <span className="block font-semibold">Schedule and description</span>
+              <span className="block text-xs capitalize text-muted-foreground">{formData.frequency} · {formData.startDate || "Starts today"}</span>
+            </span>
+            <ChevronDown size={16} aria-hidden="true" />
+          </summary>
+          <div className="grid gap-4 border-t p-3 sm:grid-cols-2">
+            <div className="min-w-0 space-y-2">
+              <Label htmlFor="group-frequency">Contribution frequency</Label>
+              <select id="group-frequency" className="group-form-select" value={formData.frequency} onChange={(event) => handleChange("frequency", event.target.value)}>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="one-time">One-time</option>
+              </select>
+            </div>
+            <div className="min-w-0 space-y-2">
+              <Label htmlFor="group-category">Category</Label>
+              <select id="group-category" className="group-form-select" value={formData.category} onChange={(event) => handleChange("category", event.target.value)}>
+                {CATEGORIES.map(({ label, value }) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </div>
+            <div className="min-w-0 space-y-2">
+              <Label htmlFor="group-start">Start date <span className="font-normal text-muted-foreground">· Optional</span></Label>
+              <Input id="group-start" type="date" value={formData.startDate} onChange={(event) => handleChange("startDate", event.target.value)} />
+            </div>
+            <div className="min-w-0 space-y-2">
+              <Label htmlFor="group-end">End date <span className="font-normal text-muted-foreground">· Optional</span></Label>
+              <Input id="group-end" name="group-end" type="date" min={formData.startDate || undefined} value={formData.endDate} onChange={(event) => handleChange("endDate", event.target.value)} {...fieldError("group-end")} />
+            </div>
+            <div className="min-w-0 space-y-2 sm:col-span-2">
+              <Label htmlFor="group-description">Description <span className="font-normal text-muted-foreground">· Optional</span></Label>
+              <Textarea id="group-description" className="text-base md:text-sm" value={formData.description} onChange={(event) => handleChange("description", event.target.value)} />
+            </div>
+          </div>
+        </details>
+        {error && <p id="group-goal-error" role="alert" className="text-sm text-destructive">{error.message}</p>}
+      </CardContent>
+      <CardFooter className="group-form-actions justify-end">
+        <Button type="submit" className="w-full gap-2 sm:w-auto">Continue <ArrowRight size={16} aria-hidden="true" /></Button>
+      </CardFooter>
+    </form>
+  );
+}

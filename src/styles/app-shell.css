@@ -282,6 +282,71 @@ body {
   color: #f7fff9;
 }
 
+.currency-selector {
+  --currency-track: hsl(var(--muted));
+  --currency-edge: hsl(var(--border));
+  --currency-idle: hsl(var(--muted-foreground));
+  --currency-selected: hsl(var(--card));
+  --currency-current: hsl(var(--primary));
+  flex: none;
+  min-width: 0;
+}
+
+.currency-selector-dark {
+  --currency-track: #062f26a8;
+  --currency-edge: #ffffff47;
+  --currency-idle: #dfefe7;
+  --currency-selected: #ecf8ed;
+  --currency-current: #104e3b;
+}
+
+.currency-selector legend {
+  margin-bottom: .22rem;
+  color: var(--currency-idle);
+  font-size: .68rem;
+  font-weight: 600;
+}
+
+.currency-options {
+  display: inline-flex;
+  gap: .125rem;
+  padding: .13rem;
+  border: 1px solid var(--currency-edge);
+  border-radius: .8rem;
+  background-color: var(--currency-track);
+}
+
+.currency-option {
+  position: relative;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.currency-option > span {
+  display: flex;
+  min-height: 2.55rem;
+  min-width: 3.35rem;
+  align-items: center;
+  justify-content: center;
+  gap: .2rem;
+  padding-inline: .32rem;
+  border-radius: .6rem;
+  color: var(--currency-idle);
+  font-size: .72rem;
+  font-weight: 650;
+}
+
+.currency-option input:checked + span {
+  background: var(--currency-selected);
+  color: var(--currency-current);
+  box-shadow: 0 1px 2px #0002;
+}
+
+.currency-option input:focus-visible + span {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 1px;
+}
+
 .wallet-action {
   display: flex;
   min-width: 0;
