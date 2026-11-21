@@ -1,237 +1,109 @@
-
-import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { ChevronRight, Users } from "lucide-react";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
-import { format, isValid, parseISO } from "date-fns";
-import { Users, Calendar, ChevronDown } from "lucide-react";
-import { 
-  getGroupsSorted,
-  CATEGORIES,
-  getCategoryIcon 
-} from '@/services/supabase/groupEnhancementService';
+import { getCategoryIcon, getGroupsSorted } from "@/services/supabase/groupEnhancementService";
 
-const GroupsList = () => {
-  const navigate = useNavigate();
-  const { user } = useSupabaseUser();
-  const { contributions } = useSupabaseContribution();
-  const [sortBy, setSortBy] = useState<'date' | 'category' | 'progress'>('date');
-  const [showArchived, setShowArchived] = useState(false);
-  const [filterCategory, setFilterCategory] = useState<string>('all');
-  const [sortedGroups, setSortedGroups] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-
-  useEffect(() => {
-    if (user?.id) {
-      fetchGroups();
-    }
-  }, [user, sortBy, showArchived, filterCategory, contributions]);
-
-  const fetchGroups = async () => {
-    setIsLoading(true);
-    try {
-      // Add timeout to prevent infinite loading
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Request timeout')), 10000)
-      );
-      
-      const groupsPromise = getGroupsSorted(user.id, {
-        sortBy,
-        showArchived,
-        category: filterCategory
-      });
-      
-      const groups = await Promise.race([groupsPromise, timeoutPromise]) as any;
-      setSortedGroups(groups);
-    } catch (error) {
-      console.error('Error fetching groups:', error);
-      // Fallback to local data from context
-      setSortedGroups(contributions);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  const recentGroups = sortedGroups.slice(0, 3);
-  
-  // Helper function to safely format dates
-  const safeFormatDate = (dateString) => {
-    try {
-      // Check if dateString is undefined or null
-      if (!dateString) {
-        return "No date";
-      }
-      
-      // Try to parse the date using parseISO first for ISO strings
-      let date;
-      try {
-        date = parseISO(dateString);
-      } catch (err) {
-        // If parseISO fails, try direct Date constructor
-        date = new Date(dateString);
-      }
-      
-      // Verify the date is valid
-      if (!isValid(date)) {
-        console.log("Invalid date:", dateString);
-        return "Invalid date";
-      }
-      
-      return format(date, 'MMM d, yyyy');
-    } catch (err) {
-      console.error("Error formatting date:", err, "for date:", dateString);
-      return "Invalid date";
-    }
-  };
-  
-  return (
-    <Card className="rounded-2xl shadow-sm">
-      <CardHeader className="p-4 pb-3 sm:p-5 sm:pb-3">
-        <div className="flex items-center justify-between gap-2">
-          <CardTitle className="text-lg">My groups</CardTitle>
-          <Button variant="ghost" size="sm" asChild>
-            <Link to="/all-groups" className="min-h-11 text-primary">
-              View all
-            </Link>
-          </Button>
-        </div>
-        
-        {/* Filters */}
-        <details className="group">
-          <summary className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg text-sm font-medium text-muted-foreground">
-            <ChevronDown size={15} aria-hidden="true" className="group-open:rotate-180" /> Sort and filter
-          </summary>
-          <div className="flex flex-wrap gap-3 pb-2">
-          {/* Sort Dropdown */}
-          <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="date">📅 Date</SelectItem>
-              <SelectItem value="category">📂 Category</SelectItem>
-              <SelectItem value="progress">📊 Progress</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* Category Filter */}
-          <Select value={filterCategory} onValueChange={setFilterCategory}>
-            <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="All Categories" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              {CATEGORIES.map((cat) => (
-                <SelectItem key={cat.value} value={cat.value}>
-                  {cat.icon} {cat.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Show Archived Checkbox */}
-          <div className="flex items-center gap-2">
-            <Checkbox 
-              id="show-archived"
-              checked={showArchived} 
-              onCheckedChange={(checked) => setShowArchived(checked as boolean)}
-            />
-            <label htmlFor="show-archived" className="text-sm cursor-pointer">
-              Show Archived
-            </label>
-          </div>
-          </div>
-        </details>
-      </CardHeader>
-      <CardContent className="px-4 pb-4 sm:px-5 sm:pb-5">
-        {isLoading ? (
-          <div className="text-center py-6">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-            <p className="text-sm text-muted-foreground">Loading groups...</p>
-          </div>
-        ) : recentGroups.length === 0 ? (
-          <div className="text-center py-6">
-            <p className="text-muted-foreground mb-4">
-              {showArchived ? "No archived groups found" : "You haven't joined any contribution groups yet"}
-            </p>
-            {!showArchived && (
-              <Button className="bg-[#2DAE75] hover:bg-[#249e69]" onClick={() => navigate("/create-group")}>
-                Create a Group
-              </Button>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {recentGroups.map(group => {
-              // Add null checks and default values
-              const currentAmount = group.current_amount || 0;
-              const targetAmount = group.target_amount || 1; // Prevent division by zero
-              const progressPercentage = Math.min(100, Math.round((currentAmount / targetAmount) * 100) || 0);
-              
-              return (
-                <Link
-                  key={group.id}
-                  to={`/groups/${group.id}`}
-                  className="block rounded-xl border p-3 transition-colors hover:bg-muted/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary sm:p-4"
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xl">{getCategoryIcon(group.category)}</span>
-                        <h3 className="break-words text-base font-semibold">{group.name || "Unnamed Group"}</h3>
-                        {group.archived && (
-                          <Badge variant="secondary" className="text-xs">
-                            📦 Archived
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="flex items-center text-xs text-muted-foreground mt-1">
-                        <Users className="h-3 w-3 mr-1 inline" />
-                        <span className="mr-2">
-                          {Array.isArray(group.contributors)
-                            ? (group.contributors[0]?.count ?? group.contributors.length)
-                            : 0}{' '}
-                          members
-                        </span>
-                        
-                        <Calendar className="h-3 w-3 mr-1 inline" />
-                        <span>{safeFormatDate(group.start_date || group.created_at)}</span>
-                      </div>
-                    </div>
-                    <Badge variant="outline" className="capitalize text-xs">
-                      {group.frequency || "N/A"}
-                    </Badge>
-                  </div>
-                  
-                  <div className="mt-3">
-                    <div className="mb-1 flex flex-wrap items-center justify-between gap-x-2 text-xs">
-                      <div className="text-muted-foreground">Progress ({progressPercentage}%)</div>
-                      <div className="text-sm font-medium">
-                        ₦{currentAmount.toLocaleString()} of ₦{targetAmount.toLocaleString()}
-                      </div>
-                    </div>
-                    <Progress value={progressPercentage} className="h-1.5" />
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
+type OverviewGroup = {
+  id: string;
+  name: string;
+  category?: string | null;
+  current_amount?: number | null;
+  target_amount?: number | null;
+  contributors?: { count?: number }[];
 };
 
-export default GroupsList;
+const naira = new Intl.NumberFormat("en-NG", { maximumFractionDigits: 2 });
+
+export default function GroupsList() {
+  const { user } = useSupabaseUser();
+  const { contributions } = useSupabaseContribution();
+  const [groups, setGroups] = useState<OverviewGroup[]>([]);
+  const [loading, setLoading] = useState(true);
+  const userId = user?.id;
+
+  useEffect(() => {
+    if (!userId) return;
+    let active = true;
+    const fallback = contributions.filter((group) => !group.archived);
+    const timeout = window.setTimeout(() => {
+      setGroups(fallback.slice(0, 3));
+      setLoading(false);
+    }, 10000);
+    void getGroupsSorted(userId, { sortBy: "date" })
+      .then((result) => { if (active) setGroups(result.slice(0, 3)); })
+      .catch(() => { if (active) setGroups(fallback.slice(0, 3)); })
+      .finally(() => {
+        window.clearTimeout(timeout);
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+      window.clearTimeout(timeout);
+    };
+  }, [contributions, userId]);
+
+  return (
+    <>
+      <div className="mb-3 flex min-h-11 items-center justify-between gap-2">
+        <h2 id="groups-heading" className="app-section-title">My groups</h2>
+        <Button asChild variant="ghost" className="gap-1 text-primary">
+          <Link to="/all-groups">View all <ChevronRight size={16} aria-hidden="true" /></Link>
+        </Button>
+      </div>
+      <Card className="overflow-hidden rounded-[1.35rem]">
+        {loading ? (
+          <div className="space-y-4 p-5" role="status" aria-label="Loading groups">
+            <Skeleton className="h-6 w-2/3" />
+            <Skeleton className="h-2 w-full" />
+          </div>
+        ) : groups.length === 0 ? (
+          <div className="flex flex-col items-center gap-3 px-5 py-9 text-center">
+            <span className="grid h-11 w-11 place-items-center rounded-2xl bg-accent text-primary">
+              <Users size={21} aria-hidden="true" />
+            </span>
+            <h3 className="font-semibold">No groups yet</h3>
+            <p className="max-w-60 text-sm text-muted-foreground">Start a group for something you’re saving toward together.</p>
+            <Button asChild variant="outline"><Link to="/create-group">Create a group</Link></Button>
+          </div>
+        ) : (
+          <ul className="divide-y divide-border">
+            {groups.map((group) => {
+              const raised = group.current_amount ?? 0;
+              const target = group.target_amount ?? 0;
+              const progress = target > 0 ? Math.min(100, Math.max(0, Math.round(raised / target * 100))) : 0;
+              const members = group.contributors?.[0]?.count ?? group.contributors?.length ?? 0;
+
+              return (
+                <li key={group.id}>
+                  <Link to={`/groups/${group.id}`} className="block p-4 transition-colors hover:bg-muted/45 focus-visible:bg-muted focus-visible:outline-none sm:px-5">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent text-lg" aria-hidden="true">
+                        {getCategoryIcon(group.category)}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="truncate text-sm font-semibold">{group.name}</h3>
+                        <p className="text-xs text-muted-foreground">{members} {members === 1 ? "member" : "members"}</p>
+                      </div>
+                      <ChevronRight size={18} className="shrink-0 text-muted-foreground" aria-hidden="true" />
+                    </div>
+                    <Progress className="mb-2 mt-4 h-1.5" value={progress} aria-label={`${group.name} funding progress`} />
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-3 text-sm tabular-nums">
+                      <span className="font-semibold">₦{naira.format(raised)} <span className="font-normal text-muted-foreground">of ₦{naira.format(target)}</span></span>
+                      <span className="text-xs font-medium text-primary">{progress}% funded</span>
+                    </div>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </Card>
+    </>
+  );
+}

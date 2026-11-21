@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ContributionHistoryDialog } from './ContributionHistoryDialog';
-import { cn } from '@/lib/utils';
+import BrandLoader from '@/components/ui/BrandLoader';
 
 interface ContributorsListProps {
   groupId: string;
@@ -87,29 +87,17 @@ export function ContributorsList({ groupId }: ContributorsListProps) {
 
   if (loading) {
     return (
-      <Card className="border-none shadow-sm bg-white/50 dark:bg-black/20 backdrop-blur-sm">
-        <CardHeader>
-          <Skeleton className="h-8 w-48 mb-2" />
-          <Skeleton className="h-4 w-32" />
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="flex items-center gap-4">
-              <Skeleton className="h-12 w-12 rounded-full" />
-              <div className="space-y-2 flex-1">
-                <Skeleton className="h-4 w-1/3" />
-                <Skeleton className="h-3 w-1/4" />
-              </div>
-            </div>
-          ))}
+      <Card className="rounded-[1.35rem] shadow-sm">
+        <CardContent className="flex items-center justify-center py-12">
+          <BrandLoader variant="inline" message="Loading members…" />
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card className="glass-card overflow-hidden border border-border/50 shadow-md transition-all duration-300 hover:shadow-lg">
-      <CardHeader className="pb-4 border-b border-border/5 bg-muted/20">
+    <Card className="overflow-hidden rounded-[1.35rem] border bg-card shadow-sm">
+      <CardHeader className="border-b bg-muted/20 pb-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <CardTitle className="flex items-center gap-2 text-xl">

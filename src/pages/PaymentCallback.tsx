@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { EdgeFunctionService } from '@/services/supabase/edgeFunctionService';
 import { useSupabaseUser } from '@/contexts/SupabaseUserContext';
 import { useSupabaseContribution } from '@/contexts/SupabaseContributionContext';
+import BrandLoader from '@/components/ui/BrandLoader';
 import { toast } from 'sonner';
 
 const PaymentCallback = () => {
@@ -68,19 +69,15 @@ const PaymentCallback = () => {
   }, [searchParams, navigate, refreshCurrentUser, refreshContributionData]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto mb-4" />
-        <h2 className="text-2xl font-bold mb-2">
-          {isVerifying ? 'Verifying Payment...' : 'Payment Complete'}
-        </h2>
-        <p className="text-muted-foreground">
-          {isVerifying
-            ? 'Please wait while we securely verify your payment'
-            : 'Redirecting you back...'}
-        </p>
-      </div>
-    </div>
+    <BrandLoader
+      variant="fullscreen"
+      message={isVerifying ? 'Verifying your payment' : 'Payment confirmed'}
+      submessage={
+        isVerifying
+          ? 'Please hold on while we securely confirm your transaction…'
+          : 'Redirecting you back to CollectiPay…'
+      }
+    />
   );
 };
 

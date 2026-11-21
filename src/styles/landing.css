@@ -305,15 +305,27 @@
   font-size: .63rem;
 }
 
-.landing-demo-nav span {
+.landing-demo-nav > span {
   display: grid;
   justify-items: center;
   gap: .12rem;
 }
 
-.landing-demo-nav span:first-child {
+.landing-demo-nav > span:first-child {
   color: #176547;
   font-weight: 750;
+}
+
+.landing-demo-action-icon {
+  display: grid;
+  width: 1.75rem;
+  height: 1.75rem;
+  margin-top: -.72rem;
+  place-items: center;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #08735a;
+  color: white;
 }
 
 .landing-how {

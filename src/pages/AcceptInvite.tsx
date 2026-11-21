@@ -8,6 +8,7 @@ import { InvitationService } from '@/services/supabase/invitationService';
 import { useSupabaseUser } from '@/contexts/SupabaseUserContext';
 import { toast } from 'sonner';
 import Header from '@/components/layout/Header';
+import BrandLoader from '@/components/ui/BrandLoader';
 
 export default function AcceptInvite() {
   const { token } = useParams<{ token: string }>();
@@ -70,15 +71,14 @@ export default function AcceptInvite() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="min-h-screen">
         <Header />
-        <div className="container mx-auto p-6 pt-24">
-          <div className="flex items-center justify-center min-h-[400px]">
-            <div className="text-center">
-              <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
-              <p className="text-muted-foreground">Loading invitation...</p>
-            </div>
-          </div>
+        <div className="app-page max-w-xl">
+          <BrandLoader
+            variant="page"
+            message="Loading invitation"
+            submessage="Checking group membership details…"
+          />
         </div>
       </div>
     );
@@ -86,9 +86,9 @@ export default function AcceptInvite() {
 
   if (error || !invitation) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="min-h-screen">
         <Header />
-        <div className="container mx-auto p-6 pt-24">
+        <div className="app-page max-w-xl">
           <Card className="max-w-md mx-auto p-12 text-center">
             <XCircle className="h-16 w-16 text-destructive mx-auto mb-4" />
             <h2 className="text-2xl font-bold mb-2">Invalid Invitation</h2>
@@ -106,9 +106,9 @@ export default function AcceptInvite() {
 
   if (accepted) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="min-h-screen">
         <Header />
-        <div className="container mx-auto p-6 pt-24">
+        <div className="app-page max-w-xl">
           <Card className="max-w-md mx-auto p-12 text-center">
             <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-4" />
             <h2 className="text-2xl font-bold mb-2">Invitation Accepted!</h2>
@@ -122,14 +122,14 @@ export default function AcceptInvite() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 pb-20 md:pb-6">
+    <div className="min-h-screen pb-20 md:pb-6">
       <Header />
-      <div className="container mx-auto px-4 md:px-6 py-4 md:py-6 pt-20 md:pt-24">
+      <div className="app-page max-w-2xl">
         <div className="max-w-2xl mx-auto space-y-6">
           {/* Header */}
           <div className="text-center">
             <Mail className="h-16 w-16 text-primary mx-auto mb-4" />
-            <h1 className="text-3xl md:text-4xl font-bold mb-2">You're Invited!</h1>
+            <h1 className="app-page-title mb-2">You're Invited!</h1>
             <p className="text-muted-foreground">
               You've been invited to join a private group
             </p>

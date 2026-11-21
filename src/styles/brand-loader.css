@@ -1,0 +1,492 @@
+/* CollectiPay Kinetic Brand Loader — built from the geometric "C" emblem blueprint */
+
+.brand-loader-screen {
+  position: relative;
+  display: flex;
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 2rem 1.5rem;
+  background:
+    radial-gradient(circle at 50% 42%, hsl(var(--primary) / 0.11), transparent 56%),
+    hsl(var(--background));
+}
+
+.dark .brand-loader-screen {
+  background:
+    radial-gradient(circle at 50% 42%, hsl(154 65% 32% / 0.22), transparent 56%),
+    hsl(var(--background));
+}
+
+/* Subtle architectural blueprint grid backdrop (fullscreen only) */
+.brand-loader-grid {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  opacity: 0.42;
+  background-image:
+    linear-gradient(to right, hsl(var(--primary) / 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, hsl(var(--primary) / 0.06) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: radial-gradient(circle at 50% 46%, black 12%, transparent 64%);
+  -webkit-mask-image: radial-gradient(circle at 50% 46%, black 12%, transparent 64%);
+}
+
+.dark .brand-loader-grid {
+  opacity: 0.34;
+  background-image:
+    linear-gradient(to right, hsl(151 55% 65% / 0.09) 1px, transparent 1px),
+    linear-gradient(to bottom, hsl(151 55% 65% / 0.09) 1px, transparent 1px);
+}
+
+.brand-loader-page {
+  display: flex;
+  min-height: 22rem;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem 1.25rem;
+}
+
+.brand-loader-inline {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+/* Native frosted-glass action overlay (transfers, group creation, contributions) */
+.brand-loader-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: hsl(var(--background) / 0.78);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  animation: cp-overlay-fade 0.2s ease-out both;
+}
+
+.dark .brand-loader-overlay {
+  background: hsl(161 24% 6% / 0.82);
+}
+
+.brand-loader-sheet {
+  position: relative;
+  width: min(100%, 21.5rem);
+  overflow: hidden;
+  border-radius: 1.75rem;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card) / 0.96);
+  padding: 2.25rem 1.75rem 2rem;
+  box-shadow:
+    0 24px 64px -20px rgba(7, 30, 37, 0.28),
+    0 2px 10px -2px rgba(7, 30, 37, 0.08);
+  animation: cp-sheet-rise 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.dark .brand-loader-sheet {
+  box-shadow:
+    0 28px 72px -18px rgba(0, 0, 0, 0.65),
+    0 0 0 1px hsl(151 55% 65% / 0.08);
+}
+
+.brand-loader-step-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.85rem;
+  padding: 0.25rem 0.7rem;
+  border-radius: 9999px;
+  background: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+.brand-loader-step-dot {
+  width: 0.38rem;
+  height: 0.38rem;
+  border-radius: 9999px;
+  background: hsl(var(--primary));
+  animation: cp-aura-breathe 1.4s ease-in-out infinite;
+}
+
+@keyframes cp-overlay-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes cp-sheet-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Native fintech receipt ticket notches & emerald hero sheen */
+.cp-receipt-hero {
+  background:
+    repeating-radial-gradient(ellipse at 112% -65%, transparent 0 1.45rem, rgba(214, 247, 134, 0.08) 1.48rem 1.52rem),
+    radial-gradient(ellipse at 95% 0%, #246046 0, transparent 68%),
+    #0c3027;
+  color: #f7fff9;
+}
+
+.cp-receipt-perforation {
+  position: relative;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+}
+
+.cp-receipt-perforation::before,
+.cp-receipt-perforation::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  transform: translateY(-50%);
+  background: hsl(var(--background));
+  border: 1px solid #e5ece8;
+}
+
+.cp-receipt-perforation::before {
+  left: -11px;
+}
+
+.cp-receipt-perforation::after {
+  right: -11px;
+}
+
+.cp-receipt-perforation-line {
+  width: 100%;
+  margin-inline: 18px;
+  border-top: 1.5px dashed #d3e0d9;
+}
+
+/* Native Group Pool Vault Hero */
+.group-vault-hero {
+  background:
+    repeating-radial-gradient(ellipse at 110% -60%, transparent 0 1.55rem, rgba(214, 247, 134, 0.08) 1.58rem 1.62rem),
+    radial-gradient(ellipse at 95% 0%, #256147 0, transparent 70%),
+    #0c3027;
+  color: #f7fff9;
+}
+
+.brand-loader-stack {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.brand-loader-emblem-wrap {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.brand-loader-emblem-wrap::before {
+  content: "";
+  position: absolute;
+  inset: 14%;
+  border-radius: 9999px;
+  background: radial-gradient(circle, hsl(154 65% 36% / 0.28), transparent 72%);
+  filter: blur(12px);
+  animation: cp-aura-breathe 2.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.dark .brand-loader-emblem-wrap::before {
+  background: radial-gradient(circle, hsl(151 62% 52% / 0.34), transparent 72%);
+}
+
+.brand-loader-svg {
+  position: relative;
+  z-index: 1;
+  display: block;
+  overflow: visible;
+}
+
+/* Blueprint outer construction ring */
+.cp-blueprint-ring {
+  transform-origin: 60px 60px;
+  animation: cp-orbit-slow 16s linear infinite;
+}
+
+/* Subtle precision rim gleam */
+.cp-rim-gleam {
+  transform-origin: 60px 60px;
+  animation: cp-orbit-rim 2.2s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+/* Outer consensus ripples */
+.cp-ripple-1 {
+  transform-origin: 60px 60px;
+  animation: cp-ripple-expand 2.2s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+.cp-ripple-2 {
+  transform-origin: 60px 60px;
+  animation: cp-ripple-expand 2.2s cubic-bezier(0.22, 1, 0.36, 1) 0.22s infinite;
+}
+
+/* Main CollectiPay "C" living stroke draw-and-sweep */
+.cp-c-stroke {
+  stroke-dasharray: 116.24 116.24;
+  stroke-dashoffset: 116.24;
+  animation: cp-c-draw 2.2s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+/* Mint-lime contribution spark gliding in through the mouth of the C */
+.cp-pool-spark {
+  transform-origin: 60px 60px;
+  animation: cp-spark-deposit 2.2s cubic-bezier(0.45, 0, 0.2, 1) infinite;
+}
+
+/* Inner core bloom when the contribution spark lands inside the C */
+.cp-core-bloom {
+  transform-origin: 60px 60px;
+  animation: cp-core-pulse 2.2s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+/* Subtle emerald disc micro-pulse on lock-in */
+.cp-disc-group {
+  transform-origin: 60px 60px;
+  animation: cp-disc-breathe 2.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.brand-loader-wordmark {
+  margin-top: 1.15rem;
+  font-size: 1.28rem;
+  font-weight: 750;
+  letter-spacing: -0.045em;
+  line-height: 1.1;
+  color: hsl(var(--foreground));
+}
+
+.brand-loader-wordmark span {
+  color: hsl(var(--primary));
+}
+
+.brand-loader-message {
+  margin-top: 0.45rem;
+  font-size: 0.92rem;
+  font-weight: 550;
+  color: hsl(var(--foreground) / 0.84);
+}
+
+.brand-loader-submessage {
+  margin-top: 0.25rem;
+  max-width: 22rem;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: hsl(var(--muted-foreground));
+}
+
+/* Sleek hairline progress bar beneath status */
+.brand-loader-bar {
+  position: relative;
+  margin-top: 1.1rem;
+  height: 3px;
+  width: 7.5rem;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: hsl(var(--primary) / 0.14);
+}
+
+.brand-loader-bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 44%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, transparent, hsl(var(--primary)), #a7e878, transparent);
+  animation: cp-bar-glide 1.65s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+.dark .brand-loader-bar-fill {
+  background: linear-gradient(90deg, transparent, #45c486, #d6f786, transparent);
+}
+
+@keyframes cp-c-draw {
+  0%,
+  18% {
+    stroke-dashoffset: 116.24;
+  }
+  58%,
+  74% {
+    stroke-dashoffset: 0;
+  }
+  96%,
+  100% {
+    stroke-dashoffset: -116.24;
+  }
+}
+
+@keyframes cp-spark-deposit {
+  0% {
+    transform: translateX(32px) scale(0.4);
+    opacity: 0;
+  }
+  9% {
+    transform: translateX(25px) scale(1);
+    opacity: 1;
+  }
+  25% {
+    transform: translateX(0px) scale(1.08);
+    opacity: 1;
+  }
+  33% {
+    transform: translateX(0px) scale(0.35);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(32px) scale(0.4);
+    opacity: 0;
+  }
+}
+
+@keyframes cp-core-pulse {
+  0%,
+  21% {
+    transform: scale(0.35);
+    opacity: 0;
+  }
+  27% {
+    transform: scale(1.05);
+    opacity: 0.78;
+  }
+  48% {
+    transform: scale(2.55);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(2.55);
+    opacity: 0;
+  }
+}
+
+@keyframes cp-ripple-expand {
+  0%,
+  54% {
+    transform: scale(0.98);
+    opacity: 0;
+  }
+  62% {
+    transform: scale(1.03);
+    opacity: 0.42;
+  }
+  94%,
+  100% {
+    transform: scale(1.34);
+    opacity: 0;
+  }
+}
+
+@keyframes cp-disc-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  60% {
+    transform: scale(1.028);
+  }
+}
+
+@keyframes cp-aura-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.94);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes cp-orbit-rim {
+  0% {
+    transform: rotate(-18deg);
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: rotate(342deg);
+    opacity: 0.25;
+  }
+}
+
+@keyframes cp-orbit-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes cp-bar-glide {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(280%);
+  }
+}
+
+/* Reduced motion: show crisp static CollectiPay emblem with gentle breathing */
+@media (prefers-reduced-motion: reduce) {
+  .brand-loader-overlay,
+  .brand-loader-sheet,
+  .brand-loader-step-dot,
+  .cp-blueprint-ring,
+  .cp-rim-gleam,
+  .cp-ripple-1,
+  .cp-ripple-2,
+  .cp-pool-spark,
+  .cp-core-bloom,
+  .cp-disc-group,
+  .brand-loader-emblem-wrap::before,
+  .brand-loader-bar-fill {
+    animation: none !important;
+  }
+
+  .cp-c-stroke {
+    animation: none !important;
+    stroke-dashoffset: 0 !important;
+  }
+
+  .cp-pool-spark,
+  .cp-core-bloom,
+  .cp-ripple-1,
+  .cp-ripple-2 {
+    opacity: 0 !important;
+  }
+
+  .brand-loader-bar-fill {
+    width: 100%;
+    opacity: 0.55;
+  }
+}

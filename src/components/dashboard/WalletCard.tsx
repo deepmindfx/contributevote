@@ -12,12 +12,15 @@ import { WalletService } from "@/services/supabase/walletService";
 import WalletActions from "@/components/dashboard/wallet/WalletActions";
 import { useBalanceUpdates } from "@/hooks/useBalanceUpdates";
 
-const WalletCard = ({ onOpenBankAccount }: { onOpenBankAccount?: () => void }) => {
+const WalletCard = ({ onOpenBankAccount, isDepositOpen, setIsDepositOpen }: {
+  onOpenBankAccount: () => void;
+  isDepositOpen: boolean;
+  setIsDepositOpen: (open: boolean) => void;
+}) => {
   const navigate = useNavigate();
   const [showBalance, setShowBalance] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [amount, setAmount] = useState("");
-  const [isDepositOpen, setIsDepositOpen] = useState(false);
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [currencyType, setCurrencyType] = useState<"NGN" | "USD">("NGN");
@@ -195,38 +198,38 @@ const WalletCard = ({ onOpenBankAccount }: { onOpenBankAccount?: () => void }) =
   };
 
   return (
-    <Card className="overflow-hidden rounded-2xl shadow-sm">
-      <div className="wallet-overview px-5 py-6 sm:px-6">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <p className="flex items-center gap-2 text-sm font-medium text-white/90">
-            <Wallet size={16} aria-hidden="true" /> Available balance
-          </p>
+    <Card className="dashboard-wallet-card overflow-hidden rounded-[1.35rem]">
+      <div className="wallet-overview px-5 pb-7 pt-4 sm:px-7 sm:pb-9 sm:pt-5">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-0.5">
+            <p className="text-sm font-medium text-white/90">Available balance</p>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleBalance}
+              aria-label={showBalance ? "Hide balance" : "Show balance"}
+              className="h-11 w-11 shrink-0 rounded-full text-white/80 hover:bg-white/15 hover:text-white"
+            >
+              {showBalance ? <EyeOff size={17} /> : <Eye size={17} />}
+            </Button>
+          </div>
           <button
             type="button"
             onClick={toggleCurrency}
             aria-label={`Show balance in ${currencyType === "NGN" ? "USD" : "NGN"}`}
-            className="min-h-11 rounded-xl border border-white/30 px-3 text-sm font-semibold hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+            className="min-h-11 shrink-0 rounded-xl border border-white/25 bg-white/5 px-3 text-sm font-semibold hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
           >
             {currencyType}
           </button>
         </div>
-        <div className="flex items-center justify-between gap-2">
-          <p className="min-w-0 break-words text-[clamp(1.65rem,7.5vw,2.6rem)] font-bold leading-tight tracking-[-.055em] tabular-nums">
+        <div className="min-w-0">
+          <p className="break-words text-[clamp(1.875rem,7.6vw,3.3rem)] font-semibold leading-tight tracking-[-.06em] tabular-nums">
             {showBalance ? getFormattedBalance() : `${currencyType === "NGN" ? "₦" : "$"}•••••••`}
           </p>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleBalance}
-            aria-label={showBalance ? "Hide balance" : "Show balance"}
-            className="h-11 w-11 shrink-0 rounded-full text-white hover:bg-white/15 hover:text-white"
-          >
-            {showBalance ? <EyeOff size={19} /> : <Eye size={19} />}
-          </Button>
         </div>
       </div>
-      <CardContent className="p-0">
-        {!showHistory ? (
+      <CardContent className="dashboard-wallet-content p-0">
+        {!showHistory || isDepositOpen ? (
           <WalletActions 
             setIsDepositOpen={setIsDepositOpen}
             isDepositOpen={isDepositOpen}
@@ -243,6 +246,7 @@ const WalletCard = ({ onOpenBankAccount }: { onOpenBankAccount?: () => void }) =
             user={user}
             setShowHistory={setShowHistory}
             onOpenBankAccount={onOpenBankAccount}
+            showQuickActions
           />
         ) : (
           <div className="bg-card p-4">

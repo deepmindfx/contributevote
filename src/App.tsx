@@ -20,7 +20,9 @@ import AdminDashboard from "./pages/admin/Dashboard";
 import UserProfile from "./pages/UserProfile";
 import Discover from "./pages/Discover";
 import AcceptInvite from "./pages/AcceptInvite";
-import MobileNav, { getActiveTab } from "@/components/layout/MobileNav";
+import WorkspaceNavigation from "@/components/layout/WorkspaceNavigation";
+import { getWorkspaceLink } from "@/components/layout/navigationItems";
+import BrandLoader from "@/components/ui/BrandLoader";
 import React, { useEffect, Component, ErrorInfo, ReactNode } from "react";
 
 // Error Boundary Component
@@ -111,7 +113,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 const AppRoutes = () => {
   const { user, isAuthenticated, isAdmin, loading } = useSupabaseUser();
   const { pathname } = useLocation();
-  const showMobileNav = isAuthenticated && Boolean(getActiveTab(pathname));
+  const isWorkspace = isAuthenticated && Boolean(getWorkspaceLink(pathname));
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -147,10 +149,11 @@ const AppRoutes = () => {
   
   if (showLoading && pathname !== "/") {
     return (
-      <div className="flex min-h-screen items-center justify-center" role="status">
-        <div className="h-9 w-9 animate-spin rounded-full border-2 border-primary/20 border-t-primary motion-reduce:animate-none" aria-hidden="true" />
-        <span className="sr-only">Loading CollectiPay…</span>
-      </div>
+      <BrandLoader
+        variant="fullscreen"
+        message="Preparing your workspace"
+        submessage="Syncing your wallet and contribution groups…"
+      />
     );
   }
   
@@ -257,10 +260,10 @@ const AppRoutes = () => {
     </Routes>
   );
 
-  return showMobileNav ? (
-    <div className="app-with-tabbar">
+  return isWorkspace ? (
+    <div className="app-workspace">
+      <WorkspaceNavigation />
       {routes}
-      <MobileNav />
     </div>
   ) : <div>{routes}</div>;
 };

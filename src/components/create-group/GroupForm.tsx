@@ -22,6 +22,7 @@ import DetailsStep from "./DetailsStep";
 import ScheduleStep from "./ScheduleStep";
 import SettingsStep from "./SettingsStep";
 import StepIndicator from "./StepIndicator";
+import BrandLoader from "@/components/ui/BrandLoader";
 
 // Define visibility type to fix TypeScript error
 type VisibilityType = "public" | "private" | "invite-only";
@@ -41,6 +42,7 @@ const GroupForm = () => {
   });
   
   const [isLoading, setIsLoading] = useState(false);
+  const [creationStage, setCreationStage] = useState<"creating" | "account" | "syncing">("creating");
   const [showFeeConfirmation, setShowFeeConfirmation] = useState(false);
   const [eligibility, setEligibility] = useState<any>(null);
   
@@ -231,6 +233,7 @@ const GroupForm = () => {
       return;
     }
 
+    setCreationStage("creating");
     setIsLoading(true);
 
     try {
@@ -262,6 +265,7 @@ const GroupForm = () => {
       }
 
       if (groupId && formData.bvn && formData.bvn.length === 11) {
+        setCreationStage("account");
         try {
           const accountData = await createGroupVirtualAccount({
             email: user.email || '',
@@ -303,6 +307,7 @@ const GroupForm = () => {
       localStorage.removeItem(FORM_STORAGE_KEY);
       localStorage.removeItem(STEP_STORAGE_KEY);
 
+      setCreationStage("syncing");
       await Promise.all([refreshCurrentUser(), refreshContributionData()]);
       navigate(groupId ? `/groups/${groupId}` : "/dashboard");
     } catch (error) {
@@ -351,8 +356,34 @@ const GroupForm = () => {
     }
   };
 
+  const creationCopy = {
+    creating: {
+      badge: "Step 1 of 3",
+      message: `Creating ${formData.name || "your group"}`,
+      submessage: "Setting up your contribution pool and voting governance…",
+    },
+    account: {
+      badge: "Step 2 of 3",
+      message: "Generating bank account",
+      submessage: `Issuing a dedicated account number for ${formData.name || "your group"}…`,
+    },
+    syncing: {
+      badge: "Step 3 of 3",
+      message: "Opening your group",
+      submessage: "Finalizing balances and syncing your workspace…",
+    },
+  }[creationStage];
+
   return (
     <>
+      {isLoading && (
+        <BrandLoader
+          variant="overlay"
+          badge={creationCopy.badge}
+          message={creationCopy.message}
+          submessage={creationCopy.submessage}
+        />
+      )}
       <Card className="rounded-2xl p-4 shadow-sm sm:p-6">
         {/* Auto-save notification */}
         {(formData.name || formData.description || formData.targetAmount > 0) && (

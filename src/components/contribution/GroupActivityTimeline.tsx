@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, RefreshCw, Wallet, XCircle, CheckCircle2, Clock, History } from 'lucide-react';
+import { RefreshCw, Wallet, XCircle, CheckCircle2, Clock, History } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
-import { cn } from '@/lib/utils';
+import BrandLoader from '@/components/ui/BrandLoader';
 
 type ActivityType = 'withdrawal' | 'refund';
 
@@ -132,13 +132,13 @@ export function GroupActivityTimeline({ groupId }: GroupActivityTimelineProps) {
 
   if (loading) {
     return (
-      <Card className="mt-6">
+      <Card className="rounded-[1.35rem] shadow-sm">
         <CardHeader>
-          <CardTitle>Recent Group Activity</CardTitle>
-          <CardDescription>Tracking withdrawals and refunds</CardDescription>
+          <CardTitle className="text-lg">Group Activity</CardTitle>
+          <CardDescription>Tracking withdrawals, refunds, and governance decisions</CardDescription>
         </CardHeader>
-        <CardContent className="flex items-center justify-center py-10">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <CardContent className="flex items-center justify-center py-8">
+          <BrandLoader variant="inline" message="Loading activity…" />
         </CardContent>
       </Card>
     );
@@ -146,27 +146,27 @@ export function GroupActivityTimeline({ groupId }: GroupActivityTimelineProps) {
 
   if (activities.length === 0) {
     return (
-      <Card className="mt-6">
+      <Card className="rounded-[1.35rem] shadow-sm">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <History className="h-5 w-5 text-muted-foreground" />
-            Recent Group Activity
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <History className="h-5 w-5 text-primary" />
+            Group Activity
           </CardTitle>
           <CardDescription>Withdrawals and refunds appear here</CardDescription>
         </CardHeader>
-        <CardContent className="text-center py-10 text-muted-foreground">
-          No group activities yet. Once withdrawals or refunds are processed, you'll see them here.
+        <CardContent className="py-10 text-center text-sm text-muted-foreground">
+          No group activities yet. Once withdrawals or refunds are requested, they will appear here.
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card className="mt-6">
+    <Card className="rounded-[1.35rem] shadow-sm">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <History className="h-5 w-5 text-muted-foreground" />
-          Recent Group Activity
+        <CardTitle className="flex items-center gap-2 text-lg">
+          <History className="h-5 w-5 text-primary" />
+          Group Activity
         </CardTitle>
         <CardDescription>Withdrawals, refunds, and governance decisions</CardDescription>
       </CardHeader>

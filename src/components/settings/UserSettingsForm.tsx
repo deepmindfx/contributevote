@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -29,6 +30,7 @@ const splitName = (fullName?: string | null) => {
 
 const UserSettingsForm = () => {
   const { user, updateProfile } = useSupabaseUser();
+  const [searchParams] = useSearchParams();
 
   const existingPrefs = ((user?.preferences || {}) as Record<string, any>);
   const initialSplit = splitName(user?.name);
@@ -193,7 +195,7 @@ const UserSettingsForm = () => {
   return (
     <>
       <form onSubmit={handleSubmit}>
-        <Tabs defaultValue="profile" className="w-full">
+        <Tabs defaultValue={searchParams.get("tab") === "security" ? "security" : "profile"} className="w-full">
           <TabsList className="app-segmented mb-6 grid w-full grid-cols-3" aria-label="Settings sections">
             <TabsTrigger value="profile">Profile</TabsTrigger>
             <TabsTrigger value="security">Security</TabsTrigger>

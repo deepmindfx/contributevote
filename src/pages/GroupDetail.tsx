@@ -1,14 +1,32 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Users, Archive, ArchiveRestore, Building2 } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  ArrowLeft,
+  Info,
+  Users,
+  Archive,
+  ArchiveRestore,
+  Building2,
+  ShieldCheck,
+  Vote,
+  CalendarClock,
+  Globe,
+  Lock,
+  SlidersHorizontal,
+  Sparkles,
+  ChevronRight,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { useSupabaseUser } from '@/contexts/SupabaseUserContext';
 import { useSupabaseContribution } from '@/contexts/SupabaseContributionContext';
-import { 
+import {
   archiveGroup,
-  unarchiveGroup 
+  unarchiveGroup,
+  getCategoryIcon,
+  getCategoryLabel,
 } from '@/services/supabase/groupEnhancementService';
 import { createGroupVirtualAccount } from '@/services/flutterwave/virtualAccounts';
 import { ContributeButton } from '@/components/contribution/ContributeButton';
@@ -25,9 +43,9 @@ import { ShareGroupButton } from '@/components/contribution/ShareGroupButton';
 import { InviteMembersDialog } from '@/components/contribution/InviteMembersDialog';
 import { BvnInputDialog } from '@/components/contribution/BvnInputDialog';
 import { useVotingRights } from '@/hooks/useVotingRights';
-import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import Header from '@/components/layout/Header';
+import BrandLoader from '@/components/ui/BrandLoader';
 
 export default function GroupDetail() {
   const { id } = useParams<{ id: string }>();
@@ -40,10 +58,10 @@ export default function GroupDetail() {
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
   const [showBvnDialog, setShowBvnDialog] = useState(false);
   const [userBvn, setUserBvn] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'activity'>('overview');
 
   const isCreator = group?.creator_id === user?.id;
 
-  // Fetch user's BVN from profile
   useEffect(() => {
     const fetchUserBvn = async () => {
       if (user?.id) {
@@ -71,15 +89,12 @@ export default function GroupDetail() {
     const fetchGroup = async () => {
       if (!id) return;
 
-      // First, try to find in contributions
       const foundGroup = contributions.find((c: any) => c.id === id);
       if (foundGroup) {
         setGroup(foundGroup);
         return;
       }
 
-      // If not in contributions, fetch directly from database
-      // This handles cases where user just joined the group
       try {
         const { supabase } = await import('@/integrations/supabase/client');
         const { data, error } = await supabase
@@ -89,10 +104,9 @@ export default function GroupDetail() {
           .single();
 
         if (error) throw error;
-        
+
         if (data) {
           setGroup(data);
-          // Refresh contributions to include this new group
           await refreshContributionData();
         } else {
           setGroup(null);
@@ -107,12 +121,8 @@ export default function GroupDetail() {
   }, [id, contributions]);
 
   const handleContributeSuccess = async () => {
-    toast.success('Thank you for contributing!');
-    
-    // Refresh contribution data from context
     await refreshContributionData();
-    
-    // Refresh the group data to show updated balance
+
     try {
       const { supabase } = await import('@/integrations/supabase/client');
       const { data, error } = await supabase
@@ -131,7 +141,7 @@ export default function GroupDetail() {
 
   const handleArchive = async () => {
     if (!confirm('Are you sure you want to archive this group? It will be hidden from the main list.')) return;
-    
+
     setIsArchiving(true);
     try {
       await archiveGroup(group.id, user.id);
@@ -149,14 +159,13 @@ export default function GroupDetail() {
   const handleSetupBankAccount = async (bvn: string) => {
     setIsCreatingAccount(true);
     try {
-      // Save BVN to user profile if not already saved
       if (!userBvn && bvn) {
         const { supabase } = await import('@/integrations/supabase/client');
         await supabase
           .from('profiles')
           .update({ bvn: bvn })
           .eq('id', user.id);
-        setUserBvn(bvn); // Update local state
+        setUserBvn(bvn);
       }
 
       const accountData = await createGroupVirtualAccount({
@@ -166,10 +175,7 @@ export default function GroupDetail() {
         groupId: group.id,
       });
 
-      console.log('Virtual account created:', accountData);
-      
       if (accountData.success && accountData.responseBody) {
-        // Save account details to database
         const { supabase } = await import('@/integrations/supabase/client');
         const { error: updateError } = await supabase
           .from('contribution_groups')
@@ -178,7 +184,7 @@ export default function GroupDetail() {
             account_name: group.name,
             bank_name: accountData.responseBody.bank_name || null,
             account_reference: accountData.responseBody.order_ref || accountData.responseBody.flw_ref,
-            account_details: accountData.responseBody
+            account_details: accountData.responseBody,
           })
           .eq('id', group.id);
 
@@ -195,10 +201,9 @@ export default function GroupDetail() {
             account_name: group.name,
             bank_name: accountData.responseBody.bank_name || null,
             account_reference: accountData.responseBody.order_ref || accountData.responseBody.flw_ref,
-            account_details: accountData.responseBody
+            account_details: accountData.responseBody,
           }));
-          
-          // Refresh the contribution data in the background
+
           refreshContributionData();
         }
       } else {
@@ -218,7 +223,6 @@ export default function GroupDetail() {
       await unarchiveGroup(group.id, user.id);
       toast.success('Group unarchived successfully');
       await refreshContributionData();
-      // Refresh the page to show updated status
       window.location.reload();
     } catch (error) {
       console.error('Error unarchiving group:', error);
@@ -233,12 +237,11 @@ export default function GroupDetail() {
       <div className="min-h-screen">
         <Header />
         <div className="app-page max-w-5xl">
-          <div className="flex items-center justify-center min-h-[400px]">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-muted-foreground">Loading group details...</p>
-            </div>
-          </div>
+          <BrandLoader
+            variant="page"
+            message="Loading group details"
+            submessage="Syncing contributions, votes, and balances…"
+          />
         </div>
       </div>
     );
@@ -248,261 +251,426 @@ export default function GroupDetail() {
     return (
       <div className="min-h-screen">
         <Header />
-        <div className="app-page max-w-5xl">
-          <Card className="p-12 text-center">
-            <div className="text-6xl mb-4">😕</div>
-            <h2 className="text-2xl font-bold mb-2">Group Not Found</h2>
-            <p className="text-muted-foreground mb-6">
-              The group you're looking for doesn't exist or has been removed.
+        <div className="app-page max-w-xl">
+          <Card className="rounded-[1.5rem] p-10 text-center shadow-sm">
+            <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-muted text-muted-foreground">
+              <Users className="h-7 w-7" />
+            </div>
+            <h2 className="text-xl font-bold tracking-tight">Group Not Found</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              The group you're looking for doesn't exist or may have been removed.
             </p>
-            <Link to="/dashboard">
-              <Button>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Dashboard
-              </Button>
-            </Link>
+            <Button asChild className="mt-6 h-11 rounded-xl">
+              <Link to="/all-groups">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to My Groups
+              </Link>
+            </Button>
           </Card>
         </div>
       </div>
     );
   }
 
-  const progress = group.target_amount > 0 
-    ? (group.current_amount / group.target_amount) * 100 
-    : 0;
-
+  const currentAmount = Number(group.current_amount || 0);
+  const targetAmount = Number(group.target_amount || 0);
+  const progress = targetAmount > 0 ? Math.min(100, Math.max(0, (currentAmount / targetAmount) * 100)) : 0;
+  const remaining = Math.max(0, targetAmount - currentAmount);
   const isActive = group.status === 'active';
+  const isPublic = group.privacy === 'public';
+  const hasBankAccount = Boolean(group.account_number || group.bank_details?.accountNumber);
 
   return (
     <div className="min-h-screen">
+      {isCreatingAccount && (
+        <BrandLoader
+          variant="overlay"
+          badge="Virtual Account"
+          message="Generating bank account"
+          submessage={`Issuing a dedicated account number for ${group.name}…`}
+        />
+      )}
+      {isArchiving && (
+        <BrandLoader
+          variant="overlay"
+          badge="Group Status"
+          message={group.archived ? 'Restoring group' : 'Archiving group'}
+          submessage="Updating your group workspace…"
+        />
+      )}
+
       <Header />
-      <main className="app-page max-w-5xl space-y-4 md:space-y-6">
-        {/* Back Button and Share */}
+
+      <main className="app-page max-w-5xl space-y-5 md:space-y-6">
+        {/* Top Native Action Bar */}
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <Button asChild variant="ghost" className="min-h-11 gap-2"><Link to="/all-groups"><ArrowLeft size={16} /> My groups</Link></Button>
-          
-          {/* Share Button for Public Groups */}
-          {group.privacy === 'public' && (
-            <ShareGroupButton
-              groupId={group.id}
-              groupName={group.name}
-              groupDescription={group.description || ''}
-            />
-          )}
-          
-          {/* Invite Members for Private Groups */}
-          {group.privacy !== 'public' && group.creator_id === user.id && (
-            <InviteMembersDialog
-              groupId={group.id}
-              groupName={group.name}
-              userId={user.id}
-              privacy={group.privacy}
-            />
-          )}
+          <Button asChild variant="ghost" className="min-h-11 gap-2 rounded-xl px-3">
+            <Link to="/all-groups">
+              <ArrowLeft size={16} />
+              My groups
+            </Link>
+          </Button>
+
+          <div className="flex items-center gap-2">
+            {isPublic && (
+              <ShareGroupButton
+                groupId={group.id}
+                groupName={group.name}
+                groupDescription={group.description || ''}
+              />
+            )}
+
+            {!isPublic && group.creator_id === user?.id && (
+              <InviteMembersDialog
+                groupId={group.id}
+                groupName={group.name}
+                userId={user.id}
+                privacy={group.privacy}
+              />
+            )}
+          </div>
         </div>
 
-        {/* Group Header */}
-        <Card className="rounded-2xl p-4 shadow-sm sm:p-6">
-          <div className="space-y-6">
-            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-              <div className="min-w-0 flex-1 space-y-2">
-                <div className="flex flex-wrap items-center gap-2 md:gap-3">
-                  <h1 className="app-page-title">{group.name}</h1>
-                  <Badge variant={isActive ? 'default' : 'secondary'}>
-                    {group.status}
-                  </Badge>
-                  {group.archived && (
-                    <Badge variant="secondary" className="bg-orange-100 dark:bg-orange-950">
-                      📦 Archived
-                    </Badge>
-                  )}
-                  {canVote && (
-                    <Badge variant="outline" className="bg-green-50 dark:bg-green-950">
-                      ✅ Can Vote
-                    </Badge>
-                  )}
-                </div>
-                <p className="text-sm md:text-base text-muted-foreground">{group.description}</p>
-                <div className="mt-4 rounded-xl border bg-muted/40 p-4">
-                  <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                    <p className="text-2xl font-bold tracking-tight tabular-nums">₦{(group.current_amount || 0).toLocaleString()}</p>
-                    <p className="text-sm text-muted-foreground">of ₦{(group.target_amount || 0).toLocaleString()} goal</p>
-                  </div>
-                  <Progress
-                    value={Math.min(100, Math.max(0, progress))}
-                    aria-label="Group funding progress"
-                    className="my-3 h-2 bg-primary/15"
-                  />
-                  <div className="flex flex-wrap justify-between gap-2 text-sm text-muted-foreground">
-                    <span>{progress.toFixed(0)}% funded</span>
-                    <span>{group.end_date ? `Ends ${new Date(group.end_date).toLocaleDateString()}` : 'No deadline'}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="w-full space-y-3 md:w-72 md:shrink-0">
-                {/* Voting Rights Warning for Non-Voting Groups */}
-                {!group.enable_voting_rights && (
-                  <div className="p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-                    <p className="text-xs font-medium text-amber-800 dark:text-amber-200 mb-1">
-                      ⚠️ No Voting Rights
-                    </p>
-                    <p className="text-xs text-amber-700 dark:text-amber-300">
-                      Contributors to this group do not have voting rights. The admin can withdraw funds without approval.
-                    </p>
-                  </div>
-                )}
-                
-                {/* Primary Action - Contribute Button (Only if active) */}
-                {isActive && (
-                  <ContributeButton
-                    groupId={id!}
-                    groupName={group.name}
-                    onSuccess={handleContributeSuccess}
-                  />
-                )}
-                
-                {/* Secondary Actions - Only for members with voting rights */}
-                {isActive && canVote && (
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <RecurringContributionDialog
-                      groupId={id!}
-                      groupName={group.name}
-                      onSuccess={handleContributeSuccess}
-                    />
-                    <ScheduledContributionDialog
-                      groupId={id!}
-                      groupName={group.name}
-                      onSuccess={handleContributeSuccess}
-                    />
-                    {isCreator && (
-                      <GroupRefundDialog
-                        groupId={id!}
-                        groupName={group.name}
-                        onSuccess={handleContributeSuccess}
-                      />
-                    )}
-                  </div>
-                )}
-                
-                {isActive && !canVote && isCreator && (
-                  <div className="pt-2">
-                    <GroupRefundDialog
-                      groupId={id!}
-                      groupName={group.name}
-                      onSuccess={handleContributeSuccess}
-                    />
-                  </div>
-                )}
-                
-                {/* Admin Actions - Only for creators */}
-                {group.creator_id === user?.id && (
-                  <div className="pt-2 border-t">
-                    {!group.archived ? (
-                      <Button 
-                        variant="outline" 
-                        onClick={handleArchive}
-                        disabled={isArchiving}
-                        className="w-full text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-                        size="sm"
-                      >
-                        <Archive className="h-4 w-4 mr-2" />
-                        {isArchiving ? 'Archiving...' : 'Archive Group'}
-                      </Button>
-                    ) : (
-                      <Button 
-                        variant="outline" 
-                        onClick={handleUnarchive}
-                        disabled={isArchiving}
-                        className="w-full text-green-600 hover:text-green-700 hover:bg-green-50"
-                        size="sm"
-                      >
-                        <ArchiveRestore className="h-4 w-4 mr-2" />
-                        {isArchiving ? 'Unarchiving...' : 'Unarchive Group'}
-                      </Button>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-
-          </div>
-        </Card>
-
-        {/* Shareable Bank Account Card - Visible to ALL members */}
-        {(group.account_number || group.bank_details?.accountNumber) ? (
-          <ShareableBankCard
-            groupName={group.name}
-            accountNumber={group.account_number || group.bank_details?.accountNumber}
-            bankName={group.bank_name || group.account_details?.bank_name || group.bank_details?.bankName || 'Virtual Bank'}
-            accountName={group.account_name || group.bank_details?.accountName || group.name}
-          />
-        ) : (
-          <Card className="p-6 border-2 border-dashed border-muted-foreground/30">
-            <div className="text-center space-y-3">
-              <div className="flex justify-center">
-                <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-                  <Building2 className="h-6 w-6 text-muted-foreground" />
-                </div>
-              </div>
-              <div>
-                <h3 className="font-semibold text-lg mb-1">Bank Account Not Set Up</h3>
-                <p className="text-sm text-muted-foreground">
-                  This group doesn't have a dedicated bank account yet. 
-                  {group.creator_id === user?.id ? ' Set up a virtual account to receive bank transfers.' : ' Contact the group creator to set up bank transfers.'}
-                </p>
-              </div>
-              {group.creator_id === user?.id && (
-                <Button 
-                  onClick={() => setShowBvnDialog(true)}
-                  disabled={isCreatingAccount}
-                  className="mt-2"
-                >
-                  <Building2 className="h-4 w-4 mr-2" />
-                  {isCreatingAccount ? 'Setting up...' : 'Set Up Bank Account'}
-                </Button>
+        {/* Signature Deep-Emerald Native Pool Vault Hero */}
+        <section className="group-vault-hero overflow-hidden rounded-[1.6rem] p-5 shadow-[0_24px_54px_-28px_rgba(12,48,39,0.55)] sm:p-7">
+          {/* Status & Meta Chips */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/12 px-3 py-1 text-xs font-semibold text-white">
+                <span aria-hidden="true">{getCategoryIcon(group.category)}</span>
+                {getCategoryLabel(group.category)}
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-xs font-medium text-[#d4ece0]">
+                {isPublic ? <Globe className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
+                {isPublic ? 'Public' : 'Private'}
+              </span>
+              {group.archived && (
+                <span className="inline-flex items-center rounded-full bg-amber-300/20 px-2.5 py-1 text-xs font-semibold text-amber-100">
+                  Archived
+                </span>
               )}
             </div>
-          </Card>
+
+            <div className="flex items-center gap-2">
+              {canVote && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-[#dbf5b4] px-2.5 py-1 text-xs font-semibold text-[#0c3027]">
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  Voting active
+                </span>
+              )}
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-xs font-medium capitalize text-[#e2f5eb]">
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${isActive ? 'bg-[#dbf5b4]' : 'bg-white/40'}`}
+                />
+                {group.status}
+              </span>
+            </div>
+          </div>
+
+          {/* Group Title & Description */}
+          <div className="mt-4">
+            <h1 className="text-2xl font-bold tracking-[-0.04em] text-white sm:text-3xl">
+              {group.name}
+            </h1>
+            {group.description && (
+              <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-[#c6dfd3]">
+                {group.description}
+              </p>
+            )}
+          </div>
+
+          {/* Pool Balance & Goal Progress */}
+          <div className="mt-6">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-[0.1em] text-[#a9ccb9]">
+                  Total Pooled
+                </p>
+                <div className="mt-1 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+                  <span className="text-4xl font-extrabold tracking-[-0.05em] text-white tabular-nums sm:text-[2.75rem]">
+                    ₦{currentAmount.toLocaleString()}
+                  </span>
+                  <span className="text-sm font-medium text-[#b9d9c8] tabular-nums">
+                    of ₦{targetAmount.toLocaleString()} target
+                  </span>
+                </div>
+              </div>
+
+              <span className="rounded-full bg-white/12 px-3 py-1 text-sm font-bold text-[#dbf5b4] tabular-nums">
+                {progress.toFixed(0)}%
+              </span>
+            </div>
+
+            {/* High-Contrast Lime-Mint Progress Rail */}
+            <div
+              className="mt-3.5 h-2.5 w-full overflow-hidden rounded-full bg-white/14"
+              role="progressbar"
+              aria-label="Group funding progress"
+              aria-valuenow={Math.round(progress)}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
+              <div
+                className="h-full rounded-full bg-[#dbf5b4] transition-all duration-500"
+                style={{ width: `${Math.min(100, progress)}%` }}
+              />
+            </div>
+
+            {/* Compact 3-Metric Strip */}
+            <div className="mt-4 grid grid-cols-3 gap-2 rounded-2xl border border-white/10 bg-white/[0.06] p-3 sm:gap-4 sm:p-3.5">
+              <div>
+                <p className="text-[11px] font-medium text-[#a9ccb9]">Remaining</p>
+                <p className="mt-0.5 text-sm font-semibold text-white tabular-nums sm:text-base">
+                  {remaining === 0 ? 'Goal met' : `₦${remaining.toLocaleString()}`}
+                </p>
+              </div>
+              <div className="border-x border-white/10 px-2 sm:px-4">
+                <p className="text-[11px] font-medium text-[#a9ccb9]">Schedule</p>
+                <p className="mt-0.5 text-sm font-semibold capitalize text-white sm:text-base">
+                  {group.frequency || 'Flexible'}
+                </p>
+              </div>
+              <div className="pl-1 sm:pl-2">
+                <p className="text-[11px] font-medium text-[#a9ccb9]">Deadline</p>
+                <p className="mt-0.5 text-sm font-semibold text-white tabular-nums sm:text-base">
+                  {group.end_date
+                    ? new Date(group.end_date).toLocaleDateString('en-NG', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })
+                    : 'Open'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Native Action Dock */}
+          <div className="mt-5 flex flex-col gap-2.5 sm:flex-row sm:items-center">
+            {isActive && (
+              <div className="sm:min-w-[12rem] sm:flex-1">
+                <ContributeButton
+                  groupId={id!}
+                  groupName={group.name}
+                  onSuccess={handleContributeSuccess}
+                  variant="hero"
+                />
+              </div>
+            )}
+
+            {group.enable_voting_rights && (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => navigate('/votes')}
+                className="h-12 rounded-xl border border-white/15 bg-white/10 px-4 font-semibold text-white hover:bg-white/18 hover:text-white"
+              >
+                <Vote className="mr-2 h-4 w-4 text-[#dbf5b4]" />
+                Group Votes
+              </Button>
+            )}
+
+            {isActive && canVote && (
+              <div className="flex flex-wrap gap-2">
+                <RecurringContributionDialog
+                  groupId={id!}
+                  groupName={group.name}
+                  onSuccess={handleContributeSuccess}
+                />
+                <ScheduledContributionDialog
+                  groupId={id!}
+                  groupName={group.name}
+                  onSuccess={handleContributeSuccess}
+                />
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Governance Notice when Voting is Disabled */}
+        {!group.enable_voting_rights && (
+          <div className="flex items-start gap-3 rounded-2xl border border-amber-200/80 bg-amber-50/90 px-4 py-3.5 text-sm text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100">
+            <Info size={18} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+            <p>
+              <strong>Admin-managed withdrawals:</strong> Member voting is turned off for this group. The group admin can approve withdrawals directly.
+            </p>
+          </div>
         )}
 
-        {/* Voting Section - Protected */}
-        <VotingRightsGuard
-          groupId={id!}
-          groupName={group.name}
-          onContributeSuccess={handleContributeSuccess}
-        >
-          <Card className="p-6">
-            <div className="space-y-4">
-              <h2 className="text-xl font-bold flex items-center gap-2">
-                🗳️ Vote on Group Decisions
-              </h2>
-              <p className="text-muted-foreground">
-                You have voting rights in this group. Participate in important decisions.
-              </p>
-              <Button variant="outline" onClick={() => navigate('/votes')}>
-                View Active Polls
-              </Button>
-            </div>
-          </Card>
-        </VotingRightsGuard>
-
-        {/* Refund Requests - Shows voting interface if any refund requests exist */}
+        {/* Refund Requests Banner (surfaced above tabs whenever active) */}
         <RefundRequestsCard groupId={id!} />
 
-        {/* Group Activity Timeline */}
-        <GroupActivityTimeline groupId={id!} />
+        {/* Native Segmented Workspace Tabs */}
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => setActiveTab(v as 'overview' | 'members' | 'activity')}
+          className="space-y-5"
+        >
+          <TabsList className="app-segmented grid w-full grid-cols-3" aria-label="Group sections">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="members">Members</TabsTrigger>
+            <TabsTrigger value="activity">Activity</TabsTrigger>
+          </TabsList>
 
-        {/* Contributors List */}
-        <ContributorsList groupId={id!} />
+          {/* OVERVIEW TAB */}
+          <TabsContent value="overview" className="space-y-5">
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+              <div className="space-y-5 lg:col-span-7">
+                {hasBankAccount ? (
+                  <ShareableBankCard
+                    groupName={group.name}
+                    accountNumber={group.account_number || group.bank_details?.accountNumber}
+                    bankName={
+                      group.bank_name ||
+                      group.account_details?.bank_name ||
+                      group.bank_details?.bankName ||
+                      'Virtual Bank'
+                    }
+                    accountName={group.account_name || group.bank_details?.accountName || group.name}
+                  />
+                ) : (
+                  <Card className="rounded-[1.35rem] border-dashed p-6 shadow-sm">
+                    <div className="flex flex-col items-center text-center">
+                      <span className="grid h-12 w-12 place-items-center rounded-2xl bg-accent text-primary">
+                        <Building2 className="h-6 w-6" />
+                      </span>
+                      <h3 className="mt-3 text-base font-semibold">Dedicated Bank Account</h3>
+                      <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                        {isCreator
+                          ? 'Issue a dedicated virtual account so members can transfer directly from any Nigerian bank app.'
+                          : 'The group creator has not enabled a dedicated bank account yet.'}
+                      </p>
+                      {isCreator && (
+                        <Button
+                          onClick={() => setShowBvnDialog(true)}
+                          disabled={isCreatingAccount}
+                          className="mt-4 h-11 rounded-xl"
+                        >
+                          <Building2 className="mr-2 h-4 w-4" />
+                          Set up bank account
+                        </Button>
+                      )}
+                    </div>
+                  </Card>
+                )}
+              </div>
 
-        {/* Admin Panel */}
-        {isAdmin && (
-          <GroupAdminPanel groupId={id!} isAdmin={isAdmin} />
-        )}
+              <div className="space-y-5 lg:col-span-5">
+                {/* Governance & Voting Card */}
+                <VotingRightsGuard
+                  groupId={id!}
+                  groupName={group.name}
+                  onContributeSuccess={handleContributeSuccess}
+                >
+                  <Card className="rounded-[1.35rem] p-5 shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent text-primary">
+                          <Vote className="h-5 w-5" />
+                        </span>
+                        <div>
+                          <h2 className="text-base font-bold tracking-tight">Democratic Governance</h2>
+                          <p className="text-xs text-muted-foreground">
+                            {group.voting_threshold || 60}% member approval required
+                          </p>
+                        </div>
+                      </div>
+                      <Badge variant="secondary" className="bg-accent text-accent-foreground">
+                        Active
+                      </Badge>
+                    </div>
+                    <p className="mt-3 text-sm text-muted-foreground">
+                      Your contributions give you a direct vote on withdrawals and group refund proposals.
+                    </p>
+                    <Button
+                      variant="outline"
+                      onClick={() => navigate('/votes')}
+                      className="mt-4 h-11 w-full justify-between rounded-xl font-semibold"
+                    >
+                      <span className="inline-flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-primary" />
+                        Open active votes
+                      </span>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </Card>
+                </VotingRightsGuard>
+
+                {/* Creator Management Card */}
+                {isCreator && (
+                  <Card className="rounded-[1.35rem] p-5 shadow-sm">
+                    <div className="flex items-center gap-2.5">
+                      <span className="grid h-9 w-9 place-items-center rounded-xl bg-muted text-foreground">
+                        <SlidersHorizontal className="h-4 w-4" />
+                      </span>
+                      <div>
+                        <h3 className="text-sm font-bold">Creator Controls</h3>
+                        <p className="text-xs text-muted-foreground">Refunds & archive status</p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 grid gap-2.5">
+                      {isActive && (
+                        <GroupRefundDialog
+                          groupId={id!}
+                          groupName={group.name}
+                          onSuccess={handleContributeSuccess}
+                        />
+                      )}
+                      <Button
+                        variant="outline"
+                        onClick={group.archived ? handleUnarchive : handleArchive}
+                        disabled={isArchiving}
+                        className="h-11 w-full justify-start rounded-xl"
+                      >
+                        {group.archived ? (
+                          <ArchiveRestore className="mr-2 h-4 w-4" />
+                        ) : (
+                          <Archive className="mr-2 h-4 w-4" />
+                        )}
+                        {group.archived ? 'Restore group' : 'Archive group'}
+                      </Button>
+                    </div>
+                  </Card>
+                )}
+
+                {/* Quick Summary Card for Contribution Plan */}
+                {group.contribution_amount > 0 && (
+                  <Card className="rounded-[1.35rem] p-5 shadow-sm">
+                    <div className="flex items-center gap-2.5">
+                      <span className="grid h-9 w-9 place-items-center rounded-xl bg-accent text-primary">
+                        <CalendarClock className="h-4 w-4" />
+                      </span>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Suggested contribution</p>
+                        <p className="text-base font-bold tabular-nums">
+                          ₦{Number(group.contribution_amount).toLocaleString()}
+                          <span className="ml-1 text-xs font-normal capitalize text-muted-foreground">
+                            / {group.frequency || 'cycle'}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
+                )}
+              </div>
+            </div>
+
+            {isAdmin && <GroupAdminPanel groupId={id!} isAdmin={isAdmin} />}
+          </TabsContent>
+
+          {/* MEMBERS TAB */}
+          <TabsContent value="members">
+            <ContributorsList groupId={id!} />
+          </TabsContent>
+
+          {/* ACTIVITY TAB */}
+          <TabsContent value="activity">
+            <GroupActivityTimeline groupId={id!} />
+          </TabsContent>
+        </Tabs>
       </main>
 
-      {/* BVN Input Dialog */}
       <BvnInputDialog
         open={showBvnDialog}
         onOpenChange={setShowBvnDialog}

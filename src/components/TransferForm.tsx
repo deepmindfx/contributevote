@@ -4,12 +4,13 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useSupabaseUser } from '@/contexts/SupabaseUserContext';
 import { useSupabaseContribution } from '@/contexts/SupabaseContributionContext';
-import { ChevronDown, Info, ArrowLeft, Lock, Search, Loader2, Download, AlertCircle } from 'lucide-react';
+import { ChevronDown, Info, ArrowLeft, Lock, Search, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { Input } from '@/components/ui/input';
-import html2canvas from 'html2canvas';
 import { ApiService } from '@/services/supabase/apiService';
+import BrandLoader from '@/components/ui/BrandLoader';
+import CollectiPayReceipt from '@/components/receipt/CollectiPayReceipt';
 
 interface Bank {
   code: string;
@@ -77,7 +78,6 @@ export default function TransferForm() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showBankList, setShowBankList] = useState(false);
   const [transferReceipt, setTransferReceipt] = useState<any>(null);
-  const [isGeneratingReceipt, setIsGeneratingReceipt] = useState(false);
   const [isValidatingAccount, setIsValidatingAccount] = useState(false);
   const [accountError, setAccountError] = useState<string | null>(null);
   const [showReceiptOnly, setShowReceiptOnly] = useState(false);
@@ -194,48 +194,24 @@ export default function TransferForm() {
     // Check if user has set a transaction PIN in settings
     if (!userPin) {
       toast.error('Please set your 4-digit transaction PIN in Settings → Security first');
-      navigate('/settings');
+      navigate('/settings?tab=security');
       return;
     }
 
-    const totalNeeded = Number(data.amount) + calculateFee(Number(data.amount));
+    const amount = Number(data.amount);
+    const totalNeeded = amount + calculateFee(amount);
     if (Number(user?.wallet_balance || 0) < totalNeeded) {
       toast.error(`Insufficient balance. You need ₦${totalNeeded.toLocaleString()} (including transfer fee).`);
       return;
     }
     
-    setTransferData(data);
+    setTransferData({ ...data, amount });
     setShowConfirmation(true);
   };
 
   const handleBack = () => {
     setShowConfirmation(false);
     setTransactionPin('');
-  };
-
-  const generateReceipt = async () => {
-    setIsGeneratingReceipt(true);
-    try {
-      const receiptElement = document.getElementById('transfer-receipt');
-      if (!receiptElement) return;
-
-      const canvas = await html2canvas(receiptElement, {
-        scale: 2,
-        backgroundColor: '#ffffff',
-        logging: false
-      });
-
-      const imgData = canvas.toDataURL('image/png');
-      const link = document.createElement('a');
-      link.download = `transfer-receipt-${new Date().getTime()}.png`;
-      link.href = imgData;
-      link.click();
-    } catch (error) {
-      console.error('Error generating receipt:', error);
-      toast.error('Failed to generate receipt');
-    } finally {
-      setIsGeneratingReceipt(false);
-    }
   };
 
   // Update handleConfirmTransfer
@@ -294,113 +270,67 @@ export default function TransferForm() {
   };
 
   if (showReceiptOnly && transferReceipt) {
+    const receiptAmount = Number(transferReceipt.amount || transferData?.amount || 0);
+    const receiptFee = Number(transferReceipt.fee ?? calculateFee(receiptAmount));
+
     return (
-      <div className="flex flex-col h-full bg-background">
-        <div className="flex items-center p-4 border-b">
-          <Button 
-            variant="ghost" 
+      <div className="min-h-[100dvh] bg-background pb-[max(2rem,env(safe-area-inset-bottom))]">
+        <div className="sticky top-0 z-20 flex items-center border-b bg-card/95 px-4 py-2 pt-[max(.5rem,env(safe-area-inset-top))] backdrop-blur">
+          <Button
+            variant="ghost"
             size="icon"
             onClick={() => navigate('/dashboard')}
-            className="mr-2"
+            className="mr-2 h-11 w-11 shrink-0"
+            aria-label="Back to dashboard"
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-lg font-semibold flex-1 text-center pr-8">Transfer Receipt</h1>
+          <h1 className="flex-1 pr-11 text-center text-base font-semibold">Transfer Receipt</h1>
         </div>
-        
-        <div className="flex-1 p-4 overflow-auto max-w-md mx-auto w-full">
-          <div className="bg-white rounded-lg shadow-sm p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-medium">Transfer Receipt</h3>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={generateReceipt}
-                disabled={isGeneratingReceipt}
-              >
-                <Download className="h-4 w-4 mr-2" />
-                {isGeneratingReceipt ? 'Generating...' : 'Download Receipt'}
-              </Button>
-            </div>
-            
-            <div id="transfer-receipt" className="p-6 border rounded-lg bg-white">
-              {/* Receipt Header */}
-              <div className="text-center mb-6">
-                <img src="/logo.png" alt="Logo" className="h-12 mx-auto mb-4" />
-                <h2 className="text-2xl font-bold text-gray-800">Transfer Receipt</h2>
-                <p className="text-sm text-gray-500 mt-1">Transaction {transferReceipt.status}</p>
-              </div>
 
-              {/* Transaction Details */}
-              <div className="space-y-4 mb-6">
-                <div className="flex justify-between items-center pb-2 border-b">
-                  <span className="text-gray-600">Transaction ID</span>
-                  <span className="font-medium">{transferReceipt.id}</span>
-                </div>
-                <div className="flex justify-between items-center pb-2 border-b">
-                  <span className="text-gray-600">Reference</span>
-                  <span className="font-medium">{transferReceipt.reference}</span>
-                </div>
-                <div className="flex justify-between items-center pb-2 border-b">
-                  <span className="text-gray-600">Date & Time</span>
-                  <span className="font-medium">{new Date(transferReceipt.created_at).toLocaleString('en-NG')}</span>
-                </div>
-              </div>
+        <main className="mx-auto w-full max-w-md px-4 py-6">
+          <CollectiPayReceipt
+            data={{
+              kind: 'transfer',
+              title: 'Bank Transfer',
+              amount: receiptAmount,
+              fee: receiptFee,
+              status: transferReceipt.status || 'SUCCESSFUL',
+              date: transferReceipt.created_at || new Date().toISOString(),
+              reference: transferReceipt.reference,
+              transactionId: transferReceipt.id ? String(transferReceipt.id) : undefined,
+              paymentMethod: 'CollectiPay Wallet Transfer',
+              narration: transferReceipt.narration || transferData?.narration,
+              sender: {
+                label: 'From',
+                name: user?.name || user?.email || 'CollectiPay Wallet',
+                subtitle: userVirtualAccountNumber,
+              },
+              recipient: {
+                label: 'To',
+                name: transferReceipt.full_name || transferData?.beneficiaryName || 'Recipient',
+                subtitle: transferReceipt.account_number || transferData?.accountNumber,
+                bankName: transferReceipt.bank_name || bankName,
+              },
+            }}
+            onDone={() => navigate('/dashboard')}
+            doneLabel="Back to Dashboard"
+          />
 
-              {/* Sender Details */}
-              <div className="mb-6">
-                <h3 className="text-sm font-semibold text-gray-700 mb-2">Sender Details</h3>
-                <div className="bg-gray-50 p-3 rounded-lg">
-                  <p className="font-medium">{user?.name || user?.email}</p>
-                  <p className="text-sm text-gray-600">{userVirtualAccountNumber}</p>
-                </div>
-              </div>
-
-              {/* Recipient Details */}
-              <div className="mb-6">
-                <h3 className="text-sm font-semibold text-gray-700 mb-2">Recipient Details</h3>
-                <div className="bg-gray-50 p-3 rounded-lg">
-                  <p className="font-medium">{transferReceipt.full_name}</p>
-                  <p className="text-sm text-gray-600">{transferReceipt.account_number}</p>
-                  <p className="text-sm text-gray-600">{transferReceipt.bank_name}</p>
-                </div>
-              </div>
-
-              {/* Transaction Summary */}
-              <div className="space-y-3 mb-6">
-                <div className="flex justify-between items-center pb-2 border-b">
-                  <span className="text-gray-600">Amount</span>
-                  <span className="font-medium text-[#2DAE75]">{formatCurrency(transferReceipt.amount)}</span>
-                </div>
-                <div className="flex justify-between items-center pb-2 border-b">
-                  <span className="text-gray-600">Fee</span>
-                  <span className="font-medium">₦ {transferReceipt.fee?.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between items-center pb-2 border-b">
-                  <span className="text-gray-600">Total</span>
-                  <span className="font-medium">₦ {(transferReceipt.amount + (transferReceipt.fee || 0)).toFixed(2)}</span>
-                </div>
-              </div>
-
-              {/* Status */}
-              <div className="text-center">
-                <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
-                  transferReceipt.status === 'SUCCESSFUL' ? 'bg-green-100 text-green-800' :
-                  transferReceipt.status === 'FAILED' ? 'bg-red-100 text-red-800' :
-                  'bg-yellow-100 text-yellow-800'
-                }`}>
-                  {transferReceipt.status}
-                </span>
-              </div>
-
-              {/* Footer */}
-              <div className="mt-6 text-center text-sm text-gray-500">
-                <p>Thank you for using our service</p>
-                <p className="mt-1">This is a computer-generated receipt</p>
-              </div>
-            </div>
-          </div>
-        </div>
+          <Button
+            type="button"
+            variant="ghost"
+            className="mt-2 h-11 w-full rounded-xl text-sm font-medium text-muted-foreground"
+            onClick={() => {
+              setShowReceiptOnly(false);
+              setShowConfirmation(false);
+              setTransferReceipt(null);
+              setTransactionPin('');
+            }}
+          >
+            Send another transfer
+          </Button>
+        </main>
       </div>
     );
   }
@@ -409,22 +339,31 @@ export default function TransferForm() {
     const fee = calculateFee(transferData.amount);
     
     return (
-      <div className="flex flex-col h-full bg-background">
-        <div className="flex items-center p-4 border-b">
+      <div className="min-h-[100dvh] bg-background pb-[env(safe-area-inset-bottom)]">
+        {isLoading && (
+          <BrandLoader
+            variant="overlay"
+            badge="Bank Transfer"
+            message={`Sending ${formatCurrency(transferData.amount)}`}
+            submessage={`Transferring securely to ${transferData.beneficiaryName}${bankName ? ` • ${bankName}` : ''}…`}
+          />
+        )}
+        <div className="sticky top-0 z-20 flex items-center border-b bg-card/95 px-4 py-2 pt-[max(.5rem,env(safe-area-inset-top))] backdrop-blur">
           <Button 
             variant="ghost" 
             size="icon"
             onClick={handleBack}
-            className="mr-2"
+            className="mr-2 shrink-0"
+            aria-label="Go back"
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-lg font-semibold flex-1 text-center pr-8">Confirm Transfer</h1>
+          <h1 className="text-lg font-semibold">Review transfer</h1>
         </div>
         
-        <div className="flex-1 p-4 overflow-auto max-w-md mx-auto w-full flex flex-col">
+        <main className="mx-auto flex w-full max-w-md flex-col px-4 py-5">
           {/* Confirmation details */}
-          <div className="bg-white rounded-lg shadow-sm p-5 mb-6">
+          <div className="mb-4 rounded-2xl border bg-card p-4 shadow-sm sm:p-5">
             <div className="space-y-4">
               <div className="flex justify-between">
                 <span className="text-gray-500">From</span>
@@ -456,9 +395,9 @@ export default function TransferForm() {
                 <span className="text-gray-500">Amount</span>
                 <span className="font-medium text-[#2DAE75]">{formatCurrency(transferData.amount)}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Fee</span>
-                <span className="font-medium">₦ {transferReceipt?.fee?.toFixed(2) || '0.00'}</span>
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-foreground">Transfer fee</span>
+                <span className="font-medium tabular-nums">{formatCurrency(fee)}</span>
               </div>
               {transferData.narration && (
                 <div className="flex justify-between">
@@ -466,19 +405,24 @@ export default function TransferForm() {
                   <span className="font-medium">{transferData.narration}</span>
                 </div>
               )}
+              <div className="flex justify-between gap-3 border-t pt-4">
+                <span className="font-semibold">Total</span>
+                <span className="font-semibold tabular-nums">{formatCurrency(transferData.amount + fee)}</span>
+              </div>
             </div>
           </div>
           
           {/* Transaction PIN */}
-          <div className="bg-white rounded-lg shadow-sm p-5 mb-6">
+          <div className="mb-4 rounded-2xl border bg-card p-4 shadow-sm sm:p-5">
             <div className="flex items-center mb-4">
               <Lock className="h-5 w-5 text-gray-500 mr-2" />
-              <h3 className="font-medium">Enter Transaction PIN</h3>
+              <h2 className="font-semibold">Enter your transaction PIN</h2>
             </div>
             
             <div className="flex justify-center my-4">
               <InputOTP
                 maxLength={4}
+                aria-label="Transaction PIN"
                 value={transactionPin}
                 onChange={setTransactionPin}
                 containerClassName="gap-3"
@@ -495,11 +439,11 @@ export default function TransferForm() {
           
           <div className="mt-auto space-y-4">
             <Button
-              className="w-full py-3 bg-[#2DAE75] hover:bg-[#249e69] text-white font-medium"
+              className="h-12 w-full"
               onClick={handleConfirmTransfer}
               disabled={isLoading || isValidating || transactionPin.length < 4}
             >
-              {isLoading ? 'Processing...' : isValidating ? 'Validating...' : 'Confirm'}
+              {isLoading ? 'Processing…' : isValidating ? 'Validating…' : 'Confirm transfer'}
             </Button>
             
             <Button
@@ -511,7 +455,7 @@ export default function TransferForm() {
               Cancel
             </Button>
           </div>
-        </div>
+        </main>
       </div>
     );
   }

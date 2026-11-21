@@ -1,9 +1,9 @@
-import { ArrowDownLeft, Bell, Compass, Home, Plus, SendHorizontal, Users, Vote, Wallet } from "lucide-react";
+import { ArrowDownLeft, ArrowLeftRight, Bell, Home, Plus, SendHorizontal, UserRound, Users, Vote, Wallet } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
+import { collectipayMark as logo } from "@/components/layout/navigationItems";
 import "@/styles/landing.css";
 
-const logo = "/lovable-uploads/91e5c361-b912-4a7e-bcf3-4602a512cb51.png";
 const steps = [
   { icon: Users, title: "Start a group", description: "Pick a goal for your event, savings circle, or community project. Make it public or invite people privately." },
   { icon: Wallet, title: "Contribute together", description: "Use your CollectiPay wallet or the group’s dedicated bank account. Everyone can follow the progress." },
@@ -44,9 +44,10 @@ function ProductPreview() {
         </div>
         <div className="landing-demo-nav">
           <span><Home size={15} /> Home</span>
-          <span><Compass size={15} /> Discover</span>
-          <span><Vote size={15} /> Votes</span>
           <span><Users size={15} /> Groups</span>
+          <span><span className="landing-demo-action-icon"><ArrowLeftRight size={14} /></span> Move money</span>
+          <span><Vote size={15} /> Votes</span>
+          <span><UserRound size={15} /> Account</span>
         </div>
       </div>
       <figcaption>Example dashboard</figcaption>

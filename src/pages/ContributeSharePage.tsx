@@ -14,6 +14,7 @@ import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext"
 import { supabase } from "@/integrations/supabase/client";
 import { WalletContributionService } from "@/services/supabase/walletContributionService";
 import Header from "@/components/layout/Header";
+import BrandLoader from "@/components/ui/BrandLoader";
 import AccountNumberDisplay from "@/components/contributions/AccountNumberDisplay";
 
 const ContributeSharePage = () => {
@@ -111,8 +112,12 @@ const ContributeSharePage = () => {
     return (
       <div className="min-h-screen">
         <Header />
-        <div className="flex items-center justify-center pt-32">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
+        <div className="app-page max-w-xl">
+          <BrandLoader
+            variant="page"
+            message="Loading shared group"
+            submessage="Fetching contribution details…"
+          />
         </div>
       </div>
     );
@@ -149,9 +154,17 @@ const ContributeSharePage = () => {
 
   return (
     <div className="min-h-screen">
+      {isLoading && (
+        <BrandLoader
+          variant="overlay"
+          badge="Group Contribution"
+          message={`Pooling ₦${Number(amount || 0).toLocaleString()}`}
+          submessage={`Confirming your contribution to ${contribution?.name || "this group"}…`}
+        />
+      )}
       <Header />
       <div className="flex flex-col items-center justify-center p-4 pt-24 bg-background">
-        <Card className="w-full max-w-md glass-card">
+        <Card className="w-full max-w-md rounded-[1.35rem]">
           <CardHeader className="text-center">
             <div className="flex justify-center mb-4">
               <div className="rounded-full bg-primary p-2 text-primary-foreground">

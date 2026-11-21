@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { useSupabaseUser } from '@/contexts/SupabaseUserContext';
 import { WalletContributionService } from '@/services/supabase/walletContributionService';
 import { toast } from 'sonner';
-import { Wallet, Loader2, Zap } from 'lucide-react';
+import { Wallet, ShieldCheck, ArrowUpRight } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -15,23 +15,44 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import BrandLoader from '@/components/ui/BrandLoader';
+import CollectiPayReceipt, { type CollectiPayReceiptData } from '@/components/receipt/CollectiPayReceipt';
+import { cn } from '@/lib/utils';
 
 interface ContributeButtonProps {
   groupId: string;
   groupName: string;
   onSuccess?: () => void;
+  variant?: 'default' | 'hero';
+  className?: string;
 }
 
-export function ContributeButton({ groupId, groupName, onSuccess }: ContributeButtonProps) {
+const PRESET_AMOUNTS = [1000, 5000, 10000, 25000];
+
+export function ContributeButton({
+  groupId,
+  groupName,
+  onSuccess,
+  variant = 'default',
+  className,
+}: ContributeButtonProps) {
   const [amount, setAmount] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [receipt, setReceipt] = useState<CollectiPayReceiptData | null>(null);
   const { user, refreshCurrentUser } = useSupabaseUser();
 
-  const walletBalance = user?.wallet_balance || 0;
-  const hasBalance = walletBalance >= parseFloat(amount || '0');
+  const walletBalance = Number(user?.wallet_balance || 0);
+  const parsedAmount = parseFloat(amount || '0');
+  const hasBalance = walletBalance >= parsedAmount;
 
-
+  const handleOpenChange = (open: boolean) => {
+    if (isProcessing) return;
+    setIsOpen(open);
+    if (!open) {
+      setReceipt(null);
+    }
+  };
 
   const handleWalletContribution = async () => {
     const contributionAmount = parseFloat(amount);
@@ -53,7 +74,7 @@ export function ContributeButton({ groupId, groupName, onSuccess }: ContributeBu
 
     if (walletBalance < contributionAmount) {
       toast.error('Insufficient wallet balance', {
-        description: `You need ₦${contributionAmount - walletBalance} more`
+        description: `You need ₦${(contributionAmount - walletBalance).toLocaleString()} more`,
       });
       return;
     }
@@ -65,23 +86,49 @@ export function ContributeButton({ groupId, groupName, onSuccess }: ContributeBu
         user.id,
         groupId,
         contributionAmount,
-        false // not anonymous
+        false
       );
 
       if (result.success) {
         const balanceBefore = walletBalance;
-        const balanceAfter = result.new_balance;
+        const balanceAfter =
+          typeof result.new_balance === 'number'
+            ? result.new_balance
+            : Math.max(0, balanceBefore - contributionAmount);
 
-        // Refresh the user data to ensure balance is synced correctly
         await refreshCurrentUser();
-        
-        setIsOpen(false);
-        setAmount('');
-        
-        toast.success('Contribution successful!', {
-          description: `Balance: ₦${balanceBefore.toLocaleString()} → ₦${balanceAfter?.toLocaleString()}. You now have voting rights!`
+
+        const reference =
+          (result as any).transaction_id ||
+          (result as any).reference ||
+          `CP-GRP-${Date.now().toString(36).toUpperCase()}`;
+
+        setReceipt({
+          kind: 'contribution',
+          title: 'Group Contribution',
+          amount: contributionAmount,
+          status: 'successful',
+          date: new Date().toISOString(),
+          reference: String(reference),
+          groupName,
+          paymentMethod: 'CollectiPay Wallet',
+          balanceBefore,
+          balanceAfter,
+          votingRightsGranted: true,
+          sender: {
+            label: 'From',
+            name: user.name || user.email || 'Your Wallet',
+            subtitle: 'CollectiPay Wallet',
+          },
+          recipient: {
+            label: 'To Pool',
+            name: groupName,
+            subtitle: 'Group Contribution Vault',
+          },
         });
 
+        setAmount('');
+        toast.success('Contribution pooled successfully!');
         onSuccess?.();
       }
     } catch (error) {
@@ -91,99 +138,142 @@ export function ContributeButton({ groupId, groupName, onSuccess }: ContributeBu
     }
   };
 
-
-
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button size="lg" className="w-full sm:w-auto">
-          <Wallet className="h-4 w-4 mr-2" />
-          Contribute to Group
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Contribute to {groupName}</DialogTitle>
-          <DialogDescription>
-            Contribute instantly from your wallet
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      {isProcessing && (
+        <BrandLoader
+          variant="overlay"
+          badge="Group Contribution"
+          message={`Pooling ₦${parsedAmount.toLocaleString()}`}
+          submessage={`Adding your contribution to ${groupName} & activating voting rights…`}
+        />
+      )}
 
-        <div className="space-y-4 py-4">
-          {/* Wallet Balance Display */}
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 p-4 rounded-lg border">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Wallet Balance</span>
-              <span className="text-lg font-bold">₦{walletBalance.toLocaleString()}</span>
-            </div>
-          </div>
-
-          {/* Amount Input */}
-          <div className="space-y-2">
-            <Label htmlFor="amount">Amount (₦)</Label>
-            <Input
-              id="amount"
-              type="number"
-              placeholder="Enter amount"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              min="100"
-              step="100"
-              disabled={isProcessing}
-            />
-            <p className="text-xs text-muted-foreground">
-              Minimum contribution: ₦100
-            </p>
-          </div>
-
-          {/* Insufficient Balance Warning */}
-          {!hasBalance && amount && (
-            <Alert variant="destructive">
-              <AlertDescription>
-                Insufficient balance. You need ₦{(parseFloat(amount) - walletBalance).toLocaleString()} more.
-              </AlertDescription>
-            </Alert>
-          )}
-          
-          {/* Benefits Display */}
-          <div className="bg-green-50 dark:bg-green-950 p-4 rounded-lg">
-            <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
-              <Zap className="h-4 w-4 text-green-600" />
-              Instant Contribution Benefits
-            </h4>
-            <ul className="text-sm space-y-1 text-muted-foreground">
-              <li>⚡ Instant voting rights</li>
-              <li>💰 No transaction fees</li>
-              <li>✅ Immediate confirmation</li>
-              <li>🔒 Secure & fast</li>
-            </ul>
-          </div>
-
-          {/* Contribute Button */}
+      <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+        <DialogTrigger asChild>
           <Button
-            onClick={handleWalletContribution}
-            disabled={isProcessing || !amount || !hasBalance}
-            className="w-full"
             size="lg"
-          >
-            {isProcessing ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Processing...
-              </>
-            ) : (
-              <>
-                <Wallet className="h-4 w-4 mr-2" />
-                Contribute ₦{amount || '0'}
-              </>
+            className={cn(
+              variant === 'hero'
+                ? 'wallet-primary-action h-12 w-full rounded-xl font-semibold shadow-sm'
+                : 'h-11 w-full rounded-xl font-semibold sm:w-auto',
+              className
             )}
+          >
+            <Wallet className="mr-2 h-4 w-4" />
+            Contribute
+            {variant === 'hero' && <ArrowUpRight className="ml-1.5 h-4 w-4" />}
           </Button>
+        </DialogTrigger>
 
-          <p className="text-xs text-center text-muted-foreground">
-            Instant contribution from your wallet
-          </p>
-        </div>
-      </DialogContent>
-    </Dialog>
+        <DialogContent
+          className={cn(
+            receipt
+              ? 'max-h-[92dvh] max-w-md overflow-y-auto border-none bg-transparent p-2 shadow-none sm:p-4'
+              : 'max-w-md rounded-2xl'
+          )}
+        >
+          {receipt ? (
+            <>
+              <DialogHeader className="sr-only">
+                <DialogTitle>Contribution Receipt</DialogTitle>
+              </DialogHeader>
+              <CollectiPayReceipt
+                data={receipt}
+                onDone={() => handleOpenChange(false)}
+                doneLabel="Done"
+              />
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle className="tracking-tight">Contribute to {groupName}</DialogTitle>
+                <DialogDescription>
+                  Instant zero-fee deposit directly from your CollectiPay wallet.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4 pt-2">
+                {/* Native Emerald Wallet Balance Pill */}
+                <div className="flex items-center justify-between rounded-2xl border bg-accent/55 px-4 py-3.5">
+                  <div className="flex items-center gap-2.5">
+                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary/15 text-primary">
+                      <Wallet className="h-4 w-4" />
+                    </span>
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground">Available balance</p>
+                      <p className="text-base font-bold tabular-nums">₦{walletBalance.toLocaleString()}</p>
+                    </div>
+                  </div>
+                  <span className="rounded-full bg-card px-2.5 py-1 text-xs font-semibold text-primary shadow-sm">
+                    Zero fee
+                  </span>
+                </div>
+
+                {/* Amount Input + Quick Presets */}
+                <div className="space-y-2.5">
+                  <Label htmlFor="contribute-amount">Amount (₦)</Label>
+                  <Input
+                    id="contribute-amount"
+                    type="number"
+                    inputMode="decimal"
+                    placeholder="0.00"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    min="100"
+                    step="100"
+                    disabled={isProcessing}
+                    className="h-12 rounded-xl text-lg font-semibold tabular-nums"
+                  />
+                  <div className="grid grid-cols-4 gap-2">
+                    {PRESET_AMOUNTS.map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setAmount(String(preset))}
+                        disabled={isProcessing}
+                        className={cn(
+                          'min-h-9 rounded-lg border text-xs font-semibold tabular-nums transition-colors',
+                          parsedAmount === preset
+                            ? 'border-primary bg-accent text-accent-foreground'
+                            : 'border-border bg-card text-muted-foreground hover:bg-muted'
+                        )}
+                      >
+                        ₦{preset.toLocaleString()}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {!hasBalance && amount && (
+                  <Alert variant="destructive" className="rounded-xl">
+                    <AlertDescription>
+                      Insufficient balance. You need ₦{(parsedAmount - walletBalance).toLocaleString()} more.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="flex items-start gap-2.5 rounded-xl border bg-muted/45 px-3.5 py-3 text-xs text-muted-foreground">
+                  <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  <span>
+                    Wallet contributions confirm immediately, unlock your voting rights in this group, and generate a downloadable receipt.
+                  </span>
+                </div>
+
+                <Button
+                  onClick={handleWalletContribution}
+                  disabled={isProcessing || !amount || parsedAmount < 100 || !hasBalance}
+                  className="h-12 w-full rounded-xl font-semibold"
+                  size="lg"
+                >
+                  <Wallet className="mr-2 h-4 w-4" />
+                  Contribute {parsedAmount > 0 ? `₦${parsedAmount.toLocaleString()}` : ''}
+                </Button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

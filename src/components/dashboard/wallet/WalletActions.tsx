@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Clock, PlusCircle, SendHorizontal, UserPlus, Copy, Check } from "lucide-react";
+import { Building2, Clock, Plus, SendHorizontal, UserPlus, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,7 @@ interface WalletActionsProps {
   user: Database['public']['Tables']['profiles']['Row'] | null;
   setShowHistory: (value: boolean) => void;
   onOpenBankAccount?: () => void;
+  showQuickActions?: boolean;
 }
 
 const WalletActions = ({
@@ -46,9 +47,10 @@ const WalletActions = ({
   user,
   setShowHistory,
   onOpenBankAccount,
+  showQuickActions,
 }: WalletActionsProps) => {
   const navigate = useNavigate();
-  const [isAccountLoading, setIsAccountLoading] = useState(false);
+  const [isAccountLoading, setIsAccountLoading] = useState(isDepositOpen);
   const [accountDetails, setAccountDetails] = useState<ReservedAccountData | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   
@@ -90,12 +92,13 @@ const WalletActions = ({
   };
   
   return (
-    <div className="bg-card">
-      <div className="grid grid-cols-4 gap-1 p-2 sm:p-3">
+    <div className={showQuickActions ? "dashboard-quick-actions" : "bg-card"}>
+      {showQuickActions && <h3 className="dashboard-quick-title">Quick actions</h3>}
+      <div className="wallet-actions-grid grid grid-cols-2 gap-2 p-3 sm:p-4">
         <Dialog open={isDepositOpen} onOpenChange={setIsDepositOpen}>
           <DialogTrigger asChild>
-            <button type="button" className="wallet-action" onClick={() => setIsAccountLoading(true)}>
-              <span><PlusCircle size={20} /></span>
+            <button type="button" className="wallet-action wallet-primary-action" onClick={() => setIsAccountLoading(true)}>
+              <Plus size={19} aria-hidden="true" />
               <span>Add money</span>
             </button>
           </DialogTrigger>
@@ -196,9 +199,12 @@ const WalletActions = ({
                   </p>
                   <Button 
                     onClick={() => {
-                      setIsDepositOpen(false);
-                      if (onOpenBankAccount) onOpenBankAccount();
-                      else navigate("/dashboard");
+                      if (onOpenBankAccount) {
+                        onOpenBankAccount();
+                      } else {
+                        setIsDepositOpen(false);
+                        navigate("/dashboard");
+                      }
                     }}
                     className="w-full"
                   >
@@ -224,16 +230,23 @@ const WalletActions = ({
           </DialogContent>
         </Dialog>
         
-        <Link className="wallet-action" to="/transfer">
-          <span><SendHorizontal size={20} /></span>
+        <Link className="wallet-action wallet-send-action" to="/transfer">
+          <SendHorizontal size={17} aria-hidden="true" />
           <span>Send</span>
         </Link>
-        <Link className="wallet-action" to="/create-group">
-          <span><UserPlus size={20} /></span>
-          <span>New group</span>
-        </Link>
+        {onOpenBankAccount ? (
+          <button className="wallet-action" type="button" onClick={onOpenBankAccount}>
+            <Building2 size={17} aria-hidden="true" />
+            <span>Bank account</span>
+          </button>
+        ) : (
+          <Link className="wallet-action" to="/create-group">
+            <UserPlus size={17} aria-hidden="true" />
+            <span>New group</span>
+          </Link>
+        )}
         <button className="wallet-action" type="button" onClick={() => setShowHistory(true)}>
-          <span><Clock size={20} /></span>
+          <Clock size={17} aria-hidden="true" />
           <span>History</span>
         </button>
       </div>

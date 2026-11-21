@@ -9,6 +9,7 @@ import { GroupJoinService } from '@/services/supabase/groupJoinService';
 import { useSupabaseUser } from '@/contexts/SupabaseUserContext';
 import { toast } from 'sonner';
 import Header from '@/components/layout/Header';
+import BrandLoader from '@/components/ui/BrandLoader';
 
 export default function JoinGroup() {
   const { id } = useParams<{ id: string }>();
@@ -69,15 +70,14 @@ export default function JoinGroup() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="min-h-screen">
         <Header />
-        <div className="container mx-auto p-6 pt-24">
-          <div className="flex items-center justify-center min-h-[400px]">
-            <div className="text-center">
-              <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
-              <p className="text-muted-foreground">Loading group information...</p>
-            </div>
-          </div>
+        <div className="app-page max-w-xl">
+          <BrandLoader
+            variant="page"
+            message="Loading group information"
+            submessage="Checking open contribution pool…"
+          />
         </div>
       </div>
     );
@@ -85,9 +85,9 @@ export default function JoinGroup() {
 
   if (!group) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="min-h-screen">
         <Header />
-        <div className="container mx-auto p-6 pt-24">
+        <div className="app-page max-w-xl">
           <Card className="max-w-md mx-auto p-12 text-center">
             <div className="text-6xl mb-4">😕</div>
             <h2 className="text-2xl font-bold mb-2">Group Not Found</h2>
@@ -111,13 +111,13 @@ export default function JoinGroup() {
     : 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 pb-20 md:pb-6">
+    <div className="min-h-screen pb-20 md:pb-6">
       <Header />
-      <div className="container mx-auto px-4 md:px-6 py-4 md:py-6 pt-20 md:pt-24">
+      <div className="app-page max-w-2xl">
         <div className="max-w-2xl mx-auto space-y-6">
           {/* Header */}
           <div className="text-center">
-            <h1 className="text-3xl md:text-4xl font-bold mb-2">Join Contribution Group</h1>
+            <h1 className="app-page-title mb-2">Join a group</h1>
             <p className="text-muted-foreground">
               You've been invited to join this public group
             </p>

@@ -1,49 +1,31 @@
+import { Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-import React from "react";
+const steps = ["Details", "Schedule", "Settings"];
 
-interface StepIndicatorProps {
-  currentStep: number;
-}
-
-const StepIndicator = ({ currentStep }: StepIndicatorProps) => {
+export default function StepIndicator({ currentStep }: { currentStep: number }) {
   return (
-    <div className="relative mb-8">
-      <div className="flex justify-between items-center relative z-10">
-        <div className={`flex flex-col items-center ${currentStep >= 1 ? "text-primary" : "text-muted-foreground"}`}>
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 ${
-            currentStep >= 1 ? "bg-primary text-white" : "bg-muted text-muted-foreground"
-          }`}>
-            1
-          </div>
-          <span className="text-xs font-medium">Details</span>
-        </div>
-        
-        <div className={`flex flex-col items-center ${currentStep >= 2 ? "text-primary" : "text-muted-foreground"}`}>
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 ${
-            currentStep >= 2 ? "bg-primary text-white" : "bg-muted text-muted-foreground"
-          }`}>
-            2
-          </div>
-          <span className="text-xs font-medium">Schedule</span>
-        </div>
-        
-        <div className={`flex flex-col items-center ${currentStep >= 3 ? "text-primary" : "text-muted-foreground"}`}>
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 ${
-            currentStep >= 3 ? "bg-primary text-white" : "bg-muted text-muted-foreground"
-          }`}>
-            3
-          </div>
-          <span className="text-xs font-medium">Settings</span>
-        </div>
-      </div>
-      <div className="absolute top-5 left-0 right-0 h-1 bg-muted">
-        <div 
-          className="h-full bg-primary transition-all duration-300" 
-          style={{ width: `${(currentStep - 1) * 50}%` }} 
-        />
-      </div>
-    </div>
-  );
-};
+    <ol className="mb-5 grid grid-cols-3 gap-2" aria-label="Group setup progress">
+      {steps.map((label, index) => {
+        const completed = index + 1 < currentStep;
+        const active = index + 1 === currentStep;
 
-export default StepIndicator;
+        return (
+          <li
+            key={label}
+            aria-current={active ? "step" : undefined}
+            className={cn(
+              "flex min-w-0 items-center gap-1.5 rounded-lg px-1.5 py-2 text-xs font-semibold text-muted-foreground sm:gap-2 sm:px-3 sm:text-sm",
+              active && "bg-accent text-accent-foreground",
+            )}
+          >
+            <span className={cn("grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs tabular-nums", active || completed ? "bg-primary text-primary-foreground" : "bg-muted")}>
+              {completed ? <Check size={13} aria-label="Complete" /> : index + 1}
+            </span>
+            <span>{label}</span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}

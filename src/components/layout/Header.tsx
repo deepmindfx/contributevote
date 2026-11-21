@@ -12,11 +12,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { getActiveTab, tabs } from "./MobileNav";
+import { collectipayMark, getWorkspaceLink, workspaceLinks } from "./navigationItems";
 
-const logo = "/lovable-uploads/91e5c361-b912-4a7e-bcf3-4602a512cb51.png";
-
-export default function Header() {
+export default function Header({ mobileGreeting }: { mobileGreeting?: string } = {}) {
   const {
     user, isAuthenticated, isAdmin, logout, notifications, unreadNotificationCount,
     markNotificationRead, markAllNotificationsRead, updateProfile,
@@ -24,7 +22,7 @@ export default function Header() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const activeTab = getActiveTab(pathname);
+  const section = getWorkspaceLink(pathname);
   const preferences = (user?.preferences || {}) as Record<string, unknown>;
   const profileImage = typeof preferences.profileImage === "string" ? preferences.profileImage : undefined;
   const initials = user?.name?.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
@@ -52,33 +50,40 @@ export default function Header() {
   };
 
   return (
-    <header className="app-header">
+    <header className={mobileGreeting ? "app-header app-header-wallet" : "app-header"}>
       <div className="app-header-inner">
         <Link to={isAuthenticated ? "/dashboard" : "/"} className="app-brand">
-          <img src={logo} alt="" width="32" height="32" />
+          <img src={collectipayMark} alt="" width="32" height="32" />
           CollectiPay
         </Link>
 
         {isAuthenticated ? (
           <>
-            <nav className="app-desktop-nav" aria-label="Main navigation">
-              {tabs.filter((tab) => tab.to !== "/settings").map(({ to, label }) => (
-                <Link key={to} to={to} aria-current={activeTab === to ? "page" : undefined}>{label}</Link>
+            <span className="workspace-header-label">{section?.label}</span>
+            <nav className="app-desktop-nav app-context-nav" aria-label="Main navigation">
+              {workspaceLinks.filter(({ mobileLabel, to }) => (mobileLabel && to !== "/settings") || to === "/discover").map(({ to, label }) => (
+                <Link key={to} to={to} aria-current={section?.to === to ? "page" : undefined}>{label}</Link>
               ))}
             </nav>
 
-            <div className="flex shrink-0 items-center gap-2">
+            {mobileGreeting && (
+              <div className="app-wallet-greeting" aria-hidden="true">
+                <p>{mobileGreeting}</p>
+                <span>CollectiPay</span>
+              </div>
+            )}
+            <div className="app-header-controls flex shrink-0 items-center gap-2">
               <Popover open={notificationsOpen} onOpenChange={setNotificationsOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="relative h-11 w-11 rounded-full border border-border bg-card"
+                    className="app-notification-button relative h-11 w-11 rounded-full border border-border bg-card"
                     aria-label={unreadNotificationCount ? `Notifications, ${unreadNotificationCount} unread` : "Notifications"}
                   >
                     <Bell className="h-5 w-5" aria-hidden="true" />
                     {unreadNotificationCount > 0 && (
-                      <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full border border-card bg-primary" />
+                      <span className="app-notification-dot absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full border border-card bg-primary" />
                     )}
                   </Button>
                 </PopoverTrigger>
@@ -114,10 +119,10 @@ export default function Header() {
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-11 w-11 rounded-full p-1" aria-label="Account menu">
+                  <Button variant="ghost" size="icon" className="app-account-button h-11 w-11 rounded-full p-1" aria-label="Account menu">
                     <Avatar className="h-9 w-9">
                       <AvatarImage src={profileImage} alt="" />
-                      <AvatarFallback className="bg-primary/10 text-sm font-bold text-primary">{initials || <User size={18} />}</AvatarFallback>
+                      <AvatarFallback className="app-account-initials bg-primary/10 text-sm font-bold text-primary">{initials || <User size={18} />}</AvatarFallback>
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>

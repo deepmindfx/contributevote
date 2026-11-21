@@ -1,9 +1,5 @@
-
-import { 
-  VoteIcon,
-  Wallet,
-  PiggyBank
-} from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Vote } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export interface ActivityItemProps {
   type: "deposit" | "withdrawal" | "vote";
@@ -15,78 +11,31 @@ export interface ActivityItemProps {
   senderDetails?: string;
 }
 
-const ActivityItem = ({ type, title, description, amount, date, status, senderDetails }: ActivityItemProps) => {
-  const getIcon = () => {
-    switch (type) {
-      case "deposit":
-        return (
-          <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center text-green-600 dark:text-green-400">
-            <PiggyBank size={18} />
-          </div>
-        );
-      case "withdrawal":
-        return (
-          <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/20 flex items-center justify-center text-amber-600 dark:text-amber-400">
-            <Wallet size={18} />
-          </div>
-        );
-      case "vote":
-        return (
-          <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center text-blue-600 dark:text-blue-400">
-            <VoteIcon size={18} />
-          </div>
-        );
-    }
-  };
+const icons = { deposit: ArrowDownLeft, withdrawal: ArrowUpRight, vote: Vote };
+const statusStyles = {
+  pending: "bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-200",
+  completed: "bg-accent text-accent-foreground",
+  rejected: "bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-200",
+};
 
-  const getStatusBadge = () => {
-    if (!status) return null;
-    
-    switch (status) {
-      case "pending":
-        return (
-          <div className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 text-xs font-medium">
-            Pending
-          </div>
-        );
-      case "completed":
-        return (
-          <div className="px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 text-xs font-medium">
-            Completed
-          </div>
-        );
-      case "rejected":
-        return (
-          <div className="px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-xs font-medium">
-            Rejected
-          </div>
-        );
-    }
-  };
+export default function ActivityItem({ type, title, description, amount, date, status, senderDetails }: ActivityItemProps) {
+  const Icon = icons[type];
 
   return (
-    <div className="flex items-start py-3 border-b last:border-b-0">
-      {getIcon()}
-      <div className="ml-3 flex-1">
-        <div className="flex justify-between">
-          <div>
-            <h4 className="font-medium text-sm">{title}</h4>
-            <p className="text-xs text-muted-foreground">{description}</p>
-            {senderDetails && <p className="text-xs text-muted-foreground mt-0.5">{senderDetails}</p>}
-          </div>
-          <div className="text-right">
-            <div className={`font-medium ${type === "deposit" ? "text-green-500" : ""}`}>{amount}</div>
-            <p className="text-xs text-muted-foreground">{date}</p>
-          </div>
-        </div>
-        {status && (
-          <div className="mt-2">
-            {getStatusBadge()}
-          </div>
-        )}
+    <div className="grid grid-cols-[auto_minmax(0,1fr)_minmax(0,auto)] items-start gap-3 border-b py-3.5 last:border-b-0 sm:items-center">
+      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-muted text-foreground">
+        <Icon size={18} aria-hidden="true" />
+      </span>
+      <div className="min-w-0">
+        <h4 className="break-words text-sm font-semibold">{title}</h4>
+        {description && <p className="mt-0.5 break-words text-xs text-muted-foreground">{description}</p>}
+        {senderDetails && <p className="mt-0.5 break-words text-xs text-muted-foreground">{senderDetails}</p>}
+        {status && <span className={cn("mt-1 inline-block rounded-md px-1.5 py-0.5 text-xs font-medium capitalize", statusStyles[status])}>{status}</span>}
+      </div>
+      <div className="min-w-0 text-right">
+        <p className={cn("break-words text-sm font-semibold tabular-nums", type === "deposit" && "text-primary")}>{amount}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{date}</p>
       </div>
     </div>
   );
-};
-
-export default ActivityItem;
+}

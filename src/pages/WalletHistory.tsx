@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/layout/Header";
+import CollectiPayReceipt from "@/components/receipt/CollectiPayReceipt";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ArrowDown, ArrowUp, HelpCircle, Wallet, Building, ExternalLink, Users, ArrowRight } from "lucide-react";
@@ -32,6 +33,8 @@ interface MonnifyTransaction {
   payerBankCode?: string;
   payerBankName?: string;
 }
+
+const getMetadata = (transaction: any) => transaction.metadata || transaction.metaData || {};
 
 const WalletHistory = () => {
   const navigate = useNavigate();
@@ -178,11 +181,6 @@ const WalletHistory = () => {
     }
   };
   
-  // Helper to get metadata field (handles both camelCase and snake_case)
-  const getMetadata = (transaction: any) => {
-    return transaction.metadata || transaction.metaData || {};
-  };
-  
   // Convert NGN to USD (simplified conversion rate)
   const convertToUSD = (amount: number) => {
     return amount / 1550; // Using a simplified conversion rate of 1 USD = 1550 NGN
@@ -225,7 +223,7 @@ const WalletHistory = () => {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Dashboard
           </Button>
-          <h1 className="text-2xl font-bold">Transaction History</h1>
+          <h1 className="app-page-title">Wallet history</h1>
           <p className="text-muted-foreground">View all your wallet transactions</p>
         </div>
         
@@ -233,11 +231,11 @@ const WalletHistory = () => {
           <TabsList className="app-segmented grid w-full grid-cols-2" aria-label="Wallet history sections">
             <TabsTrigger value="app">
               <Wallet className="h-4 w-4 mr-2" />
-              App Transactions
+              Wallet
             </TabsTrigger>
             <TabsTrigger value="bank">
               <Building className="h-4 w-4 mr-2" />
-              Bank Transactions
+              Bank account
             </TabsTrigger>
           </TabsList>
           
@@ -419,7 +417,7 @@ const WalletHistory = () => {
           <TabsContent value="bank" className="m-0 mt-6">
             <Card>
               <CardHeader>
-                <CardTitle>Bank Transactions</CardTitle>
+                <CardTitle>Bank account</CardTitle>
                 <CardDescription>
                   Transactions processed through your virtual bank account
                 </CardDescription>
@@ -517,145 +515,81 @@ const WalletHistory = () => {
         </Tabs>
       </main>
       
-      {/* Transaction Details Dialog */}
+      {/* Transaction Details / Native Receipt Dialog */}
       <Dialog open={isTransactionDetailsOpen} onOpenChange={setIsTransactionDetailsOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Transaction Details</DialogTitle>
+        <DialogContent className="max-h-[92dvh] max-w-md overflow-y-auto border-none bg-transparent p-2 shadow-none sm:p-4">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Transaction Receipt</DialogTitle>
             <DialogDescription>
-              Complete information about this transaction.
+              Complete receipt information for this transaction.
             </DialogDescription>
           </DialogHeader>
-          
-          {selectedTransaction && (
-            <div className="space-y-4 py-4">
-              <div className="flex justify-center mb-4">
-                <div className={`w-16 h-16 rounded-full flex items-center justify-center
-                  ${selectedTransaction.type === 'deposit' ? 'bg-green-100 text-[#2DAE75]' : 
-                    selectedTransaction.type === 'withdrawal' ? 'bg-amber-100 text-amber-600' :
-                    'bg-blue-100 text-blue-600'}`}>
-                  {selectedTransaction.type === 'deposit' ? (
-                    <ArrowDown size={24} />
-                  ) : selectedTransaction.type === 'withdrawal' ? (
-                    <ArrowUp size={24} />
-                  ) : (
-                    <HelpCircle size={24} />
-                  )}
-                </div>
-              </div>
-              
-              <div className="text-center mb-4">
-                <h3 className={`text-2xl font-bold ${
-                  selectedTransaction.type === 'deposit' ? 'text-[#2DAE75]' : 
-                  selectedTransaction.type === 'withdrawal' ? 'text-red-500' : ''
-                }`}>
-                  {selectedTransaction.type === 'deposit' ? '+' : 
-                  selectedTransaction.type === 'withdrawal' ? '-' : ''}
-                  ₦{selectedTransaction.amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                </h3>
-                <p className="text-muted-foreground text-sm">
-                  {formatDate(selectedTransaction.created_at)}
-                </p>
-              </div>
-              
-              <div className="space-y-3">
-                {(selectedTransaction.metaData?.balance_before !== undefined || selectedTransaction.metadata?.balance_before !== undefined) && (
-                   <div className="py-2 border-b bg-slate-50 dark:bg-slate-900 px-3 -mx-3 rounded mb-2">
-                    <p className="text-xs text-muted-foreground mb-1">Wallet Balance</p>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">
-                        ₦{(selectedTransaction.metaData?.balance_before ?? selectedTransaction.metadata?.balance_before).toLocaleString()}
-                      </span>
-                      <ArrowRight className="h-3 w-3 text-muted-foreground mx-2" />
-                      <span className="font-medium">
-                        ₦{(selectedTransaction.metaData?.balance_after ?? selectedTransaction.metadata?.balance_after).toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-                )}
-                
-                <div className="flex justify-between py-2 border-b">
-                  <span className="text-muted-foreground">Status</span>
-                  <span className="font-medium capitalize">{selectedTransaction.status || 'Unknown'}</span>
-                </div>
-                
-                <div className="flex justify-between py-2 border-b">
-                  <span className="text-muted-foreground">Type</span>
-                  <span className="font-medium capitalize">{selectedTransaction.type || 'Unknown'}</span>
-                </div>
-                
-                <div className="flex justify-between py-2 border-b">
-                  <span className="text-muted-foreground">Transaction ID</span>
-                  <span className="font-medium">{selectedTransaction.id ? selectedTransaction.id.slice(0, 8) : 'N/A'}</span>
-                </div>
-                
-                {selectedTransaction.type === 'deposit' && (() => {
-                  const meta = getMetadata(selectedTransaction);
-                  return (
-                  <>
-                    {(meta?.senderName || getSenderName(selectedTransaction) !== "Bank Transfer") && (
-                      <div className="flex justify-between py-2 border-b">
-                        <span className="text-muted-foreground">Sender</span>
-                        <span className="font-medium">{meta?.senderName || getSenderName(selectedTransaction)}</span>
-                      </div>
-                    )}
-                    
-                    {getSenderBank(selectedTransaction) && (
-                      <div className="flex justify-between py-2 border-b">
-                        <span className="text-muted-foreground">Bank</span>
-                        <span className="font-medium">{getSenderBank(selectedTransaction)}</span>
-                      </div>
-                    )}
-                    
-                    {meta?.payerEmail && (
-                      <div className="flex justify-between py-2 border-b">
-                        <span className="text-muted-foreground">Email</span>
-                        <span className="font-medium">{meta.payerEmail}</span>
-                      </div>
-                    )}
-                    
-                    {meta?.transactionReference && (
-                      <div className="flex justify-between py-2 border-b">
-                        <span className="text-muted-foreground">Reference</span>
-                        <span className="font-medium">{meta.transactionReference}</span>
-                      </div>
-                    )}
-                  </>
-                )})()}
-                
-                {selectedTransaction.contribution_id && (
-                  <div className="flex justify-between py-2 border-b bg-blue-50 dark:bg-blue-950/20 px-3 -mx-3 rounded">
-                    <span className="text-muted-foreground flex items-center gap-2">
-                      <Users className="h-4 w-4" />
-                      Group Contribution
-                    </span>
-                    <span className="font-medium">{groupNames[selectedTransaction.contribution_id] || "Group Transaction"}</span>
-                  </div>
-                )}
-                
-                {selectedTransaction.description && (
-                  <div className="flex justify-between py-2 border-b">
-                    <span className="text-muted-foreground">Description</span>
-                    <span className="font-medium">{selectedTransaction.description}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-          
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setIsTransactionDetailsOpen(false);
-              }}
-              type="button"
-            >
-              Close
-            </Button>
-          </DialogFooter>
+
+          {selectedTransaction && (() => {
+            const meta = getMetadata(selectedTransaction);
+            const rawType = String(selectedTransaction.type || "deposit").toLowerCase();
+            const receiptKind =
+              rawType === "deposit"
+                ? "deposit"
+                : rawType === "withdrawal"
+                ? "withdrawal"
+                : rawType === "refund"
+                ? "refund"
+                : selectedTransaction.contribution_id
+                ? "contribution"
+                : "transfer";
+
+            const senderName =
+              meta?.senderName ||
+              (rawType === "deposit" ? getSenderName(selectedTransaction) : user?.name || user?.email);
+            const senderBank = rawType === "deposit" ? getSenderBank(selectedTransaction) : undefined;
+            const groupTitle = selectedTransaction.contribution_id
+              ? groupNames[selectedTransaction.contribution_id] || "Group Pool"
+              : undefined;
+
+            return (
+              <CollectiPayReceipt
+                data={{
+                  kind: receiptKind,
+                  amount: Number(selectedTransaction.amount || 0),
+                  status: selectedTransaction.status || "completed",
+                  date: selectedTransaction.created_at,
+                  reference: meta?.transactionReference || selectedTransaction.reference_id || selectedTransaction.id,
+                  transactionId: selectedTransaction.id ? String(selectedTransaction.id).slice(0, 12) : undefined,
+                  groupName: groupTitle,
+                  paymentMethod:
+                    meta?.paymentMethod ||
+                    (rawType === "deposit" ? "Bank Transfer" : "CollectiPay Wallet"),
+                  narration: selectedTransaction.description || meta?.narration,
+                  balanceBefore:
+                    meta?.balance_before !== undefined ? Number(meta.balance_before) : undefined,
+                  balanceAfter:
+                    meta?.balance_after !== undefined ? Number(meta.balance_after) : undefined,
+                  sender: senderName
+                    ? {
+                        label: "From",
+                        name: senderName,
+                        subtitle: meta?.payerEmail || undefined,
+                        bankName: senderBank || undefined,
+                      }
+                    : undefined,
+                  recipient:
+                    groupTitle
+                      ? { label: "To Pool", name: groupTitle }
+                      : meta?.recipientName || meta?.account_name
+                      ? {
+                          label: "To",
+                          name: meta.recipientName || meta.account_name,
+                          subtitle: meta.accountNumber || meta.account_number,
+                          bankName: meta.bankName || meta.bank_name,
+                        }
+                      : undefined,
+                }}
+                onDone={() => setIsTransactionDetailsOpen(false)}
+                doneLabel="Close receipt"
+              />
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>

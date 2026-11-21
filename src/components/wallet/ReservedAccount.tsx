@@ -133,11 +133,11 @@ const ReservedAccount = () => {
   
   if (!accountDetails) {
     return (
-      <Card>
+      <Card className="rounded-[1.35rem]">
         <CardHeader>
-          <CardTitle>Virtual Account</CardTitle>
+          <CardTitle>Receive bank transfers</CardTitle>
           <CardDescription>
-            Create a dedicated virtual account for easy deposits
+            Set up a bank account to add money to your CollectiPay wallet.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col items-center justify-center py-8">
@@ -149,17 +149,12 @@ const ReservedAccount = () => {
             </div>
           ) : (
             <>
-              <div className="text-center mb-6">
-                <p className="text-muted-foreground mb-3">
-                  You don't have a virtual account yet. Create one to easily fund your wallet from any bank.
-                </p>
-              </div>
               <Button 
                 onClick={() => handleCreateAccount()} 
                 className="flex items-center gap-2"
               >
                 <Plus size={16} />
-                Create Virtual Account
+                Set up bank account
               </Button>
               
               {/* BVN Input Dialog */}
@@ -224,10 +219,10 @@ const ReservedAccount = () => {
   
   // Display account details
   return (
-    <Card>
+    <Card className="rounded-[1.35rem]">
       <CardHeader className="flex flex-row items-start justify-between pb-2">
         <div>
-          <CardTitle>Virtual Account</CardTitle>
+          <CardTitle>Deposit details</CardTitle>
           <CardDescription>
             Fund your wallet directly from any bank
           </CardDescription>
@@ -237,7 +232,7 @@ const ReservedAccount = () => {
           size="icon" 
           onClick={handleRefresh} 
           disabled={isLoading}
-          className="h-8 w-8"
+          aria-label="Refresh bank account details"
         >
           <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
         </Button>
