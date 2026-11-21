@@ -15,6 +15,7 @@ import { ContributionService } from "@/services/supabase/contributionService";
 import { WalletContributionService } from "@/services/supabase/walletContributionService";
 import Header from "@/components/layout/Header";
 import BrandLoader from "@/components/ui/BrandLoader";
+import { GroupRules } from "@/components/contribution/GroupRules";
 
 const ContributePage = () => {
   const { id } = useParams<{ id: string }>();
@@ -208,6 +209,8 @@ const ContributePage = () => {
             </div>
 
             <Separator />
+
+            <GroupRules group={contribution} />
 
             <div className="space-y-3">
               <Label htmlFor="amount">Contribution Amount (₦)</Label>

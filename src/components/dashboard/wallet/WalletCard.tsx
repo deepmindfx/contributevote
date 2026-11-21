@@ -192,19 +192,7 @@ const WalletCard = () => {
           <WalletActions 
             setIsDepositOpen={setIsDepositOpen}
             isDepositOpen={isDepositOpen}
-            setIsWithdrawOpen={setIsWithdrawOpen}
-            isWithdrawOpen={isWithdrawOpen}
-            amount={amount}
-            setAmount={setAmount}
-            onFundWallet={handleDeposit}
-            onWithdrawFunds={handleWithdraw}
-            depositMethod={depositMethod}
-            setDepositMethod={setDepositMethod}
-            isProcessingDeposit={isProcessingDeposit}
-            currencyType={currencyType}
-            user={user}
             setShowHistory={setShowHistory}
-            testChargeCompleted={testChargeCompleted}
           />
         ) : (
           <TransactionHistory 

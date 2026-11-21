@@ -4,7 +4,8 @@ import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { collectipayMark, getWorkspaceLink, workspaceLinks } from "./navigationItems";
+import { CollectiPayMark } from "@/components/ui/BrandLoader";
+import { getWorkspaceLink, workspaceLinks } from "./navigationItems";
 
 const mobileLinks = workspaceLinks.filter(({ mobileLabel }) => mobileLabel);
 const moneyLinks = [
@@ -51,8 +52,8 @@ export default function WorkspaceNavigation() {
     <>
       <aside className="workspace-sidebar">
         <Link to="/dashboard" className="app-brand workspace-brand">
-          <img src={collectipayMark} alt="" width="32" height="32" />
-          CollectiPay
+          <CollectiPayMark size={32} />
+          <span>CollectiPay</span>
         </Link>
         <Button asChild className="workspace-create gap-2">
           <Link to="/create-group"><Plus size={17} aria-hidden="true" /> Create group</Link>

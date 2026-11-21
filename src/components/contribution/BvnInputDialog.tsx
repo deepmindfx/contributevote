@@ -11,9 +11,10 @@ interface BvnInputDialogProps {
   onSubmit: (bvn: string) => void;
   isLoading?: boolean;
   initialBvn?: string | null;
+  accountFor?: "group" | "wallet";
 }
 
-export function BvnInputDialog({ open, onOpenChange, onSubmit, isLoading = false, initialBvn }: BvnInputDialogProps) {
+export function BvnInputDialog({ open, onOpenChange, onSubmit, isLoading = false, initialBvn, accountFor = "group" }: BvnInputDialogProps) {
   const [bvn, setBvn] = useState("");
   const savedBvn = initialBvn && /^\d{11}$/.test(initialBvn) ? initialBvn : "";
   const value = savedBvn || bvn;
@@ -36,7 +37,7 @@ export function BvnInputDialog({ open, onOpenChange, onSubmit, isLoading = false
         <DialogHeader>
           <DialogTitle>Set up a bank account</DialogTitle>
           <DialogDescription>
-            Members can transfer directly to this group. Flutterwave uses your BVN to verify the account.
+            {accountFor === "group" ? "Members can transfer directly to this group." : "Transfer from your bank to fund your wallet."} Flutterwave uses your BVN to verify the account.
           </DialogDescription>
         </DialogHeader>
         <form className="space-y-4" onSubmit={submit}>

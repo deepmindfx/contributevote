@@ -420,13 +420,13 @@ export const WalletContributionService = {
       }
 
       if (newStatus === 'approved') {
-        toast.success('🎉 Refund request approved!', {
+        toast.success('Refund request approved', {
           description: `${participationRate.toFixed(0)}% participated, ${approvalRate.toFixed(0)}% approved. Processing refunds...`
         });
         // Trigger refund processing
         await this.processRefund(refundRequestId);
       } else {
-        toast.success('✅ Vote recorded', {
+        toast.success('Vote recorded', {
           description: `${participationRate.toFixed(0)}% participated, ${approvalRate.toFixed(0)}% approval`
         });
       }

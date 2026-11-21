@@ -191,6 +191,141 @@
   color: #f7fff9;
 }
 
+/* Pooling-C Blueprint Receipt enhancements */
+.cp-receipt-hero {
+  position: relative;
+  overflow: hidden;
+}
+
+.cp-receipt-blueprint-grid {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  opacity: 0.25;
+  background-image:
+    linear-gradient(to right, rgba(214, 247, 134, 0.14) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(214, 247, 134, 0.14) 1px, transparent 1px);
+  background-size: 26px 26px;
+  mask-image: radial-gradient(circle at 50% 38%, black 10%, transparent 72%);
+  -webkit-mask-image: radial-gradient(circle at 50% 38%, black 10%, transparent 72%);
+}
+
+.cp-receipt-seal {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+}
+
+.cp-receipt-seal::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 9999px;
+  border: 1.5px solid rgba(214, 247, 134, 0.55);
+  animation: cp-notif-ring 2.4s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+.cp-route-track {
+  position: relative;
+  width: 2px;
+  height: 18px;
+  margin-left: 13px;
+  background: linear-gradient(180deg, #229f63, #0c3027);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.cp-route-pulse {
+  position: absolute;
+  left: -1px;
+  top: -6px;
+  width: 4px;
+  height: 8px;
+  border-radius: 9999px;
+  background: #dbf5b4;
+  animation: cp-route-flow 1.8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+/* Kinetic Notification System (Pooling-C pulse & sheet reveal) */
+.cp-notif-ping {
+  position: relative;
+}
+
+.cp-notif-ping::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 9999px;
+  border: 1.5px solid hsl(var(--primary) / 0.75);
+  animation: cp-notif-ring 2s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+.cp-notif-item {
+  animation: cp-item-in 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.cp-notif-header {
+  background:
+    repeating-radial-gradient(ellipse at 112% -70%, transparent 0 1.2rem, rgba(214, 247, 134, 0.09) 1.23rem 1.27rem),
+    linear-gradient(135deg, #10382d 0%, #0c3027 100%);
+  color: #f7fff9;
+}
+
+/* Floating CollectiPay Sonner Toast styling */
+.cp-toast {
+  border-radius: 1rem !important;
+  border: 1px solid hsl(var(--border)) !important;
+  background: hsl(var(--card) / 0.96) !important;
+  color: hsl(var(--foreground)) !important;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 16px 40px -16px rgba(7, 30, 37, 0.28) !important;
+}
+
+.cp-toast[data-type="success"] {
+  border-color: hsl(154 55% 42% / 0.35) !important;
+}
+
+.cp-toast[data-type="error"] {
+  border-color: hsl(0 72% 52% / 0.35) !important;
+}
+
+@keyframes cp-notif-ring {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.75;
+  }
+  75%,
+  100% {
+    transform: scale(1.75);
+    opacity: 0;
+  }
+}
+
+@keyframes cp-route-flow {
+  0% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+}
+
+@keyframes cp-item-in {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .brand-loader-stack {
   position: relative;
   z-index: 1;
@@ -461,6 +596,10 @@
   .brand-loader-overlay,
   .brand-loader-sheet,
   .brand-loader-step-dot,
+  .cp-notif-ping::after,
+  .cp-notif-item,
+  .cp-receipt-seal::after,
+  .cp-route-pulse,
   .cp-blueprint-ring,
   .cp-rim-gleam,
   .cp-ripple-1,

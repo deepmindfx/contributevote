@@ -1,26 +1,26 @@
 import { supabase } from '@/integrations/supabase/client';
 
-// Category definitions with icons
+// Category definitions (visual icons rendered via CategoryIcon component)
 export const CATEGORIES = [
-  { value: 'personal', label: 'Personal', icon: '👤' },
-  { value: 'family', label: 'Family', icon: '👨‍👩‍👧‍👦' },
-  { value: 'community', label: 'Community', icon: '🏘️' },
-  { value: 'business', label: 'Business', icon: '💼' },
-  { value: 'event', label: 'Event', icon: '🎉' },
-  { value: 'education', label: 'Education', icon: '📚' },
-  { value: 'charity', label: 'Charity', icon: '❤️' },
-  { value: 'health', label: 'Health', icon: '🏥' },
-  { value: 'travel', label: 'Travel', icon: '✈️' },
-  { value: 'investment', label: 'Investment', icon: '📈' },
-  { value: 'emergency', label: 'Emergency', icon: '🚨' },
-  { value: 'wedding', label: 'Wedding', icon: '💒' },
-  { value: 'birthday', label: 'Birthday', icon: '🎂' },
-  { value: 'funeral', label: 'Funeral', icon: '🕊️' },
-  { value: 'religious', label: 'Religious', icon: '🙏' },
-  { value: 'sports', label: 'Sports', icon: '⚽' },
-  { value: 'entertainment', label: 'Entertainment', icon: '🎭' },
-  { value: 'housing', label: 'Housing', icon: '🏠' },
-  { value: 'other', label: 'Other', icon: '📌' },
+  { value: 'personal', label: 'Personal', icon: 'user' },
+  { value: 'family', label: 'Family', icon: 'users' },
+  { value: 'community', label: 'Community', icon: 'building-2' },
+  { value: 'business', label: 'Business', icon: 'briefcase' },
+  { value: 'event', label: 'Event', icon: 'sparkles' },
+  { value: 'education', label: 'Education', icon: 'graduation-cap' },
+  { value: 'charity', label: 'Charity', icon: 'heart-handshake' },
+  { value: 'health', label: 'Health', icon: 'heart-pulse' },
+  { value: 'travel', label: 'Travel', icon: 'plane' },
+  { value: 'investment', label: 'Investment', icon: 'trending-up' },
+  { value: 'emergency', label: 'Emergency', icon: 'shield-alert' },
+  { value: 'wedding', label: 'Wedding', icon: 'gem' },
+  { value: 'birthday', label: 'Birthday', icon: 'cake' },
+  { value: 'funeral', label: 'Funeral', icon: 'flower-2' },
+  { value: 'religious', label: 'Religious', icon: 'landmark' },
+  { value: 'sports', label: 'Sports', icon: 'trophy' },
+  { value: 'entertainment', label: 'Entertainment', icon: 'ticket' },
+  { value: 'housing', label: 'Housing', icon: 'home' },
+  { value: 'other', label: 'Other', icon: 'layers' },
 ] as const;
 
 export type CategoryValue = typeof CATEGORIES[number]['value'];
@@ -201,10 +201,10 @@ export async function getGroupsSorted(
   }
 }
 
-// Get category icon
+// Get category icon key (render with <CategoryIcon category={...} />)
 export function getCategoryIcon(category: string): string {
   const cat = CATEGORIES.find((c) => c.value === category);
-  return cat?.icon || '📌';
+  return cat?.icon || 'layers';
 }
 
 // Get category label

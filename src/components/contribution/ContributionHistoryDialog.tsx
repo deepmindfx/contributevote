@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
@@ -7,14 +6,14 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { Skeleton } from '@/components/ui/skeleton';
-import { CheckCircle2, Clock, Download, Receipt, CalendarRange, ArrowUpRight, Wallet } from 'lucide-react';
+import { Clock, Download, Receipt, CalendarRange } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { PDFGenerator } from '@/utils/pdfGenerator';
-import { ModernReceipt, useReceiptDownload, type ReceiptData } from '@/components/receipt/ModernReceipt';
+import { useReceiptDownload } from '@/components/receipt/ModernReceipt';
+import CollectiPayReceipt, { type CollectiPayReceiptData } from '@/components/receipt/CollectiPayReceipt';
+import BrandLoader from '@/components/ui/BrandLoader';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface ContributionHistoryDialogProps {
@@ -38,9 +37,10 @@ export function ContributionHistoryDialog({
   const [loading, setLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
-  const [selectedReceipt, setSelectedReceipt] = useState<ReceiptData | null>(null);
+  const [selectedReceipt, setSelectedReceipt] = useState<CollectiPayReceiptData | null>(null);
+  const [groupStats, setGroupStats] = useState<{ raised: number; target: number } | undefined>(undefined);
   const receiptRef = useRef<HTMLDivElement>(null);
-  const { downloadAsImage, downloadAsPDF } = useReceiptDownload(receiptRef);
+  const { downloadAsPDF } = useReceiptDownload(receiptRef);
 
   useEffect(() => {
     if (open && contributorId) {
@@ -51,13 +51,26 @@ export function ContributionHistoryDialog({
   const loadContributions = async () => {
     try {
       setLoading(true);
-      
-      // Get contributor details
-      const { data: contributor, error: contributorError } = await supabase
-        .from('contributors')
-        .select('user_id, join_method, metadata, total_contributed, contribution_count, joined_at')
-        .eq('id', contributorId)
-        .single();
+
+      const [{ data: contributor, error: contributorError }, { data: groupData }] = await Promise.all([
+        supabase
+          .from('contributors')
+          .select('user_id, join_method, metadata, total_contributed, contribution_count, joined_at')
+          .eq('id', contributorId)
+          .single(),
+        supabase
+          .from('contribution_groups')
+          .select('current_amount, target_amount')
+          .eq('id', groupId)
+          .maybeSingle(),
+      ]);
+
+      if (groupData && Number(groupData.target_amount) > 0) {
+        setGroupStats({
+          raised: Number(groupData.current_amount || 0),
+          target: Number(groupData.target_amount || 0),
+        });
+      }
 
       if (contributorError || !contributor) {
         setContributions([]);
@@ -66,13 +79,12 @@ export function ContributionHistoryDialog({
 
       const contributorData = contributor as any;
 
-      // For bank transfers without user_id
       if (!contributorData.user_id && contributorData.join_method === 'bank_transfer') {
         const syntheticTransaction = {
           id: contributorId,
           amount: contributorData.total_contributed,
           created_at: contributorData.joined_at,
-          description: `Bank transfer from ${contributorData.metadata?.senderName || 'Unknown'}`,
+          description: `Bank transfer from ${contributorData.metadata?.senderName || 'Contributor'}`,
           payment_method: 'bank_transfer',
           reference_id: `BANK_${contributorId.substring(0, 8)}`,
           status: 'completed',
@@ -83,7 +95,6 @@ export function ContributionHistoryDialog({
         return;
       }
 
-      // For registered users
       if (contributorData.user_id) {
         const { data, error } = await supabase
           .from('transactions')
@@ -108,34 +119,41 @@ export function ContributionHistoryDialog({
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
+    return date.toLocaleDateString('en-NG', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
     });
   };
 
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
+  const handleOpenReceipt = (contribution: any) => {
+    const methodLabel = String(contribution.payment_method || 'CollectiPay Wallet')
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+
+    setSelectedReceipt({
+      kind: 'contribution',
+      title: 'Group Contribution',
+      amount: Number(contribution.amount || 0),
+      status: contribution.status || 'completed',
+      date: contribution.created_at,
+      reference: contribution.reference_id || `TX-${String(contribution.id).slice(0, 12).toUpperCase()}`,
+      groupName,
+      groupProgress: groupStats,
+      paymentMethod: methodLabel,
+      narration: contribution.description || undefined,
+      votingRightsGranted: contribution.status === 'completed' || contribution.status === 'successful',
+      sender: {
+        label: 'Contributor',
+        name: contributorName,
+        subtitle: methodLabel,
+      },
+      recipient: {
+        label: 'To Pool',
+        name: groupName,
+        subtitle: 'Group Contribution Vault',
+      },
     });
-  };
-
-  const handleDownloadSingleReceipt = (contribution: any) => {
-    const receiptData: ReceiptData = {
-      refNumber: contribution.reference_id || `TX_${contribution.id.substring(0, 12)}`,
-      paymentTime: formatDate(contribution.created_at) + ', ' + formatTime(contribution.created_at),
-      paymentMethod: (contribution.payment_method || 'Unknown').replace('_', ' '),
-      senderName: contributorName,
-      amount: contribution.amount.toLocaleString(),
-      currency: '₦',
-      groupName: groupName,
-      description: contribution.description || undefined,
-    };
-
-    setSelectedReceipt(receiptData);
     setShowReceiptModal(true);
   };
 
@@ -143,8 +161,7 @@ export function ContributionHistoryDialog({
     try {
       setIsGenerating(true);
       await downloadAsPDF();
-      toast.success('Receipt downloaded as PDF!');
-      setShowReceiptModal(false);
+      toast.success('Group receipt saved as PDF');
     } catch (error) {
       console.error('Error downloading PDF:', error);
       toast.error('Failed to download PDF');
@@ -153,24 +170,10 @@ export function ContributionHistoryDialog({
     }
   };
 
-  const handleDownloadImage = async () => {
-    try {
-      setIsGenerating(true);
-      await downloadAsImage();
-      toast.success('Receipt downloaded as image!');
-      setShowReceiptModal(false);
-    } catch (error) {
-      console.error('Error downloading image:', error);
-      toast.error('Failed to download image');
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
   const handleDownloadFullReport = () => {
     try {
       setIsGenerating(true);
-      const totalAmount = contributions.reduce((sum, c) => sum + c.amount, 0);
+      const totalAmount = contributions.reduce((sum, c) => sum + Number(c.amount || 0), 0);
       PDFGenerator.generateFullReport({
         contributorName,
         groupName,
@@ -179,7 +182,7 @@ export function ContributionHistoryDialog({
         totalAmount,
         contributionCount: contributions.length,
       });
-      toast.success('Full report downloaded successfully!');
+      toast.success('Full contribution report downloaded');
     } catch (error) {
       console.error('Error generating report:', error);
       toast.error('Failed to generate report');
@@ -188,8 +191,7 @@ export function ContributionHistoryDialog({
     }
   };
 
-  // Group contributions by month/year
-  const groupedContributions = contributions.reduce((acc: any, contribution) => {
+  const groupedContributions = contributions.reduce<Record<string, any[]>>((acc, contribution) => {
     const date = new Date(contribution.created_at);
     const key = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     if (!acc[key]) acc[key] = [];
@@ -200,29 +202,30 @@ export function ContributionHistoryDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-md md:max-w-lg p-0 gap-0 bg-zinc-50/50 dark:bg-zinc-950/50 backdrop-blur-xl border-white/20 overflow-hidden shadow-2xl">
-          {/* Header Area */}
-          <div className="p-6 bg-white dark:bg-zinc-900 border-b border-border/50">
-            <div className="flex items-start justify-between gap-4 mb-4">
+        <DialogContent className="max-w-md gap-0 overflow-hidden rounded-2xl border p-0 shadow-2xl md:max-w-lg">
+          <div className="border-b bg-card p-6">
+            <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <DialogTitle className="text-xl font-bold tracking-tight">
                   Contribution History
                 </DialogTitle>
-                <p className="text-sm text-muted-foreground mt-1">
+                <p className="mt-1 text-sm text-muted-foreground">
                   {contributorName} • {groupName}
                 </p>
               </div>
-              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-primary">
                 <Receipt className="h-5 w-5" />
               </div>
             </div>
 
             {!loading && contributions.length > 0 && (
-              <div className="flex items-center justify-between bg-zinc-50 dark:bg-zinc-800/50 p-3 rounded-lg border border-border/50">
+              <div className="flex items-center justify-between rounded-xl border bg-muted/40 p-3.5">
                 <div className="space-y-0.5">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Contributed</p>
-                  <p className="text-lg font-bold text-foreground">
-                    ₦{contributions.reduce((sum, c) => sum + c.amount, 0).toLocaleString()}
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Total Contributed
+                  </p>
+                  <p className="text-lg font-bold text-foreground tabular-nums">
+                    ₦{contributions.reduce((sum, c) => sum + Number(c.amount || 0), 0).toLocaleString()}
                   </p>
                 </div>
                 <Button
@@ -230,59 +233,49 @@ export function ContributionHistoryDialog({
                   disabled={isGenerating}
                   size="sm"
                   variant="outline"
-                  className="h-8 bg-white dark:bg-zinc-900 shadow-sm"
+                  className="h-9 rounded-xl bg-card shadow-sm"
                 >
-                  <Download className="h-3.5 w-3.5 mr-2" />
-                  Report
+                  <Download className="mr-1.5 h-3.5 w-3.5" />
+                  PDF Report
                 </Button>
               </div>
             )}
           </div>
 
-          {/* Scrollable Content */}
           <ScrollArea className="max-h-[60vh]">
-            <div className="p-6 space-y-8">
+            <div className="space-y-6 p-6">
               {loading ? (
-                <div className="space-y-4">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="flex gap-4">
-                      <Skeleton className="h-10 w-10 rounded-full flex-shrink-0" />
-                      <div className="space-y-2 flex-1">
-                        <Skeleton className="h-4 w-2/3" />
-                        <Skeleton className="h-3 w-1/3" />
-                      </div>
-                    </div>
-                  ))}
+                <div className="flex justify-center py-8">
+                  <BrandLoader variant="inline" message="Loading contributions…" />
                 </div>
               ) : contributions.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="h-16 w-16 bg-muted/50 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <CalendarRange className="h-8 w-8 text-muted-foreground/50" />
+                <div className="py-10 text-center">
+                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-muted/60">
+                    <CalendarRange className="h-7 w-7 text-muted-foreground/60" />
                   </div>
                   <h3 className="font-semibold text-foreground">No history found</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    This contributor hasn't made any verified contributions yet.
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    This contributor has not made any verified contributions yet.
                   </p>
                 </div>
               ) : (
-                Object.entries(groupedContributions).map(([dateGroup, items]: [string, any]) => (
+                Object.entries(groupedContributions).map(([dateGroup, items]) => (
                   <div key={dateGroup} className="relative">
-                    <div className="sticky top-0 z-10 bg-zinc-50/95 dark:bg-zinc-950/95 backdrop-blur py-1 mb-4 border-b border-border/50">
-                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    <div className="sticky top-0 z-10 mb-4 border-b bg-card/95 py-1 backdrop-blur">
+                      <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                         {dateGroup}
                       </h4>
                     </div>
-                    
-                    <div className="relative space-y-6 pl-4 border-l border-border/50 ml-2">
+
+                    <div className="relative ml-2 space-y-5 border-l border-border pl-4">
                       {items.map((contribution: any) => (
-                        <div key={contribution.id} className="relative group">
-                          {/* Timeline Dot */}
-                          <div className="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full border-2 border-primary bg-background z-10 group-hover:scale-125 transition-transform" />
-                          
+                        <div key={contribution.id} className="group relative">
+                          <div className="absolute -left-[21px] top-1.5 z-10 h-2.5 w-2.5 rounded-full border-2 border-primary bg-background transition-transform group-hover:scale-125" />
+
                           <div className="flex items-start justify-between gap-4 pl-2">
-                            <div className="space-y-1 min-w-0">
-                              <p className="font-medium text-sm text-foreground truncate">
-                                {contribution.description || 'Contribution'}
+                            <div className="min-w-0 space-y-1">
+                              <p className="truncate text-sm font-semibold text-foreground">
+                                {contribution.description || 'Group Contribution'}
                               </p>
                               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                 <span className="flex items-center gap-1">
@@ -290,33 +283,35 @@ export function ContributionHistoryDialog({
                                   {formatDate(contribution.created_at)}
                                 </span>
                                 <span>•</span>
-                                <span className="capitalize">{contribution.payment_method?.replace('_', ' ') || 'Unknown'}</span>
+                                <span className="capitalize">
+                                  {contribution.payment_method?.replace(/_/g, ' ') || 'Wallet'}
+                                </span>
                               </div>
                             </div>
-                            
-                            <div className="flex flex-col items-end gap-1">
-                              <span className="font-bold text-sm">
-                                ₦{contribution.amount.toLocaleString()}
+
+                            <div className="flex flex-col items-end gap-1.5">
+                              <span className="text-sm font-bold tabular-nums">
+                                ₦{Number(contribution.amount || 0).toLocaleString()}
                               </span>
-                              
-                              <div className="flex items-center gap-2">
-                                {contribution.status === 'completed' ? (
-                                  <Badge variant="outline" className="h-5 px-1.5 text-[10px] border-green-200 bg-green-50 text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400">
-                                    Success
-                                  </Badge>
-                                ) : (
-                                  <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
-                                    {contribution.status}
-                                  </Badge>
-                                )}
-                                
-                                <Button
-                                  onClick={() => handleDownloadSingleReceipt(contribution)}
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6 text-muted-foreground hover:text-primary"
+
+                              <div className="flex items-center gap-1.5">
+                                <Badge
+                                  variant="outline"
+                                  className="h-5 border-primary/25 bg-accent px-1.5 text-[10px] font-semibold text-accent-foreground"
                                 >
-                                  <Receipt className="h-3.5 w-3.5" />
+                                  {contribution.status === 'completed' || contribution.status === 'successful'
+                                    ? 'Success'
+                                    : contribution.status}
+                                </Badge>
+
+                                <Button
+                                  onClick={() => handleOpenReceipt(contribution)}
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 rounded-lg px-2 text-xs font-semibold text-primary hover:bg-accent"
+                                >
+                                  <Receipt className="mr-1 h-3.5 w-3.5" />
+                                  Receipt
                                 </Button>
                               </div>
                             </div>
@@ -332,34 +327,20 @@ export function ContributionHistoryDialog({
         </DialogContent>
       </Dialog>
 
-      {/* Modern Receipt Modal */}
+      {/* Flagship CollectiPay Group Receipt Modal */}
       {showReceiptModal && selectedReceipt && (
         <Dialog open={showReceiptModal} onOpenChange={setShowReceiptModal}>
-          <DialogContent className="max-w-sm p-0 bg-transparent border-none shadow-none sm:max-w-sm">
-            <div className="relative">
-              <ModernReceipt
-                ref={receiptRef}
-                data={selectedReceipt}
-                onDownload={() => {}} // Handled by external buttons
-              />
-
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <Button
-                  onClick={handleDownloadImage}
-                  disabled={isGenerating}
-                  className="w-full bg-white text-black hover:bg-white/90"
-                >
-                  {isGenerating ? 'Saving...' : 'Save Image'}
-                </Button>
-                <Button
-                  onClick={handleDownloadPDF}
-                  disabled={isGenerating}
-                  className="w-full bg-primary text-primary-foreground"
-                >
-                  {isGenerating ? 'Saving...' : 'Save PDF'}
-                </Button>
-              </div>
-            </div>
+          <DialogContent className="max-h-[92dvh] max-w-md overflow-y-auto border-none bg-transparent p-2 shadow-none sm:p-4">
+            <DialogHeader className="sr-only">
+              <DialogTitle>Group Contribution Receipt</DialogTitle>
+            </DialogHeader>
+            <CollectiPayReceipt
+              sheetRef={receiptRef}
+              data={selectedReceipt}
+              onDownloadPdf={handleDownloadPDF}
+              onDone={() => setShowReceiptModal(false)}
+              doneLabel="Done"
+            />
           </DialogContent>
         </Dialog>
       )}

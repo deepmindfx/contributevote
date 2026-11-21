@@ -5,8 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { WalletContributionService } from '@/services/supabase/walletContributionService';
 import { useSupabaseUser } from '@/contexts/SupabaseUserContext';
-import { Calendar, Loader2, Clock } from 'lucide-react';
+import { Calendar, Loader2, Clock, Wallet, Timer, Zap, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
+import BrandLoader from '@/components/ui/BrandLoader';
 
 interface ScheduledContributionDialogProps {
   groupId: string;
@@ -103,6 +104,15 @@ export function ScheduledContributionDialog({ groupId, groupName, onSuccess }: S
   const daysUntil = getDaysUntil();
 
   return (
+    <>
+    {isProcessing && (
+      <BrandLoader
+        variant="overlay"
+        badge="Scheduled Contribution"
+        message={`Scheduling ₦${parseFloat(amount || '0').toLocaleString()}`}
+        submessage={`Queuing automatic deposit for ${groupName}…`}
+      />
+    )}
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
@@ -200,30 +210,46 @@ export function ScheduledContributionDialog({ groupId, groupName, onSuccess }: S
 
           {/* Preview */}
           {amount && scheduledDate && daysUntil !== null && daysUntil > 0 && (
-            <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg">
-              <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
-                <Clock className="h-4 w-4" />
+            <div className="rounded-xl border bg-accent/45 p-4">
+              <h4 className="mb-2 flex items-center gap-2 text-sm font-semibold">
+                <Clock className="h-4 w-4 text-primary" />
                 Scheduled Summary
               </h4>
-              <ul className="text-sm space-y-1 text-muted-foreground">
-                <li>💰 Amount: ₦{parseFloat(amount).toLocaleString()}</li>
-                <li>📅 Date: {new Date(`${scheduledDate}T${get24HourTime()}`).toLocaleDateString('en-US', { 
-                  weekday: 'long', 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric' 
-                })}</li>
-                <li>🕐 Time: {hours}:{minutes} {period}</li>
-                <li>⏰ In {daysUntil} {daysUntil === 1 ? 'day' : 'days'}</li>
-                <li>⚡ Will be deducted from your wallet</li>
+              <ul className="space-y-1.5 text-sm text-muted-foreground">
+                <li className="flex items-center gap-2">
+                  <Wallet className="h-4 w-4 shrink-0 text-primary" />
+                  <span>Amount: <strong className="text-foreground tabular-nums">₦{parseFloat(amount).toLocaleString()}</strong></span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 shrink-0 text-primary" />
+                  <span>Date: {new Date(`${scheduledDate}T${get24HourTime()}`).toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 shrink-0 text-primary" />
+                  <span>Time: {hours}:{minutes} {period}</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Timer className="h-4 w-4 shrink-0 text-primary" />
+                  <span>In {daysUntil} {daysUntil === 1 ? 'day' : 'days'}</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Zap className="h-4 w-4 shrink-0 text-primary" />
+                  <span>Automatic deduction from your wallet</span>
+                </li>
               </ul>
             </div>
           )}
 
           {/* Warning */}
-          <div className="bg-yellow-50 dark:bg-yellow-950 p-3 rounded-lg">
-            <p className="text-xs text-yellow-800 dark:text-yellow-200">
-              ⚠️ Ensure you have ₦{amount || '0'} in your wallet on the scheduled date
+          <div className="flex items-start gap-2.5 rounded-xl border border-amber-200/80 bg-amber-50/80 p-3 dark:border-amber-900/60 dark:bg-amber-950/30">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <p className="text-xs text-amber-900 dark:text-amber-200">
+              Ensure you have ₦{amount || '0'} in your wallet on the scheduled date.
             </p>
           </div>
 
@@ -249,5 +275,6 @@ export function ScheduledContributionDialog({ groupId, groupName, onSuccess }: S
         </div>
       </DialogContent>
     </Dialog>
+    </>
   );
 }

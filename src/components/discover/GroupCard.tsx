@@ -3,7 +3,8 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Users, Calendar, Target, CheckCircle2, ArrowUpRight } from 'lucide-react';
-import { getCategoryIcon, getCategoryLabel } from '@/services/supabase/groupEnhancementService';
+import { getCategoryLabel } from '@/services/supabase/groupEnhancementService';
+import CategoryIcon from '@/components/ui/CategoryIcon';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -78,10 +79,10 @@ export default function GroupCard({ group }: GroupCardProps) {
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2.5">
             <span
-              className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-accent text-xl"
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-accent text-primary"
               aria-hidden="true"
             >
-              {getCategoryIcon(group.category)}
+              <CategoryIcon category={group.category} size={20} />
             </span>
             <div className="min-w-0">
               <span className="block text-[11px] font-semibold uppercase tracking-wide text-primary">

@@ -16,6 +16,7 @@ import { WalletContributionService } from "@/services/supabase/walletContributio
 import Header from "@/components/layout/Header";
 import BrandLoader from "@/components/ui/BrandLoader";
 import AccountNumberDisplay from "@/components/contributions/AccountNumberDisplay";
+import { GroupRules } from "@/components/contribution/GroupRules";
 
 const ContributeSharePage = () => {
   const { id } = useParams<{ id: string }>();
@@ -40,9 +41,11 @@ const ContributeSharePage = () => {
           .from("contribution_groups")
           .select("*")
           .eq("id", id)
+          .eq("privacy", "public")
+          .eq("status", "active")
           .single();
 
-        if (!error && data) {
+        if (!error && data && !data.archived) {
           setContribution(data);
           if (data.contribution_amount) {
             setAmount(Number(data.contribution_amount));
@@ -203,6 +206,8 @@ const ContributeSharePage = () => {
             </div>
 
             <Separator />
+
+            <GroupRules group={contribution} />
 
             {contribution.account_number && (
               <>

@@ -10,8 +10,6 @@ import {
   Archive,
   ArchiveRestore,
   Building2,
-  Globe,
-  Lock,
   ChevronDown,
   ChevronRight,
 } from 'lucide-react';
@@ -21,7 +19,6 @@ import { useSupabaseContribution } from '@/contexts/SupabaseContributionContext'
 import {
   archiveGroup,
   unarchiveGroup,
-  getCategoryIcon,
   getCategoryLabel,
 } from '@/services/supabase/groupEnhancementService';
 import { createGroupVirtualAccount } from '@/services/flutterwave/virtualAccounts';
@@ -37,6 +34,7 @@ import { ShareableBankCard } from '@/components/contribution/ShareableBankCard';
 import { ShareGroupButton } from '@/components/contribution/ShareGroupButton';
 import { InviteMembersDialog } from '@/components/contribution/InviteMembersDialog';
 import { BvnInputDialog } from '@/components/contribution/BvnInputDialog';
+import { GroupRules } from '@/components/contribution/GroupRules';
 import { useVotingRights } from '@/hooks/useVotingRights';
 import Header from '@/components/layout/Header';
 import BrandLoader from '@/components/ui/BrandLoader';
@@ -268,7 +266,7 @@ export default function GroupDetail() {
   const currentAmount = Number(group.current_amount || 0);
   const targetAmount = Number(group.target_amount || 0);
   const progress = targetAmount > 0 ? Math.min(100, Math.max(0, (currentAmount / targetAmount) * 100)) : 0;
-  const isActive = group.status === 'active';
+  const isActive = group.status === 'active' && !group.archived;
   const isPublic = group.privacy === 'public';
   const accountNumber = group.account_number || group.bank_details?.accountNumber;
   const canManage = isCreator || isAdmin;
@@ -294,55 +292,49 @@ export default function GroupDetail() {
 
       <Header mobilePanel />
 
-      <main className="app-page app-panel-page max-w-5xl">
-        <section className="app-panel-hero" aria-labelledby="group-title">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <Button asChild variant="ghost" className="app-panel-secondary gap-2">
+      <main className="app-page app-panel-page max-w-4xl">
+        <section className="app-panel-hero group-detail-hero" aria-labelledby="group-title">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-1.5 sm:mb-4">
+            <Button asChild variant="ghost" className="group-detail-back gap-1.5 px-0">
               <Link to="/all-groups"><ArrowLeft size={16} aria-hidden="true" /> My groups</Link>
             </Button>
             <div className="app-panel-tools flex flex-wrap gap-2">
               {isPublic && <ShareGroupButton groupId={group.id} groupName={group.name} groupDescription={group.description || ""} />}
-              {!isPublic && isCreator && <InviteMembersDialog groupId={group.id} groupName={group.name} userId={user.id} privacy={group.privacy} />}
+              {!isPublic && isCreator && isActive && <InviteMembersDialog key={group.id} groupId={group.id} groupName={group.name} />}
             </div>
           </div>
-          <div className="panel-kicker flex flex-wrap items-center gap-2 text-sm">
-            <span>{getCategoryIcon(group.category)} {getCategoryLabel(group.category)}</span>
-            <span aria-hidden="true">·</span>
-            <span className="panel-kicker inline-flex items-center gap-1.5">
-              {isPublic ? <Globe size={15} aria-hidden="true" /> : <Lock size={15} aria-hidden="true" />}
-              {isPublic ? "Public" : "Private"}
-            </span>
-            {(group.archived || !isActive) && <span className="rounded-full bg-white/15 px-3 py-1 capitalize">{group.archived ? "Archived" : group.status}</span>}
-          </div>
-          <h1 id="group-title" className="app-page-title mt-2">{group.name}</h1>
+          <p className="panel-kicker text-sm">
+            {isPublic ? "Public" : "Private"} · {getCategoryLabel(group.category)}
+            {!isActive && ` · ${group.archived ? "Archived" : group.status}`}
+          </p>
+          <h1 id="group-title" className="app-page-title mt-1">{group.name}</h1>
 
-          <div className="mt-5">
-            <p className="panel-kicker text-sm font-medium">Total raised</p>
-            <div className="mt-1 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-              <p className="break-words text-[clamp(2rem,7.5vw,3.1rem)] font-semibold leading-tight tracking-[-.055em] tabular-nums">₦{currentAmount.toLocaleString()}</p>
-              <p className="panel-kicker text-sm tabular-nums">of ₦{targetAmount.toLocaleString()} goal</p>
+          <div className="mt-3 sm:mt-5">
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+              <p className="break-words text-[clamp(1.65rem,6.8vw,2.9rem)] font-semibold leading-tight tracking-[-.045em] tabular-nums">₦{currentAmount.toLocaleString()}</p>
+              <p className="panel-kicker text-sm tabular-nums">raised of ₦{targetAmount.toLocaleString()}</p>
             </div>
-            <div className="mb-2 mt-3 h-2 overflow-hidden rounded-full bg-white/15" role="progressbar" aria-label="Group funding progress" aria-valuenow={Math.round(progress)}>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/15" role="progressbar" aria-label="Group funding progress" aria-valuenow={Math.round(progress)}>
               <div className="h-full rounded-full bg-[#dcf6b8]" style={{ width: progress + "%" }} />
             </div>
-            <p className="panel-kicker text-sm tabular-nums">{progress >= 100 ? "Goal reached" : `${progress.toFixed(0)}% funded`}</p>
           </div>
         </section>
 
         <div className="app-panel-body space-y-4">
           {(isActive || accountNumber || isCreator) && (
             <div className="group-detail-actions">
-              {isActive && <ContributeButton groupId={group.id} groupName={group.name} onSuccess={handleContributeSuccess} className="h-12 w-full sm:w-auto" />}
+              {isActive && <ContributeButton groupId={group.id} groupName={group.name} rules={group} onSuccess={handleContributeSuccess} className="h-11 w-full sm:w-auto" />}
               {accountNumber ? (
                 <Dialog>
                   <DialogTrigger asChild>
-                    <Button variant="outline" className="h-12 gap-2 rounded-xl">
+                    <Button variant="outline" className="h-11 gap-2 rounded-xl">
                       <Building2 size={16} aria-hidden="true" /> Bank details
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="p-2 pt-14 sm:p-3 sm:pt-14">
                     <DialogTitle className="sr-only">Group bank details</DialogTitle>
                     <DialogDescription className="sr-only">Copy or share the account details for this group.</DialogDescription>
+                    <div className="px-2 pb-1"><GroupRules group={group} /></div>
                     <ShareableBankCard
                       groupName={group.name}
                       accountNumber={accountNumber}
@@ -352,7 +344,7 @@ export default function GroupDetail() {
                   </DialogContent>
                 </Dialog>
               ) : isCreator && (
-                <Button variant="outline" className="h-12 gap-2 rounded-xl" onClick={() => setShowBvnDialog(true)} disabled={isCreatingAccount}>
+                <Button variant="outline" className="h-11 gap-2 rounded-xl" onClick={() => setShowBvnDialog(true)} disabled={isCreatingAccount}>
                   <Building2 size={16} aria-hidden="true" /> Bank setup
                 </Button>
               )}
@@ -369,40 +361,18 @@ export default function GroupDetail() {
               {canManage && <TabsTrigger value="manage">Manage</TabsTrigger>}
             </TabsList>
 
-            <TabsContent value="overview" className="mt-4">
+            <TabsContent value="overview" className="mt-3">
               <Card className="rounded-2xl px-4 sm:px-5">
-                <div className="py-4">
-                  <h2 className="app-section-title">Group details</h2>
-                  {group.description && <p className="mt-1 break-words text-sm leading-relaxed text-muted-foreground">{group.description}</p>}
-                </div>
-                <dl className="group-detail-summary divide-y text-sm">
-                  {Number(group.contribution_amount) > 0 && (
-                    <div>
-                      <dt>Amount per member</dt>
-                      <dd>₦{Number(group.contribution_amount).toLocaleString()}</dd>
-                    </div>
-                  )}
-                  <div>
-                    <dt>Schedule</dt>
-                    <dd className="capitalize">{group.frequency || "Flexible"}</dd>
-                  </div>
-                  <div>
-                    <dt>Deadline</dt>
-                    <dd>{group.end_date ? new Date(group.end_date).toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" }) : "No deadline"}</dd>
-                  </div>
-                  <div>
-                    <dt>Withdrawal approval</dt>
-                    <dd>{group.enable_voting_rights ? "Member vote" : "Group admin"}</dd>
-                  </div>
-                </dl>
+                <details>
+                  <summary className="app-disclosure">
+                    <span className="font-semibold">Group rules</span>
+                    <ChevronDown size={16} aria-hidden="true" />
+                  </summary>
+                  <div className="pb-4"><GroupRules group={group} showTitle={false} /></div>
+                </details>
                 {group.enable_voting_rights && (
                   <Link className="group-detail-link" to="/votes">
-                    <span>
-                      <span className="block font-semibold">View votes</span>
-                      <span className="block text-xs text-muted-foreground">
-                        {canVote ? (group.voting_threshold || 60) + "% approval required" : "Contribute to become eligible to vote"}
-                      </span>
-                    </span>
+                    <span className="font-semibold">View votes</span>
                     <ChevronRight size={16} aria-hidden="true" />
                   </Link>
                 )}
@@ -422,6 +392,9 @@ export default function GroupDetail() {
             </TabsContent>
 
             <TabsContent value="members" className="mt-4">
+              {isPublic && isCreator && isActive && (
+                <div className="mb-3 flex justify-end"><InviteMembersDialog key={group.id} groupId={group.id} groupName={group.name} /></div>
+              )}
               <ContributorsList groupId={group.id} />
             </TabsContent>
 

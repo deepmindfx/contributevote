@@ -300,13 +300,6 @@ body {
   --currency-current: #104e3b;
 }
 
-.currency-selector legend {
-  margin-bottom: .22rem;
-  color: var(--currency-idle);
-  font-size: .68rem;
-  font-weight: 600;
-}
-
 .currency-options {
   display: inline-flex;
   gap: .125rem;

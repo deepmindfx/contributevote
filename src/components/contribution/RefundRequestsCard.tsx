@@ -5,9 +5,10 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { WalletContributionService, GroupRefundRequest } from '@/services/supabase/walletContributionService';
 import { useSupabaseUser } from '@/contexts/SupabaseUserContext';
-import { ThumbsUp, ThumbsDown, Clock, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, Clock, CheckCircle, CheckCircle2, XCircle, Loader2, BarChart3, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import BrandLoader from '@/components/ui/BrandLoader';
 
 interface RefundRequestsCardProps {
   groupId: string;
@@ -143,9 +144,9 @@ export function RefundRequestsCard({ groupId }: RefundRequestsCardProps) {
 
   if (loading) {
     return (
-      <Card>
+      <Card className="rounded-[1.35rem]">
         <CardContent className="flex items-center justify-center py-8">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <BrandLoader variant="inline" message="Loading refund votes…" />
         </CardContent>
       </Card>
     );
@@ -156,7 +157,16 @@ export function RefundRequestsCard({ groupId }: RefundRequestsCardProps) {
   }
 
   return (
-    <Card>
+    <>
+    {votingOn && (
+      <BrandLoader
+        variant="overlay"
+        badge="Governance Vote"
+        message="Recording your vote"
+        submessage="Updating group refund consensus…"
+      />
+    )}
+    <Card className="rounded-[1.35rem]">
       <CardHeader>
         <CardTitle>Refund Requests</CardTitle>
         <CardDescription>
@@ -235,8 +245,9 @@ export function RefundRequestsCard({ groupId }: RefundRequestsCardProps) {
                   {/* Participation Progress */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground font-medium">
-                        📊 Participation: {request.votes?.length || 0} of {request.total_eligible_voters} voted
+                      <span className="inline-flex items-center gap-1.5 font-medium text-muted-foreground">
+                        <BarChart3 className="h-4 w-4 text-primary" />
+                        Participation: {request.votes?.length || 0} of {request.total_eligible_voters} voted
                       </span>
                       <span className={`font-bold ${
                         getParticipationPercentage(request) >= 70 
@@ -255,7 +266,10 @@ export function RefundRequestsCard({ groupId }: RefundRequestsCardProps) {
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span>Need 70% to proceed</span>
                       {getParticipationPercentage(request) >= 70 ? (
-                        <span className="text-green-600 font-medium">✓ Threshold met</span>
+                        <span className="inline-flex items-center gap-1 font-medium text-green-600">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          Threshold met
+                        </span>
                       ) : (
                         <span className="text-orange-600">
                           {Math.ceil(request.total_eligible_voters * 0.7) - (request.votes?.length || 0)} more needed
@@ -267,8 +281,9 @@ export function RefundRequestsCard({ groupId }: RefundRequestsCardProps) {
                   {/* Approval Progress */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground font-medium">
-                        ✅ Approval: {request.total_votes_for || 0} of {request.votes?.length || 0} voted "For"
+                      <span className="inline-flex items-center gap-1.5 font-medium text-muted-foreground">
+                        <ShieldCheck className="h-4 w-4 text-primary" />
+                        Approval: {request.total_votes_for || 0} of {request.votes?.length || 0} voted "For"
                       </span>
                       <span className={`font-bold ${
                         votePercentage >= 60 
@@ -284,7 +299,10 @@ export function RefundRequestsCard({ groupId }: RefundRequestsCardProps) {
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span>Need 60% approval</span>
                       {votePercentage >= 60 ? (
-                        <span className="text-green-600 font-medium">✓ Threshold met</span>
+                        <span className="inline-flex items-center gap-1 font-medium text-green-600">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          Threshold met
+                        </span>
                       ) : (
                         <span className="text-orange-600">
                           {Math.ceil((request.votes?.length || 0) * 0.6) - (request.total_votes_for || 0)} more "For" votes needed
@@ -371,26 +389,29 @@ export function RefundRequestsCard({ groupId }: RefundRequestsCardProps) {
 
               {/* Approved/Executed Status */}
               {request.status === 'approved' && (
-                <div className="bg-green-50 dark:bg-green-950 p-3 rounded-lg">
-                  <p className="text-sm text-green-800 dark:text-green-200">
-                    ✅ Refund approved! Processing refunds to all contributors...
+                <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900 dark:bg-emerald-950/40">
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                  <p className="text-sm text-emerald-900 dark:text-emerald-200">
+                    Refund approved. Processing refunds to all contributors…
                   </p>
                 </div>
               )}
 
               {request.status === 'executed' && request.execution_details && (
-                <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg">
-                  <p className="text-sm text-blue-800 dark:text-blue-200">
-                    ✅ Refund completed! ₦{(request.execution_details as any).total_refunded?.toLocaleString()} 
+                <div className="flex items-center gap-2 rounded-xl border border-primary/25 bg-accent/60 p-3">
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
+                  <p className="text-sm text-foreground">
+                    Refund completed: <strong className="tabular-nums">₦{(request.execution_details as any).total_refunded?.toLocaleString()}</strong>{' '}
                     refunded to {(request.execution_details as any).refunds_processed} contributors
                   </p>
                 </div>
               )}
 
               {request.status === 'rejected' && (
-                <div className="bg-red-50 dark:bg-red-950 p-3 rounded-lg">
-                  <p className="text-sm text-red-800 dark:text-red-200">
-                    ❌ Refund request was rejected by the group
+                <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950/40">
+                  <XCircle className="h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
+                  <p className="text-sm text-red-900 dark:text-red-200">
+                    Refund request was rejected by the group
                   </p>
                 </div>
               )}
@@ -399,5 +420,6 @@ export function RefundRequestsCard({ groupId }: RefundRequestsCardProps) {
         })}
       </CardContent>
     </Card>
+    </>
   );
 }

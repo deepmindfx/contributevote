@@ -28,6 +28,9 @@ export const GroupJoinService = {
         };
       }
 
+      if (group.status !== "active" || group.archived) {
+        return { success: false, error: "This group is no longer accepting members." };
+      }
       if (group.privacy !== 'public') {
         return {
           success: false,
@@ -98,13 +101,13 @@ export const GroupJoinService = {
     try {
       const { data: group, error } = await supabase
         .from('contribution_groups')
-        .select('*, contributors(count)')
+        .select('*')
         .eq('id', groupId)
         .eq('privacy', 'public')
         .single();
 
       if (error) throw error;
-      return group;
+      return group.status === "active" && !group.archived ? group : null;
     } catch (error) {
       console.error('Error getting public group info:', error);
       return null;
@@ -123,13 +126,13 @@ export const GroupJoinService = {
    * Generate share text for social media
    */
   generateShareText(groupName: string, groupDescription: string, shareLink: string): string {
-    return `🎯 Join "${groupName}" on Collectipay!
+    return `Join "${groupName}" on CollectiPay
 
 ${groupDescription}
 
-Click to join and start contributing:
+Open this link to join and contribute:
 ${shareLink}
 
-Powered by Collectipay 🚀`;
+Powered by CollectiPay`;
   }
 };

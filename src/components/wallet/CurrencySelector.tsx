@@ -17,7 +17,7 @@ export function CurrencySelector({ value, onChange, onDark = false }: {
 
   return (
     <fieldset className={cn("currency-selector", onDark && "currency-selector-dark")}>
-      <legend>Display currency</legend>
+      <legend className="sr-only">Display currency</legend>
       <div className="currency-options">
         {currencies.map(({ code, symbol }) => (
           <label key={code} className="currency-option">

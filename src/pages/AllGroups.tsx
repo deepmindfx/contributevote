@@ -31,9 +31,9 @@ import { format, isValid, parseISO } from "date-fns";
 import {
   getGroupsSorted,
   CATEGORIES,
-  getCategoryIcon,
   getCategoryLabel,
 } from "@/services/supabase/groupEnhancementService";
+import CategoryIcon from "@/components/ui/CategoryIcon";
 
 const ITEMS_PER_PAGE = 9;
 
@@ -172,7 +172,14 @@ const AllGroups = () => {
                       <SelectTrigger id="group-category-filter"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All categories</SelectItem>
-                        {CATEGORIES.map((category) => <SelectItem key={category.value} value={category.value}>{category.icon} {category.label}</SelectItem>)}
+                        {CATEGORIES.map((category) => (
+                          <SelectItem key={category.value} value={category.value}>
+                            <span className="inline-flex items-center gap-2">
+                              <CategoryIcon category={category.value} size={14} className="text-primary" />
+                              {category.label}
+                            </span>
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -254,10 +261,10 @@ const AllGroups = () => {
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-2.5">
                             <span
-                              className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-accent text-xl"
+                              className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-accent text-primary"
                               aria-hidden="true"
                             >
-                              {getCategoryIcon(contribution.category)}
+                              <CategoryIcon category={contribution.category} size={20} />
                             </span>
                             <div className="min-w-0">
                               <span className="inline-block text-[11px] font-semibold uppercase tracking-wide text-primary">

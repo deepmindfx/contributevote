@@ -1,6 +1,6 @@
 import { Activity, Compass, Home, Settings, UserRound, Users, Vote, Wallet } from "lucide-react";
 
-export const collectipayMark = "/lovable-uploads/91e5c361-b912-4a7e-bcf3-4602a512cb51.png";
+export const collectipayMark = "/collectipay-mark.svg";
 
 export const workspaceLinks = [
   { to: "/dashboard", label: "Overview", mobileLabel: "Home", icon: Home },
@@ -15,6 +15,7 @@ export const workspaceLinks = [
 export function getWorkspaceLink(pathname: string) {
   const path = pathname.toLowerCase().replace(/\/$/, "");
   if (path.startsWith("/groups/") || path === "/create-group") return workspaceLinks[1];
+  if (path === "/transfer") return workspaceLinks[0];
   if (path === "/profile") return workspaceLinks.find((link) => link.to === "/settings");
   return workspaceLinks.find((link) => link.to === path);
 }

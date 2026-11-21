@@ -1,0 +1,72 @@
+{
+  "id": "/",
+  "name": "CollectiPay — Save together. Decide together.",
+  "short_name": "CollectiPay",
+  "description": "Collect money for a shared goal, track group contributions, and give members a democratic voice in how funds are used.",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "theme_color": "#0c3027",
+  "background_color": "#0c3027",
+  "lang": "en-NG",
+  "dir": "ltr",
+  "categories": ["finance", "productivity"],
+  "icons": [
+    {
+      "src": "/collectipay-mark.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Wallet",
+      "description": "View your wallet balance and groups",
+      "url": "/dashboard",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Send Money",
+      "short_name": "Transfer",
+      "description": "Send funds to any Nigerian bank account",
+      "url": "/transfer",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Create Group",
+      "short_name": "New Group",
+      "description": "Start a new group contribution pool",
+      "url": "/create-group",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "My Groups",
+      "short_name": "Groups",
+      "description": "Track your active contribution pools",
+      "url": "/all-groups",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
+}

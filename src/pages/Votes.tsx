@@ -9,6 +9,7 @@ import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext"
 import { Badge } from "@/components/ui/badge";
 import { format, isValid } from "date-fns";
 import Header from "@/components/layout/Header";
+import BrandLoader from "@/components/ui/BrandLoader";
 import CountdownTimer from "@/components/ui/countdown-timer";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { voteOnWithdrawal } from "@/services/supabase/withdrawalService";
@@ -228,6 +229,14 @@ const VotesPage = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-10">
+      {pendingVoteId && (
+        <BrandLoader
+          variant="overlay"
+          badge="Governance Vote"
+          message="Recording your vote"
+          submessage="Updating group withdrawal consensus…"
+        />
+      )}
       <Header />
       
       <main className="app-page max-w-3xl">

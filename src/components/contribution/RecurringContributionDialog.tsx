@@ -6,8 +6,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { WalletContributionService } from '@/services/supabase/walletContributionService';
 import { useSupabaseUser } from '@/contexts/SupabaseUserContext';
-import { Repeat, Loader2, Calendar } from 'lucide-react';
+import { Repeat, Loader2, Calendar, Wallet, Zap, Flag, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
+import BrandLoader from '@/components/ui/BrandLoader';
 
 interface RecurringContributionDialogProps {
   groupId: string;
@@ -83,6 +84,15 @@ export function RecurringContributionDialog({ groupId, groupName, onSuccess }: R
   };
 
   return (
+    <>
+    {isProcessing && (
+      <BrandLoader
+        variant="overlay"
+        badge="Auto-Save Plan"
+        message={`Setting up ₦${parseFloat(amount || '0').toLocaleString()} ${frequency}`}
+        submessage={`Scheduling recurring contributions to ${groupName}…`}
+      />
+    )}
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
@@ -147,21 +157,36 @@ export function RecurringContributionDialog({ groupId, groupName, onSuccess }: R
 
           {/* Preview */}
           {amount && (
-            <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg">
-              <h4 className="font-medium text-sm mb-2">Summary</h4>
-              <ul className="text-sm space-y-1 text-muted-foreground">
-                <li>💰 Amount: ₦{parseFloat(amount).toLocaleString()} {frequency}</li>
-                <li>📅 Next contribution: {getNextContributionDate()}</li>
-                <li>⚡ Automatic from your wallet</li>
-                {endDate && <li>🏁 Ends: {new Date(endDate).toLocaleDateString()}</li>}
+            <div className="rounded-xl border bg-accent/45 p-4">
+              <h4 className="mb-2 text-sm font-semibold">Summary</h4>
+              <ul className="space-y-1.5 text-sm text-muted-foreground">
+                <li className="flex items-center gap-2">
+                  <Wallet className="h-4 w-4 shrink-0 text-primary" />
+                  <span>Amount: <strong className="text-foreground tabular-nums">₦{parseFloat(amount).toLocaleString()}</strong> {frequency}</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 shrink-0 text-primary" />
+                  <span>Next contribution: {getNextContributionDate()}</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Zap className="h-4 w-4 shrink-0 text-primary" />
+                  <span>Automatic zero-fee deduction from wallet</span>
+                </li>
+                {endDate && (
+                  <li className="flex items-center gap-2">
+                    <Flag className="h-4 w-4 shrink-0 text-primary" />
+                    <span>Ends: {new Date(endDate).toLocaleDateString()}</span>
+                  </li>
+                )}
               </ul>
             </div>
           )}
 
           {/* Warning */}
-          <div className="bg-yellow-50 dark:bg-yellow-950 p-3 rounded-lg">
-            <p className="text-xs text-yellow-800 dark:text-yellow-200">
-              ⚠️ Ensure you have sufficient wallet balance on contribution dates
+          <div className="flex items-start gap-2.5 rounded-xl border border-amber-200/80 bg-amber-50/80 p-3 dark:border-amber-900/60 dark:bg-amber-950/30">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <p className="text-xs text-amber-900 dark:text-amber-200">
+              Ensure you have sufficient wallet balance on contribution dates.
             </p>
           </div>
 
@@ -187,5 +212,6 @@ export function RecurringContributionDialog({ groupId, groupName, onSuccess }: R
         </div>
       </DialogContent>
     </Dialog>
+    </>
   );
 }

@@ -806,6 +806,9 @@ export type Database = {
         }[]
       }
       get_invitation_by_token: { Args: { p_token: string }; Returns: Json }
+      create_group_invitation: { Args: { p_group_id: string; p_email: string }; Returns: Json }
+      accept_group_invitation: { Args: { p_token: string }; Returns: Json }
+      revoke_group_invitation: { Args: { p_invitation_id: string }; Returns: boolean }
       is_admin: { Args: never; Returns: boolean }
       lookup_user_id_by_email: { Args: { p_email: string }; Returns: string }
       process_approved_withdrawal: {

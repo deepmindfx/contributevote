@@ -199,30 +199,101 @@ details[open] > .app-disclosure > svg {
   font-size: clamp(.75rem, 3.5vw, .875rem);
 }
 
-.group-detail-summary > div {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: .25rem .75rem;
-  padding-block: .75rem;
-}
-
-.group-detail-summary dt {
-  color: hsl(var(--muted-foreground));
-}
-
-.group-detail-summary dd {
-  overflow-wrap: anywhere;
-  font-weight: 600;
-}
-
 .group-detail-link {
   border-top: 1px solid hsl(var(--border));
   color: hsl(var(--primary));
+}
+
+.group-detail-back {
+  color: #f8fffb;
+}
+
+.group-detail-back:hover {
+  color: white;
+  background: transparent;
+  text-decoration: underline;
+}
+
+@media (max-width: 47.999rem) {
+  .group-detail-hero {
+    padding-top: .45rem;
+    padding-bottom: 2.55rem;
+  }
+
+  .group-detail-actions > button {
+    flex-basis: 7.5rem;
+  }
 }
 
 @media (min-width: 48rem) {
   .group-detail-actions > button {
     flex: 0 0 auto;
   }
+}
+
+.wallet-value-rows > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: .25rem .75rem;
+  padding-block: .6rem;
+}
+
+.wallet-value-rows > div + div {
+  border-top: 1px solid hsl(var(--border));
+}
+
+.wallet-value-rows dt {
+  color: hsl(var(--muted-foreground));
+}
+
+.wallet-value-rows dd {
+  overflow-wrap: anywhere;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.wallet-history-filter {
+  width: auto;
+  max-width: 100%;
+}
+
+.wallet-history-row {
+  display: grid;
+  width: 100%;
+  min-height: 3.8rem;
+  grid-template-columns: auto minmax(0, 1fr) fit-content(39%);
+  align-items: center;
+  gap: .55rem;
+  padding: .7rem .75rem;
+  text-align: left;
+}
+
+.transfer-result-icon {
+  position: relative;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .transfer-result-icon {
+    animation: transfer-result-enter 400ms cubic-bezier(.15,.8,.3,1.25) both;
+  }
+
+  .transfer-result-icon--sent::after {
+    position: absolute;
+    inset: 0;
+    border: 2px solid hsl(var(--primary) / .55);
+    border-radius: inherit;
+    content: "";
+    animation: transfer-result-ring 750ms ease-out both;
+  }
+}
+
+@keyframes transfer-result-enter {
+  from { opacity: 0; transform: scale(.7); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes transfer-result-ring {
+  from { opacity: .8; transform: scale(.85); }
+  to { opacity: 0; transform: scale(1.5); }
 }

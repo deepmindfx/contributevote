@@ -8,10 +8,10 @@ import {
   Copy,
   Check,
   ShieldCheck,
-  ArrowDown,
   Building2,
   Users,
   Wallet,
+  FileText,
 } from "lucide-react";
 import html2canvas from "html2canvas";
 import { toast } from "sonner";
@@ -55,6 +55,10 @@ export interface CollectiPayReceiptData {
   sender?: ReceiptParty;
   recipient?: ReceiptParty;
   groupName?: string;
+  groupProgress?: {
+    raised: number;
+    target: number;
+  };
   paymentMethod?: string;
   narration?: string;
   balanceBefore?: number;
@@ -67,6 +71,7 @@ interface CollectiPayReceiptProps {
   data: CollectiPayReceiptData;
   /** Show action bar (Download, Share, Done) beneath the receipt sheet */
   showActions?: boolean;
+  onDownloadPdf?: () => void;
   onDone?: () => void;
   doneLabel?: string;
   className?: string;
@@ -142,6 +147,7 @@ const KIND_TITLES: Record<ReceiptKind, string> = {
 export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
   data,
   showActions = true,
+  onDownloadPdf,
   onDone,
   doneLabel = "Done",
   className,
@@ -155,8 +161,15 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
   const statusMeta = normalizeStatus(data.status);
   const StatusIcon = statusMeta.icon;
   const totalAmount = data.amount + (data.fee || 0);
+  const isGroupReceipt = data.kind === "contribution" || data.kind === "refund" || Boolean(data.groupName);
+  const receiptBadgeLabel = isGroupReceipt ? "Group Receipt" : "Sender Receipt";
   const displayTitle = data.title || KIND_TITLES[data.kind];
   const filePrefix = `collectipay-${data.kind}-${(data.reference || data.transactionId || Date.now().toString()).slice(-10)}`;
+
+  const poolPercent =
+    data.groupProgress && data.groupProgress.target > 0
+      ? Math.min(100, Math.round((data.groupProgress.raised / data.groupProgress.target) * 100))
+      : null;
 
   const handleCopy = async (text: string, label: string) => {
     try {
@@ -219,7 +232,6 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
           }
         }
       }
-      // Graceful fallback: download image
       await handleDownload();
     } catch (error: any) {
       if (error?.name !== "AbortError") {
@@ -234,7 +246,7 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
   const detailRows: ReceiptMetaRow[] = [];
 
   if (data.groupName && !data.recipient) {
-    detailRows.push({ label: "Group", value: data.groupName, highlight: true });
+    detailRows.push({ label: "Group Pool", value: data.groupName, highlight: true });
   }
   if (data.paymentMethod) {
     detailRows.push({ label: "Channel", value: data.paymentMethod });
@@ -276,19 +288,28 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
 
   return (
     <div className={cn("mx-auto w-full max-w-[26rem] space-y-4", className)}>
-      {/* Printable / Exportable Receipt Ticket */}
+      {/* Printable / Exportable Blueprint Receipt Ticket */}
       <div
         ref={captureRef}
-        className="overflow-hidden rounded-[1.5rem] border border-[#dce7e1] bg-white text-[#102820] shadow-[0_20px_50px_-24px_rgba(12,48,39,0.32)]"
+        className="overflow-hidden rounded-[1.5rem] border border-[#dce7e1] bg-white text-[#102820] shadow-[0_20px_50px_-24px_rgba(12,48,39,0.34)]"
       >
-        {/* Emerald Hero Band */}
+        {/* Deep-Emerald Pooling-C Blueprint Hero Band */}
         <div className="cp-receipt-hero px-6 pb-6 pt-5">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <CollectiPayMark size={28} />
-              <span className="text-[15px] font-bold tracking-[-0.04em] text-white">
-                CollectiPay
+          <div className="cp-receipt-blueprint-grid" aria-hidden="true" />
+
+          <div className="relative z-10 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <span className={cn("cp-receipt-seal rounded-full", statusMeta.tone !== "success" && "after:hidden")}>
+                <CollectiPayMark size={30} />
               </span>
+              <div>
+                <span className="block text-[15px] font-bold leading-none tracking-[-0.04em] text-white">
+                  CollectiPay
+                </span>
+                <span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-[0.1em] text-[#a9ccb9]">
+                  {receiptBadgeLabel}
+                </span>
+              </div>
             </div>
             <span
               className={cn(
@@ -301,8 +322,8 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
             </span>
           </div>
 
-          <div className="mt-6 text-center">
-            <p className="text-xs font-medium uppercase tracking-[0.12em] text-[#b9decb]">
+          <div className="relative z-10 mt-6 text-center">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.13em] text-[#b9decb]">
               {displayTitle}
             </p>
             <p className="mt-1.5 text-[2.35rem] font-extrabold leading-none tracking-[-0.045em] text-white tabular-nums">
@@ -310,9 +331,29 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
               {formatNaira(data.amount)}
             </p>
             {data.groupName && (
-              <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-[#e7f8ef]">
+              <div className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-medium text-[#e7f8ef]">
                 <Users className="h-3.5 w-3.5 text-[#dbf5b4]" />
                 <span className="max-w-[16rem] truncate">{data.groupName}</span>
+              </div>
+            )}
+
+            {/* Optional Group Pool Progress Strip on Group Receipts */}
+            {data.groupProgress && poolPercent !== null && (
+              <div className="mt-4 rounded-xl border border-white/12 bg-white/[0.07] px-3.5 py-2.5 text-left">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="font-medium text-[#c5e2d3]">Pool progress</span>
+                  <span className="font-bold text-[#dbf5b4] tabular-nums">{poolPercent}% funded</span>
+                </div>
+                <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-white/15">
+                  <div
+                    className="h-full rounded-full bg-[#dbf5b4]"
+                    style={{ width: `${poolPercent}%` }}
+                  />
+                </div>
+                <div className="mt-1 flex items-center justify-between text-[10px] text-[#a9ccb9] tabular-nums">
+                  <span>{formatNaira(data.groupProgress.raised, false)} pooled</span>
+                  <span>of {formatNaira(data.groupProgress.target, false)}</span>
+                </div>
               </div>
             )}
           </div>
@@ -325,74 +366,75 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
 
         {/* Receipt Body */}
         <div className="space-y-4 bg-white px-6 pb-6 pt-2">
-          {/* Sender -> Recipient Transfer Route */}
+          {/* Sender -> Recipient Kinetic Flow Card */}
           {hasParties && (
             <div className="rounded-2xl border border-[#e6efe9] bg-[#f7faf8] p-3.5">
               {data.sender && (
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-2.5 min-w-0">
-                    <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[#e3f2ea] text-[#146c43]">
-                      <Wallet className="h-3.5 w-3.5" />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-medium uppercase tracking-wide text-[#5d776c]">
-                        {data.sender.label}
+                <div className="flex items-start gap-2.5">
+                  <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[#e3f2ea] text-[#146c43]">
+                    <Wallet className="h-3.5 w-3.5" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-[#5d776c]">
+                      {data.sender.label}
+                    </p>
+                    <p className="truncate text-sm font-semibold text-[#102820]">
+                      {data.sender.name}
+                    </p>
+                    {(data.sender.subtitle || data.sender.bankName) && (
+                      <p className="truncate text-xs text-[#5d776c]">
+                        {data.sender.subtitle && (
+                          <span className="font-mono">{data.sender.subtitle}</span>
+                        )}
+                        {data.sender.subtitle && data.sender.bankName ? " • " : ""}
+                        {data.sender.bankName}
                       </p>
-                      <p className="truncate text-sm font-semibold text-[#102820]">
-                        {data.sender.name}
-                      </p>
-                      {data.sender.subtitle && (
-                        <p className="font-mono text-xs text-[#5d776c]">
-                          {data.sender.subtitle}
-                          {data.sender.bankName ? ` • ${data.sender.bankName}` : ""}
-                        </p>
-                      )}
-                    </div>
+                    )}
                   </div>
                 </div>
               )}
 
               {data.sender && data.recipient && (
-                <div className="my-2 ml-3 flex items-center gap-2">
-                  <ArrowDown className="h-3.5 w-3.5 text-[#229f63]" />
+                <div className="my-1.5 flex items-center gap-3">
+                  <div className="cp-route-track" aria-hidden="true">
+                    <span className="cp-route-pulse" />
+                  </div>
                   <div className="h-px flex-1 bg-[#e3ece7]" />
                 </div>
               )}
 
               {data.recipient && (
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-2.5 min-w-0">
-                    <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[#0c3027] text-[#dbf5b4]">
-                      {data.kind === "contribution" ? (
-                        <Users className="h-3.5 w-3.5" />
-                      ) : (
-                        <Building2 className="h-3.5 w-3.5" />
-                      )}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-medium uppercase tracking-wide text-[#5d776c]">
-                        {data.recipient.label}
+                <div className="flex items-start gap-2.5">
+                  <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[#0c3027] text-[#dbf5b4]">
+                    {data.kind === "contribution" || data.kind === "refund" ? (
+                      <Users className="h-3.5 w-3.5" />
+                    ) : (
+                      <Building2 className="h-3.5 w-3.5" />
+                    )}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-[#5d776c]">
+                      {data.recipient.label}
+                    </p>
+                    <p className="truncate text-sm font-semibold text-[#102820]">
+                      {data.recipient.name}
+                    </p>
+                    {(data.recipient.subtitle || data.recipient.bankName) && (
+                      <p className="truncate text-xs text-[#5d776c]">
+                        {data.recipient.subtitle && (
+                          <span className="font-mono">{data.recipient.subtitle}</span>
+                        )}
+                        {data.recipient.subtitle && data.recipient.bankName ? " • " : ""}
+                        {data.recipient.bankName}
                       </p>
-                      <p className="truncate text-sm font-semibold text-[#102820]">
-                        {data.recipient.name}
-                      </p>
-                      {(data.recipient.subtitle || data.recipient.bankName) && (
-                        <p className="text-xs text-[#5d776c]">
-                          {data.recipient.subtitle && (
-                            <span className="font-mono">{data.recipient.subtitle}</span>
-                          )}
-                          {data.recipient.subtitle && data.recipient.bankName ? " • " : ""}
-                          {data.recipient.bankName}
-                        </p>
-                      )}
-                    </div>
+                    )}
                   </div>
                 </div>
               )}
             </div>
           )}
 
-          {/* Wallet Balance Snapshot (when available) */}
+          {/* Wallet Balance Snapshot */}
           {typeof data.balanceBefore === "number" &&
             typeof data.balanceAfter === "number" && (
               <div className="flex items-center justify-between rounded-xl border border-[#e6efe9] bg-[#f7faf8] px-3.5 py-2.5 text-xs">
@@ -411,7 +453,7 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
 
           {/* Voting Rights Callout */}
           {data.votingRightsGranted && (
-            <div className="flex items-center gap-2 rounded-xl bg-[#edf9f1] px-3.5 py-2.5 text-xs font-medium text-[#146c43]">
+            <div className="flex items-center gap-2 rounded-xl border border-[#cdecd9] bg-[#edf9f1] px-3.5 py-2.5 text-xs font-medium text-[#146c43]">
               <ShieldCheck className="h-4 w-4 shrink-0 text-[#1e965b]" />
               <span>Group voting rights active for this pool</span>
             </div>
@@ -473,7 +515,7 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
       {/* Native Action Bar (outside export capture) */}
       {showActions && (
         <div className="space-y-2.5">
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className={cn("grid gap-2.5", onDownloadPdf ? "grid-cols-3" : "grid-cols-2")}>
             <Button
               type="button"
               variant="outline"
@@ -481,9 +523,21 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
               disabled={isExporting}
               className="h-11 rounded-xl font-semibold"
             >
-              <Download className="mr-2 h-4 w-4" />
-              {isExporting ? "Saving…" : "Save image"}
+              <Download className="mr-1.5 h-4 w-4" />
+              {isExporting ? "Saving…" : "Save PNG"}
             </Button>
+            {onDownloadPdf && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onDownloadPdf}
+                disabled={isExporting}
+                className="h-11 rounded-xl font-semibold"
+              >
+                <FileText className="mr-1.5 h-4 w-4" />
+                PDF
+              </Button>
+            )}
             <Button
               type="button"
               variant="outline"
@@ -491,8 +545,8 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
               disabled={isExporting}
               className="h-11 rounded-xl font-semibold"
             >
-              <Share2 className="mr-2 h-4 w-4" />
-              Share receipt
+              <Share2 className="mr-1.5 h-4 w-4" />
+              Share
             </Button>
           </div>
           {onDone && (

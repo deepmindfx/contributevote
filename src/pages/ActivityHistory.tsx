@@ -1,164 +1,491 @@
-
-import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useState, useMemo } from "react";
+import { Link } from "react-router-dom";
 import Header from "@/components/layout/Header";
-import { 
-  ArrowDown, 
-  ArrowLeft, 
-  ArrowUp, 
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
   Vote as VoteIcon,
-  Wallet,
-  MessageSquare,
-  DollarSign,
-  CreditCard,
-  PiggyBank
+  Users,
+  RefreshCw,
+  Search,
+  Receipt,
+  ChevronRight,
+  Sparkles,
 } from "lucide-react";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
-import { format, isValid } from "date-fns";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { format, isValid, isToday, isYesterday } from "date-fns";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import CollectiPayReceipt, { type CollectiPayReceiptData, type ReceiptKind } from "@/components/receipt/CollectiPayReceipt";
+import { cn } from "@/lib/utils";
 
-import ActivityItem from "@/components/dashboard/activity/ActivityItem";
+type ActivityFilter = "all" | "in" | "out" | "groups" | "votes";
+
+const statusPillStyles: Record<string, string> = {
+  completed: "bg-accent text-accent-foreground",
+  successful: "bg-accent text-accent-foreground",
+  pending: "bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-200",
+  rejected: "bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-200",
+  failed: "bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-200",
+};
+
+const titleMap: Record<string, string> = {
+  deposit: "Wallet Deposit",
+  withdrawal: "Wallet Withdrawal",
+  contribution: "Group Contribution",
+  transfer: "Bank Transfer",
+  refund: "Group Refund",
+  vote: "Governance Vote",
+};
 
 const ActivityHistory = () => {
-  const navigate = useNavigate();
   const { user } = useSupabaseUser();
   const { transactions, contributions } = useSupabaseContribution();
-  const [activeTab, setActiveTab] = useState("all");
-  
-  function formatDate(dateString: string) {
-    try {
-      const date = new Date(dateString);
-      if (!isValid(date)) {
-        console.error("Invalid date in formatDate:", dateString);
-        return "Invalid date";
-      }
-      
-      const today = new Date();
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
-      
-      if (date.toDateString() === today.toDateString()) {
-        return `Today, ${format(date, 'h:mm a')}`;
-      } else if (date.toDateString() === yesterday.toDateString()) {
-        return `Yesterday, ${format(date, 'h:mm a')}`;
-      } else {
-        return format(date, 'MMM d, yyyy');
-      }
-    } catch (error) {
-      console.error("Error formatting date:", error, dateString);
-      return "Invalid date";
-    }
-  }
-  
-  // Format and sort transactions, ensuring we only show the current user's transactions
-  const formattedTransactions = transactions
-    .filter(transaction => transaction.user_id === user?.id) // Only show current user's transactions
-    .filter(transaction => {
-      if (activeTab === "all") return true;
-      if (activeTab === "deposits" && (transaction.type === "deposit" || transaction.type === "refund")) return true;
-      if (activeTab === "withdrawals" && (transaction.type === "withdrawal" || transaction.type === "transfer" || transaction.type === "contribution")) return true;
-      if (activeTab === "votes" && transaction.type === "vote") return true;
-      return false;
-    })
-    .filter(transaction => transaction.created_at) // Filter out transactions without created_at
-    .sort((a, b) => {
-      try {
-        const dateA = new Date(a.created_at);
-        const dateB = new Date(b.created_at);
-        
-        if (!isValid(dateA) || !isValid(dateB)) {
-          console.error("Invalid date in transaction sort:", a.created_at, b.created_at);
-          return 0;
-        }
-        
-        return dateB.getTime() - dateA.getTime();
-      } catch (error) {
-        console.error("Error sorting transactions:", error);
-        return 0;
-      }
-    })
-    .map(transaction => {
-      const contribution = contributions.find(c => c.id === transaction.contribution_id);
-      const meta = (transaction.metadata || {}) as any;
-      const isCredit = transaction.type === "deposit" || transaction.type === "refund";
-      
-      let type: "deposit" | "withdrawal" | "vote" = "deposit";
-      if (transaction.type === "withdrawal" || transaction.type === "transfer" || transaction.type === "contribution") {
-        type = "withdrawal";
-      }
-      if (transaction.type === "vote") type = "vote";
-      
-      const titleMap: Record<string, string> = {
-        deposit: "Wallet Deposit",
-        withdrawal: "Withdrawal",
-        contribution: "Group Contribution",
-        transfer: "Bank Transfer",
-        refund: "Group Refund",
-        vote: "Governance Vote",
-      };
+  const [activeTab, setActiveTab] = useState<ActivityFilter>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedReceipt, setSelectedReceipt] = useState<CollectiPayReceiptData | null>(null);
 
-      return {
-        type,
-        title: titleMap[transaction.type] || "Transaction",
-        description: contribution ? contribution.name : 
-                    transaction.description || 
-                    (meta?.bankName ? `Via ${meta.bankName}` : ''),
-        amount: transaction.type === 'vote' ? 
-                `₦${Number(transaction.amount).toLocaleString()}` : 
-                `${isCredit ? '+' : '-'}₦${Number(transaction.amount).toLocaleString()}`,
-        date: formatDate(transaction.created_at),
-        status: transaction.status as "pending" | "completed" | "rejected",
+  const userTransactions = useMemo(() => {
+    return transactions
+      .filter((t) => t.user_id === user?.id && t.created_at)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }, [transactions, user?.id]);
+
+  // Summary metrics across all user activity
+  const summary = useMemo(() => {
+    let totalIn = 0;
+    let totalOut = 0;
+    let groupCount = 0;
+
+    for (const tx of userTransactions) {
+      const amt = Number(tx.amount || 0);
+      if (tx.type === "deposit" || tx.type === "refund") {
+        totalIn += amt;
+      } else if (tx.type === "withdrawal" || tx.type === "transfer" || tx.type === "contribution") {
+        totalOut += amt;
       }
+      if (tx.contribution_id || tx.type === "contribution" || tx.type === "refund") {
+        groupCount += 1;
+      }
+    }
+
+    return {
+      totalIn,
+      totalOut,
+      count: userTransactions.length,
+      groupCount,
+    };
+  }, [userTransactions]);
+
+  const filteredTransactions = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+
+    return userTransactions.filter((tx) => {
+      if (activeTab === "in" && tx.type !== "deposit" && tx.type !== "refund") return false;
+      if (
+        activeTab === "out" &&
+        tx.type !== "withdrawal" &&
+        tx.type !== "transfer" &&
+        tx.type !== "contribution"
+      ) {
+        return false;
+      }
+      if (
+        activeTab === "groups" &&
+        !tx.contribution_id &&
+        tx.type !== "contribution" &&
+        tx.type !== "refund"
+      ) {
+        return false;
+      }
+      if (activeTab === "votes" && tx.type !== "vote") return false;
+
+      if (!q) return true;
+      const group = contributions.find((c) => c.id === tx.contribution_id);
+      const meta = (tx.metadata || {}) as Record<string, any>;
+      const haystack = [
+        titleMap[tx.type] || tx.type,
+        group?.name,
+        tx.description,
+        tx.reference_id,
+        meta?.bankName,
+        meta?.recipientName,
+        meta?.senderName,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(q);
     });
+  }, [userTransactions, activeTab, searchQuery, contributions]);
+
+  // Group transactions by human-friendly date buckets
+  const groupedByDate = useMemo(() => {
+    const groups: { label: string; items: typeof filteredTransactions }[] = [];
+    const map = new Map<string, typeof filteredTransactions>();
+
+    for (const tx of filteredTransactions) {
+      const d = new Date(tx.created_at);
+      const label = !isValid(d)
+        ? "Earlier"
+        : isToday(d)
+        ? "Today"
+        : isYesterday(d)
+        ? "Yesterday"
+        : format(d, "MMMM d, yyyy");
+
+      if (!map.has(label)) {
+        const list: typeof filteredTransactions = [];
+        map.set(label, list);
+        groups.push({ label, items: list });
+      }
+      map.get(label)!.push(tx);
+    }
+    return groups;
+  }, [filteredTransactions]);
+
+  const openReceiptForTx = (tx: any) => {
+    if (tx.type === "vote") return;
+
+    const group = contributions.find((c) => c.id === tx.contribution_id);
+    const meta = (tx.metadata || {}) as Record<string, any>;
+    const rawType = String(tx.type || "deposit").toLowerCase();
+
+    const kind: ReceiptKind =
+      rawType === "deposit"
+        ? "deposit"
+        : rawType === "withdrawal"
+        ? "withdrawal"
+        : rawType === "refund"
+        ? "refund"
+        : rawType === "contribution" || tx.contribution_id
+        ? "contribution"
+        : "transfer";
+
+    const isInbound = kind === "deposit" || kind === "refund";
+    const userPrefs = (user?.preferences || {}) as Record<string, any>;
+
+    setSelectedReceipt({
+      kind,
+      title: titleMap[rawType] || "Transaction Receipt",
+      amount: Number(tx.amount || 0),
+      fee: meta?.fee ? Number(meta.fee) : undefined,
+      status: tx.status || "completed",
+      date: tx.created_at,
+      reference: meta?.transactionReference || tx.reference_id || tx.id,
+      transactionId: tx.id ? String(tx.id).slice(0, 12).toUpperCase() : undefined,
+      groupName: group?.name,
+      groupProgress:
+        group && Number(group.target_amount) > 0
+          ? {
+              raised: Number(group.current_amount || 0),
+              target: Number(group.target_amount || 0),
+            }
+          : undefined,
+      paymentMethod:
+        meta?.paymentMethod ||
+        (tx.payment_method ? String(tx.payment_method).replace(/_/g, " ") : undefined) ||
+        (kind === "deposit" ? "Bank Transfer" : "CollectiPay Wallet"),
+      narration: tx.description || meta?.narration,
+      balanceBefore:
+        meta?.balance_before !== undefined ? Number(meta.balance_before) : undefined,
+      balanceAfter:
+        meta?.balance_after !== undefined ? Number(meta.balance_after) : undefined,
+      votingRightsGranted: kind === "contribution",
+      sender: isInbound
+        ? {
+            label: "From",
+            name:
+              meta?.senderName ||
+              meta?.payerName ||
+              (kind === "refund" ? group?.name || "Group Pool" : "External Transfer"),
+            subtitle: meta?.payerEmail || meta?.accountNumber,
+            bankName: meta?.bankName || meta?.senderBank,
+          }
+        : {
+            label: "From",
+            name: user?.name || user?.email || "CollectiPay Wallet",
+            subtitle: userPrefs?.virtualAccount?.accountNumber || "CollectiPay Wallet",
+          },
+      recipient:
+        kind === "contribution" && group
+          ? {
+              label: "To Pool",
+              name: group.name,
+              subtitle: group.account_number || "Group Contribution Vault",
+              bankName: group.bank_name || undefined,
+            }
+          : isInbound
+          ? {
+              label: "To Wallet",
+              name: user?.name || user?.email || "Your Wallet",
+              subtitle: userPrefs?.virtualAccount?.accountNumber || "CollectiPay Wallet",
+            }
+          : {
+              label: "To",
+              name: meta?.recipientName || meta?.account_name || meta?.full_name || "Bank Account",
+              subtitle: meta?.accountNumber || meta?.account_number,
+              bankName: meta?.bankName || meta?.bank_name,
+            },
+    });
+  };
+
+  const getActivityVisual = (type: string) => {
+    switch (type) {
+      case "deposit":
+        return {
+          icon: ArrowDownLeft,
+          tileClass: "bg-accent text-primary",
+          isCredit: true,
+        };
+      case "refund":
+        return {
+          icon: RefreshCw,
+          tileClass: "bg-accent text-primary",
+          isCredit: true,
+        };
+      case "contribution":
+        return {
+          icon: Users,
+          tileClass: "bg-primary/12 text-primary",
+          isCredit: false,
+        };
+      case "vote":
+        return {
+          icon: VoteIcon,
+          tileClass: "bg-secondary text-secondary-foreground",
+          isCredit: false,
+        };
+      default:
+        return {
+          icon: ArrowUpRight,
+          tileClass: "bg-muted text-foreground",
+          isCredit: false,
+        };
+    }
+  };
 
   return (
     <div className="min-h-screen">
-      <Header />
-      
-      <main className="app-page max-w-5xl">
-        <div className="mb-6">
-          <button 
-            onClick={() => navigate(-1)} 
-            className="flex items-center text-sm text-muted-foreground hover:text-foreground mb-2"
-          >
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            Back
-          </button>
-          <h1 className="app-page-title">Activity</h1>
-        </div>
-        
-        <Card>
-          <CardContent className="p-4 sm:p-5">
-            <Tabs defaultValue="all" className="mb-4" value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="app-segmented grid w-full grid-cols-4" aria-label="Filter activity">
-                <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="deposits">Money in</TabsTrigger>
-                <TabsTrigger value="withdrawals">Money out</TabsTrigger>
-                <TabsTrigger value="votes">Votes</TabsTrigger>
+      <Header mobilePanel />
+
+      <main className="app-page app-panel-page max-w-4xl">
+        {/* Deep-Emerald Native Activity Summary Hero */}
+        <section className="app-panel-hero" aria-labelledby="activity-title">
+          <p className="panel-kicker text-xs font-semibold uppercase tracking-[0.11em]">
+            Ledger & Receipts
+          </p>
+          <h1 id="activity-title" className="app-page-title mt-1">
+            Activity
+          </h1>
+          <p className="panel-kicker mt-1 text-sm">
+            Every transfer, group contribution, and refund — tap any entry for a verified receipt.
+          </p>
+
+          <div className="mt-5 grid grid-cols-3 gap-2.5 rounded-2xl border border-white/12 bg-white/[0.07] p-3.5 sm:gap-4 sm:p-4">
+            <div className="min-w-0">
+              <p className="text-[11px] font-medium text-[#b9decb]">Money in</p>
+              <p className="mt-0.5 truncate text-base font-bold text-[#dbf5b4] tabular-nums sm:text-xl">
+                +₦{summary.totalIn.toLocaleString()}
+              </p>
+            </div>
+            <div className="min-w-0 border-x border-white/12 px-2.5 sm:px-4">
+              <p className="text-[11px] font-medium text-[#b9decb]">Money out</p>
+              <p className="mt-0.5 truncate text-base font-bold text-white tabular-nums sm:text-xl">
+                ₦{summary.totalOut.toLocaleString()}
+              </p>
+            </div>
+            <div className="min-w-0 pl-1 sm:pl-2">
+              <p className="text-[11px] font-medium text-[#b9decb]">Entries</p>
+              <p className="mt-0.5 text-base font-bold text-white tabular-nums sm:text-xl">
+                {summary.count}
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <div className="app-panel-body space-y-4">
+          {/* Search + Segmented Filter */}
+          <div className="space-y-3">
+            <div className="relative">
+              <Search
+                className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <Input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by group, bank, recipient, or reference…"
+                aria-label="Search activity"
+                className="h-11 rounded-xl pl-10"
+              />
+            </div>
+
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ActivityFilter)}>
+              <TabsList
+                className="app-segmented grid w-full grid-cols-5"
+                aria-label="Filter activity"
+              >
+                <TabsTrigger value="all" className="text-xs sm:text-sm">All</TabsTrigger>
+                <TabsTrigger value="in" className="text-xs sm:text-sm">In</TabsTrigger>
+                <TabsTrigger value="out" className="text-xs sm:text-sm">Out</TabsTrigger>
+                <TabsTrigger value="groups" className="text-xs sm:text-sm">Groups</TabsTrigger>
+                <TabsTrigger value="votes" className="text-xs sm:text-sm">Votes</TabsTrigger>
               </TabsList>
             </Tabs>
-            
-            <div className="space-y-1">
-              {formattedTransactions.length === 0 ? (
-                <div className="text-center py-6 text-muted-foreground">
-                  <p>No activities to display.</p>
+          </div>
+
+          {/* Grouped Timeline List */}
+          {groupedByDate.length === 0 ? (
+            <Card className="rounded-[1.35rem] p-10 text-center shadow-sm">
+              <div className="mx-auto mb-3.5 grid h-12 w-12 place-items-center rounded-2xl bg-accent text-primary">
+                <Sparkles className="h-6 w-6" />
+              </div>
+              <h2 className="text-base font-bold tracking-tight">No activity yet</h2>
+              <p className="mx-auto mt-1 max-w-xs text-sm text-muted-foreground">
+                {searchQuery
+                  ? "No transactions match your search."
+                  : "Deposits, transfers, and group contributions will appear here with downloadable receipts."}
+              </p>
+              {!searchQuery && (
+                <div className="mt-5 flex flex-wrap justify-center gap-2">
+                  <Button asChild className="h-10 rounded-xl">
+                    <Link to="/all-groups">View my groups</Link>
+                  </Button>
+                  <Button asChild variant="outline" className="h-10 rounded-xl">
+                    <Link to="/transfer">Send money</Link>
+                  </Button>
                 </div>
-              ) : (
-                formattedTransactions.map((activity, index) => (
-                  <ActivityItem key={index} {...activity} />
-                ))
               )}
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {groupedByDate.map((bucket) => (
+                <section key={bucket.label} aria-label={bucket.label}>
+                  <h2 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    {bucket.label}
+                  </h2>
+                  <Card className="overflow-hidden rounded-[1.35rem] shadow-sm">
+                    <div className="divide-y divide-border/70">
+                      {bucket.items.map((tx) => {
+                        const group = contributions.find((c) => c.id === tx.contribution_id);
+                        const meta = (tx.metadata || {}) as Record<string, any>;
+                        const { icon: RowIcon, tileClass, isCredit } = getActivityVisual(tx.type);
+                        const d = new Date(tx.created_at);
+                        const timeLabel = isValid(d) ? format(d, "h:mm a") : "";
+                        const statusKey = String(tx.status || "completed").toLowerCase();
+                        const canOpenReceipt = tx.type !== "vote";
+                        const subtitle =
+                          group?.name ||
+                          meta?.recipientName ||
+                          meta?.senderName ||
+                          tx.description ||
+                          (meta?.bankName ? `Via ${meta.bankName}` : "");
+
+                        return (
+                          <button
+                            key={tx.id}
+                            type="button"
+                            onClick={() => openReceiptForTx(tx)}
+                            disabled={!canOpenReceipt}
+                            className={cn(
+                              "group flex w-full items-center gap-3.5 px-4 py-3.5 text-left transition-colors sm:px-5",
+                              canOpenReceipt
+                                ? "cursor-pointer hover:bg-muted/45 focus-visible:bg-muted focus-visible:outline-none"
+                                : "cursor-default"
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "grid h-10 w-10 shrink-0 place-items-center rounded-xl",
+                                tileClass
+                              )}
+                            >
+                              <RowIcon className="h-[18px] w-[18px]" aria-hidden="true" />
+                            </span>
+
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="truncate text-sm font-semibold text-foreground">
+                                  {titleMap[tx.type] || "Transaction"}
+                                </span>
+                                {tx.status && statusKey !== "completed" && statusKey !== "successful" && (
+                                  <span
+                                    className={cn(
+                                      "rounded-md px-1.5 py-0.5 text-[10px] font-semibold capitalize",
+                                      statusPillStyles[statusKey] || "bg-muted text-muted-foreground"
+                                    )}
+                                  >
+                                    {tx.status}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                                {subtitle ? `${subtitle} • ${timeLabel}` : timeLabel}
+                              </p>
+                            </div>
+
+                            <div className="flex shrink-0 items-center gap-2">
+                              <div className="text-right">
+                                <p
+                                  className={cn(
+                                    "text-sm font-bold tabular-nums",
+                                    isCredit ? "text-primary" : "text-foreground"
+                                  )}
+                                >
+                                  {tx.type === "vote"
+                                    ? `₦${Number(tx.amount || 0).toLocaleString()}`
+                                    : `${isCredit ? "+" : "-"}₦${Number(tx.amount || 0).toLocaleString()}`}
+                                </p>
+                                {canOpenReceipt && (
+                                  <span className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground group-hover:text-primary">
+                                    <Receipt className="h-3 w-3" />
+                                    Receipt
+                                  </span>
+                                )}
+                              </div>
+                              {canOpenReceipt && (
+                                <ChevronRight className="h-4 w-4 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </Card>
+                </section>
+              ))}
             </div>
-          </CardContent>
-        </Card>
+          )}
+        </div>
       </main>
+
+      {/* Bank-Grade Native Receipt Dialog (Sender & Group Receipts) */}
+      <Dialog
+        open={Boolean(selectedReceipt)}
+        onOpenChange={(open) => {
+          if (!open) setSelectedReceipt(null);
+        }}
+      >
+        <DialogContent className="max-h-[92dvh] max-w-md overflow-y-auto border-none bg-transparent p-2 shadow-none sm:p-4">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Transaction Receipt</DialogTitle>
+          </DialogHeader>
+          {selectedReceipt && (
+            <CollectiPayReceipt
+              data={selectedReceipt}
+              onDone={() => setSelectedReceipt(null)}
+              doneLabel="Close receipt"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

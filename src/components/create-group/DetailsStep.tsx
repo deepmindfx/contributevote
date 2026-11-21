@@ -116,7 +116,7 @@ export default function DetailsStep({ formData, handleChange, onContinue }: Deta
               <Input id="group-end" name="group-end" type="date" min={formData.startDate || undefined} value={formData.endDate} onChange={(event) => handleChange("endDate", event.target.value)} {...fieldError("group-end")} />
             </div>
             <div className="min-w-0 space-y-2 sm:col-span-2">
-              <Label htmlFor="group-description">Description <span className="font-normal text-muted-foreground">· Optional</span></Label>
+              <Label htmlFor="group-description">Description or house rules <span className="font-normal text-muted-foreground">· Optional</span></Label>
               <Textarea id="group-description" className="text-base md:text-sm" value={formData.description} onChange={(event) => handleChange("description", event.target.value)} />
             </div>
           </div>

@@ -7,7 +7,8 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
-import { getCategoryIcon, getGroupsSorted } from "@/services/supabase/groupEnhancementService";
+import { getGroupsSorted } from "@/services/supabase/groupEnhancementService";
+import CategoryIcon from "@/components/ui/CategoryIcon";
 
 type OverviewGroup = {
   id: string;
@@ -83,8 +84,8 @@ export default function GroupsList() {
                 <li key={group.id}>
                   <Link to={`/groups/${group.id}`} className="block p-4 transition-colors hover:bg-muted/45 focus-visible:bg-muted focus-visible:outline-none sm:px-5">
                     <div className="flex min-w-0 items-center gap-3">
-                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent text-lg" aria-hidden="true">
-                        {getCategoryIcon(group.category)}
+                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent text-primary" aria-hidden="true">
+                        <CategoryIcon category={group.category} size={19} />
                       </span>
                       <div className="min-w-0 flex-1">
                         <h3 className="truncate text-sm font-semibold">{group.name}</h3>

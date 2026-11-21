@@ -10,6 +10,7 @@ import { useSupabaseUser } from '@/contexts/SupabaseUserContext';
 import { RefreshCw, Loader2, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import BrandLoader from '@/components/ui/BrandLoader';
 
 interface GroupRefundDialogProps {
   groupId: string;
@@ -77,6 +78,15 @@ export function GroupRefundDialog({ groupId, groupName, onSuccess }: GroupRefund
   };
 
   return (
+    <>
+    {isProcessing && (
+      <BrandLoader
+        variant="overlay"
+        badge="Refund Proposal"
+        message="Launching group refund vote"
+        submessage={`Notifying eligible contributors in ${groupName}…`}
+      />
+    )}
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="text-orange-600 hover:text-orange-700">
@@ -231,5 +241,6 @@ export function GroupRefundDialog({ groupId, groupName, onSuccess }: GroupRefund
         </div>
       </DialogContent>
     </Dialog>
+    </>
   );
 }

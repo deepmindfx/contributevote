@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useSupabaseUser } from '@/contexts/SupabaseUserContext';
 import { WalletContributionService } from '@/services/supabase/walletContributionService';
 import { toast } from 'sonner';
-import { Wallet, ShieldCheck, ArrowUpRight } from 'lucide-react';
+import { Wallet, ArrowUpRight } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -18,6 +18,9 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import BrandLoader from '@/components/ui/BrandLoader';
 import CollectiPayReceipt, { type CollectiPayReceiptData } from '@/components/receipt/CollectiPayReceipt';
 import { cn } from '@/lib/utils';
+import { GroupRules, groupRuleColumns } from './GroupRules';
+import type { GroupRuleDetails } from './GroupRules';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ContributeButtonProps {
   groupId: string;
@@ -25,6 +28,7 @@ interface ContributeButtonProps {
   onSuccess?: () => void;
   variant?: 'default' | 'hero';
   className?: string;
+  rules?: GroupRuleDetails;
 }
 
 const PRESET_AMOUNTS = [1000, 5000, 10000, 25000];
@@ -35,12 +39,26 @@ export function ContributeButton({
   onSuccess,
   variant = 'default',
   className,
+  rules,
 }: ContributeButtonProps) {
   const [amount, setAmount] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [receipt, setReceipt] = useState<CollectiPayReceiptData | null>(null);
   const { user, refreshCurrentUser } = useSupabaseUser();
+  const [preview, setPreview] = useState<{ id: string; rules: GroupRuleDetails | null }>();
+  const [rulesRetry, retryRules] = useState(0);
+  const groupRules = rules ?? (preview?.id === groupId ? preview.rules : undefined);
+
+  useEffect(() => {
+    if (!isOpen || rules) return;
+    let active = true;
+    void Promise.resolve(supabase.from("contribution_groups").select(groupRuleColumns).eq("id", groupId).maybeSingle()).then(
+      ({ data }) => { if (active) setPreview({ id: groupId, rules: data }); },
+      () => { if (active) setPreview({ id: groupId, rules: null }); },
+    );
+    return () => { active = false; };
+  }, [groupId, isOpen, rules, rulesRetry]);
 
   const walletBalance = Number(user?.wallet_balance || 0);
   const parsedAmount = parseFloat(amount || '0');
@@ -51,10 +69,12 @@ export function ContributeButton({
     setIsOpen(open);
     if (!open) {
       setReceipt(null);
+      setPreview(undefined);
     }
   };
 
   const handleWalletContribution = async () => {
+    if (!groupRules) return;
     const contributionAmount = parseFloat(amount);
 
     if (!contributionAmount || contributionAmount <= 0) {
@@ -114,7 +134,7 @@ export function ContributeButton({
           paymentMethod: 'CollectiPay Wallet',
           balanceBefore,
           balanceAfter,
-          votingRightsGranted: true,
+          votingRightsGranted: groupRules.enable_voting_rights !== false,
           sender: {
             label: 'From',
             name: user.name || user.email || 'Your Wallet',
@@ -189,11 +209,19 @@ export function ContributeButton({
               <DialogHeader>
                 <DialogTitle className="tracking-tight">Contribute to {groupName}</DialogTitle>
                 <DialogDescription>
-                  Instant zero-fee deposit directly from your CollectiPay wallet.
+                  Pay from your CollectiPay wallet.
                 </DialogDescription>
               </DialogHeader>
 
               <div className="space-y-4 pt-2">
+                <div className="rounded-xl border p-3">
+                  {groupRules ? <GroupRules group={groupRules} /> : groupRules === null ? (
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                      <p>Couldn’t load the group rules.</p>
+                      <Button variant="outline" onClick={() => { setPreview(undefined); retryRules((count) => count + 1); }}>Retry</Button>
+                    </div>
+                  ) : <p role="status" className="text-sm text-muted-foreground">Loading group rules…</p>}
+                </div>
                 {/* Native Emerald Wallet Balance Pill */}
                 <div className="flex items-center justify-between rounded-2xl border bg-accent/55 px-4 py-3.5">
                   <div className="flex items-center gap-2.5">
@@ -253,16 +281,9 @@ export function ContributeButton({
                   </Alert>
                 )}
 
-                <div className="flex items-start gap-2.5 rounded-xl border bg-muted/45 px-3.5 py-3 text-xs text-muted-foreground">
-                  <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                  <span>
-                    Wallet contributions confirm immediately, unlock your voting rights in this group, and generate a downloadable receipt.
-                  </span>
-                </div>
-
                 <Button
                   onClick={handleWalletContribution}
-                  disabled={isProcessing || !amount || parsedAmount < 100 || !hasBalance}
+                  disabled={isProcessing || !groupRules || !amount || parsedAmount < 100 || !hasBalance}
                   className="h-12 w-full rounded-xl font-semibold"
                   size="lg"
                 >

@@ -1,7 +1,7 @@
 import { ArrowDownLeft, ArrowLeftRight, Bell, Building2, Clock, Home, Plus, SendHorizontal, UserRound, Users, Vote, Wallet } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
-import { collectipayMark as logo } from "@/components/layout/navigationItems";
+import { CollectiPayMark } from "@/components/ui/BrandLoader";
 import "@/styles/landing.css";
 
 const steps = [
@@ -69,7 +69,7 @@ export default function Index() {
     <div className="landing">
       <header className="landing-header">
         <div className="landing-width">
-          <Link to="/" className="landing-brand"><img src={logo} alt="" /> CollectiPay</Link>
+          <Link to="/" className="landing-brand"><CollectiPayMark size={34} /> CollectiPay</Link>
           <nav aria-label="Main navigation">
             <a href="#how-it-works" className="landing-nav-detail">How it works</a>
             <Link to="/discover" className="landing-nav-detail">Discover</Link>
@@ -121,7 +121,7 @@ export default function Index() {
 
       <footer className="landing-footer">
         <div className="landing-width">
-          <Link to="/" className="landing-brand"><img src={logo} alt="" /> CollectiPay</Link>
+          <Link to="/" className="landing-brand"><CollectiPayMark size={34} /> CollectiPay</Link>
           <span>Payments powered by Flutterwave</span>
           <Link to="/discover">Discover groups</Link>
         </div>

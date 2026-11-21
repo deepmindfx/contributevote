@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/select';
 import { Search, SlidersHorizontal, X } from 'lucide-react';
 import { CATEGORIES } from '@/services/supabase/groupEnhancementService';
+import CategoryIcon from '@/components/ui/CategoryIcon';
 import { DiscoverFilters, SortOption } from '@/services/supabase/discoverService';
 import { useEffect, useState } from 'react';
 import {
@@ -130,7 +131,10 @@ export default function SearchFilters({
               <SelectItem value="all">All Categories</SelectItem>
               {CATEGORIES.map((cat) => (
                 <SelectItem key={cat.value} value={cat.value}>
-                  {cat.icon} {cat.label}
+                  <span className="inline-flex items-center gap-2">
+                    <CategoryIcon category={cat.value} size={14} className="text-primary" />
+                    {cat.label}
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>

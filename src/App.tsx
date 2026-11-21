@@ -262,7 +262,7 @@ const AppRoutes = () => {
   );
 
   return isWorkspace ? (
-    <div className={pathname.replace(/\/$/, "") === "/create-group" ? "app-workspace app-workspace--focused" : "app-workspace"}>
+    <div className={["/create-group", "/transfer"].includes(pathname.replace(/\/$/, "")) ? "app-workspace app-workspace--focused" : "app-workspace"}>
       <WorkspaceNavigation />
       {routes}
     </div>

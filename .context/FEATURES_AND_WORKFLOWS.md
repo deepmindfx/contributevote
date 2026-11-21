@@ -40,6 +40,6 @@
 
 ## 7. Discovery, Invitations, Receipts & Notifications
 - **Discovery** (`/discover`): Unauthenticated and authenticated users can browse, search, filter, and sort active public groups and join via `/join/:id`.
-- **Private Invitations** (`InviteMembersDialog` & `/invite/:token`): Creators generate 7-day token links; invitees can preview the group before signing in via `get_invitation_by_token` RPC.
+- **Group invitations** (`InviteMembersDialog` & `/invite/:token`): Creators can enter an email or pick one from device contacts on supported browsers. Seven-day links can be copied, shared, or opened in the email app. Invitees see the group rules before joining, and `accept_group_invitation` checks the verified email and records membership atomically.
 - **Receipts & Reports**: Individual PNG/PDF receipts (`ModernReceipt`) and full contributor PDF statements (`PDFGenerator`) via `ContributionHistoryDialog`.
 - **Notifications**: Real-time Supabase `notifications` feed rendered in both `Header` and `Dashboard` with unread badges and one-click mark-read / navigation.
