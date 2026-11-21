@@ -517,20 +517,21 @@ export default function TransferForm() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-background">
-      <div className="flex items-center p-4 border-b">
+    <div className="min-h-[100dvh] bg-background pb-[env(safe-area-inset-bottom)]">
+      <div className="sticky top-0 z-20 flex items-center border-b bg-background/95 px-4 py-2 pt-[max(.5rem,env(safe-area-inset-top))] backdrop-blur">
         <Button 
           variant="ghost" 
           size="icon"
           onClick={() => navigate(-1)}
-          className="mr-2"
+          className="mr-2 h-11 w-11 shrink-0"
+          aria-label="Go back"
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <h1 className="text-lg font-semibold flex-1 text-center pr-8">Transfer to Bank Account</h1>
+        <h1 className="flex-1 text-lg font-semibold">Send to a bank account</h1>
       </div>
       
-      <div className="flex-1 p-4 overflow-auto w-full">
+      <main className="w-full px-4 py-6">
         <div className="max-w-md mx-auto">
           {/* Daily Transaction Limit Alert */}
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6 flex items-center">
@@ -538,9 +539,9 @@ export default function TransferForm() {
             <span className="text-sm text-amber-800">Account daily transaction limit: ₦500,000.00</span>
           </div>
           
-          <form onSubmit={handleSubmit(handleContinue)} className="space-y-5">
+          <form onSubmit={handleSubmit(handleContinue)} className="space-y-5 rounded-2xl border bg-card p-4 shadow-sm sm:p-6">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-gray-700">Select Bank</label>
+              <label htmlFor="bank-input" className="text-sm font-medium">Bank</label>
               <div className="relative">
                 <div className="relative">
                   <Input
@@ -553,7 +554,12 @@ export default function TransferForm() {
                       setShowBankList(true);
                     }}
                     onFocus={() => setShowBankList(true)}
-                    className="w-full p-3 pr-10 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2DAE75] focus:border-transparent"
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape") setShowBankList(false);
+                    }}
+                    autoComplete="off"
+                    aria-controls={showBankList && !isLoadingBanks ? "bank-dropdown" : undefined}
+                    className="h-12 rounded-xl pr-10"
                     disabled={isLoadingBanks}
                   />
                   {isLoadingBanks ? (
@@ -566,15 +572,16 @@ export default function TransferForm() {
                 {showBankList && !isLoadingBanks && (
                   <div 
                     id="bank-dropdown"
-                    className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto"
+                    className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-xl border bg-popover shadow-lg"
                   >
                     {filteredBanks.length === 0 ? (
                       <div className="p-3 text-center text-gray-500">No banks found</div>
                     ) : (
                       filteredBanks.map((bank) => (
-                        <div
+                        <button
+                          type="button"
                           key={bank.code}
-                          className="p-2 hover:bg-gray-100 cursor-pointer"
+                          className="block min-h-11 w-full px-3 py-2 text-left hover:bg-muted focus-visible:bg-muted"
                           onClick={() => {
                             setValue('bankCode', bank.code);
                             setBankName(bank.name);
@@ -583,7 +590,7 @@ export default function TransferForm() {
                           }}
                         >
                           {bank.name}
-                        </div>
+                        </button>
                       ))
                     )}
                   </div>
@@ -595,9 +602,12 @@ export default function TransferForm() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-gray-700">Account Number</label>
-              <input
+              <label htmlFor="transfer-account" className="text-sm font-medium">Account number</label>
+              <Input
+                id="transfer-account"
                 type="text"
+                inputMode="numeric"
+                maxLength={10}
                 {...register('accountNumber', {
                   required: 'Account number is required',
                   pattern: {
@@ -605,7 +615,7 @@ export default function TransferForm() {
                     message: 'Account number must be 10 digits'
                   }
                 })}
-                className="w-full p-3 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2DAE75] focus:border-transparent"
+                className="h-12 rounded-xl"
                 placeholder="0123456789"
               />
               {errors.accountNumber && (
@@ -614,10 +624,12 @@ export default function TransferForm() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-gray-700">Amount (₦)</label>
+              <label htmlFor="transfer-amount" className="text-sm font-medium">Amount (₦)</label>
               <div className="relative">
-                <input
+                <Input
+                  id="transfer-amount"
                   type="number"
+                  inputMode="decimal"
                   step="0.01"
                   {...register('amount', {
                     required: 'Amount is required',
@@ -630,7 +642,7 @@ export default function TransferForm() {
                       message: 'Maximum amount is ₦500,000'
                     }
                   })}
-                  className="w-full p-3 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2DAE75] focus:border-transparent"
+                  className="h-12 rounded-xl"
                   placeholder="0.00"
                 />
               </div>
@@ -640,18 +652,17 @@ export default function TransferForm() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-gray-700">Beneficiary Name</label>
+              <label htmlFor="transfer-beneficiary" className="text-sm font-medium">Recipient</label>
               <div className="relative">
-                <input
+                <Input
+                  id="transfer-beneficiary"
                   type="text"
                   {...register('beneficiaryName', {
                     required: 'Beneficiary name is required'
                   })}
                   readOnly
-                  className={`w-full p-3 border rounded-lg bg-gray-50 text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2DAE75] focus:border-transparent ${
-                    accountError ? 'border-red-500 focus:ring-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder={isValidatingAccount ? "Verifying account..." : "Will be auto-filled"}
+                  className={`h-12 rounded-xl bg-muted pr-10 ${accountError ? 'border-destructive' : ''}`}
+                  placeholder={isValidatingAccount ? "Verifying account…" : "Appears after bank verification"}
                 />
                 {isValidatingAccount && (
                   <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-5 w-5 animate-spin" />
@@ -674,27 +685,28 @@ export default function TransferForm() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-gray-700">Narration</label>
-              <input
+              <label htmlFor="transfer-note" className="text-sm font-medium">Note (optional)</label>
+              <Input
+                id="transfer-note"
                 type="text"
                 {...register('narration')}
-                className="w-full p-3 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2DAE75] focus:border-transparent"
-                placeholder="Enter transfer narration"
+                className="h-12 rounded-xl"
+                placeholder="What’s this transfer for?"
               />
             </div>
             
             <div className="pt-4">
-              <button
+              <Button
                 type="submit"
                 disabled={isLoading || isLoadingBanks}
-                className="w-full py-3 px-4 rounded-lg shadow-sm text-white font-medium bg-[#2DAE75] hover:bg-[#249e69] disabled:opacity-50 transition-colors"
+                className="h-12 w-full rounded-xl"
               >
                 {isLoading ? 'Processing...' : isLoadingBanks ? 'Loading banks...' : 'Continue'}
-              </button>
+              </Button>
             </div>
           </form>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

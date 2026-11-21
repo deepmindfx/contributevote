@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -16,7 +16,7 @@ import {
 import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { format, isValid, parseISO } from "date-fns";
-import { Users, Calendar, ArrowRight } from "lucide-react";
+import { Users, Calendar, ChevronDown } from "lucide-react";
 import { 
   getGroupsSorted,
   CATEGORIES,
@@ -97,23 +97,23 @@ const GroupsList = () => {
   };
   
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex justify-between items-center mb-4">
-          <div>
-            <CardTitle>My Groups</CardTitle>
-            <CardDescription>Your contribution groups</CardDescription>
-          </div>
+    <Card className="rounded-2xl shadow-sm">
+      <CardHeader className="p-4 pb-3 sm:p-5 sm:pb-3">
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-lg">My groups</CardTitle>
           <Button variant="ghost" size="sm" asChild>
-            <Link to="/all-groups">
-              View All
-              <ArrowRight className="ml-1 h-4 w-4" />
+            <Link to="/all-groups" className="min-h-11 text-primary">
+              View all
             </Link>
           </Button>
         </div>
         
         {/* Filters */}
-        <div className="flex flex-wrap gap-3">
+        <details className="group">
+          <summary className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg text-sm font-medium text-muted-foreground">
+            <ChevronDown size={15} aria-hidden="true" className="group-open:rotate-180" /> Sort and filter
+          </summary>
+          <div className="flex flex-wrap gap-3 pb-2">
           {/* Sort Dropdown */}
           <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
             <SelectTrigger className="w-[140px]">
@@ -152,9 +152,10 @@ const GroupsList = () => {
               Show Archived
             </label>
           </div>
-        </div>
+          </div>
+        </details>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-4 pb-4 sm:px-5 sm:pb-5">
         {isLoading ? (
           <div className="text-center py-6">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
@@ -180,16 +181,16 @@ const GroupsList = () => {
               const progressPercentage = Math.min(100, Math.round((currentAmount / targetAmount) * 100) || 0);
               
               return (
-                <div 
-                  key={group.id} 
-                  className="border rounded-lg p-4 cursor-pointer hover:bg-muted/50 transition-colors" 
-                  onClick={() => navigate(`/groups/${group.id}`)}
+                <Link
+                  key={group.id}
+                  to={`/groups/${group.id}`}
+                  className="block rounded-xl border p-3 transition-colors hover:bg-muted/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary sm:p-4"
                 >
                   <div className="flex justify-between items-start mb-2">
-                    <div className="flex-1">
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-xl">{getCategoryIcon(group.category)}</span>
-                        <h3 className="font-medium text-base">{group.name || "Unnamed Group"}</h3>
+                        <h3 className="break-words text-base font-semibold">{group.name || "Unnamed Group"}</h3>
                         {group.archived && (
                           <Badge variant="secondary" className="text-xs">
                             📦 Archived
@@ -215,7 +216,7 @@ const GroupsList = () => {
                   </div>
                   
                   <div className="mt-3">
-                    <div className="flex justify-between items-center mb-1 text-xs">
+                    <div className="mb-1 flex flex-wrap items-center justify-between gap-x-2 text-xs">
                       <div className="text-muted-foreground">Progress ({progressPercentage}%)</div>
                       <div className="text-sm font-medium">
                         ₦{currentAmount.toLocaleString()} of ₦{targetAmount.toLocaleString()}
@@ -223,19 +224,12 @@ const GroupsList = () => {
                     </div>
                     <Progress value={progressPercentage} className="h-1.5" />
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>
         )}
       </CardContent>
-      <CardFooter className="pt-0">
-        {recentGroups.length > 0 && (
-          <Button onClick={() => navigate("/create-group")} className="w-full bg-[#2DAE75] hover:bg-[#249e69]">
-            Create New Group
-          </Button>
-        )}
-      </CardFooter>
     </Card>
   );
 };

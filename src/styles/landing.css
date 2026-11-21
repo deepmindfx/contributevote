@@ -73,8 +73,8 @@
 }
 
 .landing-intro h1 {
-  font-size: clamp(2.9rem, 7vw, 5.5rem);
-  letter-spacing: -.09em;
+  font-size: clamp(2.75rem, 6.8vw, 5.15rem);
+  letter-spacing: -.075em;
   line-height: 1.02;
   font-weight: 750;
 }
@@ -107,6 +107,7 @@
   border: 1px solid transparent;
   border-radius: .95rem;
   font-weight: 700;
+  white-space: nowrap;
   transition: background-color .15s, border-color .15s;
 }
 
@@ -405,7 +406,7 @@
   }
 
   .landing-actions > a {
-    flex: 1 1 9rem;
+    flex: 1 1 max-content;
   }
 }
 

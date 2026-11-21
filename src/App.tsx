@@ -145,10 +145,11 @@ const AppRoutes = () => {
     }
   }, [loading]);
   
-  if (showLoading) {
+  if (showLoading && pathname !== "/") {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      <div className="flex min-h-screen items-center justify-center" role="status">
+        <div className="h-9 w-9 animate-spin rounded-full border-2 border-primary/20 border-t-primary motion-reduce:animate-none" aria-hidden="true" />
+        <span className="sr-only">Loading CollectiPay…</span>
       </div>
     );
   }

@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { LogIn, Mail, Phone, User, Lock } from "lucide-react";
+import { Mail, Phone, User, Lock } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 
@@ -119,16 +119,7 @@ const AuthForm = () => {
         
         <TabsContent value="login">
           <form onSubmit={handleLogin}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <LogIn className="h-5 w-5" />
-                Login
-              </CardTitle>
-              <CardDescription>
-                Enter your credentials to access your account
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 px-4 pb-4 pt-3 sm:px-5">
               <div className="space-y-2">
                 <label htmlFor="email" className="text-sm font-medium">Email</label>
                 <div className="relative">
@@ -137,6 +128,7 @@ const AuthForm = () => {
                     id="email"
                     name="email"
                     type="email"
+                    autoComplete="email"
                     placeholder="Enter your email"
                     value={loginData.email}
                     onChange={handleLoginChange}
@@ -154,6 +146,7 @@ const AuthForm = () => {
                     id="password"
                     name="password"
                     type="password"
+                    autoComplete="current-password"
                     placeholder="Enter your password"
                     value={loginData.password}
                     onChange={handleLoginChange}
@@ -163,10 +156,10 @@ const AuthForm = () => {
                 </div>
               </div>
             </CardContent>
-            <CardFooter>
+            <CardFooter className="px-4 pb-4 sm:px-5">
               <Button 
                 type="submit" 
-                className="w-full" 
+                className="h-11 w-full rounded-xl"
                 disabled={isLoading}
               >
                 {isLoading ? "Signing in..." : "Sign In"}
@@ -177,16 +170,7 @@ const AuthForm = () => {
         
         <TabsContent value="register">
           <form onSubmit={handleRegister}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5" />
-                Register
-              </CardTitle>
-              <CardDescription>
-                Create a new account to get started
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 px-4 pb-4 pt-3 sm:px-5">
               <div className="space-y-2">
                 <label htmlFor="name" className="text-sm font-medium">Full Name</label>
                 <div className="relative">
@@ -194,6 +178,7 @@ const AuthForm = () => {
                   <Input
                     id="name"
                     name="name"
+                    autoComplete="name"
                     type="text"
                     placeholder="Enter your full name"
                     value={registerData.name}
@@ -211,6 +196,7 @@ const AuthForm = () => {
                   <Input
                     id="register-email"
                     name="email"
+                    autoComplete="email"
                     type="email"
                     placeholder="Enter your email"
                     value={registerData.email}
@@ -228,6 +214,7 @@ const AuthForm = () => {
                   <Input
                     id="phone"
                     name="phone"
+                    autoComplete="tel"
                     type="tel"
                     placeholder="Enter your phone number"
                     value={registerData.phone}
@@ -244,6 +231,7 @@ const AuthForm = () => {
                   <Input
                     id="register-password"
                     name="password"
+                    autoComplete="new-password"
                     type="password"
                     placeholder="Create a password (min 8 characters)"
                     value={registerData.password}
@@ -255,10 +243,10 @@ const AuthForm = () => {
                 </div>
               </div>
             </CardContent>
-            <CardFooter>
+            <CardFooter className="px-4 pb-4 sm:px-5">
               <Button 
                 type="submit" 
-                className="w-full" 
+                className="h-11 w-full rounded-xl"
                 disabled={isLoading}
               >
                 {isLoading ? "Creating account..." : "Create Account"}

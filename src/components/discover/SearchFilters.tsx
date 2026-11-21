@@ -10,7 +10,7 @@ import {
 import { Search, SlidersHorizontal, X } from 'lucide-react';
 import { CATEGORIES } from '@/services/supabase/groupEnhancementService';
 import { DiscoverFilters, SortOption } from '@/services/supabase/discoverService';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Sheet,
   SheetContent,
@@ -39,9 +39,13 @@ export default function SearchFilters({
   const [searchQuery, setSearchQuery] = useState(filters.search || '');
   const [showFilters, setShowFilters] = useState(false);
 
+  useEffect(() => {
+    setSearchQuery(filters.search || '');
+  }, [filters.search]);
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSearch(searchQuery);
+    onSearch(searchQuery.trim());
   };
 
   const handleFilterChange = (key: keyof DiscoverFilters, value: any) => {
@@ -51,7 +55,6 @@ export default function SearchFilters({
   const clearFilters = () => {
     onFiltersChange({});
     setSearchQuery('');
-    onSearch('');
   };
 
   const activeFilterCount = Object.keys(filters).filter(
@@ -61,25 +64,27 @@ export default function SearchFilters({
   return (
     <div className="space-y-4">
       {/* Search Bar */}
-      <form onSubmit={handleSearchSubmit} className="flex gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+      <form onSubmit={handleSearchSubmit} className="flex gap-2" role="search">
+        <div className="relative min-w-0 flex-1">
+          <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" aria-hidden="true" />
           <Input
-            placeholder="Search groups by name or description..."
+            type="search"
+            aria-label="Search groups"
+            placeholder="Search groups"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+            className="h-11 rounded-xl pl-10"
           />
         </div>
-        <Button type="submit">Search</Button>
+        <Button type="submit" className="h-11 rounded-xl">Search</Button>
       </form>
 
       {/* Filters and Sort */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className="flex flex-wrap items-center gap-2">
         {/* Mobile Filters Sheet */}
         <Sheet open={showFilters} onOpenChange={setShowFilters}>
           <SheetTrigger asChild>
-            <Button variant="outline" className="sm:hidden">
+            <Button variant="outline" className="h-11 flex-1 rounded-xl sm:hidden">
               <SlidersHorizontal className="h-4 w-4 mr-2" />
               Filters
               {activeFilterCount > 0 && (
@@ -89,12 +94,10 @@ export default function SearchFilters({
               )}
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-[300px] overflow-y-auto">
+          <SheetContent side="bottom" className="max-h-[90dvh] overflow-y-auto rounded-t-3xl pb-[max(1.5rem,env(safe-area-inset-bottom))]">
             <SheetHeader>
               <SheetTitle>Filters</SheetTitle>
-              <SheetDescription>
-                Refine your search with filters
-              </SheetDescription>
+              <SheetDescription>Filter by category, frequency, or funding progress.</SheetDescription>
             </SheetHeader>
             <div className="mt-6 space-y-4">
               <FilterControls 
@@ -103,12 +106,13 @@ export default function SearchFilters({
               />
               <Button 
                 variant="outline" 
-                className="w-full"
+                className="h-11 w-full"
                 onClick={clearFilters}
               >
                 <X className="h-4 w-4 mr-2" />
                 Clear Filters
               </Button>
+              <Button className="h-11 w-full" onClick={() => setShowFilters(false)}>Show results</Button>
             </div>
           </SheetContent>
         </Sheet>
@@ -176,7 +180,7 @@ export default function SearchFilters({
 
         {/* Sort */}
         <Select value={sortBy} onValueChange={(value) => onSortChange(value as SortOption)}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="h-11 min-w-0 flex-1 rounded-xl sm:max-w-[180px]" aria-label="Sort groups">
             <SelectValue placeholder="Sort by" />
           </SelectTrigger>
           <SelectContent>

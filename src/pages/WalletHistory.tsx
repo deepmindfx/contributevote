@@ -230,7 +230,7 @@ const WalletHistory = () => {
         </div>
         
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "app" | "bank")} className="mb-6">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="app-segmented grid w-full grid-cols-2" aria-label="Wallet history sections">
             <TabsTrigger value="app">
               <Wallet className="h-4 w-4 mr-2" />
               App Transactions

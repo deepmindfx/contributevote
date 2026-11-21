@@ -194,7 +194,7 @@ const UserSettingsForm = () => {
     <>
       <form onSubmit={handleSubmit}>
         <Tabs defaultValue="profile" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-8">
+          <TabsList className="app-segmented mb-6 grid w-full grid-cols-3" aria-label="Settings sections">
             <TabsTrigger value="profile">Profile</TabsTrigger>
             <TabsTrigger value="security">Security</TabsTrigger>
             <TabsTrigger value="preferences">Preferences</TabsTrigger>

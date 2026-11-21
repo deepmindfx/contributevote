@@ -7,7 +7,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { DiscoverService, DiscoverFilters, SortOption } from '@/services/supabase/discoverService';
-import { toast } from 'sonner';
 
 export default function Discover() {
   const [groups, setGroups] = useState<any[]>([]);
@@ -16,26 +15,27 @@ export default function Discover() {
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-
+  const [hasError, setHasError] = useState(false);
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
-    fetchGroups();
-  }, [filters, sortBy, currentPage]);
-
-  const fetchGroups = async () => {
+    let active = true;
     setLoading(true);
-    try {
-      const result = await DiscoverService.getPublicGroups(filters, sortBy, currentPage, 12);
-      setGroups(result.groups);
-      setTotalPages(result.totalPages);
-    } catch (error) {
-      console.error('Error fetching groups:', error);
-      toast.error('Failed to load groups');
-    } finally {
-      setLoading(false);
-    }
-  };
-
+    setHasError(false);
+    void DiscoverService.getPublicGroups(filters, sortBy, currentPage, 12)
+      .then((result) => {
+        if (!active) return;
+        setGroups(result.groups);
+        setTotalPages(result.totalPages);
+      })
+      .catch((error) => {
+        if (!active) return;
+        console.error('Error fetching groups:', error);
+        setHasError(true);
+      })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [filters, sortBy, currentPage, retry]);
 
   const handleFiltersChange = (newFilters: DiscoverFilters) => {
     setFilters(newFilters);
@@ -79,13 +79,21 @@ export default function Discover() {
 
         {/* Results Count */}
         <div className="mb-4">
-          <p className="text-sm text-muted-foreground">
-            {loading ? 'Loading...' : `Showing ${groups.length} of ${stats.totalGroups} groups`}
-          </p>
+          {!hasError && (
+            <p className="text-sm text-muted-foreground" role="status">
+              {loading ? 'Loading groups…' : `${groups.length} ${groups.length === 1 ? 'group' : 'groups'} on this page`}
+            </p>
+          )}
         </div>
 
         {/* Groups Grid */}
-        {loading ? (
+        {hasError ? (
+          <Card className="rounded-2xl p-6 text-center">
+            <h2 className="text-lg font-semibold">Couldn’t load groups</h2>
+            <p className="mb-4 mt-1 text-muted-foreground">Check your connection and try again.</p>
+            <Button className="h-11" onClick={() => setRetry((attempt) => attempt + 1)}>Try again</Button>
+          </Card>
+        ) : loading ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[...Array(12)].map((_, i) => (
               <Card key={i} className="h-[400px]">

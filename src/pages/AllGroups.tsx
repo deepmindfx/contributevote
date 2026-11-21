@@ -120,8 +120,8 @@ const AllGroups = () => {
             Dashboard
           </Button>
           <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-4">
-            <h1 className="font-bold text-2xl">All Contribution Groups</h1>
-            <Button size="sm" asChild className="bg-green-600 hover:bg-green-700">
+            <h1 className="app-page-title">My groups</h1>
+            <Button asChild className="h-11 self-start rounded-xl">
               <Link to="/create-group">Create New Group</Link>
             </Button>
           </div>

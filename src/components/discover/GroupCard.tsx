@@ -3,7 +3,7 @@ import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Users, Calendar, Target, ArrowRight, CheckCircle } from 'lucide-react';
+import { Users, Calendar, Target, CheckCircle } from 'lucide-react';
 import { getCategoryIcon, getCategoryLabel } from '@/services/supabase/groupEnhancementService';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -77,17 +77,17 @@ export default function GroupCard({ group }: GroupCardProps) {
   };
 
   return (
-    <Card className="group hover:shadow-lg transition-all duration-300 hover:border-primary/50 flex flex-col h-full">
-      <CardHeader className="space-y-3">
+    <Card className="group flex h-full min-w-0 flex-col rounded-2xl shadow-sm transition-colors hover:border-primary/40">
+      <CardHeader className="space-y-3 p-4 sm:p-5">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="text-3xl">{getCategoryIcon(group.category)}</span>
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent text-xl" aria-hidden="true">{getCategoryIcon(group.category)}</span>
             <Badge variant="secondary" className="text-xs">
               {getCategoryLabel(group.category)}
             </Badge>
           </div>
           {progress >= 100 && (
-            <Badge className="bg-green-600">Completed</Badge>
+            <Badge variant="secondary">Completed</Badge>
           )}
         </div>
         
@@ -106,14 +106,14 @@ export default function GroupCard({ group }: GroupCardProps) {
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4 flex-1">
+      <CardContent className="flex-1 space-y-4 px-4 sm:px-5">
         {/* Progress */}
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Progress</span>
             <span className="font-semibold">{progress.toFixed(1)}%</span>
           </div>
-          <Progress value={progress} className="h-2" />
+          <Progress aria-label="Funding progress" value={progress} className="h-2" />
           <div className="flex items-center justify-between text-xs">
             <span className="font-medium">
               ₦{(group.current_amount || 0).toLocaleString()}
@@ -152,37 +152,16 @@ export default function GroupCard({ group }: GroupCardProps) {
         )}
       </CardContent>
 
-      <CardFooter className="flex gap-2">
-        <Button 
-          variant="outline" 
-          className="flex-1"
-          onClick={handleViewClick}
-        >
-          View Details
-        </Button>
-        {loading ? (
-          <Button 
-            className="flex-1"
-            disabled
-          >
-            Loading...
-          </Button>
-        ) : isMember ? (
-          <Button 
-            className="flex-1 bg-blue-600 hover:bg-blue-700"
-            onClick={handleJoinClick}
-          >
-            <CheckCircle className="mr-2 h-4 w-4" />
-            Already Joined
+      <CardFooter className="flex flex-wrap gap-2 px-4 pb-4 sm:px-5 sm:pb-5">
+        {isMember ? (
+          <Button className="h-11 flex-1 gap-2 rounded-xl" onClick={handleViewClick}>
+            <CheckCircle size={16} aria-hidden="true" /> View my group
           </Button>
         ) : (
-          <Button 
-            className="flex-1 bg-green-600 hover:bg-green-700"
-            onClick={handleJoinClick}
-          >
-            Join Group
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
+          <>
+            <Button variant="outline" className="h-11 flex-1 rounded-xl" onClick={handleViewClick}>View details</Button>
+            <Button disabled={loading} className="h-11 flex-1 rounded-xl" onClick={handleJoinClick}>Join group</Button>
+          </>
         )}
       </CardFooter>
     </Card>

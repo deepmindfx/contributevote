@@ -51,6 +51,9 @@ export default function Dashboard() {
             </TabsContent>
             <TabsContent value="account" className="mt-3">
               <ReservedAccount />
+              <Button asChild variant="outline" className="mt-3 flex h-11 gap-2 rounded-xl sm:hidden">
+                <Link to="/create-group"><Plus size={18} /> Create group</Link>
+              </Button>
             </TabsContent>
           </Tabs>
 
