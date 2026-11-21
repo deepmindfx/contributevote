@@ -1,70 +1,58 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { LogIn, Key } from "lucide-react";
+import { Key, Mail, Lock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/layout/Header";
+import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 
 const AdminAuth = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const [loginData, setLoginData] = useState({ username: "", password: "" });
+  const [loginData, setLoginData] = useState({ email: "", password: "" });
   const navigate = useNavigate();
+  const { signIn, logout, isAuthenticated, isAdmin } = useSupabaseUser();
+
+  useEffect(() => {
+    if (isAuthenticated && isAdmin) {
+      navigate("/admin", { replace: true });
+    }
+  }, [isAuthenticated, isAdmin, navigate]);
 
   const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setLoginData(prev => ({ ...prev, [name]: value }));
+    setLoginData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
+
     try {
-      // Simple validation
-      if (!loginData.username || !loginData.password) {
+      if (!loginData.email || !loginData.password) {
         toast.error("Please fill in all fields");
-        setIsLoading(false);
         return;
       }
-      
-      // Check admin credentials
-      if ((loginData.username === "admin" && loginData.password === "admin123") || 
-          (loginData.username === "superadmin" && loginData.password === "superadmin123")) {
-        // Admin login successful
-        const adminUser = {
-          id: "admin-user-id",
-          firstName: "Admin",
-          lastName: "User",
-          name: "Admin User",
-          email: "admin@collectipay.com",
-          phone: "admin", // Changed from phoneNumber to phone to match User interface
-          walletBalance: 0,
-          preferences: {
-            anonymousContributions: false,
-            darkMode: false,
-            notificationsEnabled: true,
-          },
-          notifications: [],
-          role: "admin" as const,
-          status: "active" as const,
-          createdAt: new Date().toISOString(),
-          verified: true, // Add verified property to match User interface
-        };
-        
-        localStorage.setItem('currentUser', JSON.stringify(adminUser));
-        toast.success("Admin login successful");
-        setTimeout(() => {
-          navigate("/admin");
-        }, 500);
-      } else {
-        toast.error("Invalid admin credentials");
+
+      const { error, profile } = await signIn(loginData.email, loginData.password);
+
+      if (error) {
+        toast.error(error.message || "Invalid admin credentials");
+        return;
       }
-    } catch (error) {
-      console.error("Login error:", error);
-      toast.error("An error occurred during login");
+
+      if (!profile || profile.role !== "admin") {
+        await logout();
+        toast.error("Access denied. This account does not have administrator privileges.");
+        return;
+      }
+
+      toast.success("Admin login successful");
+      navigate("/admin", { replace: true });
+    } catch (error: any) {
+      console.error("Admin login error:", error);
+      toast.error(error?.message || "An error occurred during login");
     } finally {
       setIsLoading(false);
     }
@@ -81,45 +69,43 @@ const AdminAuth = () => {
               Secure login for CollectiPay administrators
             </p>
           </div>
-          
+
           <Card className="w-full max-w-md mx-auto animate-scale glass-card">
             <CardHeader>
               <CardTitle className="text-2xl text-center">Admin Login</CardTitle>
               <CardDescription className="text-center">
-                Enter your admin credentials to access the dashboard
+                Sign in with your authorized administrator account
               </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div className="relative">
-                    <Input 
-                      placeholder="Admin Username" 
-                      type="text" 
-                      name="username"
-                      className="pl-3" 
-                      value={loginData.username}
+                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Admin Email"
+                      type="email"
+                      name="email"
+                      className="pl-10"
+                      value={loginData.email}
                       onChange={handleLoginChange}
-                      required 
+                      required
                     />
                   </div>
                   <div className="relative">
-                    <Input 
-                      placeholder="Admin Password" 
-                      type="password" 
+                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Admin Password"
+                      type="password"
                       name="password"
-                      className="pl-3" 
+                      className="pl-10"
                       value={loginData.password}
                       onChange={handleLoginChange}
-                      required 
+                      required
                     />
                   </div>
                 </div>
-                <Button 
-                  type="submit" 
-                  className="w-full" 
-                  disabled={isLoading}
-                >
+                <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? (
                     <div className="flex items-center">
                       <div className="animate-spin mr-2 h-4 w-4 border-t-2 border-b-2 border-current rounded-full"></div>
@@ -136,8 +122,12 @@ const AdminAuth = () => {
             </CardContent>
             <CardFooter className="flex justify-center">
               <p className="text-sm text-muted-foreground">
-                Regular user? 
-                <Button variant="link" onClick={() => navigate("/auth")} className="p-0 h-auto font-normal ml-1">
+                Regular user?
+                <Button
+                  variant="link"
+                  onClick={() => navigate("/auth")}
+                  className="p-0 h-auto font-normal ml-1"
+                >
                   Sign in here
                 </Button>
               </p>

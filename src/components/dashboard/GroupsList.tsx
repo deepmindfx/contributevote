@@ -198,10 +198,15 @@ const GroupsList = () => {
                       </div>
                       <div className="flex items-center text-xs text-muted-foreground mt-1">
                         <Users className="h-3 w-3 mr-1 inline" />
-                        <span className="mr-2">{(group.members?.length || 0)} members</span>
+                        <span className="mr-2">
+                          {Array.isArray(group.contributors)
+                            ? (group.contributors[0]?.count ?? group.contributors.length)
+                            : 0}{' '}
+                          members
+                        </span>
                         
                         <Calendar className="h-3 w-3 mr-1 inline" />
-                        <span>{safeFormatDate(group.startDate)}</span>
+                        <span>{safeFormatDate(group.start_date || group.created_at)}</span>
                       </div>
                     </div>
                     <Badge variant="outline" className="capitalize text-xs">

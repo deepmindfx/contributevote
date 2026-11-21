@@ -25,9 +25,15 @@ const AuthForm = () => {
   const location = useLocation();
   const { signIn, signUp } = useSupabaseUser();
 
-  // Get return URL if user was redirected from a protected page
+  // Get return URL from router state or ?redirect= query parameter (only allow safe relative paths)
+  const searchParams = new URLSearchParams(location.search);
+  const redirectParam = searchParams.get("redirect");
+  const safeRedirect =
+    redirectParam && redirectParam.startsWith("/") && !redirectParam.startsWith("//")
+      ? redirectParam
+      : null;
   const { state } = location;
-  const returnUrl = state?.returnUrl || "/dashboard";
+  const returnUrl = (state as any)?.returnUrl || safeRedirect || "/dashboard";
   
   const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;

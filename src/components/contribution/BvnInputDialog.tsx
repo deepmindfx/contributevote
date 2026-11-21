@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -32,7 +32,7 @@ export function BvnInputDialog({
   const [error, setError] = useState('');
 
   // Update BVN when initialBvn changes
-  useState(() => {
+  useEffect(() => {
     if (initialBvn) {
       setBvn(initialBvn);
     }

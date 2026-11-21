@@ -122,7 +122,7 @@ export const ContributorService = {
         .select('*')
         .eq('group_id', groupId)
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
       if (existing) {
         // Update existing contributor
@@ -205,25 +205,34 @@ export const ContributorService = {
   },
 
   /**
-   * Get all contributors for a group
+   * Get all contributors for a group (uses safe RPC to preserve profiles RLS privacy)
    */
   async getGroupContributors(groupId: string) {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any).rpc('get_group_contributors_safe', {
+        p_group_id: groupId
+      });
+
+      if (!error && Array.isArray(data)) {
+        return data.map((row: any) => ({
+          ...row,
+          profiles: {
+            id: row.user_id,
+            name: row.contributor_name,
+            avatar_url: row.contributor_avatar
+          }
+        }));
+      }
+
+      // Fallback direct query
+      const { data: fallback, error: fallbackError } = await supabase
         .from('contributors')
-        .select(`
-          *,
-          profiles:user_id (
-            id,
-            name,
-            email
-          )
-        `)
+        .select('*')
         .eq('group_id', groupId)
         .order('total_contributed', { ascending: false });
 
-      if (error) throw error;
-      return data || [];
+      if (fallbackError) throw fallbackError;
+      return fallback || [];
     } catch (error) {
       console.error('Error getting contributors:', error);
       return [];
@@ -295,7 +304,7 @@ export const ContributorService = {
         .select('*')
         .eq('group_id', groupId)
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
       if (existing) {
         // Update existing contributor

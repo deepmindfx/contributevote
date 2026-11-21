@@ -11,84 +11,113 @@ import { Wallet, ArrowLeft, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
+import { supabase } from "@/integrations/supabase/client";
+import { WalletContributionService } from "@/services/supabase/walletContributionService";
 import Header from "@/components/layout/Header";
-import { ensureAccountNumberDisplay } from "@/localStorage";
 import AccountNumberDisplay from "@/components/contributions/AccountNumberDisplay";
+
 const ContributeSharePage = () => {
   const { id } = useParams<{ id: string }>();
-  const { user, isAuthenticated } = useSupabaseUser();
-  const { contribute } = useSupabaseContribution();
+  const { user, isAuthenticated, refreshCurrentUser } = useSupabaseUser();
+  const { refreshContributionData } = useSupabaseContribution();
   const navigate = useNavigate();
   const [contribution, setContribution] = useState<any>(null);
+  const [fetching, setFetching] = useState(true);
   const [amount, setAmount] = useState<number>(0);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  
+
   useEffect(() => {
-    if (id) {
-      // Ensure account numbers are displayed
-      ensureAccountNumberDisplay();
-      
-      const allContributions = getContributions();
-      const foundContribution = allContributions.find(c => c.id === id);
-      if (foundContribution) {
-        setContribution(foundContribution);
-        // Set the default contribution amount if available
-        if (foundContribution.contributionAmount) {
-          setAmount(foundContribution.contributionAmount);
-        }
+    const loadSharedGroup = async () => {
+      if (!id) {
+        setFetching(false);
+        return;
       }
-    }
+
+      try {
+        const { data, error } = await supabase
+          .from("contribution_groups")
+          .select("*")
+          .eq("id", id)
+          .single();
+
+        if (!error && data) {
+          setContribution(data);
+          if (data.contribution_amount) {
+            setAmount(Number(data.contribution_amount));
+          }
+        }
+      } catch (error) {
+        console.error("Error loading shared group:", error);
+      } finally {
+        setFetching(false);
+      }
+    };
+
+    loadSharedGroup();
   }, [id]);
-  
-  // Get all contributions, not just the user's contributions
-  const getContributions = () => {
-    const contributionsString = localStorage.getItem('contributions');
-    if (!contributionsString) {
-      return [];
-    }
-    return JSON.parse(contributionsString);
-  };
-  
+
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseFloat(e.target.value);
     setAmount(isNaN(value) ? 0 : value);
   };
-  
-  const handleContribute = () => {
-    if (!isAuthenticated) {
+
+  const handleContribute = async () => {
+    if (!isAuthenticated || !user) {
       toast.error("Please log in to contribute");
-      navigate("/auth", { state: { returnUrl: `/contribute/share/${id}` } });
+      navigate(`/auth?redirect=/contribute/share/${id}`, {
+        state: { returnUrl: `/contribute/share/${id}` },
+      });
       return;
     }
-    
-    if (amount <= 0) {
-      toast.error("Please enter a valid amount");
+
+    if (amount < 100) {
+      toast.error("Minimum contribution amount is ₦100");
       return;
     }
-    
-    // Check if amount meets minimum requirement
-    if (contribution.contributionAmount && amount < contribution.contributionAmount) {
-      toast.error(`Minimum contribution amount is ₦${contribution.contributionAmount.toLocaleString()}`);
+
+    const minAmount = Number(contribution?.contribution_amount || 0);
+    if (minAmount > 0 && amount < minAmount) {
+      toast.error(`Minimum contribution amount is ₦${minAmount.toLocaleString()}`);
       return;
     }
-    
-    if (user.wallet_balance < amount) {
+
+    if (Number(user.wallet_balance || 0) < amount) {
       toast.error("Insufficient funds in your wallet");
       return;
     }
-    
+
     setIsLoading(true);
-    
-    // Process contribution
-    setTimeout(() => {
-      contribute(contribution.id, amount, isAnonymous);
+    try {
+      const result = await WalletContributionService.contributeFromWallet(
+        user.id,
+        contribution.id,
+        amount,
+        isAnonymous
+      );
+
+      if (result.success) {
+        await Promise.all([refreshCurrentUser(), refreshContributionData()]);
+        navigate(`/groups/${contribution.id}`);
+      }
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to process contribution");
+    } finally {
       setIsLoading(false);
-      toast.success(`Successfully contributed ₦${amount.toLocaleString()} to ${contribution.name}`);
-      navigate(`/groups/${contribution.id}`);
-    }, 1000);
+    }
   };
-  
+
+  if (fetching) {
+    return (
+      <div className="min-h-screen">
+        <Header />
+        <div className="flex items-center justify-center pt-32">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
+        </div>
+      </div>
+    );
+  }
+
   if (!contribution) {
     return (
       <div className="min-h-screen">
@@ -99,12 +128,12 @@ const ContributeSharePage = () => {
               <AlertCircle className="mx-auto h-12 w-12 text-destructive" />
               <CardTitle className="mt-4">Contribution Not Found</CardTitle>
               <CardDescription>
-                The contribution you're looking for doesn't exist or may have been deleted.
+                This contribution group doesn't exist, is private, or has been archived.
               </CardDescription>
             </CardHeader>
             <CardFooter className="flex justify-center">
               <Button asChild>
-                <Link to="/">Return Home</Link>
+                <Link to="/discover">Browse Public Groups</Link>
               </Button>
             </CardFooter>
           </Card>
@@ -112,7 +141,12 @@ const ContributeSharePage = () => {
       </div>
     );
   }
-  
+
+  const currentAmount = Number(contribution.current_amount || 0);
+  const targetAmount = Number(contribution.target_amount || 1);
+  const minContribution = Number(contribution.contribution_amount || 0);
+  const description = contribution.description || "";
+
   return (
     <div className="min-h-screen">
       <Header />
@@ -125,111 +159,102 @@ const ContributeSharePage = () => {
               </div>
             </div>
             <CardTitle>Contribute to {contribution.name}</CardTitle>
-            <CardDescription>
-              Join others in this contribution group
-            </CardDescription>
+            <CardDescription>Join others in this contribution group</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center space-x-3 p-3 bg-secondary/50 rounded-lg">
               <Avatar className="h-10 w-10">
-                <AvatarFallback>{contribution.name.charAt(0)}</AvatarFallback>
+                <AvatarFallback>{contribution.name?.charAt(0) || "G"}</AvatarFallback>
               </Avatar>
               <div>
                 <p className="font-medium">{contribution.name}</p>
                 <p className="text-sm text-muted-foreground">
-                  {contribution.description.substring(0, 50)}
-                  {contribution.description.length > 50 ? "..." : ""}
+                  {description.substring(0, 60)}
+                  {description.length > 60 ? "..." : ""}
                 </p>
               </div>
             </div>
-            
+
             <div>
               <p className="text-sm font-medium mb-1">Contribution Progress</p>
               <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
-                <div 
+                <div
                   className="bg-primary h-full rounded-full"
-                  style={{ 
-                    width: `${Math.min(
-                      (contribution.currentAmount / contribution.targetAmount) * 100, 
-                      100
-                    )}%` 
-                  }}
+                  style={{ width: `${Math.min((currentAmount / targetAmount) * 100, 100)}%` }}
                 ></div>
               </div>
               <div className="flex justify-between text-sm mt-1">
-                <span>₦{contribution.currentAmount.toLocaleString()}</span>
-                <span>₦{contribution.targetAmount.toLocaleString()}</span>
+                <span>₦{currentAmount.toLocaleString()}</span>
+                <span>₦{targetAmount.toLocaleString()}</span>
               </div>
             </div>
-            
+
             <Separator />
-            
-            {contribution.accountNumber && (
-              <div className="p-3 bg-secondary/30 rounded-lg">
-                {/* Replace the manual account display with AccountNumberDisplay component */}
-                <AccountNumberDisplay 
-                  accountNumber={contribution.accountNumber} 
-                  accountName={contribution.name}
-                />
-                <p className="text-xs text-muted-foreground mt-2">
-                  You can also transfer directly to this account
-                </p>
-              </div>
+
+            {contribution.account_number && (
+              <>
+                <div className="p-3 bg-secondary/30 rounded-lg">
+                  <AccountNumberDisplay
+                    accountNumber={contribution.account_number}
+                    accountName={contribution.account_name || contribution.name}
+                  />
+                  <p className="text-xs text-muted-foreground mt-2">
+                    You can also transfer directly to this account ({contribution.bank_name || contribution.account_details?.bank_name || "Virtual Account"})
+                  </p>
+                </div>
+                <Separator />
+              </>
             )}
-            
-            <Separator />
-            
+
             <div className="space-y-3">
-              <Label htmlFor="amount">Contribution Amount</Label>
+              <Label htmlFor="amount">Contribution Amount (₦)</Label>
               <Input
                 id="amount"
                 type="number"
-                min={contribution.contributionAmount}
+                min={minContribution || 100}
                 step="100"
                 placeholder="Enter amount"
-                value={amount || ''}
+                value={amount || ""}
                 onChange={handleAmountChange}
               />
-              {contribution.contributionAmount > 0 && (
+              {minContribution > 0 && (
                 <p className="text-xs text-muted-foreground">
-                  Minimum contribution: ₦{contribution.contributionAmount.toLocaleString()}
+                  Minimum contribution: ₦{minContribution.toLocaleString()}
                 </p>
               )}
-              
+
               <div className="flex flex-wrap gap-2 pt-2">
-                {[500, 1000, 5000, 10000].map(value => (
+                {[500, 1000, 5000, 10000].map((value) => (
                   <Button
                     key={value}
                     type="button"
                     variant="outline"
                     className="flex-1"
                     onClick={() => setAmount(value)}
-                    disabled={value < contribution.contributionAmount}
+                    disabled={minContribution > 0 && value < minContribution}
                   >
                     ₦{value.toLocaleString()}
                   </Button>
                 ))}
               </div>
             </div>
-            
+
             <div className="space-y-2">
               <Label>Contribution Privacy</Label>
-              <RadioGroup defaultValue="public" className="pt-2">
+              <RadioGroup
+                value={isAnonymous ? "anonymous" : "public"}
+                onValueChange={(v) => setIsAnonymous(v === "anonymous")}
+                className="pt-2"
+              >
                 <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="public" id="public" 
-                    checked={!isAnonymous}
-                    onClick={() => setIsAnonymous(false)}
-                  />
-                  <Label htmlFor="public" className="cursor-pointer">
+                  <RadioGroupItem value="public" id="share-public" />
+                  <Label htmlFor="share-public" className="cursor-pointer">
                     Public (Your name will be visible)
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="anonymous" id="anonymous" 
-                    checked={isAnonymous}
-                    onClick={() => setIsAnonymous(true)}
-                  />
-                  <Label htmlFor="anonymous" className="cursor-pointer">
+                  <RadioGroupItem value="anonymous" id="share-anonymous" />
+                  <Label htmlFor="share-anonymous" className="cursor-pointer">
                     Anonymous (Your name will be hidden)
                   </Label>
                 </div>
@@ -237,19 +262,12 @@ const ContributeSharePage = () => {
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-3">
-            <Button 
-              className="w-full" 
+            <Button
+              className="w-full"
               onClick={handleContribute}
               disabled={isLoading || amount <= 0}
             >
-              {isLoading ? (
-                <>
-                  <span className="animate-spin mr-2 h-4 w-4 border-t-2 border-b-2 border-current rounded-full"></span>
-                  Processing...
-                </>
-              ) : (
-                `Contribute ₦${amount.toLocaleString()}`
-              )}
+              {isLoading ? "Processing..." : `Contribute ₦${amount.toLocaleString()}`}
             </Button>
             <Button variant="ghost" asChild className="w-full">
               <Link to="/">

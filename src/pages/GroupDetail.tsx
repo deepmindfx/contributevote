@@ -175,7 +175,8 @@ export default function GroupDetail() {
           .from('contribution_groups')
           .update({
             account_number: accountData.responseBody.account_number,
-            account_name: group.name, // Use group name as account name
+            account_name: group.name,
+            bank_name: accountData.responseBody.bank_name || null,
             account_reference: accountData.responseBody.order_ref || accountData.responseBody.flw_ref,
             account_details: accountData.responseBody
           })
@@ -187,12 +188,12 @@ export default function GroupDetail() {
         } else {
           toast.success('Bank account created successfully!');
           setShowBvnDialog(false);
-          
-          // Update the local group state with the new account details
+
           setGroup((prevGroup: any) => ({
             ...prevGroup,
             account_number: accountData.responseBody.account_number,
             account_name: group.name,
+            bank_name: accountData.responseBody.bank_name || null,
             account_reference: accountData.responseBody.order_ref || accountData.responseBody.flw_ref,
             account_details: accountData.responseBody
           }));
@@ -457,7 +458,7 @@ export default function GroupDetail() {
                 <div className="min-w-0">
                   <p className="text-xs md:text-sm text-muted-foreground">Deadline</p>
                   <p className="text-base md:text-lg font-semibold truncate">
-                    {group.deadline ? new Date(group.deadline).toLocaleDateString() : 'No deadline'}
+                    {group.end_date ? new Date(group.end_date).toLocaleDateString() : 'No deadline'}
                   </p>
                 </div>
               </div>
@@ -470,7 +471,7 @@ export default function GroupDetail() {
           <ShareableBankCard
             groupName={group.name}
             accountNumber={group.account_number || group.bank_details?.accountNumber}
-            bankName={group.account_details?.bank_name || group.bank_details?.bankName || 'Sterling Bank'}
+            bankName={group.bank_name || group.account_details?.bank_name || group.bank_details?.bankName || 'Virtual Bank'}
             accountName={group.account_name || group.bank_details?.accountName || group.name}
           />
         ) : (
@@ -516,7 +517,7 @@ export default function GroupDetail() {
               <p className="text-muted-foreground">
                 You have voting rights in this group. Participate in important decisions.
               </p>
-              <Button variant="outline">
+              <Button variant="outline" onClick={() => navigate('/votes')}>
                 View Active Polls
               </Button>
             </div>

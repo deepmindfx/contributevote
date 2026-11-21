@@ -97,7 +97,7 @@ export function GroupRefundDialog({ groupId, groupName, onSuccess }: GroupRefund
           <Alert>
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
-              This will initiate a vote among all contributors. A majority (&gt;50%) must approve for the refund to be processed.
+              This will initiate a 7-day governance vote among eligible contributors. At least 70% participation and 60% approval are required for the refund to be processed.
             </AlertDescription>
           </Alert>
 

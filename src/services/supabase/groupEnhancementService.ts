@@ -51,6 +51,10 @@ export async function createGroupWithFee(
     frequency: string;
     privacy?: string;
     enable_voting_rights?: boolean;
+    contribution_amount?: number | null;
+    start_date?: string | null;
+    end_date?: string | null;
+    voting_threshold?: number | null;
   }
 ): Promise<any> {
   try {
@@ -63,6 +67,10 @@ export async function createGroupWithFee(
       p_frequency: groupData.frequency,
       p_privacy: groupData.privacy || 'public',
       p_enable_voting_rights: groupData.enable_voting_rights !== false,
+      p_contribution_amount: groupData.contribution_amount ?? null,
+      p_start_date: groupData.start_date || null,
+      p_end_date: groupData.end_date || null,
+      p_voting_threshold: groupData.voting_threshold ?? 60,
     } as any);
 
     if (error) throw error;
@@ -115,10 +123,10 @@ export async function getGroupsSorted(
   } = {}
 ) {
   try {
-    // Get groups where user is creator
+    // Get groups where user is creator (include contributor count)
     let creatorQuery = supabase
       .from('contribution_groups')
-      .select('*')
+      .select('*, contributors(count)')
       .eq('creator_id', userId);
 
     // Filter archived
@@ -149,7 +157,7 @@ export async function getGroupsSorted(
     if (contributorGroupIds.length > 0) {
       let contributorGroupQuery = supabase
         .from('contribution_groups')
-        .select('*')
+        .select('*, contributors(count)')
         .in('id', contributorGroupIds)
         .neq('creator_id', userId); // Exclude groups where user is creator (already fetched)
 

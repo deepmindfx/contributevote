@@ -61,27 +61,37 @@ const ActivityList = ({ isLoading }: ActivityListProps) => {
       .map(transaction => {
         const contribution = contributions.find(c => c.id === transaction.contribution_id);
         const meta = (transaction.metadata || {}) as any;
+        const isCredit = transaction.type === "deposit" || transaction.type === "refund";
         
         let type: "deposit" | "withdrawal" | "vote" = "deposit";
-        if (transaction.type === "withdrawal") type = "withdrawal";
+        if (transaction.type === "withdrawal" || transaction.type === "transfer" || transaction.type === "contribution") {
+          type = "withdrawal";
+        }
         if (transaction.type === "vote") type = "vote";
+
+        const titleMap: Record<string, string> = {
+          deposit: "Wallet Deposit",
+          withdrawal: "Withdrawal",
+          contribution: "Group Contribution",
+          transfer: "Bank Transfer",
+          refund: "Group Refund",
+          vote: "Governance Vote",
+        };
         
         return {
           type,
-          title: transaction.type === 'deposit' ? 'Deposit' : 
-                 transaction.type === 'withdrawal' ? 'Withdrawal' : 
-                 transaction.type === 'contribution' ? 'Group Contribution' : 'Vote',
+          title: titleMap[transaction.type] || "Transaction",
           description: contribution ? contribution.name : 
                        transaction.description || 
                        (meta?.bankName ? `Via ${meta.bankName}` : ''),
           amount: transaction.type === 'vote' ? 
-                  `₦${transaction.amount.toLocaleString()}` : 
-                  `${transaction.type === 'deposit' || transaction.type === 'contribution' ? '+' : '-'}₦${transaction.amount.toLocaleString()}`,
+                  `₦${Number(transaction.amount).toLocaleString()}` : 
+                  `${isCredit ? '+' : '-'}₦${Number(transaction.amount).toLocaleString()}`,
           date: formatDate(transaction.created_at),
           status: transaction.status as "pending" | "completed" | "rejected",
           senderDetails: getSenderDetails(transaction),
-          id: transaction.id, // Add ID for better key handling
-          reference: meta?.paymentReference || meta?.transactionReference, // Add reference for better key handling
+          id: transaction.id,
+          reference: meta?.paymentReference || meta?.transactionReference,
         }
       });
   }, [transactions, contributions, user?.id]);

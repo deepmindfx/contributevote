@@ -2,6 +2,8 @@
 
 A modern, production-ready web application for managing group contributions and voting with integrated wallet functionality, powered by Supabase and Flutterwave.
 
+See the [project index](PROJECT_INDEX.md) for the active routes, payment paths, database entry points, and local verification commands.
+
 ## 🚀 Features
 
 - 💰 **Wallet Management**

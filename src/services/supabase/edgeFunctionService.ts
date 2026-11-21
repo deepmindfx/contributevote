@@ -12,9 +12,24 @@ export class EdgeFunctionService {
   // Resolve bank account details
   static async resolveAccount(accountNumber: string, bankCode: string) {
     const { data, error } = await supabase.functions.invoke('flutterwave-resolve-account', {
-      body: { account_number: accountNumber, bank_code: bankCode }
+      body: { account_number: accountNumber, account_bank: bankCode }
     })
     
+    if (error) throw error
+    return data
+  }
+
+  // Verify Flutterwave payment transaction server-side
+  static async verifyTransaction(params: {
+    transaction_id: string
+    tx_ref?: string
+    group_id?: string
+    anonymous?: boolean
+  }) {
+    const { data, error } = await supabase.functions.invoke('flutterwave-verify-transaction', {
+      body: params
+    })
+
     if (error) throw error
     return data
   }

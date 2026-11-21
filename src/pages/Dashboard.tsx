@@ -1,198 +1,61 @@
-
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { Building2, Plus, Wallet } from "lucide-react";
 import Header from "@/components/layout/Header";
-import MobileNav from "@/components/layout/MobileNav";
 import WalletCard from "@/components/dashboard/WalletCard";
 import GroupsList from "@/components/dashboard/GroupsList";
 import RecentActivity from "@/components/dashboard/RecentActivity";
 import ReservedAccount from "@/components/wallet/ReservedAccount";
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
-import { UserPlus, Bell, Settings, User, X } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { markAllNotificationsAsRead, markNotificationAsRead } from "@/services/localStorage";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
-import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-const Dashboard = () => {
+export default function Dashboard() {
   const { user } = useSupabaseUser();
-  const { contributions, refreshContributionData } = useSupabaseContribution();
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const { refreshContributionData } = useSupabaseContribution();
   const [activeTab, setActiveTab] = useState("wallet");
-  
+  const firstName = user?.name?.trim().split(/\s+/)[0];
+
   useEffect(() => {
-    // Refresh data when dashboard loads to ensure shared contributions are visible
     refreshContributionData();
-    
-    // Force an additional refresh a few seconds after the component mounts 
-    // to ensure we have the latest notifications and shared contributions
-    const timer = setTimeout(() => {
-      refreshContributionData();
-    }, 1500);
-    
-    return () => clearTimeout(timer);
-  }, []); // Empty dependency array to prevent infinite re-renders
-  
-  const handleNotificationRead = (id: string, relatedId?: string) => {
-    // TODO: Implement with Supabase notifications
-    // markNotificationAsRead(id);
-    // Note: Removed refreshContributionData() call to prevent excessive API requests
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // If notification is related to a contribution, navigate to it
-    if (relatedId) {
-      const isContribution = contributions.some(c => c.id === relatedId);
-      if (isContribution) {
-        setNotificationsOpen(false);
-        // Use window.location to ensure full page reload if needed
-        window.location.href = `/groups/${relatedId}`;
-      }
-    }
-  };
-  
-  const handleMarkAllRead = () => {
-    // TODO: Implement with Supabase notifications
-    // markAllNotificationsAsRead();
-    // Note: Removed refreshContributionData() call to prevent excessive API requests
-  };
-  
-  const unreadNotifications = user?.notifications?.filter(n => !n.read) || [];
-  
   return (
-    <div className="min-h-screen pb-20 md:pb-0">
+    <div className="min-h-screen">
       <Header />
-      
-      <main className="container max-w-5xl mx-auto px-4 pt-16 pb-8">
-        <div className="flex justify-between items-center mb-2 animate-fade-in">
+      <main className="app-page max-w-6xl">
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-4 sm:mb-8">
           <div>
-            {/* Greeting removed as requested */}
+            <h1 className="app-page-title">{firstName ? `Hi, ${firstName}` : "Your dashboard"}</h1>
+            <p className="mt-1 text-muted-foreground">Manage your wallet and contribution groups.</p>
           </div>
-          <div className="hidden md:flex space-x-2">
-            <Popover open={notificationsOpen} onOpenChange={setNotificationsOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Bell className="h-4 w-4 mr-2" />
-                  Notifications
-                  {unreadNotifications.length > 0 && (
-                    <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 flex items-center justify-center">
-                      {unreadNotifications.length}
-                    </Badge>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80 p-0">
-                <div className="flex items-center justify-between p-4 border-b">
-                  <h4 className="font-semibold">Notifications</h4>
-                  {user?.notifications && user.notifications.length > 0 && 
-                    <Button variant="ghost" size="sm" onClick={handleMarkAllRead}>
-                      Mark all read
-                    </Button>
-                  }
-                </div>
-                <ScrollArea className="h-[400px]">
-                  {!user?.notifications || user.notifications.length === 0 ? 
-                    <div className="p-4 text-center text-muted-foreground">
-                      <Bell className="h-10 w-10 mx-auto mb-2 opacity-20" />
-                      <p>No notifications</p>
-                    </div> 
-                    : 
-                    user.notifications.map(notification => 
-                      <div 
-                        key={notification.id} 
-                        className={`p-4 border-b last:border-b-0 ${!notification.read ? 'bg-muted/50' : ''} 
-                          hover:bg-muted/30 cursor-pointer transition-colors`} 
-                        onClick={() => handleNotificationRead(notification.id, notification.relatedId)}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className={`rounded-full w-2 h-2 mt-1.5 ${!notification.read ? 'bg-green-600' : 'bg-transparent'}`} />
-                          <div className="flex-1">
-                            <p className="text-sm">{notification.message}</p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {notification.createdAt && format(new Date(notification.createdAt), 'MMM d, h:mm a')}
-                            </p>
-                          </div>
-                          {notification.read && 
-                            <div className="text-muted-foreground opacity-50">
-                              <X className="h-3 w-3" />
-                            </div>
-                          }
-                        </div>
-                      </div>
-                    )
-                  }
-                </ScrollArea>
-              </PopoverContent>
-            </Popover>
-            
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <User className="h-4 w-4 mr-2" />
-                  {user?.name?.split(' ')[0] || 'User'}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <Link to="/settings">
-                  <DropdownMenuItem>
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span>Settings</span>
-                  </DropdownMenuItem>
-                </Link>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            
-            <Button size="sm" asChild className="bg-[#2DAE75] hover:bg-[#249e69]">
-              <Link to="/create-group">
-                <UserPlus className="h-4 w-4 mr-2" />
-                New Group
-              </Link>
-            </Button>
-
-            <Button size="sm" variant="outline" asChild>
-              <Link to="/votes">
-                See Votes
-              </Link>
-            </Button>
-          </div>
+          <Button asChild className="hidden h-11 gap-2 rounded-xl sm:inline-flex">
+            <Link to="/create-group"><Plus size={18} /> Create group</Link>
+          </Button>
         </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 mt-[30px]">
-          <div className="md:col-span-5 animate-slide-up">
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid grid-cols-2 mb-4">
-                <TabsTrigger value="wallet">Wallet</TabsTrigger>
-                <TabsTrigger value="account">Bank Account</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="wallet" className="m-0">
-                <WalletCard />
-              </TabsContent>
-              
-              <TabsContent value="account" className="m-0">
-                <ReservedAccount />
-              </TabsContent>
-            </Tabs>
-          </div>
-          
-          <div className="md:col-span-7">
-            <div className="space-y-6">
-              <GroupsList />
-              <RecentActivity />
-            </div>
+
+        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,0.88fr)_minmax(0,1.12fr)] lg:gap-8">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="min-w-0">
+            <TabsList className="app-segmented grid w-full grid-cols-2" aria-label="Wallet view">
+              <TabsTrigger value="wallet" className="gap-2"><Wallet size={16} /> Wallet</TabsTrigger>
+              <TabsTrigger value="account" className="gap-2"><Building2 size={16} /> Bank account</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="wallet" className="mt-3">
+              <WalletCard onOpenBankAccount={() => setActiveTab("account")} />
+            </TabsContent>
+            <TabsContent value="account" className="mt-3">
+              <ReservedAccount />
+            </TabsContent>
+          </Tabs>
+
+          <div className="min-w-0 space-y-6">
+            <GroupsList />
+            <RecentActivity />
           </div>
         </div>
       </main>
-      
-      <MobileNav />
     </div>
   );
-};
-
-export default Dashboard;
+}

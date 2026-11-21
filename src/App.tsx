@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { SupabaseUserProvider } from "@/contexts/SupabaseUserContext";
 import { SupabaseContributionProvider } from "@/contexts/SupabaseContributionContext";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
@@ -20,6 +20,7 @@ import AdminDashboard from "./pages/admin/Dashboard";
 import UserProfile from "./pages/UserProfile";
 import Discover from "./pages/Discover";
 import AcceptInvite from "./pages/AcceptInvite";
+import MobileNav, { getActiveTab } from "@/components/layout/MobileNav";
 import React, { useEffect, Component, ErrorInfo, ReactNode } from "react";
 
 // Error Boundary Component
@@ -109,6 +110,12 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 const AppRoutes = () => {
   const { user, isAuthenticated, isAdmin, loading } = useSupabaseUser();
+  const { pathname } = useLocation();
+  const showMobileNav = isAuthenticated && Boolean(getActiveTab(pathname));
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, [pathname]);
   
   // Apply dark mode on route change if user has it enabled
   // This MUST come before any early returns to follow Rules of Hooks
@@ -146,7 +153,7 @@ const AppRoutes = () => {
     );
   }
   
-  return (
+  const routes = (
     <Routes>
       <Route path="/" element={<Index />} />
       <Route path="/auth" element={<Auth />} />
@@ -214,11 +221,13 @@ const AppRoutes = () => {
       } />
       
       {/* Test Transfer API Route - Development only */}
-      <Route path="/test-transfer-api" element={
-        <ProtectedRoute>
-          <TestTransferAPI />
-        </ProtectedRoute>
-      } />
+      {import.meta.env.DEV && (
+        <Route path="/test-transfer-api" element={
+          <ProtectedRoute>
+            <TestTransferAPI />
+          </ProtectedRoute>
+        } />
+      )}
       
       {/* Migration Route - Removed for production security */}
       
@@ -246,14 +255,16 @@ const AppRoutes = () => {
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
+
+  return showMobileNav ? (
+    <div className="app-with-tabbar">
+      {routes}
+      <MobileNav />
+    </div>
+  ) : <div>{routes}</div>;
 };
 
 const App = () => {
-  useEffect(() => {
-    // Set Roboto font as the default font
-    document.body.classList.add('font-roboto');
-  }, []);
-
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>

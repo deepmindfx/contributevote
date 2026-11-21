@@ -2,7 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 export class SupabaseApiService {
   private static getEdgeFunctionUrl(functionName: string): string {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://qnkezzhrhbosekxhfqzo.supabase.co';
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://sivvjwffekhfabgxhbcd.supabase.co';
     return `${supabaseUrl}/functions/v1/${functionName}`;
   }
 
@@ -175,9 +175,9 @@ export class LegacyApiService {
   }
 }
 
-// Main API service that can switch between Supabase and Legacy
+// Main API service that defaults to Supabase Edge Functions in production
 export class ApiService {
-  private static useSupabase = import.meta.env.VITE_USE_SUPABASE === 'true';
+  private static useSupabase = import.meta.env.VITE_USE_SUPABASE !== 'false';
 
   static async getBanks() {
     if (this.useSupabase) {

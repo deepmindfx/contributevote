@@ -12,7 +12,7 @@ import { format, isValid, parseISO } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getReservedAccountTransactions } from "@/services/walletIntegration";
+import { WalletService } from "@/services/supabase/walletService";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -37,20 +37,21 @@ interface MonnifyTransaction {
 const WalletHistory = () => {
   const navigate = useNavigate();
   const { user, refreshCurrentUser } = useSupabaseUser();
-  const { transactions, refreshContributions } = useSupabaseContribution();
-  
+  const { transactions, refreshContributionData } = useSupabaseContribution();
+  const virtualAccount = (user?.preferences as any)?.virtualAccount || null;
+
   // Define refreshData function
   const refreshData = async () => {
     try {
       await Promise.all([
         refreshCurrentUser(),
-        refreshContributions()
+        refreshContributionData()
       ]);
     } catch (error) {
       console.error('Error refreshing data:', error);
     }
   };
-  const [filter, setFilter] = useState<"all" | "deposit" | "withdrawal" | "vote">("all");
+  const [filter, setFilter] = useState<"all" | "deposit" | "contribution" | "withdrawal" | "transfer" | "refund" | "vote">("all");
   const [currencyType, setCurrencyType] = useState<"NGN" | "USD">("NGN");
   const [apiTransactions, setApiTransactions] = useState<MonnifyTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -89,36 +90,36 @@ const WalletHistory = () => {
     fetchGroupNames();
   }, [transactions]);
   
-  // Fetch reserved account transactions on component mount and when tab changes
+  // Fetch virtual account transactions on component mount and when tab changes
   useEffect(() => {
     const fetchReservedAccountTransactions = async () => {
-      if (user?.reservedAccount?.accountReference) {
+      if (virtualAccount?.accountReference && user?.id) {
         setIsLoading(true);
         try {
-          const result = await getReservedAccountTransactions(user.reservedAccount.accountReference);
+          const result = await WalletService.getVirtualAccountTransactions(
+            virtualAccount.accountReference,
+            user.id
+          );
           if (result) {
-            // If result is an array, use it directly
             setApiTransactions(Array.isArray(result) ? result : []);
-            // After fetching transactions, refresh app data to update balances
             await refreshData();
           } else {
-            // Handle empty or failed response
             setApiTransactions([]);
           }
         } catch (error) {
-          console.error("Error fetching reserved account transactions:", error);
+          console.error("Error fetching virtual account transactions:", error);
           setApiTransactions([]);
         } finally {
           setIsLoading(false);
         }
       }
     };
-    
+
     if (activeTab === "bank") {
       fetchReservedAccountTransactions();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.reservedAccount?.accountReference, activeTab]);
+  }, [virtualAccount?.accountReference, user?.id, activeTab]);
   
   // Fixed toggle currency function
   const toggleCurrency = () => {
@@ -133,10 +134,11 @@ const WalletHistory = () => {
       .filter(t => t.user_id === user?.id) // Only show current user's transactions (using snake_case)
       .filter(t => filter === "all" || t.type === filter)
       .filter(transaction => {
+        const meta = getMetadata(transaction);
         // Create a unique key based on multiple identifiers
-        const key = transaction.metadata?.paymentReference || 
-                   transaction.metadata?.paymentDetails?.transactionId ||
-                   transaction.metadata?.transactionReference ||
+        const key = meta?.paymentReference || 
+                   meta?.paymentDetails?.transactionId ||
+                   meta?.transactionReference ||
                    transaction.id;
 
         // If we've seen this key before, it's a duplicate
@@ -268,6 +270,30 @@ const WalletHistory = () => {
                   Withdrawals
                 </Button>
                 <Button 
+                  variant={filter === "contribution" ? "default" : "outline"} 
+                  onClick={() => setFilter("contribution")}
+                  size="sm"
+                  className={filter === "contribution" ? "bg-[#2DAE75] hover:bg-[#249e69]" : ""}
+                >
+                  Contributions
+                </Button>
+                <Button 
+                  variant={filter === "transfer" ? "default" : "outline"} 
+                  onClick={() => setFilter("transfer")}
+                  size="sm"
+                  className={filter === "transfer" ? "bg-[#2DAE75] hover:bg-[#249e69]" : ""}
+                >
+                  Transfers
+                </Button>
+                <Button 
+                  variant={filter === "refund" ? "default" : "outline"} 
+                  onClick={() => setFilter("refund")}
+                  size="sm"
+                  className={filter === "refund" ? "bg-[#2DAE75] hover:bg-[#249e69]" : ""}
+                >
+                  Refunds
+                </Button>
+                <Button 
                   variant={filter === "vote" ? "default" : "outline"} 
                   onClick={() => setFilter("vote")}
                   size="sm"
@@ -314,12 +340,12 @@ const WalletHistory = () => {
                         onClick={() => viewTransactionDetails(transaction)}
                       >
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center
-                          ${transaction.type === 'deposit' ? 'bg-green-100 text-[#2DAE75]' : 
-                            transaction.type === 'withdrawal' ? 'bg-amber-100 text-amber-600' :
+                          ${transaction.type === 'deposit' || transaction.type === 'refund' ? 'bg-green-100 text-[#2DAE75]' : 
+                            transaction.type === 'withdrawal' || transaction.type === 'transfer' || transaction.type === 'contribution' ? 'bg-amber-100 text-amber-600' :
                             'bg-blue-100 text-blue-600'}`}>
-                          {transaction.type === 'deposit' ? (
+                          {transaction.type === 'deposit' || transaction.type === 'refund' ? (
                             <ArrowDown size={18} />
-                          ) : transaction.type === 'withdrawal' ? (
+                          ) : transaction.type === 'withdrawal' || transaction.type === 'transfer' || transaction.type === 'contribution' ? (
                             <ArrowUp size={18} />
                           ) : (
                             <HelpCircle size={18} />
@@ -332,11 +358,14 @@ const WalletHistory = () => {
                                 {transaction.contribution_id && (
                                   <Users className="h-4 w-4 text-blue-600" />
                                 )}
-                                {transaction.contribution_id 
+                                {transaction.type === 'contribution'
                                   ? `Contribution to ${groupNames[transaction.contribution_id] || 'Group'}`
-                                  : transaction.type === 'deposit' ? 'Wallet Deposit' : 
-                                    transaction.type === 'withdrawal' ? 'Withdrawal' : 
-                                    'Vote'}
+                                  : transaction.type === 'refund'
+                                    ? `Refund from ${groupNames[transaction.contribution_id] || 'Group'}`
+                                    : transaction.type === 'deposit' ? 'Wallet Deposit' : 
+                                      transaction.type === 'transfer' ? 'Bank Transfer' :
+                                      transaction.type === 'withdrawal' ? 'Withdrawal' : 
+                                      'Vote'}
                               </h4>
                               <p className="text-sm text-muted-foreground">
                                 {transaction.description}
@@ -353,11 +382,11 @@ const WalletHistory = () => {
                             </div>
                             <div className="text-right flex items-center">
                               <div className={`font-medium ${
-                                transaction.type === 'deposit' ? 'text-[#2DAE75]' : 
-                                transaction.type === 'withdrawal' ? 'text-red-500' : ''
+                                transaction.type === 'deposit' || transaction.type === 'refund' ? 'text-[#2DAE75]' : 
+                                transaction.type === 'withdrawal' || transaction.type === 'transfer' || transaction.type === 'contribution' ? 'text-red-500' : ''
                               }`}>
-                                {transaction.type === 'deposit' ? '+' : 
-                                transaction.type === 'withdrawal' ? '-' : ''}
+                                {transaction.type === 'deposit' || transaction.type === 'refund' ? '+' : 
+                                transaction.type === 'withdrawal' || transaction.type === 'transfer' || transaction.type === 'contribution' ? '-' : ''}
                                 {transaction.amount > 0 ? (
                                   currencyType === "NGN" ? 
                                     `₦${transaction.amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : 
@@ -397,7 +426,7 @@ const WalletHistory = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {!user?.reservedAccount ? (
+                {!virtualAccount ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <p>You don't have a virtual bank account yet</p>
                     <Button 
@@ -429,7 +458,11 @@ const WalletHistory = () => {
                     <p>No bank transactions found</p>
                     <Button
                       className="mt-4"
-                      onClick={() => getReservedAccountTransactions(user.reservedAccount.accountReference).then(() => refreshData())}
+                      onClick={() =>
+                        virtualAccount?.accountReference && user?.id
+                          ? WalletService.getVirtualAccountTransactions(virtualAccount.accountReference, user.id).then(() => refreshData())
+                          : refreshData()
+                      }
                     >
                       Refresh Transactions
                     </Button>

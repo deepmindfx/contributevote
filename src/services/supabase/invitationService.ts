@@ -19,6 +19,8 @@ export const InvitationService = {
    */
   async sendInvitation(groupId: string, inviterUserId: string, inviteeEmail: string) {
     try {
+      const normalizedEmail = inviteeEmail.trim().toLowerCase();
+
       // Check if group is private
       const { data: group, error: groupError } = await supabase
         .from('contribution_groups')
@@ -31,33 +33,39 @@ export const InvitationService = {
       if (group.privacy === 'public') {
         return {
           success: false,
-          error: 'Public groups don\'t require invitations. Share the group link instead.'
+          error: "Public groups don't require invitations. Share the group link instead."
         };
       }
 
-      // Check if user is already a member
-      const { data: existingMember } = await supabase
-        .from('contributors')
-        .select('id')
-        .eq('group_id', groupId)
-        .eq('user_id', inviteeEmail) // Will check by email later
-        .single();
+      // Safely resolve invitee user ID by email (if registered) and check membership
+      const { data: inviteeUserId } = await (supabase as any).rpc('lookup_user_id_by_email', {
+        p_email: normalizedEmail
+      });
 
-      if (existingMember) {
-        return {
-          success: false,
-          error: 'User is already a member of this group'
-        };
+      if (inviteeUserId) {
+        const { data: existingMember } = await supabase
+          .from('contributors')
+          .select('id')
+          .eq('group_id', groupId)
+          .eq('user_id', inviteeUserId)
+          .maybeSingle();
+
+        if (existingMember) {
+          return {
+            success: false,
+            error: 'User is already a member of this group'
+          };
+        }
       }
 
-      // Check if invitation already exists
-      const { data: existingInvite } = await supabase
+      // Check if pending invitation already exists
+      const { data: existingInvite } = await (supabase as any)
         .from('group_invitations')
         .select('*')
         .eq('group_id', groupId)
-        .eq('invitee_email', inviteeEmail)
+        .eq('invitee_email', normalizedEmail)
         .eq('status', 'pending')
-        .single();
+        .maybeSingle();
 
       if (existingInvite) {
         return {
@@ -66,20 +74,22 @@ export const InvitationService = {
         };
       }
 
-      // Generate invitation token
-      const token = `inv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
-      // Set expiration (7 days from now)
+      // Generate secure invitation token
+      const randomPart = typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID().replace(/-/g, '')
+        : `${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+      const token = `inv_${randomPart}`;
+
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 7);
 
-      // Create invitation
-      const { data: invitation, error: inviteError } = await supabase
+      const { data: invitation, error: inviteError } = await (supabase as any)
         .from('group_invitations')
         .insert({
           group_id: groupId,
           inviter_id: inviterUserId,
-          invitee_email: inviteeEmail,
+          invitee_email: normalizedEmail,
+          invitee_id: inviteeUserId || null,
           status: 'pending',
           token,
           expires_at: expiresAt.toISOString()
@@ -89,11 +99,20 @@ export const InvitationService = {
 
       if (inviteError) throw inviteError;
 
-      // TODO: Send email notification with invitation link
-      // For now, just return the invitation link
-      const inviteLink = `${window.location.origin}/invite/${token}`;
+      // Notify invitee in-app if they already have an account
+      if (inviteeUserId) {
+        await supabase.from('notifications').insert({
+          user_id: inviteeUserId,
+          type: 'group_invitation',
+          title: 'Private Group Invitation',
+          message: `You were invited to join "${group.name}".`,
+          related_id: groupId,
+          is_read: false
+        } as any);
+      }
 
-      toast.success(`Invitation sent to ${inviteeEmail}`);
+      const inviteLink = `${window.location.origin}/invite/${token}`;
+      toast.success(`Invitation created for ${normalizedEmail}`);
 
       return {
         success: true,
@@ -110,38 +129,25 @@ export const InvitationService = {
   },
 
   /**
-   * Get invitation by token
+   * Get invitation by token (works for both signed-out and signed-in users via RPC)
    */
   async getInvitationByToken(token: string) {
     try {
-      const { data, error } = await supabase
-        .from('group_invitations')
-        .select(`
-          *,
-          group:contribution_groups(*),
-          inviter:profiles!inviter_id(name, email)
-        `)
-        .eq('token', token)
-        .single();
+      const { data, error } = await (supabase as any).rpc('get_invitation_by_token', {
+        p_token: token
+      });
 
       if (error) throw error;
-
-      // Check if expired
-      if (new Date(data.expires_at) < new Date()) {
-        await supabase
-          .from('group_invitations')
-          .update({ status: 'expired' })
-          .eq('id', data.id);
-
+      if (!data?.success) {
         return {
           success: false,
-          error: 'This invitation has expired'
+          error: data?.error || 'Invitation not found'
         };
       }
 
       return {
         success: true,
-        invitation: data
+        invitation: data.invitation
       };
     } catch (error) {
       console.error('Error getting invitation:', error);
@@ -157,7 +163,6 @@ export const InvitationService = {
    */
   async acceptInvitation(token: string, userId: string) {
     try {
-      // Get invitation
       const inviteResult = await this.getInvitationByToken(token);
       if (!inviteResult.success || !inviteResult.invitation) {
         return inviteResult;
@@ -165,36 +170,45 @@ export const InvitationService = {
 
       const invitation = inviteResult.invitation;
 
-      // Check if already accepted
       if (invitation.status !== 'pending') {
         return {
           success: false,
-          error: 'This invitation has already been used'
+          error: 'This invitation has already been used or expired'
         };
       }
 
-      // Add user as contributor
-      const { error: contributorError } = await supabase
+      // Check if user is already a contributor
+      const { data: existingMember } = await supabase
         .from('contributors')
-        .insert({
-          group_id: invitation.group_id,
-          user_id: userId,
-          total_contributed: 0,
-          contribution_count: 0,
-          has_voting_rights: false,
-          join_method: 'invitation',
-          anonymous: false,
-          joined_at: new Date().toISOString()
-        });
+        .select('id')
+        .eq('group_id', invitation.group_id)
+        .eq('user_id', userId)
+        .maybeSingle();
 
-      if (contributorError) throw contributorError;
+      if (!existingMember) {
+        const { error: contributorError } = await supabase
+          .from('contributors')
+          .insert({
+            group_id: invitation.group_id,
+            user_id: userId,
+            amount: 0,
+            total_contributed: 0,
+            contribution_count: 0,
+            has_voting_rights: false,
+            join_method: 'invitation',
+            anonymous: false,
+            joined_at: new Date().toISOString()
+          } as any);
 
-      // Update invitation status
-      const { error: updateError } = await supabase
+        if (contributorError) throw contributorError;
+      }
+
+      const { error: updateError } = await (supabase as any)
         .from('group_invitations')
         .update({
           status: 'accepted',
-          invitee_id: userId
+          invitee_id: userId,
+          accepted_at: new Date().toISOString()
         })
         .eq('id', invitation.id);
 
@@ -220,7 +234,7 @@ export const InvitationService = {
    */
   async getGroupInvitations(groupId: string) {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('group_invitations')
         .select('*')
         .eq('group_id', groupId)
@@ -239,7 +253,7 @@ export const InvitationService = {
    */
   async cancelInvitation(invitationId: string) {
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('group_invitations')
         .update({ status: 'expired' })
         .eq('id', invitationId);

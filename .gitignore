@@ -18,6 +18,13 @@
 .env.test.local
 .env.production.local
 
+# Local Supabase CLI & scratch artifacts
+supabase_cli/
+supabase_cli.zip
+supabase/.temp/
+test_payload.json
+scratch/
+
 # Logs
 npm-debug.log*
 yarn-debug.log*

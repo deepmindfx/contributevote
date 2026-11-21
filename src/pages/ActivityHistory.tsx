@@ -143,8 +143,8 @@ const ActivityHistory = () => {
     .filter(transaction => transaction.user_id === user?.id) // Only show current user's transactions
     .filter(transaction => {
       if (activeTab === "all") return true;
-      if (activeTab === "deposits" && transaction.type === "deposit") return true;
-      if (activeTab === "withdrawals" && transaction.type === "withdrawal") return true;
+      if (activeTab === "deposits" && (transaction.type === "deposit" || transaction.type === "refund")) return true;
+      if (activeTab === "withdrawals" && (transaction.type === "withdrawal" || transaction.type === "transfer" || transaction.type === "contribution")) return true;
       if (activeTab === "votes" && transaction.type === "vote") return true;
       return false;
     })
@@ -168,22 +168,32 @@ const ActivityHistory = () => {
     .map(transaction => {
       const contribution = contributions.find(c => c.id === transaction.contribution_id);
       const meta = (transaction.metadata || {}) as any;
+      const isCredit = transaction.type === "deposit" || transaction.type === "refund";
       
       let type: "deposit" | "withdrawal" | "vote" = "deposit";
-      if (transaction.type === "withdrawal") type = "withdrawal";
+      if (transaction.type === "withdrawal" || transaction.type === "transfer" || transaction.type === "contribution") {
+        type = "withdrawal";
+      }
       if (transaction.type === "vote") type = "vote";
       
+      const titleMap: Record<string, string> = {
+        deposit: "Wallet Deposit",
+        withdrawal: "Withdrawal",
+        contribution: "Group Contribution",
+        transfer: "Bank Transfer",
+        refund: "Group Refund",
+        vote: "Governance Vote",
+      };
+
       return {
         type,
-        title: transaction.type === 'deposit' ? 'Deposit' : 
-               transaction.type === 'withdrawal' ? 'Withdrawal' : 
-               transaction.type === 'contribution' ? 'Group Contribution' : 'Vote',
+        title: titleMap[transaction.type] || "Transaction",
         description: contribution ? contribution.name : 
                     transaction.description || 
                     (meta?.bankName ? `Via ${meta.bankName}` : ''),
         amount: transaction.type === 'vote' ? 
-                `₦${transaction.amount.toLocaleString()}` : 
-                `${transaction.type === 'deposit' || transaction.type === 'contribution' ? '+' : '-'}₦${transaction.amount.toLocaleString()}`,
+                `₦${Number(transaction.amount).toLocaleString()}` : 
+                `${isCredit ? '+' : '-'}₦${Number(transaction.amount).toLocaleString()}`,
         date: formatDate(transaction.created_at),
         status: transaction.status as "pending" | "completed" | "rejected",
       }

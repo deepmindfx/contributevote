@@ -3,6 +3,7 @@ import { ContributionService } from '@/services/supabase/contributionService';
 import { TransactionService } from '@/services/supabase/transactionService';
 import { SyncService } from '@/services/supabase/syncService';
 import { voteOnWithdrawal as voteOnWithdrawalService } from '@/services/supabase/withdrawalService';
+import { WalletContributionService } from '@/services/supabase/walletContributionService';
 import { Database } from '@/integrations/supabase/types';
 import { useSupabaseUser } from './SupabaseUserContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -122,6 +123,17 @@ export function SupabaseContributionProvider({ children }: { children: ReactNode
             refreshContributionData();
           }
         )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'withdrawal_requests'
+          },
+          () => {
+            refreshContributionData();
+          }
+        )
         .subscribe();
 
       return () => {
@@ -187,34 +199,18 @@ export function SupabaseContributionProvider({ children }: { children: ReactNode
   const contribute = async (contributionId: string, amount: number, anonymous: boolean = false) => {
     if (!user) throw new Error('User not authenticated');
 
-    try {
-      // Add contributor record
-      await ContributionService.addContributor({
-        group_id: contributionId,
-        user_id: user.id,
-        amount: amount,
-        anonymous: anonymous
-      });
+    const result = await WalletContributionService.contributeFromWallet(
+      user.id,
+      contributionId,
+      amount,
+      anonymous
+    );
 
-      // Create transaction record
-      await TransactionService.createTransaction({
-        user_id: user.id,
-        contribution_id: contributionId,
-        type: 'deposit',
-        amount: amount,
-        description: `Contribution to group`,
-        status: 'completed',
-        anonymous: anonymous
-      });
-
-      // Sync contribution and user data
-      await SyncService.syncContributionData(contributionId);
-      await SyncService.syncUserData(user.id);
-      await refreshContributionData();
-    } catch (error) {
-      console.error('Error contributing:', error);
-      throw error;
+    if (!result.success) {
+      throw new Error(result.error || 'Contribution failed');
     }
+
+    await refreshContributionData();
   };
 
   const contributeViaAccountNumber = async (
@@ -268,9 +264,9 @@ export function SupabaseContributionProvider({ children }: { children: ReactNode
     if (!user) throw new Error('User not authenticated');
 
     try {
-      // Calculate deadline (24 hours from now)
+      // Calculate deadline (7 days from now — consistent with governance rules)
       const deadline = new Date();
-      deadline.setHours(deadline.getHours() + 24);
+      deadline.setDate(deadline.getDate() + 7);
 
       // Create withdrawal request
       const { data, error } = await supabase

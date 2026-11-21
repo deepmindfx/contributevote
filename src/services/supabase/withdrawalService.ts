@@ -85,7 +85,7 @@ export async function voteOnWithdrawal(
     if (fetchError) throw fetchError;
 
     // Check if user already voted
-    const votes = withdrawal.votes || [];
+    const votes: any[] = Array.isArray(withdrawal.votes) ? [...(withdrawal.votes as any[])] : [];
     const existingVoteIndex = votes.findIndex((v: any) => v.user_id === userId);
 
     if (existingVoteIndex >= 0) {
@@ -150,7 +150,7 @@ export async function checkWithdrawalVoting(
 
     if (error) throw error;
 
-    return data as VotingStatus;
+    return data as unknown as VotingStatus;
   } catch (error) {
     console.error('Error checking withdrawal voting:', error);
     return {
@@ -179,7 +179,7 @@ export async function getWithdrawalRequests(
 
     if (error) throw error;
 
-    return data || [];
+    return (data as unknown as WithdrawalRequest[]) || [];
   } catch (error) {
     console.error('Error fetching withdrawal requests:', error);
     return [];
@@ -202,7 +202,7 @@ export async function getUserVote(
 
     if (error) throw error;
 
-    const votes = data.votes || [];
+    const votes: any[] = Array.isArray(data.votes) ? (data.votes as any[]) : [];
     const userVote = votes.find((v: any) => v.user_id === userId);
 
     return userVote ? userVote.vote : null;

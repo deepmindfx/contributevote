@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useSupabaseUser } from '@/contexts/SupabaseUserContext';
+import { useSupabaseContribution } from '@/contexts/SupabaseContributionContext';
 import { ChevronDown, Info, ArrowLeft, Lock, Search, Loader2, Download, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
@@ -57,7 +58,11 @@ interface FlutterwaveTransferResponse {
 }
 
 export default function TransferForm() {
-  const { user } = useSupabaseUser();
+  const { user, refreshCurrentUser } = useSupabaseUser();
+  const { refreshContributionData } = useSupabaseContribution();
+  const userPreferences = (user?.preferences || {}) as Record<string, any>;
+  const userPin = userPreferences.transactionPin || '';
+  const userVirtualAccountNumber = userPreferences.virtualAccount?.accountNumber || 'Wallet';
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
@@ -93,13 +98,11 @@ export default function TransferForm() {
     const fetchBanks = async () => {
       try {
         const response = await ApiService.getBanks();
-        // Add our test bank
-        const banksWithTest = [
-          { name: "Ali Bank Test", code: "TEST001" },
-          ...(response.data || [])
-        ];
-        setBanks(banksWithTest);
-        setFilteredBanks(banksWithTest);
+        const banksList = import.meta.env.DEV
+          ? [{ name: "Ali Bank Test", code: "TEST001" }, ...(response.data || [])]
+          : (response.data || []);
+        setBanks(banksList);
+        setFilteredBanks(banksList);
       } catch (error) {
         console.error('Error fetching banks:', error);
         toast.error('Failed to fetch banks');
@@ -188,14 +191,19 @@ export default function TransferForm() {
   }, []);
 
   const handleContinue = (data: TransferFormData) => {
-    // Check if user has set a PIN
-    if (!user?.pin) {
-      toast.error('Please set your transaction PIN in settings first');
+    // Check if user has set a transaction PIN in settings
+    if (!userPin) {
+      toast.error('Please set your 4-digit transaction PIN in Settings → Security first');
       navigate('/settings');
       return;
     }
+
+    const totalNeeded = Number(data.amount) + calculateFee(Number(data.amount));
+    if (Number(user?.wallet_balance || 0) < totalNeeded) {
+      toast.error(`Insufficient balance. You need ₦${totalNeeded.toLocaleString()} (including transfer fee).`);
+      return;
+    }
     
-    // Set the transfer data and show confirmation
     setTransferData(data);
     setShowConfirmation(true);
   };
@@ -230,44 +238,12 @@ export default function TransferForm() {
     }
   };
 
-  // Add function to save transaction to history
-  const saveTransactionToHistory = (transaction: Transaction) => {
-    const existingTransactions = JSON.parse(localStorage.getItem('transactions') || '[]');
-    console.log('Existing transactions:', existingTransactions);
-    
-    const newTransaction = {
-      ...transaction,
-      type: 'transfer',
-      userId: user?.id || '',
-      contributionId: '',
-      description: `Transfer to ${transaction.recipientName} (${transaction.recipientAccount})`,
-      paymentMethod: 'bank_transfer',
-      createdAt: transaction.createdAt,
-      updatedAt: new Date().toISOString(),
-      metaData: {
-        senderName: user?.firstName + ' ' + user?.lastName,
-        bankName: transaction.bankName,
-        narration: transaction.narration || '',
-        transactionReference: transaction.reference,
-        paymentReference: transaction.reference
-      }
-    };
-    console.log('New transaction to be saved:', newTransaction);
-    
-    const updatedTransactions = [newTransaction, ...existingTransactions];
-    localStorage.setItem('transactions', JSON.stringify(updatedTransactions));
-    
-    // Verify the save
-    const savedTransactions = JSON.parse(localStorage.getItem('transactions') || '[]');
-    console.log('Updated transactions in localStorage:', savedTransactions);
-  };
-
   // Update handleConfirmTransfer
   const handleConfirmTransfer = async () => {
     if (!transferData) return;
 
-    // Validate PIN
-    if (transactionPin !== user?.pin) {
+    // Validate transaction PIN stored in profile preferences
+    if (transactionPin !== userPin) {
       toast.error('Invalid transaction PIN');
       setTransactionPin('');
       return;
@@ -275,12 +251,10 @@ export default function TransferForm() {
 
     setIsLoading(true);
     try {
-      // First validate the account again before transfer
       const accountData = await validateAccount(transferData.bankCode, transferData.accountNumber);
-      
-      // Proceed with transfer
+
       const result = await ApiService.processTransfer({
-        amount: transferData.amount,
+        amount: Number(transferData.amount),
         accountNumber: transferData.accountNumber,
         bankCode: transferData.bankCode,
         beneficiaryName: accountData.account_name,
@@ -289,26 +263,10 @@ export default function TransferForm() {
       });
 
       if (result.status === 'success' && result.data) {
-        // Save transaction to history
-        const transaction: Transaction = {
-          id: result.data.id.toString(),
-          reference: result.data.reference,
-          amount: result.data.amount,
-          fee: result.data.fee,
-          status: result.data.status,
-          createdAt: result.data.created_at,
-          recipientName: result.data.full_name,
-          recipientAccount: result.data.account_number,
-          bankName: result.data.bank_name,
-          narration: result.data.narration || transferData.narration
-        };
-        saveTransactionToHistory(transaction);
-
-        // Show success message
+        setTransferReceipt(result.data);
+        setShowReceiptOnly(true);
+        await Promise.all([refreshCurrentUser(), refreshContributionData()]);
         toast.success(result.message || 'Transfer initiated successfully');
-
-        // Navigate to wallet history
-        navigate('/wallet-history');
       } else {
         throw new Error(result.message || 'Transfer failed');
       }
@@ -393,8 +351,8 @@ export default function TransferForm() {
               <div className="mb-6">
                 <h3 className="text-sm font-semibold text-gray-700 mb-2">Sender Details</h3>
                 <div className="bg-gray-50 p-3 rounded-lg">
-                  <p className="font-medium">{user?.firstName} {user?.lastName}</p>
-                  <p className="text-sm text-gray-600">{user?.accountNumber}</p>
+                  <p className="font-medium">{user?.name || user?.email}</p>
+                  <p className="text-sm text-gray-600">{userVirtualAccountNumber}</p>
                 </div>
               </div>
 
@@ -471,8 +429,8 @@ export default function TransferForm() {
               <div className="flex justify-between">
                 <span className="text-gray-500">From</span>
                 <div className="text-right">
-                  <span className="font-medium block">{user?.firstName} {user?.lastName}</span>
-                  <span className="text-sm text-gray-500">{user?.accountNumber}</span>
+                  <span className="font-medium block">{user?.name || user?.email}</span>
+                  <span className="text-sm text-gray-500">{userVirtualAccountNumber}</span>
                 </div>
               </div>
               <div className="flex justify-between">

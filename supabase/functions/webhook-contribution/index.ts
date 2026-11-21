@@ -3,13 +3,22 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, verif-hash'
 };
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
+  }
+
+  if (req.method === 'GET') {
+    return new Response(JSON.stringify({
+      success: true,
+      message: 'Webhook endpoint is active'
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200
+    });
   }
 
   if (req.method !== 'POST') {
@@ -23,12 +32,14 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Verify Flutterwave webhook signature
+    // Strictly verify Flutterwave webhook signature whenever configured
     const signature = req.headers.get('verif-hash');
-    const flutterwaveHash = Deno.env.get('FLUTTERWAVE_WEBHOOK_HASH');
-    
-    if (signature && flutterwaveHash && signature !== flutterwaveHash) {
-      console.error('Invalid webhook signature');
+    const expectedHash =
+      Deno.env.get('FLW_SECRET_HASH') ||
+      Deno.env.get('FLUTTERWAVE_WEBHOOK_HASH');
+
+    if (expectedHash && (!signature || signature !== expectedHash)) {
+      console.error('Invalid or missing webhook signature');
       return new Response(JSON.stringify({
         success: false,
         message: 'Invalid signature'
@@ -44,21 +55,18 @@ Deno.serve(async (req) => {
     );
 
     const webhookData = await req.json();
-    console.log('Received webhook:', webhookData);
+    console.log('Received webhook event:', webhookData.event || webhookData.type);
 
-    // Handle Flutterwave webhooks
     if (webhookData.event) {
       return await handleFlutterwaveWebhook(supabase, webhookData);
     }
 
-    // Handle custom contribution webhooks (legacy)
     const { type, data } = webhookData;
-    if (type === 'contribution_received') {
+    if (type === 'contribution_received' && data) {
       return await handleContributionWebhook(supabase, data);
     }
 
-    // Handle virtual account credit
-    if (type === 'virtual_account_credit') {
+    if (type === 'virtual_account_credit' && data) {
       return await handleVirtualAccountCredit(supabase, data);
     }
 
@@ -75,7 +83,7 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({
       success: false,
       message: 'Server error processing webhook',
-      error: error.message
+      error: error instanceof Error ? error.message : String(error)
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500
@@ -83,23 +91,32 @@ Deno.serve(async (req) => {
   }
 });
 
-// Handle Flutterwave webhook events
 async function handleFlutterwaveWebhook(supabase: any, webhookData: any) {
   const { event, data } = webhookData;
 
-  console.log('Processing Flutterwave webhook:', event);
-
   if (event === 'charge.completed' && data) {
+    if (data.status && data.status.toLowerCase() !== 'successful') {
+      return new Response(JSON.stringify({
+        success: true,
+        message: `Ignored non-successful charge status: ${data.status}`
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200
+      });
+    }
     return await handleSuccessfulPayment(supabase, data);
   }
 
   if (event === 'transfer.completed' && data) {
-    return await handleSuccessfulTransfer(supabase, data);
-  }
-
-  // Handle virtual account credit
-  if (event === 'transfer.completed' && data.account_number) {
-    return await handleVirtualAccountCredit(supabase, data);
+    // Outbound payout callback from flutterwave-transfer (has reference TRF_*)
+    if (data.reference && String(data.reference).startsWith('TRF_')) {
+      return await handleOutboundTransferCallback(supabase, data);
+    }
+    // Inbound virtual account credit
+    if (data.account_number || data.accountNumber) {
+      return await handleVirtualAccountCredit(supabase, data);
+    }
+    return await handleOutboundTransferCallback(supabase, data);
   }
 
   return new Response(JSON.stringify({
@@ -112,569 +129,584 @@ async function handleFlutterwaveWebhook(supabase: any, webhookData: any) {
   });
 }
 
-// Handle successful payment (card/online payment)
-// This grants automatic voting rights if it's a contribution
-async function handleSuccessfulPayment(supabase: any, paymentData: any) {
-  try {
-    const userEmail = paymentData.customer?.email;
-    if (!userEmail) {
-      return new Response(JSON.stringify({ success: true, message: 'No email found' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
+async function handleOutboundTransferCallback(supabase: any, transferData: any) {
+  const reference = transferData.reference;
+  const flwStatus = String(transferData.status || '').toUpperCase();
 
-    // Find user by email
-    const { data: user, error: userError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('email', userEmail)
-      .single();
+  if (reference) {
+    const newStatus =
+      flwStatus === 'SUCCESSFUL' ? 'completed' :
+      flwStatus === 'FAILED' ? 'failed' :
+      'pending';
 
-    if (userError || !user) {
-      return new Response(JSON.stringify({ success: true, message: 'User not found' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    // Use flw_ref as primary reference (unique per transaction)
-    const referenceId = paymentData.flw_ref || paymentData.tx_ref;
-    
-    // Check if already processed
-    const { data: existingTx, error: checkError } = await supabase
+    const { data: existingTx } = await supabase
       .from('transactions')
-      .select('id, reference_id, amount, created_at, metadata')
-      .eq('reference_id', referenceId)
-      .single();
-
-    if (checkError && checkError.code !== 'PGRST116') {
-      console.error('Error checking existing transaction:', checkError);
-    }
+      .select('id, user_id, amount, status, metadata')
+      .eq('reference_id', reference)
+      .maybeSingle();
 
     if (existingTx) {
-      if (Math.abs(existingTx.amount - paymentData.amount) > 0.01) {
-        console.warn('⚠️ Same reference but different amounts - Existing:', existingTx.amount, 'New:', paymentData.amount);
-      }
-      
-      return new Response(JSON.stringify({ 
-        success: true, 
-        message: 'Already processed',
-        existingTransaction: existingTx
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
+      await supabase
+        .from('transactions')
+        .update({
+          status: newStatus,
+          metadata: {
+            ...(existingTx.metadata || {}),
+            flutterwave_callback_status: flwStatus,
+            complete_message: transferData.complete_message
+          },
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existingTx.id);
 
-    // Check if this is a contribution payment (look for group_id in metadata or tx_ref)
-    let groupId = paymentData.meta?.group_id || paymentData.metadata?.group_id;
-    
-    // If not in metadata, try to extract from tx_ref (format: GROUP_{groupId}_{timestamp})
-    const txRef = paymentData.tx_ref;
-    if (!groupId && txRef && txRef.startsWith('GROUP_')) {
-      const parts = txRef.split('_');
-      if (parts.length >= 2) {
-        const extractedId = parts[1]; // Extract the UUID part
-        console.log('Extracted ID from tx_ref:', extractedId);
-        
-        // Verify if this is a valid group ID
-        const { data: group, error: groupError } = await supabase
-          .from('contribution_groups')
-          .select('id')
-          .eq('id', extractedId)
+      // Refund wallet automatically if an outbound transfer transitions from pending -> failed
+      if (newStatus === 'failed' && existingTx.status !== 'failed' && existingTx.user_id) {
+        const fee = Number(existingTx.metadata?.fee || 0);
+        const refundTotal = Number(existingTx.amount || 0) + fee;
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('wallet_balance')
+          .eq('id', existingTx.user_id)
           .single();
-        
-        if (group) {
-          groupId = extractedId;
-          console.log('✅ Confirmed as group ID:', groupId);
-        } else {
-          // Maybe it's a user ID, try to find their group
-          const { data: userGroup, error: userGroupError } = await supabase
-            .from('contribution_groups')
-            .select('id')
-            .eq('creator_id', extractedId)
-            .single();
-          
-          if (userGroup) {
-            groupId = userGroup.id;
-            console.log('✅ Found group by creator ID:', groupId);
-          } else {
-            console.log('❌ Could not find group for extracted ID:', extractedId);
-          }
+
+        if (profile && refundTotal > 0) {
+          const newBalance = Number(profile.wallet_balance || 0) + refundTotal;
+          await supabase
+            .from('profiles')
+            .update({ wallet_balance: newBalance, updated_at: new Date().toISOString() })
+            .eq('id', existingTx.user_id);
+
+          await supabase.from('notifications').insert({
+            user_id: existingTx.user_id,
+            type: 'transfer_failed',
+            title: 'Transfer Failed & Refunded',
+            message: `Your transfer of ₦${Number(existingTx.amount).toLocaleString()} failed and ₦${refundTotal.toLocaleString()} was refunded to your wallet.`,
+            is_read: false
+          });
         }
       }
     }
-    
-    const isContribution = !!groupId;
-
-    // Create transaction record
-    const transactionData = {
-      user_id: user.id,
-      contribution_id: isContribution ? groupId : null,
-      type: isContribution ? 'contribution' : 'deposit',
-      amount: paymentData.amount,
-      description: isContribution 
-        ? `Contribution to group via ${paymentData.payment_type || 'card'}`
-        : `Payment received via ${paymentData.payment_type || 'card'}`,
-      reference_id: referenceId,
-      payment_method: paymentData.payment_type || 'card',
-      status: 'completed',
-      metadata: {
-        flutterwaveRef: paymentData.flw_ref,
-        txRef: paymentData.tx_ref,
-        paymentType: paymentData.payment_type,
-        currency: paymentData.currency,
-        customerEmail: paymentData.customer?.email,
-        customerName: paymentData.customer?.name,
-        originatorName: paymentData.meta_data?.originatorname,
-        bankName: paymentData.meta_data?.bankname,
-        isContribution,
-        groupId,
-        votingRightsGranted: isContribution
-      }
-    };
-
-    const { error: txError } = await supabase
-      .from('transactions')
-      .insert(transactionData);
-
-    if (txError) {
-      console.error('Error creating transaction:', txError);
-      throw txError;
-    }
-
-    // If this is a contribution, add contributor
-    if (isContribution) {
-      // Bank transfers don't get automatic voting rights - only card/online payments do
-      if (paymentData.payment_type === 'bank_transfer') {
-        // Record as anonymous bank transfer without voting rights
-        await recordBankTransferContribution(supabase, groupId, paymentData.amount, {
-          senderName: paymentData.meta_data?.originatorname || 'Anonymous',
-          senderBank: paymentData.meta_data?.bankname || 'Bank',
-          accountNumber: paymentData.meta_data?.originatoraccountnumber || 'Unknown'
-        });
-      } else {
-        // Card/online payments get automatic voting rights
-        await addContributorWithVotingRights(supabase, groupId, user.id, paymentData.amount);
-      }
-    }
-
-    // Update user wallet balance (for non-contribution payments)
-    if (!isContribution) {
-      const currentBalance = user.wallet_balance || 0;
-      const newBalance = currentBalance + paymentData.amount;
-      
-      const { error: balanceError } = await supabase
-        .from('profiles')
-        .update({ wallet_balance: newBalance })
-        .eq('id', user.id);
-
-      if (balanceError) {
-        console.error('Error updating wallet balance:', balanceError);
-        throw balanceError;
-      }
-    }
-
-    return new Response(JSON.stringify({
-      success: true,
-      message: isContribution ? 'Contribution processed with voting rights' : 'Payment processed successfully',
-      data: { userId: user.id, amount: paymentData.amount, isContribution, votingRights: isContribution }
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-
-  } catch (error) {
-    console.error('Error handling successful payment:', error);
-    throw error;
   }
-}
 
-// Helper function to add contributor with voting rights
-async function addContributorWithVotingRights(supabase: any, groupId: string, userId: string, amount: number) {
-  try {
-    // Check if contributor already exists
-    const { data: existing } = await supabase
-      .from('contributors')
-      .select('*')
-      .eq('group_id', groupId)
-      .eq('user_id', userId)
-      .single();
-
-    if (existing) {
-      // Update existing contributor
-      await supabase
-        .from('contributors')
-        .update({
-          total_contributed: existing.total_contributed + amount,
-          contribution_count: existing.contribution_count + 1,
-          last_contribution_at: new Date().toISOString(),
-          has_voting_rights: true
-        })
-        .eq('id', existing.id);
-    } else {
-      // Create new contributor with voting rights
-      await supabase
-        .from('contributors')
-        .insert({
-          group_id: groupId,
-          user_id: userId,
-          total_contributed: amount,
-          contribution_count: 1,
-          has_voting_rights: true,
-          join_method: 'card_payment',
-          joined_at: new Date().toISOString(),
-          last_contribution_at: new Date().toISOString()
-        });
-    }
-
-    // Update group current amount
-    const { data: group } = await supabase
-      .from('contribution_groups')
-      .select('current_amount')
-      .eq('id', groupId)
-      .single();
-
-    if (group) {
-      await supabase
-        .from('contribution_groups')
-        .update({
-          current_amount: (group.current_amount || 0) + amount,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', groupId);
-    }
-
-    console.log('✅ Contributor added with voting rights:', { groupId, userId, amount });
-  } catch (error) {
-    console.error('Error adding contributor:', error);
-  }
-}
-
-// Helper function to record bank transfer without voting rights
-async function recordBankTransferContribution(supabase: any, groupId: string, amount: number, senderInfo: any) {
-  try {
-    // Create anonymous contributor without voting rights
-    await supabase
-      .from('contributors')
-      .insert({
-        group_id: groupId,
-        user_id: null,
-        total_contributed: amount,
-        contribution_count: 1,
-        has_voting_rights: false,
-        join_method: 'bank_transfer',
-        anonymous: true,
-        joined_at: new Date().toISOString(),
-        last_contribution_at: new Date().toISOString(),
-        metadata: {
-          senderName: senderInfo.senderName,
-          senderBank: senderInfo.senderBank,
-          accountNumber: senderInfo.accountNumber,
-          note: 'Bank transfer - requires manual verification for voting rights'
-        }
-      });
-
-    // Update group current amount
-    const { data: group } = await supabase
-      .from('contribution_groups')
-      .select('current_amount')
-      .eq('id', groupId)
-      .single();
-
-    if (group) {
-      await supabase
-        .from('contribution_groups')
-        .update({
-          current_amount: (group.current_amount || 0) + amount,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', groupId);
-    }
-
-    console.log('✅ Bank transfer recorded (no voting rights):', { groupId, amount, senderInfo });
-  } catch (error) {
-    console.error('Error recording bank transfer:', error);
-  }
-}
-
-// Handle bank transfer to GROUP account (not user account)
-async function handleGroupAccountCredit(supabase: any, group: any, creditData: any) {
-  try {
-    console.log('💰 Processing GROUP account credit:', { groupId: group.id, groupName: group.name, amount: creditData.amount });
-
-    // Check if transaction already exists
-    const referenceId = creditData.payment_reference || creditData.transaction_reference || creditData.reference || `GROUP_BANK_${creditData.amount}_${Date.now()}`;
-    
-    const { data: existingTx, error: checkError } = await supabase
-      .from('transactions')
-      .select('id, reference_id, amount, created_at')
-      .eq('reference_id', referenceId)
-      .single();
-
-    if (checkError && checkError.code !== 'PGRST116') {
-      console.error('Error checking existing group transaction:', checkError);
-    }
-
-    if (existingTx) {
-      console.log('⚠️ Transaction already processed:', existingTx);
-      return new Response(JSON.stringify({ 
-        success: true, 
-        message: 'Already processed',
-        existingTransaction: existingTx
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    // Create transaction record for the GROUP (not user)
-    const { error: txError } = await supabase
-      .from('transactions')
-      .insert({
-        user_id: group.creator_id, // Link to group creator for tracking
-        contribution_id: group.id,
-        type: 'contribution',
-        amount: creditData.amount,
-        description: `Bank transfer to ${group.name} from ${creditData.sender_name || creditData.senderName || 'Bank'}`,
-        reference_id: referenceId,
-        payment_method: 'bank_transfer',
-        status: 'completed',
-        metadata: {
-          senderName: creditData.sender_name || creditData.senderName,
-          senderBank: creditData.sender_bank || creditData.bankName,
-          narration: creditData.narration,
-          paymentReference: creditData.payment_reference,
-          transactionReference: creditData.transaction_reference,
-          accountNumber: creditData.account_number || creditData.accountNumber,
-          isGroupContribution: true,
-          groupId: group.id,
-          groupName: group.name,
-          votingRightsGranted: false,
-          requiresVerification: true
-        }
-      });
-
-    if (txError) {
-      console.error('Error creating group transaction:', txError);
-      throw txError;
-    }
-
-    // Record bank transfer contribution (without voting rights)
-    await recordBankTransferContribution(supabase, group.id, creditData.amount, {
-      senderName: creditData.sender_name || creditData.senderName,
-      senderBank: creditData.sender_bank || creditData.bankName,
-      accountNumber: creditData.account_number || creditData.accountNumber
-    });
-
-    // Update GROUP wallet balance (not user wallet!)
-    const currentGroupAmount = group.current_amount || 0;
-    const newGroupAmount = currentGroupAmount + creditData.amount;
-    
-    const { error: groupBalanceError } = await supabase
-      .from('contribution_groups')
-      .update({ 
-        current_amount: newGroupAmount,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', group.id);
-
-    if (groupBalanceError) {
-      console.error('Error updating group balance:', groupBalanceError);
-      throw groupBalanceError;
-    }
-
-    console.log('✅ GROUP account credited successfully:', { 
-      groupId: group.id, 
-      groupName: group.name,
-      amount: creditData.amount,
-      newBalance: newGroupAmount
-    });
-
-    return new Response(JSON.stringify({
-      success: true,
-      message: `Bank transfer to group "${group.name}" recorded successfully`,
-      data: { 
-        groupId: group.id,
-        groupName: group.name,
-        amount: creditData.amount,
-        newGroupBalance: newGroupAmount,
-        votingRights: false,
-        requiresVerification: true
-      }
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-
-  } catch (error) {
-    console.error('Error handling group account credit:', error);
-    throw error;
-  }
-}
-
-// Handle virtual account credit (bank transfer)
-// This does NOT grant automatic voting rights
-async function handleVirtualAccountCredit(supabase: any, creditData: any) {
-  try {
-    const accountNumber = creditData.account_number || creditData.accountNumber;
-    if (!accountNumber) {
-      return new Response(JSON.stringify({ success: true, message: 'No account number' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    // FIRST: Check if this account belongs to a GROUP
-    const { data: groups } = await supabase
-      .from('contribution_groups')
-      .select('*');
-
-    const group = groups?.find((g: any) => {
-      const bankDetails = g.bank_details;
-      return bankDetails?.accountNumber === accountNumber || g.account_number === accountNumber;
-    });
-
-    // If it's a group account, handle it as a group contribution
-    if (group) {
-      return await handleGroupAccountCredit(supabase, group, creditData);
-    }
-
-    // SECOND: If not a group account, check if it's a user account
-    const { data: users } = await supabase
-      .from('profiles')
-      .select('*');
-
-    const user = users?.find((u: any) => {
-      const preferences = u.preferences;
-      return preferences?.virtualAccount?.accountNumber === accountNumber;
-    });
-
-    if (!user) {
-      return new Response(JSON.stringify({ success: true, message: 'Account not found' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    // Check if transaction already exists
-    const referenceId = creditData.payment_reference || creditData.transaction_reference || creditData.reference || `BANK_${creditData.amount}_${Date.now()}`;
-    
-    const { data: existingTx, error: checkError } = await supabase
-      .from('transactions')
-      .select('id, reference_id, amount, created_at')
-      .eq('reference_id', referenceId)
-      .single();
-
-    if (checkError && checkError.code !== 'PGRST116') {
-      console.error('Error checking existing virtual account transaction:', checkError);
-    }
-
-    if (existingTx) {
-      // If amounts differ, log warning
-      if (Math.abs(existingTx.amount - creditData.amount) > 0.01) {
-        console.warn('⚠️ Same reference but different amounts - Existing:', existingTx.amount, 'New:', creditData.amount);
-      }
-      
-      return new Response(JSON.stringify({ 
-        success: true, 
-        message: 'Already processed',
-        existingTransaction: existingTx
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    // Check if this is for a contribution group
-    const groupId = creditData.meta?.group_id || creditData.metadata?.group_id;
-    const isContribution = !!groupId;
-
-    // Create transaction record
-    const { error: txError } = await supabase
-      .from('transactions')
-      .insert({
-        user_id: user.id,
-        contribution_id: isContribution ? groupId : null,
-        type: isContribution ? 'contribution' : 'deposit',
-        amount: creditData.amount,
-        description: isContribution
-          ? `Bank transfer contribution from ${creditData.sender_name || creditData.senderName || 'Bank'}`
-          : `Bank transfer from ${creditData.sender_name || creditData.senderName || 'Bank'}`,
-        reference_id: referenceId || `BANK_${Date.now()}`,
-        payment_method: 'bank_transfer',
-        status: 'completed',
-        metadata: {
-          senderName: creditData.sender_name || creditData.senderName,
-          senderBank: creditData.sender_bank || creditData.bankName,
-          narration: creditData.narration,
-          paymentReference: creditData.payment_reference,
-          transactionReference: creditData.transaction_reference,
-          accountNumber: accountNumber,
-          isContribution,
-          groupId,
-          votingRightsGranted: false, // Bank transfers don't get automatic voting rights
-          requiresVerification: isContribution
-        }
-      });
-
-    if (txError) throw txError;
-
-    // If this is a contribution, record it without voting rights
-    if (isContribution) {
-      await recordBankTransferContribution(supabase, groupId, creditData.amount, {
-        senderName: creditData.sender_name || creditData.senderName,
-        senderBank: creditData.sender_bank || creditData.bankName,
-        accountNumber: accountNumber
-      });
-    } else {
-      // Update user wallet balance (for non-contribution transfers)
-      const currentBalance = user.wallet_balance || 0;
-      const newBalance = currentBalance + creditData.amount;
-      
-      const { error: balanceError } = await supabase
-        .from('profiles')
-        .update({ wallet_balance: newBalance })
-        .eq('id', user.id);
-
-      if (balanceError) {
-        console.error('Error updating virtual account balance:', balanceError);
-        throw balanceError;
-      }
-    }
-
-    return new Response(JSON.stringify({
-      success: true,
-      message: isContribution 
-        ? 'Bank transfer contribution recorded (requires admin verification for voting rights)'
-        : 'Virtual account credit processed successfully',
-      data: { 
-        userId: user.id, 
-        amount: creditData.amount, 
-        isContribution,
-        votingRights: false,
-        requiresVerification: isContribution
-      }
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-
-  } catch (error) {
-    console.error('Error handling virtual account credit:', error);
-    throw error;
-  }
-}
-
-// Handle successful transfer (legacy)
-async function handleSuccessfulTransfer(supabase: any, transferData: any) {
-  console.log('Transfer completed:', transferData);
-  return new Response(JSON.stringify({ success: true, message: 'Transfer noted' }), {
+  return new Response(JSON.stringify({ success: true, message: 'Transfer status updated' }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
   });
 }
 
-// Handle contribution webhook (legacy)
+async function handleSuccessfulPayment(supabase: any, paymentData: any) {
+  const userEmail = paymentData.customer?.email;
+  if (!userEmail) {
+    return new Response(JSON.stringify({ success: true, message: 'No email found' }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const { data: user, error: userError } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('email', userEmail)
+    .maybeSingle();
+
+  if (userError || !user) {
+    return new Response(JSON.stringify({ success: true, message: 'User not found' }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const referenceId = paymentData.flw_ref || paymentData.tx_ref;
+  const amount = Number(paymentData.amount || 0);
+
+  if (amount <= 0) {
+    return new Response(JSON.stringify({ success: true, message: 'Invalid payment amount' }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  // Idempotency check
+  const { data: existingTx } = await supabase
+    .from('transactions')
+    .select('id, reference_id, amount, status')
+    .eq('reference_id', referenceId)
+    .maybeSingle();
+
+  if (existingTx && existingTx.status === 'completed') {
+    return new Response(JSON.stringify({
+      success: true,
+      message: 'Already processed',
+      existingTransaction: existingTx
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  // Determine if this payment targets a specific group
+  let groupId = paymentData.meta?.group_id || paymentData.metadata?.group_id || null;
+  const txRef = paymentData.tx_ref;
+
+  if (!groupId && txRef && String(txRef).startsWith('GROUP_')) {
+    const parts = String(txRef).split('_');
+    if (parts.length >= 2) {
+      const extractedId = parts[1];
+      const { data: group } = await supabase
+        .from('contribution_groups')
+        .select('id')
+        .eq('id', extractedId)
+        .maybeSingle();
+
+      if (group) {
+        groupId = group.id;
+      }
+    }
+  }
+
+  const isContribution = !!groupId;
+  const balanceBefore = Number(user.wallet_balance || 0);
+  const balanceAfter = isContribution ? balanceBefore : balanceBefore + amount;
+
+  const transactionData = {
+    user_id: user.id,
+    contribution_id: isContribution ? groupId : null,
+    type: isContribution ? 'contribution' : 'deposit',
+    amount,
+    description: isContribution
+      ? `Contribution to group via ${paymentData.payment_type || 'card'}`
+      : `Wallet top-up via ${paymentData.payment_type || 'card'}`,
+    reference_id: referenceId,
+    payment_method: paymentData.payment_type || 'card',
+    status: 'completed',
+    balance_before: balanceBefore,
+    balance_after: balanceAfter,
+    metadata: {
+      flutterwaveRef: paymentData.flw_ref,
+      txRef: paymentData.tx_ref,
+      paymentType: paymentData.payment_type,
+      currency: paymentData.currency || 'NGN',
+      customerEmail: paymentData.customer?.email,
+      customerName: paymentData.customer?.name,
+      originatorName: paymentData.meta_data?.originatorname,
+      bankName: paymentData.meta_data?.bankname,
+      isContribution,
+      groupId,
+      votingRightsGranted: isContribution && paymentData.payment_type !== 'bank_transfer'
+    }
+  };
+
+  if (existingTx) {
+    const { error: updateTxErr } = await supabase
+      .from('transactions')
+      .update(transactionData)
+      .eq('id', existingTx.id);
+    if (updateTxErr) throw updateTxErr;
+  } else {
+    const { error: txError } = await supabase
+      .from('transactions')
+      .insert(transactionData);
+    if (txError) throw txError;
+  }
+
+  if (isContribution) {
+    if (paymentData.payment_type === 'bank_transfer') {
+      await recordBankTransferContribution(supabase, groupId, amount, {
+        senderName: paymentData.meta_data?.originatorname || 'Anonymous',
+        senderBank: paymentData.meta_data?.bankname || 'Bank',
+        accountNumber: paymentData.meta_data?.originatoraccountnumber || 'Unknown'
+      });
+    } else {
+      await addContributorWithVotingRights(supabase, groupId, user.id, amount);
+    }
+  } else {
+    const { error: balanceError } = await supabase
+      .from('profiles')
+      .update({ wallet_balance: balanceAfter, updated_at: new Date().toISOString() })
+      .eq('id', user.id);
+
+    if (balanceError) throw balanceError;
+
+    await supabase.from('notifications').insert({
+      user_id: user.id,
+      type: 'wallet_deposit',
+      title: 'Wallet Funded',
+      message: `₦${amount.toLocaleString()} has been credited to your wallet.`,
+      is_read: false
+    });
+  }
+
+  return new Response(JSON.stringify({
+    success: true,
+    message: isContribution ? 'Contribution processed' : 'Payment processed successfully',
+    data: { userId: user.id, amount, isContribution }
+  }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  });
+}
+
+async function addContributorWithVotingRights(supabase: any, groupId: string, userId: string, amount: number) {
+  const { data: existing } = await supabase
+    .from('contributors')
+    .select('*')
+    .eq('group_id', groupId)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (existing) {
+    await supabase
+      .from('contributors')
+      .update({
+        total_contributed: Number(existing.total_contributed || 0) + amount,
+        contribution_count: Number(existing.contribution_count || 0) + 1,
+        last_contribution_at: new Date().toISOString(),
+        has_voting_rights: true,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', existing.id);
+  } else {
+    await supabase
+      .from('contributors')
+      .insert({
+        group_id: groupId,
+        user_id: userId,
+        amount,
+        total_contributed: amount,
+        contribution_count: 1,
+        has_voting_rights: true,
+        join_method: 'card_payment',
+        joined_at: new Date().toISOString(),
+        last_contribution_at: new Date().toISOString()
+      });
+  }
+
+  const { data: group } = await supabase
+    .from('contribution_groups')
+    .select('current_amount')
+    .eq('id', groupId)
+    .single();
+
+  if (group) {
+    await supabase
+      .from('contribution_groups')
+      .update({
+        current_amount: Number(group.current_amount || 0) + amount,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', groupId);
+  }
+}
+
+async function recordBankTransferContribution(
+  supabase: any,
+  groupId: string,
+  amount: number,
+  senderInfo: any,
+  updateGroupTotal: boolean = true
+) {
+  await supabase
+    .from('contributors')
+    .insert({
+      group_id: groupId,
+      user_id: null,
+      amount,
+      total_contributed: amount,
+      contribution_count: 1,
+      has_voting_rights: false,
+      join_method: 'bank_transfer',
+      anonymous: true,
+      joined_at: new Date().toISOString(),
+      last_contribution_at: new Date().toISOString(),
+      metadata: {
+        senderName: senderInfo.senderName,
+        senderBank: senderInfo.senderBank,
+        accountNumber: senderInfo.accountNumber,
+        note: 'Bank transfer - requires manual verification for voting rights'
+      }
+    });
+
+  if (updateGroupTotal) {
+    const { data: group } = await supabase
+      .from('contribution_groups')
+      .select('current_amount')
+      .eq('id', groupId)
+      .single();
+
+    if (group) {
+      await supabase
+        .from('contribution_groups')
+        .update({
+          current_amount: Number(group.current_amount || 0) + amount,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', groupId);
+    }
+  }
+}
+
+async function handleGroupAccountCredit(supabase: any, group: any, creditData: any) {
+  const amount = Number(creditData.amount || 0);
+  if (amount <= 0) {
+    return new Response(JSON.stringify({ success: true, message: 'Invalid credit amount' }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const referenceId =
+    creditData.payment_reference ||
+    creditData.transaction_reference ||
+    creditData.reference ||
+    `GROUP_BANK_${amount}_${Date.now()}`;
+
+  const { data: existingTx } = await supabase
+    .from('transactions')
+    .select('id, reference_id, amount')
+    .eq('reference_id', referenceId)
+    .maybeSingle();
+
+  if (existingTx) {
+    return new Response(JSON.stringify({
+      success: true,
+      message: 'Already processed',
+      existingTransaction: existingTx
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const { error: txError } = await supabase
+    .from('transactions')
+    .insert({
+      user_id: group.creator_id,
+      contribution_id: group.id,
+      type: 'contribution',
+      amount,
+      description: `Bank transfer to ${group.name} from ${creditData.sender_name || creditData.senderName || 'Bank'}`,
+      reference_id: referenceId,
+      payment_method: 'bank_transfer',
+      status: 'completed',
+      metadata: {
+        senderName: creditData.sender_name || creditData.senderName,
+        senderBank: creditData.sender_bank || creditData.bankName,
+        narration: creditData.narration,
+        paymentReference: creditData.payment_reference,
+        transactionReference: creditData.transaction_reference,
+        accountNumber: creditData.account_number || creditData.accountNumber,
+        isGroupContribution: true,
+        groupId: group.id,
+        groupName: group.name,
+        votingRightsGranted: false,
+        requiresVerification: true
+      }
+    });
+
+  if (txError) throw txError;
+
+  // Record bank transfer contributor WITHOUT double-incrementing group balance
+  await recordBankTransferContribution(
+    supabase,
+    group.id,
+    amount,
+    {
+      senderName: creditData.sender_name || creditData.senderName,
+      senderBank: creditData.sender_bank || creditData.bankName,
+      accountNumber: creditData.account_number || creditData.accountNumber
+    },
+    false
+  );
+
+  // Increment group current_amount exactly once
+  const newGroupAmount = Number(group.current_amount || 0) + amount;
+  const { error: groupBalanceError } = await supabase
+    .from('contribution_groups')
+    .update({
+      current_amount: newGroupAmount,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', group.id);
+
+  if (groupBalanceError) throw groupBalanceError;
+
+  if (group.creator_id) {
+    await supabase.from('notifications').insert({
+      user_id: group.creator_id,
+      type: 'bank_transfer_received',
+      title: 'Bank Transfer Received',
+      message: `₦${amount.toLocaleString()} transferred to ${group.name}. Verify the sender in Admin Panel to grant voting rights.`,
+      related_id: group.id,
+      is_read: false
+    });
+  }
+
+  return new Response(JSON.stringify({
+    success: true,
+    message: `Bank transfer to group "${group.name}" recorded successfully`,
+    data: {
+      groupId: group.id,
+      groupName: group.name,
+      amount,
+      newGroupBalance: newGroupAmount,
+      votingRights: false,
+      requiresVerification: true
+    }
+  }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  });
+}
+
+async function handleVirtualAccountCredit(supabase: any, creditData: any) {
+  const accountNumber = creditData.account_number || creditData.accountNumber;
+  if (!accountNumber) {
+    return new Response(JSON.stringify({ success: true, message: 'No account number' }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  // First check if this virtual account belongs to a contribution group
+  const { data: group } = await supabase
+    .from('contribution_groups')
+    .select('*')
+    .eq('account_number', accountNumber)
+    .maybeSingle();
+
+  if (group) {
+    return await handleGroupAccountCredit(supabase, group, creditData);
+  }
+
+  // Otherwise find user profile matching this virtual account number
+  const { data: users } = await supabase
+    .from('profiles')
+    .select('*');
+
+  const user = users?.find((u: any) =>
+    u.preferences?.virtualAccount?.accountNumber === accountNumber
+  );
+
+  if (!user) {
+    return new Response(JSON.stringify({ success: true, message: 'Account not found' }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const amount = Number(creditData.amount || 0);
+  if (amount <= 0) {
+    return new Response(JSON.stringify({ success: true, message: 'Invalid credit amount' }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const referenceId =
+    creditData.payment_reference ||
+    creditData.transaction_reference ||
+    creditData.reference ||
+    `BANK_${amount}_${Date.now()}`;
+
+  const { data: existingTx } = await supabase
+    .from('transactions')
+    .select('id, reference_id, amount')
+    .eq('reference_id', referenceId)
+    .maybeSingle();
+
+  if (existingTx) {
+    return new Response(JSON.stringify({
+      success: true,
+      message: 'Already processed',
+      existingTransaction: existingTx
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const groupId = creditData.meta?.group_id || creditData.metadata?.group_id || null;
+  const isContribution = !!groupId;
+  const balanceBefore = Number(user.wallet_balance || 0);
+  const balanceAfter = isContribution ? balanceBefore : balanceBefore + amount;
+
+  const { error: txError } = await supabase
+    .from('transactions')
+    .insert({
+      user_id: user.id,
+      contribution_id: isContribution ? groupId : null,
+      type: isContribution ? 'contribution' : 'deposit',
+      amount,
+      description: isContribution
+        ? `Bank transfer contribution from ${creditData.sender_name || creditData.senderName || 'Bank'}`
+        : `Bank transfer from ${creditData.sender_name || creditData.senderName || 'Bank'}`,
+      reference_id: referenceId,
+      payment_method: 'bank_transfer',
+      status: 'completed',
+      balance_before: balanceBefore,
+      balance_after: balanceAfter,
+      metadata: {
+        senderName: creditData.sender_name || creditData.senderName,
+        senderBank: creditData.sender_bank || creditData.bankName,
+        narration: creditData.narration,
+        paymentReference: creditData.payment_reference,
+        transactionReference: creditData.transaction_reference,
+        accountNumber,
+        isContribution,
+        groupId,
+        votingRightsGranted: false,
+        requiresVerification: isContribution
+      }
+    });
+
+  if (txError) throw txError;
+
+  if (isContribution) {
+    await recordBankTransferContribution(supabase, groupId, amount, {
+      senderName: creditData.sender_name || creditData.senderName,
+      senderBank: creditData.sender_bank || creditData.bankName,
+      accountNumber
+    });
+  } else {
+    const { error: balanceError } = await supabase
+      .from('profiles')
+      .update({ wallet_balance: balanceAfter, updated_at: new Date().toISOString() })
+      .eq('id', user.id);
+
+    if (balanceError) throw balanceError;
+
+    await supabase.from('notifications').insert({
+      user_id: user.id,
+      type: 'wallet_deposit',
+      title: 'Wallet Credited',
+      message: `₦${amount.toLocaleString()} received via bank transfer.`,
+      is_read: false
+    });
+  }
+
+  return new Response(JSON.stringify({
+    success: true,
+    message: isContribution
+      ? 'Bank transfer contribution recorded (requires admin verification for voting rights)'
+      : 'Virtual account credit processed successfully',
+    data: {
+      userId: user.id,
+      amount,
+      isContribution,
+      votingRights: false,
+      requiresVerification: isContribution
+    }
+  }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  });
+}
+
 async function handleContributionWebhook(supabase: any, data: any) {
   const { accountNumber, amount, senderName, bankName, paymentReference } = data;
+  const parsedAmount = parseFloat(amount);
 
-  // Find the contribution group by account number
+  if (!accountNumber || isNaN(parsedAmount) || parsedAmount <= 0) {
+    return new Response(JSON.stringify({
+      success: false,
+      message: 'Valid accountNumber and amount are required'
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 400
+    });
+  }
+
   const { data: contributionGroup, error: findError } = await supabase
     .from('contribution_groups')
     .select('*')
     .eq('account_number', accountNumber)
-    .single();
+    .maybeSingle();
 
   if (findError || !contributionGroup) {
     return new Response(JSON.stringify({
@@ -687,56 +719,11 @@ async function handleContributionWebhook(supabase: any, data: any) {
     });
   }
 
-  // Update contribution amount
-  const { error: updateError } = await supabase
-    .from('contribution_groups')
-    .update({
-      current_amount: (contributionGroup.current_amount || 0) + parseFloat(amount)
-    })
-    .eq('id', contributionGroup.id);
-
-  if (updateError) throw updateError;
-
-  // Add contributor record
-  const { error: contributorError } = await supabase
-    .from('contributors')
-    .insert({
-      group_id: contributionGroup.id,
-      user_id: null,
-      amount: parseFloat(amount),
-      anonymous: !senderName
-    });
-
-  if (contributorError) throw contributorError;
-
-  // Create a transaction record
-  const { error: transactionError } = await supabase
-    .from('transactions')
-    .insert({
-      user_id: contributionGroup.creator_id,
-      contribution_id: contributionGroup.id,
-      type: 'deposit',
-      amount: parseFloat(amount),
-      description: `Contribution to ${contributionGroup.name} via bank transfer`,
-      status: 'completed',
-      reference_id: paymentReference || `tx_${Date.now()}`,
-      metadata: {
-        senderName: senderName || 'Anonymous',
-        bankName: bankName || 'Bank Transfer',
-        paymentReference: paymentReference || `tx_${Date.now()}`
-      }
-    });
-
-  if (transactionError) throw transactionError;
-
-  return new Response(JSON.stringify({
-    success: true,
-    message: 'Contribution processed successfully',
-    data: {
-      contributionId: contributionGroup.id,
-      amount: parseFloat(amount)
-    }
-  }), {
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  return await handleGroupAccountCredit(supabase, contributionGroup, {
+    account_number: accountNumber,
+    amount: parsedAmount,
+    sender_name: senderName || 'Anonymous',
+    sender_bank: bankName || 'Bank Transfer',
+    payment_reference: paymentReference
   });
 }

@@ -5,15 +5,10 @@ import { Link, useNavigate } from "react-router-dom";
 import { PlusCircle, ArrowDown, Wallet, SendHorizontal, UserPlus, Clock, Eye, EyeOff, DollarSign, CreditCard, Building, ExternalLink } from "lucide-react";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { updateUserBalance } from "@/services/localStorage";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { createPaymentInvoice, getReservedAccountTransactions } from "@/services/walletIntegration";
+import { WalletService } from "@/services/supabase/walletService";
 import WalletActions from "@/components/dashboard/wallet/WalletActions";
 import { useBalanceUpdates } from "@/hooks/useBalanceUpdates";
 
@@ -73,73 +68,60 @@ const WalletCard = () => {
     return transactions
       .filter(t => 
         t.user_id === user?.id && 
-        (!t.contribution_id || t.type === "deposit" || t.type === "withdrawal")
+        t.type !== "vote"
       )
       .filter(transaction => {
         const meta = getMetadata(transaction);
-        // Create a unique key based on multiple identifiers
         const key = meta?.paymentReference || 
                    meta?.paymentDetails?.transactionId ||
                    meta?.transactionReference ||
+                   transaction.reference_id ||
                    transaction.id;
 
-        // If we've seen this key before, it's a duplicate
         if (seen.has(key)) {
           return false;
         }
-        
-        // Add the transaction to our seen map
         seen.set(key, true);
         return true;
       })
       .sort((a, b) => {
-        const dateA = new Date(a.created_at).getTime();
-        const dateB = new Date(b.created_at).getTime();
+        const dateA = new Date(a.created_at || 0).getTime();
+        const dateB = new Date(b.created_at || 0).getTime();
         return isNaN(dateB) || isNaN(dateA) ? 0 : dateB - dateA;
       })
-      .slice(0, 5); // Keep only the 5 most recent transactions
+      .slice(0, 5);
   }, [transactions, user?.id]);
   
   const handleRefreshBalance = async () => {
     setIsLoading(true);
     try {
       await refreshBalance();
-      await fetchTransactions();
     } finally {
       setIsLoading(false);
     }
   };
   
   const handleDeposit = async (e: React.MouseEvent) => {
-    // Prevent event bubbling
     e.preventDefault();
     e.stopPropagation();
     
+    if (!user) return;
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       toast.error("Please enter a valid amount");
       return;
     }
     
-    // Only allow card payments - no manual deposits
-    if (depositMethod !== "card") {
-      toast.error("Invalid deposit method");
-      return;
-    }
-    
     setIsProcessingDeposit(true);
-    
     try {
-      // Create an invoice for card payment
-      const result = await createPaymentInvoice({
+      const result = await WalletService.createPaymentInvoice({
         amount: Number(amount),
         description: "Wallet top-up via card",
-        customerEmail: user.email,
-        customerName: user.name || `${user.firstName} ${user.lastName}`,
+        customerEmail: user.email || "",
+        customerName: user.name || user.email || "User",
         userId: user.id
       });
       
       if (result && result.checkoutUrl) {
-        // Open the checkout URL in a new tab
         window.open(result.checkoutUrl, "_blank");
         toast.success("Payment page opened. Complete your payment to fund your wallet.");
       } else {
@@ -156,24 +138,10 @@ const WalletCard = () => {
   };
   
   const handleWithdraw = (e: React.MouseEvent) => {
-    // Prevent event bubbling
     e.preventDefault();
     e.stopPropagation();
-    
-    if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
-      toast.error("Please enter a valid amount");
-      return;
-    }
-    if (Number(amount) > (user?.wallet_balance || 0)) {
-      toast.error("Insufficient funds in your wallet");
-      return;
-    }
-    // TODO: Implement with Supabase wallet balance update
-    // updateUserBalance(user.id, user.wallet_balance - Number(amount));
-    refreshData();
-    setAmount("");
     setIsWithdrawOpen(false);
-    toast.success(`Successfully withdrew ${currencyType === "NGN" ? "₦" : "$"}${Number(amount).toLocaleString()}`);
+    navigate("/transfer");
   };
   
   const formatDate = (dateString: string) => {
@@ -299,40 +267,44 @@ const WalletCard = () => {
             
             {uniqueWalletTransactions.length > 0 ? (
               <div className="space-y-3">
-                {uniqueWalletTransactions.map(transaction => (
+                {uniqueWalletTransactions.map(transaction => {
+                  const isCredit = transaction.type === 'deposit' || transaction.type === 'refund';
+                  const meta = getMetadata(transaction);
+                  return (
                   <div 
-                    key={`${transaction.id}-${transaction.metaData?.paymentReference || ''}`}
+                    key={`${transaction.id}-${meta?.paymentReference || ''}`}
                     className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-muted/30 transition-colors"
                     onClick={() => viewTransactionDetails(transaction)}
                   >
                     <div className="flex items-center">
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center
-                        ${transaction.type === 'deposit' ? 'bg-green-100 text-[#2DAE75]' : transaction.type === 'withdrawal' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
-                        {transaction.type === 'deposit' ? <ArrowDown size={18} /> : <ArrowDown size={18} className="transform rotate-180" />}
+                        ${isCredit ? 'bg-green-100 text-[#2DAE75]' : 'bg-amber-100 text-amber-600'}`}>
+                        {isCredit ? <ArrowDown size={18} /> : <ArrowDown size={18} className="transform rotate-180" />}
                       </div>
                       <div className="ml-3">
                         <p className="font-medium text-sm">
-                          {transaction.type === 'deposit' ? 'Money In' : 'Money Out'}
+                          {transaction.type === 'deposit' ? 'Money In' :
+                           transaction.type === 'refund' ? 'Refund Received' :
+                           transaction.type === 'contribution' ? 'Group Contribution' :
+                           transaction.type === 'transfer' ? 'Bank Transfer' :
+                           'Money Out'}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {(() => {
-                            const meta = getMetadata(transaction);
-                            return meta?.senderName || getSenderBank(transaction) ? 
-                              `From: ${meta?.senderName || ""} ${getSenderBank(transaction) ? `(${getSenderBank(transaction)})` : ""}` : 
-                              formatDate(transaction.created_at);
-                          })()}
+                          {meta?.senderName || getSenderBank(transaction) ? 
+                            `From: ${meta?.senderName || ""} ${getSenderBank(transaction) ? `(${getSenderBank(transaction)})` : ""}` : 
+                            formatDate(transaction.created_at)}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center">
-                      <div className={`font-semibold ${transaction.type === 'deposit' ? 'text-[#2DAE75]' : 'text-red-500'}`}>
-                        {transaction.type === 'deposit' ? '+' : '-'}
-                        {currencyType === "NGN" ? `₦${transaction.amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : `$${convertToUSD(transaction.amount).toFixed(2)}`}
+                      <div className={`font-semibold ${isCredit ? 'text-[#2DAE75]' : 'text-red-500'}`}>
+                        {isCredit ? '+' : '-'}
+                        {currencyType === "NGN" ? `₦${Number(transaction.amount).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : `$${convertToUSD(Number(transaction.amount)).toFixed(2)}`}
                       </div>
                       <ExternalLink className="ml-2 h-4 w-4 text-muted-foreground" />
                     </div>
                   </div>
-                ))}
+                );})}
               </div>
             ) : (
               <div className="text-center py-6 text-muted-foreground">

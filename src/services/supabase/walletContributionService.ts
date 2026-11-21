@@ -80,7 +80,7 @@ export const WalletContributionService = {
         throw error;
       }
 
-      const result = data as WalletContributionResult;
+      const result = data as unknown as WalletContributionResult;
       console.log('✅ Contribution result:', result);
 
       if (result.success) {
@@ -329,7 +329,7 @@ export const WalletContributionService = {
         description: 'Group members can now vote on this request.'
       });
 
-      return data as GroupRefundRequest;
+      return data as unknown as GroupRefundRequest;
     } catch (error) {
       console.error('Error creating refund request:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to create refund request');
@@ -483,7 +483,7 @@ export const WalletContributionService = {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return (data as GroupRefundRequest[]) || [];
+      return (data as unknown as GroupRefundRequest[]) || [];
     } catch (error) {
       console.error('Error fetching refund requests:', error);
       return [];

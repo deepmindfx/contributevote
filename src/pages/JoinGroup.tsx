@@ -171,7 +171,9 @@ export default function JoinGroup() {
                   <div>
                     <p className="text-xs text-muted-foreground">Members</p>
                     <p className="text-lg font-semibold">
-                      {group.members?.length || 0}
+                      {Array.isArray(group.contributors)
+                        ? (group.contributors[0]?.count ?? group.contributors.length)
+                        : 0}
                     </p>
                   </div>
                 </div>

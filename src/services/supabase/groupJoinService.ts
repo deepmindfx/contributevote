@@ -41,7 +41,7 @@ export const GroupJoinService = {
         .select('id')
         .eq('group_id', groupId)
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
       if (existingMember) {
         return {
@@ -98,7 +98,7 @@ export const GroupJoinService = {
     try {
       const { data: group, error } = await supabase
         .from('contribution_groups')
-        .select('*')
+        .select('*, contributors(count)')
         .eq('id', groupId)
         .eq('privacy', 'public')
         .single();

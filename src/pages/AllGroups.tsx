@@ -223,11 +223,14 @@ const AllGroups = () => {
                     <div className="text-sm text-muted-foreground">
                       <div className="flex items-center mt-1">
                         <Calendar className="h-3 w-3 mr-1" />
-                        Started {safeFormatDate(contribution.startDate)}
+                        Started {safeFormatDate(contribution.start_date || contribution.created_at)}
                       </div>
                       <div className="flex items-center mt-1">
                         <Users className="h-3 w-3 mr-1" />
-                        {contribution.members?.length || 0} members
+                        {Array.isArray(contribution.contributors)
+                          ? (contribution.contributors[0]?.count ?? contribution.contributors.length)
+                          : 0}{' '}
+                        members
                       </div>
                     </div>
                   </CardHeader>

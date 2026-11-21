@@ -31,8 +31,8 @@ const STEP_STORAGE_KEY = 'group_creation_step';
 
 const GroupForm = () => {
   const navigate = useNavigate();
-  const { user } = useSupabaseUser();
-  const { createNewContribution } = useSupabaseContribution();
+  const { user, refreshCurrentUser } = useSupabaseUser();
+  const { refreshContributionData } = useSupabaseContribution();
   
   // Initialize state from localStorage if available
   const [step, setStep] = useState(() => {
@@ -226,10 +226,14 @@ const GroupForm = () => {
   };
 
   const createGroup = async () => {
+    if (!user) {
+      toast.error("Please log in to create a group");
+      return;
+    }
+
     setIsLoading(true);
-    
+
     try {
-      // Use the new service that handles fee deduction
       const result = await createGroupWithFee(user.id, {
         name: formData.name,
         description: formData.description,
@@ -238,31 +242,42 @@ const GroupForm = () => {
         frequency: formData.frequency,
         privacy: formData.privacy,
         enable_voting_rights: formData.enableVotingRights,
+        contribution_amount: Number(formData.contributionAmount) || null,
+        start_date: formData.startDate ? new Date(formData.startDate).toISOString() : null,
+        end_date: formData.endDate ? new Date(formData.endDate).toISOString() : null,
+        voting_threshold: Number(formData.votingThreshold) || 60,
       });
-      
-      // Get the created group ID
-      const groupId = result?.group_id || result?.id;
-      
+
+      if (!result?.success) {
+        toast.error(result?.message || result?.error || "Failed to create group");
+        return;
+      }
+
+      const groupId = result.group_id;
+
+      // Persist BVN on profile for reuse if not already stored
+      if (formData.bvn && formData.bvn.length === 11 && !user.bvn) {
+        const { supabase } = await import('@/integrations/supabase/client');
+        await supabase.from('profiles').update({ bvn: formData.bvn }).eq('id', user.id);
+      }
+
       if (groupId && formData.bvn && formData.bvn.length === 11) {
-        // Create virtual account for the group only if BVN is provided
         try {
           const accountData = await createGroupVirtualAccount({
-            email: user.email,
+            email: user.email || '',
             bvn: formData.bvn,
             groupName: formData.name,
             groupId: groupId,
           });
 
-          console.log('Virtual account created:', accountData);
-          
           if (accountData.success && accountData.responseBody) {
-            // Save account details to database
             const { supabase } = await import('@/integrations/supabase/client');
             const { error: updateError } = await supabase
               .from('contribution_groups')
               .update({
                 account_number: accountData.responseBody.account_number,
-                account_name: formData.name, // Use group name as account name
+                account_name: formData.name,
+                bank_name: accountData.responseBody.bank_name || null,
                 account_reference: accountData.responseBody.order_ref || accountData.responseBody.flw_ref,
                 account_details: accountData.responseBody
               })
@@ -279,23 +294,17 @@ const GroupForm = () => {
           }
         } catch (accountError) {
           console.error('Error creating virtual account:', accountError);
-          // Don't fail the whole process if virtual account creation fails
           toast.warning("Group created, but bank account setup failed. You can set it up later from the group page.");
         }
       } else {
-        // Group created without bank account
-        toast.success("Group created successfully! You can set up a bank account later from the group page.");
+        toast.success(result.message || "Group created successfully!");
       }
-      
-      // Clear localStorage after successful creation
+
       localStorage.removeItem(FORM_STORAGE_KEY);
       localStorage.removeItem(STEP_STORAGE_KEY);
-      
-      // Small delay to ensure data is synced
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Navigate to dashboard
-      navigate("/dashboard");
+
+      await Promise.all([refreshCurrentUser(), refreshContributionData()]);
+      navigate(groupId ? `/groups/${groupId}` : "/dashboard");
     } catch (error) {
       console.error("Error creating group:", error);
       toast.error(`Failed to create group: ${error instanceof Error ? error.message : "Unknown error"}`);
@@ -357,7 +366,7 @@ const GroupForm = () => {
           </div>
         )}
         
-        <StepIndicator current={step} totalSteps={3} />
+        <StepIndicator currentStep={step} />
         {renderStep()}
       </Card>
 

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CreditCard, Wallet, Building } from "lucide-react";
-import { User } from "@/services/localStorage/types";
+import { Database } from "@/integrations/supabase/types";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { WalletService, ReservedAccountData } from "@/services/supabase/walletService";
@@ -25,7 +25,7 @@ interface WalletActionsProps {
   setDepositMethod: (value: "manual" | "card" | "bank") => void;
   isProcessingDeposit: boolean;
   currencyType: "NGN" | "USD";
-  user: User | null;
+  user: Database['public']['Tables']['profiles']['Row'] | null;
   setShowHistory: (value: boolean) => void;
 }
 

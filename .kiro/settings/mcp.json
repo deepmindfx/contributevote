@@ -5,24 +5,21 @@
       "args": [
         "-y",
         "@supabase/mcp-server-supabase@latest",
-        "--access-token",
-        "sbp_bf8b90b44505b8102574da194d658464aef44ebf"
+        "--project-ref",
+        "sivvjwffekhfabgxhbcd"
       ],
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "${SUPABASE_ACCESS_TOKEN}"
+      },
       "disabled": false,
       "autoApprove": [
-        "deploy_edge_function",
-        "deploy_edge_function",
         "list_edge_functions",
-        "list_edge_functions",
-        "execute_sql",
-        "apply_migration",
         "get_edge_function",
         "get_project",
         "list_tables",
         "list_projects",
         "get_logs",
         "search_docs",
-        "get_advisors",
         "get_advisors",
         "list_migrations"
       ]

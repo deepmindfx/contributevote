@@ -24,7 +24,7 @@ export default defineConfig(({ mode }) => {
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${env.VITE_FLW_SECRET_KEY_PROD}`
+            'Authorization': `Bearer ${env.FLUTTERWAVE_SECRET_KEY || env.VITE_FLW_SECRET_KEY_TEST || ''}`
           },
           configure: (proxy, _options) => {
             proxy.on('error', (err, _req, _res) => {

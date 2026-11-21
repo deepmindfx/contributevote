@@ -20,7 +20,7 @@ interface WithdrawalRequestProps {
 }
 
 export function WithdrawalRequest({ groupId }: WithdrawalRequestProps) {
-  const { user } = useSupabaseUser();
+  const { user, refreshCurrentUser } = useSupabaseUser();
   const { contributions, refreshContributionData } = useSupabaseContribution();
   const [amount, setAmount] = useState('');
   const [purpose, setPurpose] = useState('');
@@ -74,8 +74,8 @@ export function WithdrawalRequest({ groupId }: WithdrawalRequestProps) {
         setAmount('');
         setPurpose('');
         
-        // Refresh data
-        await refreshContributionData();
+        // Refresh data (wallet balance + group balance)
+        await Promise.all([refreshCurrentUser(), refreshContributionData()]);
         return;
       }
 
@@ -140,8 +140,8 @@ export function WithdrawalRequest({ groupId }: WithdrawalRequestProps) {
         <AlertDescription>
           {group?.enable_voting_rights !== false ? (
             <>
-              Withdrawal requests require approval from contributors with voting rights.
-              The voting period is 24 hours. Once approved, funds will be transferred to your wallet.
+              Withdrawal requests require approval from contributors with voting rights (70% participation and 60% approval).
+              The voting period is 7 days. Once approved, funds will be transferred to your wallet.
             </>
           ) : (
             <>

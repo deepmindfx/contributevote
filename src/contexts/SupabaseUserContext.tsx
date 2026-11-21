@@ -1,6 +1,7 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
 import { UserService } from '@/services/supabase/userService';
 import { SyncService } from '@/services/supabase/syncService';
+import { NotificationService, NotificationRecord } from '@/services/supabase/notificationService';
 import { Database } from '@/integrations/supabase/types';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -9,11 +10,16 @@ type Profile = Database['public']['Tables']['profiles']['Row'];
 interface SupabaseUserContextType {
   user: Profile | null;
   users: Profile[];
+  notifications: NotificationRecord[];
+  unreadNotificationCount: number;
   isAdmin: boolean;
   isAuthenticated: boolean;
   loading: boolean;
   refreshUserData: () => Promise<void>;
   refreshCurrentUser: () => Promise<void>;
+  refreshNotifications: () => Promise<void>;
+  markNotificationRead: (notificationId: string) => Promise<void>;
+  markAllNotificationsRead: () => Promise<void>;
   updateProfile: (userData: Partial<Profile>) => Promise<void>;
   updateUserAsAdmin: (userId: string, userData: Partial<Profile>) => Promise<void>;
   depositToUserAsAdmin: (userId: string, amount: number) => Promise<void>;
@@ -22,11 +28,11 @@ interface SupabaseUserContextType {
   getUserByEmail: (email: string) => Promise<Profile | null>;
   getUserByPhone: (phone: string) => Promise<Profile | null>;
   verifyUser: (userId: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   login: (email: string, password: string) => Promise<{ success: boolean; user?: Profile; error?: string }>;
-  register: (userData: { name: string; email: string; phone?: string }) => Promise<{ success: boolean; user?: Profile; error?: string }>;
-  signIn: (email: string, password: string) => Promise<{ error?: { message: string } }>;
-  signUp: (email: string, password: string, metadata: { name: string; phone?: string }) => Promise<{ error?: { message: string } }>;
+  register: (userData: { name: string; email: string; phone?: string; password?: string }) => Promise<{ success: boolean; user?: Profile; error?: string }>;
+  signIn: (email: string, password: string) => Promise<{ error?: { message: string } | null; profile?: Profile | null }>;
+  signUp: (email: string, password: string, metadata: { name: string; phone?: string }) => Promise<{ error?: { message: string } | null }>;
 }
 
 const SupabaseUserContext = createContext<SupabaseUserContextType | undefined>(undefined);
@@ -34,99 +40,108 @@ const SupabaseUserContext = createContext<SupabaseUserContextType | undefined>(u
 export function SupabaseUserProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<Profile | null>(null);
   const [users, setUsers] = useState<Profile[]>([]);
+  const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   const isAuthenticated = !!user;
   const isAdmin = user?.role === 'admin';
+  const unreadNotificationCount = notifications.filter((n) => !n.is_read).length;
 
-  // Load user data on mount and set up auth listener
+  const fetchNotificationsForUser = useCallback(async (userId: string) => {
+    const data = await NotificationService.getUserNotifications(userId);
+    setNotifications(data);
+  }, []);
+
+  const loadAdminUsers = useCallback(async (profile: Profile | null) => {
+    if (profile?.role !== 'admin') {
+      setUsers([]);
+      return;
+    }
+    try {
+      const allUsers = await UserService.getUsers();
+      setUsers(allUsers);
+    } catch (error) {
+      console.error('Error loading users for admin:', error);
+      setUsers([]);
+    }
+  }, []);
+
+  const resolveUserProfile = useCallback(async (authUser: any): Promise<Profile | null> => {
+    const profilePromise = UserService.getUserById(authUser.id);
+    const timeoutPromise = new Promise<null>((_, reject) =>
+      setTimeout(() => reject(new Error('Profile fetch timeout')), 6000)
+    );
+
+    let profile = await Promise.race([profilePromise, timeoutPromise]);
+
+    if (!profile) {
+      const newProfile = {
+        id: authUser.id,
+        name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
+        email: authUser.email || '',
+        phone: authUser.user_metadata?.phone || null,
+        wallet_balance: 0,
+        role: 'user',
+        status: 'active',
+        preferences: {
+          darkMode: false,
+          anonymousContributions: false,
+          notificationsEnabled: true,
+        },
+      };
+
+      try {
+        profile = await UserService.createUser(newProfile);
+      } catch (createError) {
+        console.error('Error creating profile:', createError);
+        profile = newProfile as unknown as Profile;
+      }
+    }
+
+    return profile;
+  }, []);
+
   useEffect(() => {
     let mounted = true;
-    let timeoutId: NodeJS.Timeout;
-    
+    let timeoutId: ReturnType<typeof setTimeout>;
+
     const initializeAuth = async () => {
       try {
-        // Set a timeout to prevent infinite loading (10 seconds for slower connections)
         timeoutId = setTimeout(() => {
           if (mounted) {
-            console.warn('Auth initialization timeout - setting loading to false');
             setLoading(false);
           }
-        }, 10000); // 10 second timeout
-        
-        // Get initial session
+        }, 10000);
+
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
         if (sessionError) {
           console.error('Error getting session:', sessionError);
         }
-        
+
         if (session?.user && mounted) {
-          console.log('Found session for user:', session.user.id);
-          // User is already signed in, fetch their profile
           try {
-            // Add timeout to profile fetch
-            const profilePromise = UserService.getUserById(session.user.id);
-            const timeoutPromise = new Promise<null>((_, reject) => 
-              setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
-            );
-            
-            let profile = await Promise.race([profilePromise, timeoutPromise]);
-            
-            // If profile doesn't exist, create it
-            if (!profile) {
-              console.log('Profile not found, creating new profile');
-              const newProfile = {
-                id: session.user.id,
-                name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
-                email: session.user.email || '',
-                phone: session.user.user_metadata?.phone || null,
-                wallet_balance: 0,
-                role: 'user' as const,
-                status: 'active' as const,
-                preferences: {
-                  darkMode: false,
-                  anonymousContributions: false,
-                  notificationsEnabled: true
-                }
-              };
-              
-              try {
-                profile = await UserService.createUser(newProfile);
-                console.log('Profile created successfully');
-              } catch (createError) {
-                console.error('Error creating profile:', createError);
-                profile = newProfile as any;
-              }
-            }
-            
+            const profile = await resolveUserProfile(session.user);
             if (profile && mounted) {
-              console.log('Setting user profile:', profile.email);
               setUser(profile);
               localStorage.setItem('currentUser', JSON.stringify(profile));
+              fetchNotificationsForUser(profile.id);
+              loadAdminUsers(profile);
             }
           } catch (error) {
             console.error('Error fetching user profile:', error);
-            // If profile fetch fails, try to use cached data
             const cachedUser = localStorage.getItem('currentUser');
             if (cachedUser && mounted) {
               try {
                 const parsedUser = JSON.parse(cachedUser);
-                console.log('Using cached user profile:', parsedUser.email);
-                setUser(parsedUser);
+                if (parsedUser?.id === session.user.id) {
+                  setUser(parsedUser);
+                }
               } catch (parseError) {
                 console.error('Error parsing cached user:', parseError);
               }
             }
           }
-        } else if (mounted) {
-          console.log('No active session found');
         }
-        
-        // Load other data (but don't let it block)
-        loadInitialData().catch(err => {
-          console.error('Error loading initial data:', err);
-        });
       } catch (error) {
         console.error('Error initializing auth:', error);
       } finally {
@@ -136,95 +151,30 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
         }
       }
     };
-    
-    // Set up auth state listener
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state changed:', event, session?.user?.id);
-      
       if (event === 'SIGNED_IN' && session?.user && mounted) {
-        console.log('User signed in, fetching profile...');
-        setLoading(true); // Show loading while fetching profile
-        
         try {
-          // Add timeout to profile fetch
-          const profilePromise = UserService.getUserById(session.user.id);
-          const timeoutPromise = new Promise<null>((_, reject) => 
-            setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
-          );
-          
-          let profile = await Promise.race([profilePromise, timeoutPromise]);
-          
-          if (!profile) {
-            console.log('Creating new profile for signed in user');
-            const newProfile = {
-              id: session.user.id,
-              name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
-              email: session.user.email || '',
-              phone: session.user.user_metadata?.phone || null,
-              wallet_balance: 0,
-              role: 'user' as const,
-              status: 'active' as const,
-              preferences: {
-                darkMode: false,
-                anonymousContributions: false,
-                notificationsEnabled: true
-              }
-            };
-            
-            try {
-              profile = await UserService.createUser(newProfile);
-            } catch (createError) {
-              console.error('Error creating profile:', createError);
-              profile = newProfile as any;
-            }
-          }
-          
+          const profile = await resolveUserProfile(session.user);
           if (profile && mounted) {
-            console.log('Profile loaded successfully:', profile.email);
             setUser(profile);
             localStorage.setItem('currentUser', JSON.stringify(profile));
+            fetchNotificationsForUser(profile.id);
+            loadAdminUsers(profile);
           }
         } catch (error) {
           console.error('Error fetching user profile after sign in:', error);
-          // Try cached data as fallback
-          const cachedUser = localStorage.getItem('currentUser');
-          if (cachedUser && mounted) {
-            try {
-              const parsedUser = JSON.parse(cachedUser);
-              console.log('Using cached profile after sign in error');
-              setUser(parsedUser);
-              
-              // Try to refresh with fresh data in background
-              setTimeout(async () => {
-                try {
-                  const freshProfile = await UserService.getUserById(session.user.id);
-                  if (freshProfile && mounted) {
-                    console.log('Refreshed profile with fresh data');
-                    setUser(freshProfile);
-                    localStorage.setItem('currentUser', JSON.stringify(freshProfile));
-                  }
-                } catch (refreshError) {
-                  console.log('Background refresh failed, real-time will sync');
-                }
-              }, 1000); // Try again after 1 second
-            } catch (parseError) {
-              console.error('Error parsing cached user:', parseError);
-            }
-          }
         } finally {
           if (mounted) {
-            console.log('Sign in process complete, stopping loading');
             setLoading(false);
           }
         }
       } else if (event === 'SIGNED_OUT' && mounted) {
-        console.log('User signed out');
         setUser(null);
+        setUsers([]);
+        setNotifications([]);
         localStorage.removeItem('currentUser');
         setLoading(false);
-      } else if (event === 'INITIAL_SESSION') {
-        // Initial session is handled in initializeAuth
-        console.log('Initial session event');
       }
     });
 
@@ -232,25 +182,24 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
 
     return () => {
       mounted = false;
-      if (timeoutId) clearTimeout(timeoutId);
+      clearTimeout(timeoutId);
       subscription.unsubscribe();
     };
-  }, []);
+  }, [fetchNotificationsForUser, loadAdminUsers, resolveUserProfile]);
 
-  // Set up real-time subscription for profile updates
+  // Real-time subscription for profile and notifications updates
   useEffect(() => {
     if (!user?.id) return;
 
-    // Subscribe to changes on the current user's profile
     const channel = supabase
-      .channel(`profile-${user.id}`)
+      .channel(`user-realtime-${user.id}`)
       .on(
         'postgres_changes',
         {
           event: 'UPDATE',
           schema: 'public',
           table: 'profiles',
-          filter: `id=eq.${user.id}`
+          filter: `id=eq.${user.id}`,
         },
         (payload) => {
           const updatedProfile = payload.new as Profile;
@@ -258,51 +207,47 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
           localStorage.setItem('currentUser', JSON.stringify(updatedProfile));
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          fetchNotificationsForUser(user.id);
+        }
+      )
       .subscribe();
 
-    // Cleanup subscription on unmount
     return () => {
       supabase.removeChannel(channel);
     };
+  }, [user?.id, fetchNotificationsForUser]);
+
+  const refreshNotifications = useCallback(async () => {
+    if (user?.id) {
+      await fetchNotificationsForUser(user.id);
+    }
+  }, [user?.id, fetchNotificationsForUser]);
+
+  const markNotificationRead = useCallback(async (notificationId: string) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === notificationId ? { ...n, is_read: true } : n))
+    );
+    await NotificationService.markAsRead(notificationId);
+  }, []);
+
+  const markAllNotificationsRead = useCallback(async () => {
+    if (!user?.id) return;
+    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    await NotificationService.markAllAsRead(user.id);
   }, [user?.id]);
 
-  const loadInitialData = async () => {
-    try {
-      // Load all users for admin functionality (with timeout)
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout loading users')), 3000)
-      );
-      
-      const usersPromise = UserService.getUsers();
-      
-      const allUsers = await Promise.race([usersPromise, timeoutPromise]) as Profile[];
-      setUsers(allUsers);
-    } catch (error) {
-      console.error('Error loading initial data:', error);
-      // Set empty array on error so app doesn't hang
-      setUsers([]);
-    }
-  };
-
-  const refreshUserData = async () => {
-    try {
-      // Refresh all users
-      const allUsers = await UserService.getUsers();
-      setUsers(allUsers);
-      
-      // Refresh current user data if logged in
-      if (user?.id) {
-        await refreshCurrentUser();
-      }
-    } catch (error) {
-      console.error('Error refreshing user data:', error);
-    }
-  };
-
-  const refreshCurrentUser = async () => {
+  const refreshCurrentUser = useCallback(async () => {
     try {
       if (user?.id) {
-        // Use sync service to ensure data consistency
         const freshUser = await SyncService.syncUserData(user.id);
         if (freshUser) {
           setUser(freshUser);
@@ -312,129 +257,143 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error refreshing current user:', error);
     }
-  };
+  }, [user?.id]);
 
-  const login = async (email: string, password: string) => {
+  const refreshUserData = useCallback(async () => {
     try {
-      // For now, we'll use email-based login without password verification
-      // In production, you'd want to implement proper Supabase Auth
-      const foundUser = await UserService.getUserByEmail(email);
-      
-      if (foundUser) {
-        setUser(foundUser);
-        localStorage.setItem('currentUser', JSON.stringify(foundUser));
-        return { success: true, user: foundUser };
-      } else {
-        return { success: false, error: 'User not found' };
+      if (user?.role === 'admin') {
+        const allUsers = await UserService.getUsers();
+        setUsers(allUsers);
+      }
+      if (user?.id) {
+        await refreshCurrentUser();
+        await fetchNotificationsForUser(user.id);
       }
     } catch (error) {
-      console.error('Login error:', error);
-      return { success: false, error: error.message };
+      console.error('Error refreshing user data:', error);
     }
-  };
+  }, [user?.id, user?.role, refreshCurrentUser, fetchNotificationsForUser]);
 
-  const register = async (userData: { name: string; email: string; phone?: string }) => {
+  // Proper Supabase Auth signIn
+  const signIn = async (email: string, password: string) => {
     try {
-      // Check if user already exists
-      const existingUser = await UserService.getUserByEmail(userData.email);
-      if (existingUser) {
-        return { success: false, error: 'User already exists' };
-      }
-
-      // Generate a UUID for the new user
-      const userId = crypto.randomUUID();
-
-      // Create new user
-      const newUser = await UserService.createUser({
-        id: userId,
-        name: userData.name,
-        email: userData.email,
-        phone: userData.phone,
-        wallet_balance: 0,
-        role: 'user',
-        status: 'active',
-        preferences: {
-          darkMode: false,
-          anonymousContributions: false,
-          notificationsEnabled: true
-        }
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
       });
 
-      setUser(newUser);
-      localStorage.setItem('currentUser', JSON.stringify(newUser));
-      await refreshUserData();
-      
-      return { success: true, user: newUser };
-    } catch (error) {
-      console.error('Registration error:', error);
+      if (error) {
+        return { error: { message: error.message }, profile: null };
+      }
+
+      let profile: Profile | null = null;
+      if (data.user) {
+        profile = await resolveUserProfile(data.user);
+        if (profile) {
+          setUser(profile);
+          localStorage.setItem('currentUser', JSON.stringify(profile));
+          fetchNotificationsForUser(profile.id);
+          loadAdminUsers(profile);
+        }
+      }
+
+      return { error: null, profile };
+    } catch (error: any) {
+      return { error: { message: error?.message || 'Login failed' }, profile: null };
+    }
+  };
+
+  const signUp = async (email: string, password: string, metadata: { name: string; phone?: string }) => {
+    try {
+      const { error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          data: {
+            name: metadata.name,
+            phone: metadata.phone,
+          },
+        },
+      });
+
+      if (error) {
+        return { error: { message: error.message } };
+      }
+
+      return { error: null };
+    } catch (error: any) {
+      return { error: { message: error?.message || 'Registration failed' } };
+    }
+  };
+
+  // Backwards-compatible login wrapper backed strictly by Supabase Auth
+  const login = async (email: string, password: string) => {
+    const { error, profile } = await signIn(email, password);
+    if (error || !profile) {
+      return { success: false, error: error?.message || 'Login failed' };
+    }
+    return { success: true, user: profile };
+  };
+
+  const register = async (userData: { name: string; email: string; phone?: string; password?: string }) => {
+    if (!userData.password) {
+      return { success: false, error: 'Password is required' };
+    }
+    const { error } = await signUp(userData.email, userData.password, {
+      name: userData.name,
+      phone: userData.phone,
+    });
+    if (error) {
       return { success: false, error: error.message };
     }
+    return { success: true };
   };
 
   const updateProfile = async (userData: Partial<Profile>) => {
     if (!user) throw new Error('No user logged in');
-    
-    try {
-      const updatedUser = await UserService.updateUser(user.id, userData);
-      setUser(updatedUser);
-      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-      await refreshUserData();
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      throw error;
+
+    const updatedUser = await UserService.updateUser(user.id, userData);
+    setUser(updatedUser);
+    localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+    if (updatedUser.role === 'admin') {
+      await loadAdminUsers(updatedUser);
     }
   };
 
   const updateUserAsAdmin = async (userId: string, userData: Partial<Profile>) => {
     if (!isAdmin) throw new Error('Admin access required');
-    
-    try {
-      await UserService.updateUser(userId, userData);
-      await refreshUserData();
-    } catch (error) {
-      console.error('Error updating user as admin:', error);
-      throw error;
-    }
+
+    await UserService.updateUser(userId, userData);
+    await refreshUserData();
   };
 
   const depositToUserAsAdmin = async (userId: string, amount: number) => {
     if (!isAdmin) throw new Error('Admin access required');
-    
-    try {
-      const targetUser = users.find(u => u.id === userId);
-      if (!targetUser) throw new Error('User not found');
-      
-      const newBalance = (targetUser.wallet_balance || 0) + amount;
-      await UserService.updateWalletBalance(userId, newBalance);
-      await refreshUserData();
-    } catch (error) {
-      console.error('Error depositing to user:', error);
-      throw error;
+
+    const { data, error } = await (supabase as any).rpc('admin_deposit_to_user', {
+      p_target_user_id: userId,
+      p_amount: amount,
+      p_description: 'Admin wallet credit',
+    });
+
+    if (error) throw error;
+    if (!data?.success) {
+      throw new Error(data?.error || 'Failed to deposit to user');
     }
+
+    await refreshUserData();
   };
 
   const pauseUserAsAdmin = async (userId: string) => {
     if (!isAdmin) throw new Error('Admin access required');
-    
-    try {
-      await UserService.updateUser(userId, { status: 'paused', role: 'paused' });
-      await refreshUserData();
-    } catch (error) {
-      console.error('Error pausing user:', error);
-      throw error;
-    }
+    await UserService.updateUser(userId, { status: 'paused' });
+    await refreshUserData();
   };
 
   const activateUserAsAdmin = async (userId: string) => {
     if (!isAdmin) throw new Error('Admin access required');
-    
-    try {
-      await UserService.updateUser(userId, { status: 'active', role: 'user' });
-      await refreshUserData();
-    } catch (error) {
-      console.error('Error activating user:', error);
-      throw error;
-    }
+    await UserService.updateUser(userId, { status: 'active' });
+    await refreshUserData();
   };
 
   const getUserByEmail = async (email: string) => {
@@ -442,118 +401,58 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
   };
 
   const getUserByPhone = async (phone: string) => {
-    // Note: This would need to be implemented in UserService
     const allUsers = await UserService.getUsers();
-    return allUsers.find(u => u.phone === phone) || null;
+    return allUsers.find((u) => u.phone === phone) || null;
   };
 
   const verifyUser = async (userId: string) => {
-    try {
-      await UserService.updateUser(userId, { status: 'verified' });
-      await refreshUserData();
-    } catch (error) {
-      console.error('Error verifying user:', error);
-      throw error;
-    }
+    await UserService.updateUser(userId, { status: 'verified' });
+    await refreshUserData();
   };
 
   const logout = async () => {
     try {
-      // Sign out from Supabase Auth
       await supabase.auth.signOut();
-      
-      // Clear local state
-      setUser(null);
-      localStorage.removeItem('currentUser');
-      
-      console.log('User logged out successfully');
     } catch (error) {
       console.error('Error logging out:', error);
-      // Still clear local state even if signOut fails
+    } finally {
       setUser(null);
+      setUsers([]);
+      setNotifications([]);
       localStorage.removeItem('currentUser');
-    }
-  };
-
-  // Proper Supabase Auth functions
-  const signIn = async (email: string, password: string) => {
-    try {
-      // Use Supabase Auth for proper authentication
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-
-      if (error) {
-        return { error: { message: error.message } };
-      }
-
-      if (data.user) {
-        // Fetch user profile from profiles table
-        const profile = await UserService.getUserById(data.user.id);
-        if (profile) {
-          setUser(profile);
-          localStorage.setItem('currentUser', JSON.stringify(profile));
-        }
-      }
-
-      return { error: null };
-    } catch (error: any) {
-      return { error: { message: error.message || 'Login failed' } };
-    }
-  };
-
-  const signUp = async (email: string, password: string, metadata: { name: string; phone?: string }) => {
-    try {
-      // Use Supabase Auth for proper registration
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            name: metadata.name,
-            phone: metadata.phone
-          }
-        }
-      });
-
-      if (error) {
-        return { error: { message: error.message } };
-      }
-
-      // Profile will be automatically created by database trigger
-      // User needs to verify email before they can log in
-      // Don't set user state here - they need to verify email first
-
-      return { error: null };
-    } catch (error: any) {
-      return { error: { message: error.message || 'Registration failed' } };
     }
   };
 
   return (
-    <SupabaseUserContext.Provider value={{
-      user,
-      users,
-      isAdmin,
-      isAuthenticated,
-      loading,
-      refreshUserData,
-      refreshCurrentUser,
-      updateProfile,
-      updateUserAsAdmin,
-      depositToUserAsAdmin,
-      pauseUserAsAdmin,
-      activateUserAsAdmin,
-      getUserByEmail,
-      getUserByPhone,
-      verifyUser,
-      logout,
-      login,
-      register,
-      signIn,
-      signUp,
-    }}>
+    <SupabaseUserContext.Provider
+      value={{
+        user,
+        users,
+        notifications,
+        unreadNotificationCount,
+        isAdmin,
+        isAuthenticated,
+        loading,
+        refreshUserData,
+        refreshCurrentUser,
+        refreshNotifications,
+        markNotificationRead,
+        markAllNotificationsRead,
+        updateProfile,
+        updateUserAsAdmin,
+        depositToUserAsAdmin,
+        pauseUserAsAdmin,
+        activateUserAsAdmin,
+        getUserByEmail,
+        getUserByPhone,
+        verifyUser,
+        logout,
+        login,
+        register,
+        signIn,
+        signUp,
+      }}
+    >
       {children}
     </SupabaseUserContext.Provider>
   );
@@ -562,9 +461,7 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
 export function useSupabaseUser() {
   const context = useContext(SupabaseUserContext);
   if (context === undefined) {
-    console.error('useSupabaseUser called outside of SupabaseUserProvider');
-    console.trace('Call stack:');
-    throw new Error('useSupabaseUser must be used within a SupabaseUserProvider. Make sure the component is wrapped in <SupabaseUserProvider>.');
+    throw new Error('useSupabaseUser must be used within a SupabaseUserProvider.');
   }
   return context;
 }

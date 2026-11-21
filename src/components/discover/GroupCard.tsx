@@ -21,7 +21,9 @@ export default function GroupCard({ group }: GroupCardProps) {
     ? Math.min(100, (group.current_amount / group.target_amount) * 100)
     : 0;
 
-  const contributorCount = group.contributors?.length || 0;
+  const contributorCount = Array.isArray(group.contributors)
+    ? (group.contributors[0]?.count ?? group.contributors.length)
+    : 0;
   const remaining = Math.max(0, group.target_amount - (group.current_amount || 0));
 
   useEffect(() => {

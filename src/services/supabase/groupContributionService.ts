@@ -187,16 +187,17 @@ export const GroupContributionService = {
 
   /**
    * Admin: Manually verify and add contributor from bank transfer
+   * Accepts either a user UUID or user email address
    */
   async verifyBankTransfer(
     groupId: string,
     contributorId: string,
-    userId: string,
+    userIdOrEmail: string,
     amount: number,
     grantVotingRights: boolean = true
   ) {
     try {
-      // Check if user is admin
+      // Check if group exists
       const { data: group } = await supabase
         .from('contribution_groups')
         .select('creator_id')
@@ -205,10 +206,23 @@ export const GroupContributionService = {
 
       if (!group) throw new Error('Group not found');
 
+      let resolvedUserId = userIdOrEmail.trim();
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+      if (!uuidRegex.test(resolvedUserId)) {
+        const { data: foundId, error: lookupError } = await (supabase as any).rpc('lookup_user_id_by_email', {
+          p_email: resolvedUserId
+        });
+        if (lookupError || !foundId) {
+          throw new Error(`No registered user found with email "${resolvedUserId}"`);
+        }
+        resolvedUserId = foundId;
+      }
+
       // Manually add contributor with voting rights
       await ContributorService.manuallyAddContributor(
         groupId,
-        userId,
+        resolvedUserId,
         amount,
         grantVotingRights,
         'Verified bank transfer'
@@ -220,7 +234,7 @@ export const GroupContributionService = {
       toast.success('Bank transfer verified and contributor added');
     } catch (error) {
       console.error('Error verifying bank transfer:', error);
-      toast.error('Failed to verify bank transfer');
+      toast.error(error instanceof Error ? error.message : 'Failed to verify bank transfer');
       throw error;
     }
   }
