@@ -9,7 +9,6 @@ import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext"
 import { Badge } from "@/components/ui/badge";
 import { format, isValid } from "date-fns";
 import Header from "@/components/layout/Header";
-import MobileNav from "@/components/layout/MobileNav";
 import CountdownTimer from "@/components/ui/countdown-timer";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { voteOnWithdrawal } from "@/services/supabase/withdrawalService";
@@ -231,7 +230,7 @@ const VotesPage = () => {
     <div className="min-h-screen bg-background pb-20 md:pb-10">
       <Header />
       
-      <main className="container max-w-3xl mx-auto px-4 pt-24 pb-8">
+      <main className="app-page max-w-3xl">
         <div className="flex items-center mb-6">
           <Button 
             variant="ghost" 
@@ -478,8 +477,6 @@ const VotesPage = () => {
           </div>
         )}
       </main>
-      
-      <MobileNav />
     </div>
   );
 };

@@ -18,17 +18,10 @@ const Auth = () => {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <div className="flex-1 flex flex-col items-center justify-center px-4 pt-16 pb-32">
-        <div className="w-full max-w-md space-y-8">
-          <div className="text-center">
-            <h2 className="text-3xl font-bold tracking-tight">Welcome to CollectiPay</h2>
-            <p className="text-muted-foreground mt-2">
-              Secure login for your group contribution platform
-            </p>
-          </div>
-          <AuthForm />
-        </div>
-      </div>
+      <main className="app-page max-w-md">
+        <h1 className="app-page-title mb-6">Welcome to CollectiPay</h1>
+        <AuthForm />
+      </main>
     </div>
   );
 };

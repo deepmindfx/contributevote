@@ -353,7 +353,7 @@ const GroupForm = () => {
 
   return (
     <>
-      <Card className="shadow-none border-0 p-6">
+      <Card className="rounded-2xl p-4 shadow-sm sm:p-6">
         {/* Auto-save notification */}
         {(formData.name || formData.description || formData.targetAmount > 0) && (
           <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 rounded-lg">

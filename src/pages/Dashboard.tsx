@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Building2, Plus, Wallet } from "lucide-react";
 import Header from "@/components/layout/Header";
@@ -15,6 +15,7 @@ export default function Dashboard() {
   const { user } = useSupabaseUser();
   const { refreshContributionData } = useSupabaseContribution();
   const [activeTab, setActiveTab] = useState("wallet");
+  const bankAccountTab = useRef<HTMLButtonElement>(null);
   const firstName = user?.name?.trim().split(/\s+/)[0];
 
   useEffect(() => {
@@ -39,11 +40,14 @@ export default function Dashboard() {
           <Tabs value={activeTab} onValueChange={setActiveTab} className="min-w-0">
             <TabsList className="app-segmented grid w-full grid-cols-2" aria-label="Wallet view">
               <TabsTrigger value="wallet" className="gap-2"><Wallet size={16} /> Wallet</TabsTrigger>
-              <TabsTrigger value="account" className="gap-2"><Building2 size={16} /> Bank account</TabsTrigger>
+              <TabsTrigger ref={bankAccountTab} value="account" className="gap-2"><Building2 size={16} /> Bank account</TabsTrigger>
             </TabsList>
 
             <TabsContent value="wallet" className="mt-3">
-              <WalletCard onOpenBankAccount={() => setActiveTab("account")} />
+              <WalletCard onOpenBankAccount={() => {
+                setActiveTab("account");
+                requestAnimationFrame(() => bankAccountTab.current?.focus());
+              }} />
             </TabsContent>
             <TabsContent value="account" className="mt-3">
               <ReservedAccount />

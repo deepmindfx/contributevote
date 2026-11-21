@@ -27,6 +27,7 @@ interface WalletActionsProps {
   currencyType: "NGN" | "USD";
   user: Database['public']['Tables']['profiles']['Row'] | null;
   setShowHistory: (value: boolean) => void;
+  onOpenBankAccount?: () => void;
 }
 
 const WalletActions = ({
@@ -44,25 +45,24 @@ const WalletActions = ({
   currencyType,
   user,
   setShowHistory,
+  onOpenBankAccount,
 }: WalletActionsProps) => {
   const navigate = useNavigate();
+  const [isAccountLoading, setIsAccountLoading] = useState(false);
   const [accountDetails, setAccountDetails] = useState<ReservedAccountData | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   
-  // Fetch virtual account when dialog opens
   useEffect(() => {
-    const loadAccountData = async () => {
-      if (isDepositOpen && user?.id) {
-        const existingAccount = await WalletService.getVirtualAccount(user.id);
-        if (existingAccount) {
-          setAccountDetails(existingAccount);
-        }
-      }
-    };
-    
-    loadAccountData();
+    if (!isDepositOpen || !user?.id) return;
+    let active = true;
+    setIsAccountLoading(true);
+    void WalletService.getVirtualAccount(user.id).then((account) => {
+      if (!active) return;
+      setAccountDetails(account);
+      setIsAccountLoading(false);
+    });
+    return () => { active = false; };
   }, [isDepositOpen, user?.id]);
-  
   // Copy to clipboard function
   const copyToClipboard = async (text: string, field: string) => {
     try {
@@ -90,16 +90,14 @@ const WalletActions = ({
   };
   
   return (
-    <div className="bg-white dark:bg-black/40 rounded-t-3xl -mt-3 overflow-hidden">
-      <div className="grid grid-cols-4 gap-1 pt-2 px-4">
+    <div className="bg-card">
+      <div className="grid grid-cols-4 gap-1 p-2 sm:p-3">
         <Dialog open={isDepositOpen} onOpenChange={setIsDepositOpen}>
           <DialogTrigger asChild>
-            <div className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors">
-              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-[#2DAE75] mb-1">
-                <PlusCircle size={20} />
-              </div>
-              <span className="text-xs">Top Up</span>
-            </div>
+            <button type="button" className="wallet-action" onClick={() => setIsAccountLoading(true)}>
+              <span><PlusCircle size={20} /></span>
+              <span>Add money</span>
+            </button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
@@ -110,7 +108,9 @@ const WalletActions = ({
             </DialogHeader>
             
             <div className="space-y-4">
-              {accountDetails ? (
+              {isAccountLoading ? (
+                <p className="text-sm text-muted-foreground" role="status">Loading bank details…</p>
+              ) : accountDetails ? (
                 <div className="space-y-3">
                   <div className="p-4 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg">
                     <div className="flex justify-between items-center mb-3">
@@ -197,7 +197,8 @@ const WalletActions = ({
                   <Button 
                     onClick={() => {
                       setIsDepositOpen(false);
-                      navigate("/dashboard");
+                      if (onOpenBankAccount) onOpenBankAccount();
+                      else navigate("/dashboard");
                     }}
                     className="w-full"
                   >
@@ -223,38 +224,18 @@ const WalletActions = ({
           </DialogContent>
         </Dialog>
         
-        {/* Send button */}
-        <div 
-          className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors" 
-          onClick={() => navigate("/transfer")}
-        >
-          <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-[#2DAE75] mb-1">
-            <SendHorizontal size={20} />
-          </div>
-          <span className="text-xs">Send</span>
-        </div>
-        
-        {/* Create Group button */}
-        <div 
-          className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors" 
-          onClick={() => navigate("/create-group")}
-        >
-          <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-[#2DAE75] mb-1">
-            <UserPlus size={20} />
-          </div>
-          <span className="text-xs">Group</span>
-        </div>
-        
-        {/* History button */}
-        <div 
-          className="flex flex-col items-center justify-center p-3 hover:bg-muted/50 cursor-pointer rounded-lg transition-colors" 
-          onClick={() => setShowHistory(true)}
-        >
-          <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-[#2DAE75] mb-1">
-            <Clock size={20} />
-          </div>
-          <span className="text-xs">History</span>
-        </div>
+        <Link className="wallet-action" to="/transfer">
+          <span><SendHorizontal size={20} /></span>
+          <span>Send</span>
+        </Link>
+        <Link className="wallet-action" to="/create-group">
+          <span><UserPlus size={20} /></span>
+          <span>New group</span>
+        </Link>
+        <button className="wallet-action" type="button" onClick={() => setShowHistory(true)}>
+          <span><Clock size={20} /></span>
+          <span>History</span>
+        </button>
       </div>
     </div>
   );

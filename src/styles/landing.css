@@ -13,6 +13,7 @@
 }
 
 .landing-header {
+  padding-top: env(safe-area-inset-top);
   border-bottom: 1px solid #ffffff1a;
 }
 
@@ -31,7 +32,7 @@
   gap: clamp(1rem, 3vw, 2rem);
 }
 
-.landing-header nav a, .landing-footer a {
+.landing-header nav a, .landing-footer a:not(.landing-brand) {
   font-size: .95rem;
   font-weight: 600;
 }
@@ -44,8 +45,8 @@
   display: inline-flex;
   align-items: center;
   gap: .65rem;
-  font-size: 1.22rem !important;
-  font-weight: 750 !important;
+  font-size: 1.22rem;
+  font-weight: 750;
   letter-spacing: -.045em;
 }
 

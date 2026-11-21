@@ -110,11 +110,11 @@ const AuthForm = () => {
   };
 
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <Tabs defaultValue="login" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="login">Login</TabsTrigger>
-          <TabsTrigger value="register">Register</TabsTrigger>
+    <Card className="mx-auto w-full max-w-md rounded-2xl p-2 shadow-sm">
+      <Tabs defaultValue={searchParams.get("mode") === "signup" ? "register" : "login"} className="w-full">
+        <TabsList className="app-segmented grid w-full grid-cols-2" aria-label="Account access">
+          <TabsTrigger value="login">Sign in</TabsTrigger>
+          <TabsTrigger value="register">Create account</TabsTrigger>
         </TabsList>
         
         <TabsContent value="login">

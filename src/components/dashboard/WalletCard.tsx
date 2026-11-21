@@ -12,7 +12,7 @@ import { WalletService } from "@/services/supabase/walletService";
 import WalletActions from "@/components/dashboard/wallet/WalletActions";
 import { useBalanceUpdates } from "@/hooks/useBalanceUpdates";
 
-const WalletCard = () => {
+const WalletCard = ({ onOpenBankAccount }: { onOpenBankAccount?: () => void }) => {
   const navigate = useNavigate();
   const [showBalance, setShowBalance] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -195,49 +195,36 @@ const WalletCard = () => {
   };
 
   return (
-    <Card className="overflow-hidden rounded-3xl border-0 shadow-none">
-      <div className="wallet-gradient p-6 text-white relative overflow-hidden bg-[#2DAE75]">
-        {/* Large circle decorations */}
-        <div className="absolute -top-24 -right-24 w-60 h-60 rounded-full border border-white/10 opacity-20"></div>
-        <div className="absolute -bottom-24 -left-24 w-60 h-60 rounded-full border border-white/10 opacity-20"></div>
-        
-        {/* Currency toggle - Simple clickable button */}
-        <button 
-          type="button"
-          onClick={toggleCurrency}
-          className="absolute top-5 right-5 z-20 flex items-center gap-2 bg-white/20 hover:bg-white/30 active:bg-white/40 rounded-full px-4 py-2 transition-all cursor-pointer select-none"
-        >
-          <span className={`text-xs font-semibold transition-colors ${currencyType === 'NGN' ? 'text-white' : 'text-white/50'}`}>
-            NGN
-          </span>
-          <div className="w-8 h-4 bg-white/30 rounded-full relative flex items-center">
-            <div 
-              className={`absolute w-3 h-3 bg-white rounded-full transition-all duration-200 ${
-                currencyType === 'USD' ? 'left-[18px]' : 'left-0.5'
-              }`}
-            />
-          </div>
-          <span className={`text-xs font-semibold transition-colors ${currencyType === 'USD' ? 'text-white' : 'text-white/50'}`}>
-            USD
-          </span>
-        </button>
-        
-        <div className="relative z-10 mx-0 my-[5px]">
-          <div className="flex justify-between items-center mb-1 my-[6px]">
-            <p className="text-sm font-medium text-white/80 mb-0 py-[2px]">Available Balance</p>
-          </div>
-          
-          <div className="flex items-center justify-between">
-            <h2 className="text-3xl font-bold tracking-tight flex items-center gap-0">
-              {showBalance ? getFormattedBalance() : `${currencyType === "NGN" ? "₦" : "$"}•••••••`}
-            </h2>
-            <Button variant="ghost" size="icon" onClick={toggleBalance} className="h-8 w-8 text-white hover:bg-white/10 rounded-full">
-              {showBalance ? <EyeOff size={18} /> : <Eye size={18} />}
-            </Button>
-          </div>
+    <Card className="overflow-hidden rounded-2xl shadow-sm">
+      <div className="wallet-overview px-5 py-6 sm:px-6">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <p className="flex items-center gap-2 text-sm font-medium text-white/90">
+            <Wallet size={16} aria-hidden="true" /> Available balance
+          </p>
+          <button
+            type="button"
+            onClick={toggleCurrency}
+            aria-label={`Show balance in ${currencyType === "NGN" ? "USD" : "NGN"}`}
+            className="min-h-11 rounded-xl border border-white/30 px-3 text-sm font-semibold hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+          >
+            {currencyType}
+          </button>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <p className="min-w-0 break-words text-[clamp(1.65rem,7.5vw,2.6rem)] font-bold leading-tight tracking-[-.055em] tabular-nums">
+            {showBalance ? getFormattedBalance() : `${currencyType === "NGN" ? "₦" : "$"}•••••••`}
+          </p>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleBalance}
+            aria-label={showBalance ? "Hide balance" : "Show balance"}
+            className="h-11 w-11 shrink-0 rounded-full text-white hover:bg-white/15 hover:text-white"
+          >
+            {showBalance ? <EyeOff size={19} /> : <Eye size={19} />}
+          </Button>
         </div>
       </div>
-      
       <CardContent className="p-0">
         {!showHistory ? (
           <WalletActions 
@@ -255,9 +242,10 @@ const WalletCard = () => {
             currencyType={currencyType}
             user={user}
             setShowHistory={setShowHistory}
+            onOpenBankAccount={onOpenBankAccount}
           />
         ) : (
-          <div className="bg-white dark:bg-black/40 rounded-t-3xl -mt-3 p-4">
+          <div className="bg-card p-4">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-semibold text-lg">Recent Transactions</h3>
               <Button variant="ghost" size="sm" onClick={() => setShowHistory(false)} className="text-[#2DAE75]">

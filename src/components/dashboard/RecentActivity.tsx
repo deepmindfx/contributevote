@@ -17,14 +17,14 @@ const RecentActivity = () => {
   }, [user]);
 
   return (
-    <Card className="glass-card animate-slide-up animation-delay-400">
-      <CardHeader className="pb-3">
+    <Card className="rounded-2xl shadow-sm">
+      <CardHeader className="p-4 pb-3 sm:p-5 sm:pb-3">
         <div className="flex justify-between items-center">
-          <CardTitle className="text-xl">Recent Activity</CardTitle>
-          <Link to="/activity" className="text-sm text-primary hover:underline">View all</Link>
+          <CardTitle className="text-lg">Recent activity</CardTitle>
+          <Link to="/activity" className="inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline">View all</Link>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-4 pb-4 sm:px-5 sm:pb-5">
         <ActivityList isLoading={isLoading} />
       </CardContent>
     </Card>

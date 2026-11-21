@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Users, Target, TrendingUp, Calendar, Archive, ArchiveRestore, Building2 } from 'lucide-react';
+import { ArrowLeft, Users, Archive, ArchiveRestore, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSupabaseUser } from '@/contexts/SupabaseUserContext';
 import { useSupabaseContribution } from '@/contexts/SupabaseContributionContext';
@@ -230,9 +230,9 @@ export default function GroupDetail() {
 
   if (loading || rightsLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="min-h-screen">
         <Header />
-        <div className="container mx-auto p-6">
+        <div className="app-page max-w-5xl">
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
@@ -246,9 +246,9 @@ export default function GroupDetail() {
 
   if (!group && !loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="min-h-screen">
         <Header />
-        <div className="container mx-auto p-6">
+        <div className="app-page max-w-5xl">
           <Card className="p-12 text-center">
             <div className="text-6xl mb-4">😕</div>
             <h2 className="text-2xl font-bold mb-2">Group Not Found</h2>
@@ -274,17 +274,12 @@ export default function GroupDetail() {
   const isActive = group.status === 'active';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 pb-20 md:pb-6">
+    <div className="min-h-screen">
       <Header />
-      <div className="container mx-auto px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6 pt-20 md:pt-24">
+      <main className="app-page max-w-5xl space-y-4 md:space-y-6">
         {/* Back Button and Share */}
-        <div className="flex items-center justify-between mb-2 md:mb-4">
-          <Link to="/dashboard">
-            <Button variant="ghost" size="sm">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Dashboard
-            </Button>
-          </Link>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <Button asChild variant="ghost" className="min-h-11 gap-2"><Link to="/all-groups"><ArrowLeft size={16} /> My groups</Link></Button>
           
           {/* Share Button for Public Groups */}
           {group.privacy === 'public' && (
@@ -307,12 +302,12 @@ export default function GroupDetail() {
         </div>
 
         {/* Group Header */}
-        <Card className="p-4 md:p-6">
+        <Card className="rounded-2xl p-4 shadow-sm sm:p-6">
           <div className="space-y-6">
             <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-              <div className="space-y-2 flex-1">
+              <div className="min-w-0 flex-1 space-y-2">
                 <div className="flex flex-wrap items-center gap-2 md:gap-3">
-                  <h1 className="text-2xl md:text-3xl font-bold">{group.name}</h1>
+                  <h1 className="app-page-title">{group.name}</h1>
                   <Badge variant={isActive ? 'default' : 'secondary'}>
                     {group.status}
                   </Badge>
@@ -328,9 +323,24 @@ export default function GroupDetail() {
                   )}
                 </div>
                 <p className="text-sm md:text-base text-muted-foreground">{group.description}</p>
+                <div className="mt-4 rounded-xl border bg-muted/40 p-4">
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                    <p className="text-2xl font-bold tracking-tight tabular-nums">₦{(group.current_amount || 0).toLocaleString()}</p>
+                    <p className="text-sm text-muted-foreground">of ₦{(group.target_amount || 0).toLocaleString()} goal</p>
+                  </div>
+                  <Progress
+                    value={Math.min(100, Math.max(0, progress))}
+                    aria-label="Group funding progress"
+                    className="my-3 h-2 bg-primary/15"
+                  />
+                  <div className="flex flex-wrap justify-between gap-2 text-sm text-muted-foreground">
+                    <span>{progress.toFixed(0)}% funded</span>
+                    <span>{group.end_date ? `Ends ${new Date(group.end_date).toLocaleDateString()}` : 'No deadline'}</span>
+                  </div>
+                </div>
               </div>
 
-              <div className="space-y-3 w-full md:w-auto md:min-w-[280px]">
+              <div className="w-full space-y-3 md:w-72 md:shrink-0">
                 {/* Voting Rights Warning for Non-Voting Groups */}
                 {!group.enable_voting_rights && (
                   <div className="p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
@@ -354,7 +364,7 @@ export default function GroupDetail() {
                 
                 {/* Secondary Actions - Only for members with voting rights */}
                 {isActive && canVote && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     <RecurringContributionDialog
                       groupId={id!}
                       groupName={group.name}
@@ -416,53 +426,6 @@ export default function GroupDetail() {
               </div>
             </div>
 
-            {/* Progress */}
-            <div className="space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-sm">
-                <span className="text-muted-foreground">Progress</span>
-                <span className="font-medium text-xs sm:text-sm">
-                  ₦{group.current_amount?.toLocaleString() || '0'} / ₦{group.target_amount?.toLocaleString() || '0'}
-                </span>
-              </div>
-              <Progress value={progress} className="h-3" />
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-xs text-muted-foreground">
-                <span>{progress.toFixed(1)}% funded</span>
-                <span className="truncate">₦{((group.target_amount || 0) - (group.current_amount || 0)).toLocaleString()} remaining</span>
-              </div>
-            </div>
-
-            {/* Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
-              <div className="flex items-center gap-3 p-3 md:p-4 rounded-lg border">
-                <Target className="h-6 w-6 md:h-8 md:w-8 text-primary flex-shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-xs md:text-sm text-muted-foreground">Target</p>
-                  <p className="text-base md:text-lg font-semibold truncate">
-                    ₦{group.target_amount?.toLocaleString() || '0'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 p-3 md:p-4 rounded-lg border">
-                <TrendingUp className="h-6 w-6 md:h-8 md:w-8 text-green-600 flex-shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-xs md:text-sm text-muted-foreground">Raised</p>
-                  <p className="text-base md:text-lg font-semibold text-green-600 truncate">
-                    ₦{group.current_amount?.toLocaleString() || '0'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 p-3 md:p-4 rounded-lg border sm:col-span-2 md:col-span-1">
-                <Calendar className="h-6 w-6 md:h-8 md:w-8 text-blue-600 flex-shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-xs md:text-sm text-muted-foreground">Deadline</p>
-                  <p className="text-base md:text-lg font-semibold truncate">
-                    {group.end_date ? new Date(group.end_date).toLocaleDateString() : 'No deadline'}
-                  </p>
-                </div>
-              </div>
-            </div>
           </div>
         </Card>
 
@@ -537,7 +500,7 @@ export default function GroupDetail() {
         {isAdmin && (
           <GroupAdminPanel groupId={id!} isAdmin={isAdmin} />
         )}
-      </div>
+      </main>
 
       {/* BVN Input Dialog */}
       <BvnInputDialog

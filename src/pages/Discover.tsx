@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
 import Header from '@/components/layout/Header';
-import MobileNav from '@/components/layout/MobileNav';
 import GroupCard from '@/components/discover/GroupCard';
 import SearchFilters from '@/components/discover/SearchFilters';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ChevronLeft, ChevronRight, TrendingUp, Users, Target, CheckCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { DiscoverService, DiscoverFilters, SortOption } from '@/services/supabase/discoverService';
 import { toast } from 'sonner';
 
@@ -17,16 +16,10 @@ export default function Discover() {
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [stats, setStats] = useState({
-    totalGroups: 0,
-    totalFunded: 0,
-    activeGroups: 0,
-    completedGroups: 0
-  });
+
 
   useEffect(() => {
     fetchGroups();
-    fetchStats();
   }, [filters, sortBy, currentPage]);
 
   const fetchGroups = async () => {
@@ -43,14 +36,6 @@ export default function Discover() {
     }
   };
 
-  const fetchStats = async () => {
-    try {
-      const marketplaceStats = await DiscoverService.getMarketplaceStats();
-      setStats(marketplaceStats);
-    } catch (error) {
-      console.error('Error fetching stats:', error);
-    }
-  };
 
   const handleFiltersChange = (newFilters: DiscoverFilters) => {
     setFilters(newFilters);
@@ -73,80 +58,16 @@ export default function Discover() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 pb-20 md:pb-6">
+    <div className="min-h-screen">
       <Header />
-      <MobileNav />
 
-      <main className="container mx-auto px-4 pt-24 pb-12">
-        {/* Hero Section */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">
-            Discover Groups
-          </h1>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Join public contribution groups and achieve your financial goals together
-          </p>
+      <main className="app-page max-w-6xl">
+        <div className="mb-6">
+          <h1 className="app-page-title">Discover groups</h1>
+          <p className="mt-1 text-muted-foreground">Find a public group to support or join.</p>
         </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Groups</p>
-                  <p className="text-2xl font-bold">{stats.totalGroups}</p>
-                </div>
-                <Users className="h-8 w-8 text-primary" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Funded</p>
-                  <p className="text-2xl font-bold">
-                    ₦{stats.totalFunded >= 1000000 
-                      ? (stats.totalFunded / 1000000).toFixed(1) + 'M' 
-                      : stats.totalFunded >= 1000
-                      ? (stats.totalFunded / 1000).toFixed(1) + 'K'
-                      : stats.totalFunded.toLocaleString()}
-                  </p>
-                </div>
-                <TrendingUp className="h-8 w-8 text-green-600" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Active</p>
-                  <p className="text-2xl font-bold">{stats.activeGroups}</p>
-                </div>
-                <Target className="h-8 w-8 text-orange-600" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Completed</p>
-                  <p className="text-2xl font-bold">{stats.completedGroups}</p>
-                </div>
-                <CheckCircle className="h-8 w-8 text-blue-600" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
         {/* Search and Filters */}
-        <div className="mb-8">
+        <div className="mb-6 rounded-2xl border bg-card p-4 shadow-sm sm:p-5">
           <SearchFilters
             filters={filters}
             sortBy={sortBy}
@@ -165,7 +86,7 @@ export default function Discover() {
 
         {/* Groups Grid */}
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[...Array(12)].map((_, i) => (
               <Card key={i} className="h-[400px]">
                 <CardContent className="pt-6 space-y-4">
@@ -179,8 +100,8 @@ export default function Discover() {
             ))}
           </div>
         ) : groups.length === 0 ? (
-          <Card className="p-12 text-center">
-            <div className="text-6xl mb-4">🔍</div>
+          <Card className="rounded-2xl p-6 text-center sm:p-12">
+            <Search className="mx-auto mb-4 h-7 w-7 text-primary" aria-hidden="true" />
             <h3 className="text-xl font-bold mb-2">No groups found</h3>
             <p className="text-muted-foreground mb-4">
               Try adjusting your filters or search query
@@ -191,7 +112,7 @@ export default function Discover() {
           </Card>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {groups.map((group) => (
                 <GroupCard key={group.id} group={group} />
               ))}
@@ -199,7 +120,7 @@ export default function Discover() {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="mt-8 flex items-center justify-center gap-2">
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
                 <Button
                   variant="outline"
                   size="icon"

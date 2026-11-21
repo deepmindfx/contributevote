@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/layout/Header";
-import MobileNav from "@/components/layout/MobileNav";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ArrowDown, ArrowUp, HelpCircle, Wallet, Building, ExternalLink, Users, ArrowRight } from "lucide-react";
@@ -212,10 +211,10 @@ const WalletHistory = () => {
   };
   
   return (
-    <div className="min-h-screen pb-20 md:pb-0">
+    <div className="min-h-screen">
       <Header />
       
-      <main className="container max-w-4xl mx-auto px-4 pt-24 pb-12">
+      <main className="app-page max-w-4xl">
         <div className="mb-6">
           <Button 
             variant="ghost" 
@@ -659,8 +658,6 @@ const WalletHistory = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
-      <MobileNav />
     </div>
   );
 };

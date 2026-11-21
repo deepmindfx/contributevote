@@ -1,6 +1,5 @@
 import { useState } from "react";
 import Header from "@/components/layout/Header";
-import MobileNav from "@/components/layout/MobileNav";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 import {
@@ -73,10 +72,10 @@ const UserProfile = () => {
   ).length;
 
   return (
-    <div className="min-h-screen pb-20 md:pb-0">
+    <div className="min-h-screen">
       <Header />
 
-      <main className="container max-w-4xl mx-auto px-4 pt-24 pb-12">
+      <main className="app-page max-w-4xl">
         <h1 className="text-2xl font-bold mb-6">My Profile</h1>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -284,8 +283,6 @@ const UserProfile = () => {
           </div>
         </div>
       </main>
-
-      <MobileNav />
     </div>
   );
 };

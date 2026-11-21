@@ -2,7 +2,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import Header from "@/components/layout/Header";
-import MobileNav from "@/components/layout/MobileNav";
 import { 
   ArrowDown, 
   ArrowLeft, 
@@ -200,10 +199,10 @@ const ActivityHistory = () => {
     });
 
   return (
-    <div className="min-h-screen pb-20 md:pb-0">
+    <div className="min-h-screen">
       <Header />
       
-      <main className="container max-w-5xl mx-auto px-4 pt-24 pb-12">
+      <main className="app-page max-w-5xl">
         <div className="mb-6">
           <button 
             onClick={() => navigate(-1)} 
@@ -243,8 +242,6 @@ const ActivityHistory = () => {
           </CardContent>
         </Card>
       </main>
-      
-      <MobileNav />
     </div>
   );
 };

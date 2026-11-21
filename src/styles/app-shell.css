@@ -1,0 +1,269 @@
+:root {
+  --background: 135 19% 97%;
+  --foreground: 160 27% 12%;
+  --card: 0 0% 100%;
+  --card-foreground: 160 27% 12%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 160 27% 12%;
+  --primary: 154 65% 27%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 143 23% 92%;
+  --secondary-foreground: 159 33% 20%;
+  --muted: 141 19% 93%;
+  --muted-foreground: 157 12% 36%;
+  --accent: 143 25% 91%;
+  --accent-foreground: 154 65% 24%;
+  --border: 143 17% 87%;
+  --input: 145 16% 78%;
+  --ring: 154 65% 36%;
+  --radius: 1rem;
+  --app-header-height: 4rem;
+  --app-tabbar-height: 4.25rem;
+}
+
+.dark {
+  --background: 161 20% 9%;
+  --foreground: 139 23% 94%;
+  --card: 160 17% 13%;
+  --card-foreground: 139 23% 94%;
+  --popover: 160 17% 13%;
+  --popover-foreground: 139 23% 94%;
+  --primary: 151 55% 65%;
+  --primary-foreground: 160 32% 12%;
+  --secondary: 155 17% 20%;
+  --secondary-foreground: 139 23% 94%;
+  --muted: 157 15% 18%;
+  --muted-foreground: 150 12% 70%;
+  --accent: 156 22% 21%;
+  --accent-foreground: 151 55% 75%;
+  --border: 155 13% 25%;
+  --input: 155 12% 33%;
+}
+
+body {
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.app-header {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 40;
+  padding-top: env(safe-area-inset-top);
+  border-bottom: 1px solid hsl(var(--border));
+  background: hsl(var(--background) / .94);
+  backdrop-filter: blur(16px);
+}
+
+.app-header-inner {
+  width: min(100%, 76rem);
+  min-height: var(--app-header-height);
+  margin-inline: auto;
+  padding-inline: max(1rem, env(safe-area-inset-left)) max(1rem, env(safe-area-inset-right));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+}
+
+.app-brand {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: .5rem;
+  color: hsl(var(--foreground));
+  font-size: 1.18rem;
+  font-weight: 750;
+  letter-spacing: -.055em;
+}
+
+.app-brand img {
+  width: 1.9rem;
+  height: 1.9rem;
+  object-fit: contain;
+}
+
+.app-desktop-nav {
+  display: none;
+  gap: .2rem;
+}
+
+.app-desktop-nav a {
+  display: flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding-inline: .85rem;
+  border-radius: .75rem;
+  color: hsl(var(--muted-foreground));
+  font-size: .875rem;
+  font-weight: 650;
+}
+
+.app-desktop-nav a:hover, .app-desktop-nav a[aria-current="page"] {
+  background: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+}
+
+.app-tabbar {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  min-height: var(--app-tabbar-height);
+  padding: .35rem max(.35rem, env(safe-area-inset-right)) calc(.35rem + env(safe-area-inset-bottom)) max(.35rem, env(safe-area-inset-left));
+  border-top: 1px solid hsl(var(--border));
+  background: hsl(var(--card) / .97);
+  backdrop-filter: blur(16px);
+}
+
+.app-tabbar a {
+  display: flex;
+  min-height: 3.5rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .2rem;
+  border-radius: .75rem;
+  color: hsl(var(--muted-foreground));
+  font-size: .75rem;
+  line-height: 1;
+  font-weight: 550;
+}
+
+.app-tab-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 2.6rem;
+  height: 1.86rem;
+  border-radius: .7rem;
+}
+
+.app-tabbar a[aria-current="page"] {
+  color: hsl(var(--primary));
+  font-weight: 750;
+}
+
+.app-tabbar a[aria-current="page"] .app-tab-icon, .app-tabbar a:hover .app-tab-icon {
+  background: hsl(var(--accent));
+}
+
+.app-tab-badge {
+  position: absolute;
+  inset: -.2rem -.08rem auto auto;
+  display: grid;
+  place-items: center;
+  min-width: 1rem;
+  height: 1rem;
+  padding-inline: .14rem;
+  border-radius: 1rem;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  font-size: .58rem;
+}
+
+.app-header a:focus-visible, .app-tabbar a:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+.app-with-tabbar {
+  padding-bottom: calc(var(--app-tabbar-height) + env(safe-area-inset-bottom));
+}
+
+.app-page {
+  width: 100%;
+  margin-inline: auto;
+  padding: calc(var(--app-header-height) + env(safe-area-inset-top) + 1.5rem) max(1rem, env(safe-area-inset-right)) 2rem max(1rem, env(safe-area-inset-left));
+}
+
+.app-page-title {
+  font-size: clamp(1.8rem, 5vw, 2.55rem);
+  letter-spacing: -.055em;
+  line-height: 1.12;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+
+.app-segmented {
+  min-height: 3.15rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: .9rem;
+}
+
+.app-segmented [role="tab"] {
+  min-height: 2.65rem;
+  border-radius: .65rem;
+  font-weight: 650;
+}
+
+.app-segmented [role="tab"][data-state="active"] {
+  background-color: hsl(var(--card));
+  color: hsl(var(--primary));
+}
+
+.wallet-overview {
+  background:
+    radial-gradient(ellipse at 100% 0%, #327351 0, transparent 60%),
+    linear-gradient(125deg, #10352d, #194b3a);
+  color: #f7fff9;
+}
+
+.wallet-action {
+  display: flex;
+  min-width: 0;
+  min-height: 4.7rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .36rem;
+  border-radius: .85rem;
+  color: hsl(var(--foreground));
+  font-size: .75rem;
+  font-weight: 650;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.wallet-action:hover, .wallet-action:focus-visible {
+  background-color: hsl(var(--muted));
+}
+
+.wallet-action > span:first-child {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  place-items: center;
+  border-radius: .8rem;
+  background: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+}
+
+.wallet-action:first-child > span:first-child {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+@media (min-width: 48rem) {
+  .app-desktop-nav {
+    display: flex;
+  }
+
+  .app-tabbar {
+    display: none;
+  }
+
+  .app-with-tabbar {
+    padding-bottom: 0;
+  }
+
+  .app-page {
+    padding-top: calc(var(--app-header-height) + env(safe-area-inset-top) + 2rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}

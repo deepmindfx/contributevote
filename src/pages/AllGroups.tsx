@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import Header from "@/components/layout/Header";
-import MobileNav from "@/components/layout/MobileNav";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -111,10 +110,10 @@ const AllGroups = () => {
       return "Invalid date";
     }
   };
-  return <div className="min-h-screen pb-20 md:pb-0">
+  return <div className="min-h-screen">
       <Header />
       
-      <main className="container max-w-5xl mx-auto px-4 pt-24 pb-12">
+      <main className="app-page max-w-5xl">
         <div className="mb-6">
           <Button variant="ghost" size="sm" className="mb-2" onClick={() => navigate("/dashboard")}>
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -328,8 +327,6 @@ const AllGroups = () => {
           </>
         )}
       </main>
-      
-      <MobileNav />
     </div>;
 };
 export default AllGroups;
