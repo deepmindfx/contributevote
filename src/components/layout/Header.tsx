@@ -15,6 +15,9 @@ import {
   RefreshCw,
   CheckCheck,
   ChevronRight,
+  ShieldAlert,
+  AlertTriangle,
+  Users,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
@@ -48,6 +51,12 @@ function getNotificationIcon(type: string) {
     case "refund":
     case "refund_request":
       return { icon: RefreshCw, tone: "bg-amber-500/12 text-amber-700 dark:text-amber-300" };
+    case "penalty":
+      return { icon: AlertTriangle, tone: "bg-red-500/12 text-red-700 dark:text-red-300" };
+    case "security_alert":
+      return { icon: ShieldAlert, tone: "bg-red-500/12 text-red-700 dark:text-red-300" };
+    case "group_update":
+      return { icon: Users, tone: "bg-accent text-primary" };
     default:
       return { icon: Bell, tone: "bg-accent text-primary" };
   }

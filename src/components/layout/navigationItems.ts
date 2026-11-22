@@ -1,6 +1,12 @@
-import { Activity, Compass, Home, Settings, UserRound, Users, Vote, Wallet } from "lucide-react";
+import { Activity, Compass, Home, Settings, ShieldCheck, UserRound, Users, Vote, Wallet } from "lucide-react";
 
 export const collectipayMark = "/collectipay-mark.svg";
+
+export const adminWorkspaceLink = {
+  to: "/admin",
+  label: "Super Admin",
+  icon: ShieldCheck,
+};
 
 export const workspaceLinks = [
   { to: "/dashboard", label: "Overview", mobileLabel: "Home", icon: Home },
@@ -14,6 +20,7 @@ export const workspaceLinks = [
 
 export function getWorkspaceLink(pathname: string) {
   const path = pathname.toLowerCase().replace(/\/$/, "");
+  if (path === "/admin" || path.startsWith("/admin/")) return adminWorkspaceLink;
   if (path.startsWith("/groups/") || path === "/create-group") return workspaceLinks[1];
   if (path === "/transfer") return workspaceLinks[0];
   if (path === "/profile") return workspaceLinks.find((link) => link.to === "/settings");

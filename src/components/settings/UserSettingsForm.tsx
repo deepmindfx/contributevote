@@ -4,7 +4,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -15,10 +14,31 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import BrandLoader from "@/components/ui/BrandLoader";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Pencil, User, Moon, Bell, Key, EyeOff, Eye } from "lucide-react";
+import {
+  AtSign,
+  Bell,
+  Camera,
+  Check,
+  Eye,
+  EyeOff,
+  KeyRound,
+  Lock,
+  Mail,
+  Moon,
+  Phone,
+  ShieldAlert,
+  ShieldCheck,
+  SlidersHorizontal,
+  Sun,
+  User,
+  UserCheck,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const splitName = (fullName?: string | null) => {
   const parts = (fullName || "").trim().split(/\s+/).filter(Boolean);
@@ -32,7 +52,7 @@ const UserSettingsForm = () => {
   const { user, updateProfile } = useSupabaseUser();
   const [searchParams] = useSearchParams();
 
-  const existingPrefs = ((user?.preferences || {}) as Record<string, any>);
+  const existingPrefs = (user?.preferences || {}) as Record<string, any>;
   const initialSplit = splitName(user?.name);
 
   const [userData, setUserData] = useState({
@@ -84,17 +104,17 @@ const UserSettingsForm = () => {
 
   if (!user) return null;
 
+  const hasSavedPin = /^\d{4}$/.test(String(existingPrefs.transactionPin || ""));
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    if (name === "pin") {
-      const digitsOnly = value.replace(/\D/g, "").slice(0, 4);
-      setUserData((prev) => ({ ...prev, pin: digitsOnly }));
-      return;
-    }
     setUserData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handlePreferenceChange = (preference: string, value: boolean) => {
+    if (preference === "darkMode") {
+      document.documentElement.classList.toggle("dark", value);
+    }
     setUserData((prev) => ({
       ...prev,
       preferences: {
@@ -166,7 +186,7 @@ const UserSettingsForm = () => {
 
       const fullName = `${userData.firstName} ${userData.lastName}`.trim();
 
-      // IMPORTANT: Spread existingPrefs to preserve virtualAccount and other stored fields!
+      // IMPORTANT: Spread existingPrefs so virtualAccount and transactionPin are never overwritten!
       const mergedPreferences = {
         ...currentPrefs,
         darkMode: userData.preferences.darkMode,
@@ -183,46 +203,79 @@ const UserSettingsForm = () => {
         preferences: mergedPreferences,
       });
 
-      toast.success("Profile updated successfully");
+      toast.success("Settings saved");
     } catch (error: any) {
       console.error("Error updating profile:", error);
-      toast.error(error?.message || "Failed to update profile");
+      toast.error(error?.message || "Failed to update settings");
     } finally {
       setIsLoading(false);
     }
   };
 
+  const defaultTab =
+    searchParams.get("tab") === "security"
+      ? "security"
+      : searchParams.get("tab") === "preferences"
+      ? "preferences"
+      : "profile";
+
   return (
     <>
-      <form onSubmit={handleSubmit}>
-        <Tabs defaultValue={searchParams.get("tab") === "security" ? "security" : "profile"} className="w-full">
-          <TabsList className="app-segmented mb-6 grid w-full grid-cols-3" aria-label="Settings sections">
-            <TabsTrigger value="profile">Profile</TabsTrigger>
-            <TabsTrigger value="security">Security</TabsTrigger>
-            <TabsTrigger value="preferences">Preferences</TabsTrigger>
+      {(isLoading || isChangingPassword) && (
+        <BrandLoader
+          variant="overlay"
+          message={isChangingPassword ? "Updating your password" : "Saving your settings"}
+          submessage="Syncing your account securely with CollectiPay…"
+        />
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <Tabs defaultValue={defaultTab} className="w-full">
+          <TabsList
+            className="app-segmented mb-6 grid w-full grid-cols-3 bg-muted/60 p-1"
+            aria-label="Settings sections"
+          >
+            <TabsTrigger value="profile" className="gap-1.5">
+              <User className="h-4 w-4" aria-hidden="true" />
+              <span>Profile</span>
+            </TabsTrigger>
+            <TabsTrigger value="security" className="gap-1.5">
+              <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+              <span>Security</span>
+            </TabsTrigger>
+            <TabsTrigger value="preferences" className="gap-1.5">
+              <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+              <span>Preferences</span>
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="profile" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Profile Information</CardTitle>
-                <CardDescription>Update your personal information</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex flex-col items-center md:flex-row md:space-x-4 space-y-4 md:space-y-0">
-                  <div className="relative">
-                    <Avatar className="h-24 w-24">
+          {/* PROFILE TAB */}
+          <TabsContent value="profile" className="space-y-5">
+            <div className="cp-card-native overflow-hidden">
+              <div className="border-b px-5 py-4">
+                <h2 className="text-base font-bold text-foreground">Personal identity</h2>
+                <p className="text-xs text-muted-foreground">
+                  How group members see you when you pool funds and vote.
+                </p>
+              </div>
+
+              <div className="space-y-6 p-5">
+                {/* Avatar Uploader Row */}
+                <div className="flex flex-col items-center gap-4 rounded-2xl border bg-muted/25 p-4 sm:flex-row">
+                  <div className="relative shrink-0">
+                    <Avatar className="h-20 w-20 border-2 border-primary/25 shadow-sm">
                       <AvatarImage src={previewImage || userData.profileImage} />
-                      <AvatarFallback className="text-lg">
+                      <AvatarFallback className="bg-accent text-xl font-bold text-primary">
                         {userData.firstName?.charAt(0)}
                         {userData.lastName?.charAt(0)}
                       </AvatarFallback>
                     </Avatar>
                     <label
                       htmlFor="profile-image"
-                      className="absolute bottom-0 right-0 p-1.5 rounded-full bg-primary text-primary-foreground cursor-pointer"
+                      className="absolute -bottom-1 -right-1 grid h-8 w-8 cursor-pointer place-items-center rounded-full border-2 border-card bg-primary text-primary-foreground shadow-sm transition-transform hover:scale-105"
+                      title="Upload profile photo"
                     >
-                      <Pencil className="h-4 w-4" />
+                      <Camera className="h-3.5 w-3.5" />
                       <input
                         type="file"
                         id="profile-image"
@@ -232,253 +285,424 @@ const UserSettingsForm = () => {
                       />
                     </label>
                   </div>
-                  <div className="flex-1 space-y-3 w-full">
-                    <div>
-                      <Label htmlFor="username">Username</Label>
-                      <div className="relative">
-                        <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="username"
-                          name="username"
-                          placeholder="Choose a username"
-                          value={userData.username}
-                          onChange={handleInputChange}
-                          className="pl-10"
-                        />
-                      </div>
+                  <div className="min-w-0 flex-1 space-y-2 text-center sm:text-left">
+                    <Label htmlFor="username" className="text-sm font-semibold">
+                      CollectiPay Handle
+                    </Label>
+                    <div className="relative">
+                      <AtSign className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        id="username"
+                        name="username"
+                        placeholder="choose-a-handle"
+                        value={userData.username}
+                        onChange={handleInputChange}
+                        className="h-11 rounded-xl pl-10"
+                      />
                     </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      JPG or PNG photo up to 500KB.
+                    </p>
                   </div>
                 </div>
 
-                <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-                  <div>
-                    <Label htmlFor="firstName">First Name</Label>
+                {/* Personal Inputs */}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName" className="text-sm font-semibold">
+                      First name
+                    </Label>
                     <Input
                       id="firstName"
                       name="firstName"
                       placeholder="First Name"
                       value={userData.firstName}
                       onChange={handleInputChange}
+                      className="h-11 rounded-xl"
                       required
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="lastName">Last Name</Label>
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName" className="text-sm font-semibold">
+                      Last name
+                    </Label>
                     <Input
                       id="lastName"
                       name="lastName"
                       placeholder="Last Name"
                       value={userData.lastName}
                       onChange={handleInputChange}
+                      className="h-11 rounded-xl"
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="email">Email Address</Label>
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      value={userData.email}
-                      disabled
-                      className="bg-muted"
-                    />
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="email" className="text-sm font-semibold">
+                        Email address
+                      </Label>
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary">
+                        <Lock className="h-3 w-3" /> Verified
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        id="email"
+                        name="email"
+                        type="email"
+                        value={userData.email}
+                        disabled
+                        className="h-11 rounded-xl bg-muted/60 pl-10"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <Label htmlFor="phone">Phone Number</Label>
-                    <Input
-                      id="phone"
-                      name="phone"
-                      placeholder="Phone Number"
-                      value={userData.phone}
-                      onChange={handleInputChange}
-                    />
+                  <div className="space-y-2">
+                    <Label htmlFor="phone" className="text-sm font-semibold">
+                      Phone number
+                    </Label>
+                    <div className="relative">
+                      <Phone className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        id="phone"
+                        name="phone"
+                        placeholder="+234 800 000 0000"
+                        value={userData.phone}
+                        onChange={handleInputChange}
+                        className="h-11 rounded-xl pl-10"
+                      />
+                    </div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </TabsContent>
 
-          <TabsContent value="security" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Security Settings</CardTitle>
-                <CardDescription>
-                  Manage your account security and 4-digit transaction PIN
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
+          {/* SECURITY TAB */}
+          <TabsContent value="security" className="space-y-5">
+            {/* Security Health Banner */}
+            <div
+              className={cn(
+                "flex items-center gap-3.5 rounded-2xl border p-4",
+                hasSavedPin
+                  ? "border-primary/25 bg-accent/60"
+                  : "border-amber-500/30 bg-amber-500/10"
+              )}
+            >
+              <span
+                className={cn(
+                  "grid h-11 w-11 shrink-0 place-items-center rounded-xl",
+                  hasSavedPin
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-amber-500 text-white"
+                )}
+              >
+                {hasSavedPin ? (
+                  <ShieldCheck className="h-5 w-5" />
+                ) : (
+                  <ShieldAlert className="h-5 w-5" />
+                )}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-foreground">
+                  {hasSavedPin ? "Wallet PIN protection is active" : "Set up your 4-digit transfer PIN"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {hasSavedPin
+                    ? "Bank transfers from your wallet require your 4-digit PIN before execution."
+                    : "Protect your wallet balance by adding a 4-digit PIN below and tapping Save Changes."}
+                </p>
+              </div>
+            </div>
+
+            {/* 4-Digit Native OTP PIN Card */}
+            <div className="cp-card-native overflow-hidden">
+              <div className="flex items-center justify-between gap-2 border-b px-5 py-4">
                 <div>
-                  <Label htmlFor="pin">Transaction PIN</Label>
-                  <div className="relative">
-                    <Key className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="pin"
-                      name="pin"
-                      type={showPin ? "text" : "password"}
-                      inputMode="numeric"
-                      placeholder="Create a 4-digit PIN"
-                      maxLength={4}
-                      value={userData.pin}
-                      onChange={handleInputChange}
-                      className="pl-10 pr-10"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-1 top-1 h-8 w-8"
-                      onClick={() => setShowPin(!showPin)}
-                    >
-                      {showPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Required to authorize bank transfers from your wallet
+                  <h2 className="text-base font-bold text-foreground">4-Digit Transaction PIN</h2>
+                  <p className="text-xs text-muted-foreground">
+                    Used to authorize outbound wallet bank transfers.
                   </p>
                 </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowPin((v) => !v)}
+                  className="h-9 gap-1.5 rounded-xl text-xs"
+                >
+                  {showPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showPin ? "Hide" : "Show"}
+                </Button>
+              </div>
 
-                <div>
-                  <Label htmlFor="confirm-pin">Confirm PIN</Label>
-                  <div className="relative">
-                    <Key className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="confirm-pin"
-                      type={showPin ? "text" : "password"}
-                      inputMode="numeric"
-                      placeholder="Confirm 4-digit PIN"
-                      maxLength={4}
-                      value={confirmPin}
-                      onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                      className="pl-10"
-                    />
-                  </div>
+              <div className="grid gap-6 p-5 sm:grid-cols-2">
+                <div className="space-y-2.5">
+                  <Label className="flex items-center gap-1.5 text-sm font-semibold">
+                    <KeyRound className="h-4 w-4 text-primary" />
+                    Enter 4-digit PIN
+                  </Label>
+                  <InputOTP
+                    maxLength={4}
+                    value={userData.pin}
+                    onChange={(val) =>
+                      setUserData((prev) => ({ ...prev, pin: val.replace(/\D/g, "").slice(0, 4) }))
+                    }
+                    inputMode="numeric"
+                  >
+                    <InputOTPGroup className="gap-2">
+                      {[0, 1, 2, 3].map((idx) => (
+                        <InputOTPSlot
+                          key={idx}
+                          index={idx}
+                          className={cn(
+                            "h-12 w-12 rounded-xl border text-lg font-bold",
+                            !showPin && userData.pin[idx] && "text-transparent after:absolute after:h-2.5 after:w-2.5 after:rounded-full after:bg-foreground"
+                          )}
+                        />
+                      ))}
+                    </InputOTPGroup>
+                  </InputOTP>
                 </div>
 
-                <div className="pt-2 border-t">
-                  <p className="text-sm font-medium">Password</p>
-                  <div className="flex justify-between items-center mt-2">
-                    <p className="text-sm text-muted-foreground">Change your account password</p>
-                    <Button
-                      variant="outline"
-                      type="button"
-                      onClick={() => setPasswordDialogOpen(true)}
+                <div className="space-y-2.5">
+                  <Label className="flex items-center gap-1.5 text-sm font-semibold">
+                    <KeyRound className="h-4 w-4 text-primary" />
+                    Confirm 4-digit PIN
+                  </Label>
+                  <InputOTP
+                    maxLength={4}
+                    value={confirmPin}
+                    onChange={(val) => setConfirmPin(val.replace(/\D/g, "").slice(0, 4))}
+                    inputMode="numeric"
+                  >
+                    <InputOTPGroup className="gap-2">
+                      {[0, 1, 2, 3].map((idx) => (
+                        <InputOTPSlot
+                          key={idx}
+                          index={idx}
+                          className={cn(
+                            "h-12 w-12 rounded-xl border text-lg font-bold",
+                            !showPin && confirmPin[idx] && "text-transparent after:absolute after:h-2.5 after:w-2.5 after:rounded-full after:bg-foreground"
+                          )}
+                        />
+                      ))}
+                    </InputOTPGroup>
+                  </InputOTP>
+                  {userData.pin.length === 4 && confirmPin.length === 4 && (
+                    <p
+                      className={cn(
+                        "text-xs font-semibold",
+                        userData.pin === confirmPin ? "text-primary" : "text-destructive"
+                      )}
                     >
-                      Change Password
-                    </Button>
-                  </div>
+                      {userData.pin === confirmPin ? "PINs match" : "PINs do not match"}
+                    </p>
+                  )}
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
+
+            {/* Password Card */}
+            <div className="cp-card-native flex flex-col justify-between gap-4 p-5 sm:flex-row sm:items-center">
+              <div className="flex items-center gap-3.5">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-accent text-primary">
+                  <Lock className="h-5 w-5" />
+                </span>
+                <div>
+                  <h3 className="text-sm font-bold text-foreground">Account password</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Use a strong unique password with at least 8 characters.
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() => setPasswordDialogOpen(true)}
+                className="h-11 rounded-xl font-semibold"
+              >
+                Change password
+              </Button>
+            </div>
           </TabsContent>
 
-          <TabsContent value="preferences" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Preferences</CardTitle>
-                <CardDescription>Customize your app experience</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-base">Dark Mode</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Switch between light and dark themes
-                    </p>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Moon className="h-4 w-4 text-muted-foreground" />
-                    <Switch
-                      checked={userData.preferences.darkMode}
-                      onCheckedChange={(checked) => handlePreferenceChange("darkMode", checked)}
-                    />
-                  </div>
-                </div>
+          {/* PREFERENCES TAB */}
+          <TabsContent value="preferences" className="space-y-5">
+            {/* Visual Appearance Theme Picker */}
+            <div className="cp-card-native overflow-hidden">
+              <div className="border-b px-5 py-4">
+                <h2 className="text-base font-bold text-foreground">Appearance</h2>
+                <p className="text-xs text-muted-foreground">
+                  Choose the visual theme that feels best on your device.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3 p-5">
+                {[
+                  {
+                    dark: false,
+                    label: "Light Emerald",
+                    desc: "Crisp daylight surface",
+                    icon: Sun,
+                    previewBg: "bg-[#f4f8f5] border-[#dce7e1]",
+                    previewBar: "bg-[#075847]",
+                    previewCard: "bg-white",
+                  },
+                  {
+                    dark: true,
+                    label: "Deep Forest Dark",
+                    desc: "Low-glare night mode",
+                    icon: Moon,
+                    previewBg: "bg-[#111c19] border-[#243b34]",
+                    previewBar: "bg-[#1b6d54]",
+                    previewCard: "bg-[#192824]",
+                  },
+                ].map((theme) => {
+                  const Icon = theme.icon;
+                  const selected = userData.preferences.darkMode === theme.dark;
+                  return (
+                    <button
+                      key={theme.label}
+                      type="button"
+                      data-selected={selected}
+                      onClick={() => handlePreferenceChange("darkMode", theme.dark)}
+                      className="cp-tile-option flex flex-col gap-3 p-3.5 text-left"
+                    >
+                      <div
+                        className={cn(
+                          "h-16 w-full overflow-hidden rounded-xl border p-2",
+                          theme.previewBg
+                        )}
+                      >
+                        <div className={cn("h-3 w-12 rounded-full", theme.previewBar)} />
+                        <div className="mt-2 grid grid-cols-2 gap-1.5">
+                          <div className={cn("h-6 rounded-md", theme.previewCard)} />
+                          <div className={cn("h-6 rounded-md", theme.previewCard)} />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <span className="flex items-center gap-1.5 text-sm font-bold text-foreground">
+                            <Icon className="h-3.5 w-3.5 text-primary" />
+                            {theme.label}
+                          </span>
+                          <span className="block text-[11px] text-muted-foreground">
+                            {theme.desc}
+                          </span>
+                        </div>
+                        {selected && (
+                          <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground">
+                            <Check className="h-3 w-3" />
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-base">Anonymous Contributions</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Hide your identity when making contributions
+            {/* Privacy & Notifications Toggles */}
+            <div className="cp-card-native divide-y divide-border/70 overflow-hidden">
+              <div className="flex items-center justify-between gap-4 p-5">
+                <div className="flex items-start gap-3.5">
+                  <span className="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent text-primary">
+                    <UserCheck className="h-4.5 w-4.5" />
+                  </span>
+                  <div>
+                    <Label className="text-sm font-bold">Anonymous Contributions</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Mask your name by default on public group contributor feeds.
                     </p>
                   </div>
-                  <Switch
-                    checked={userData.preferences.anonymousContributions}
-                    onCheckedChange={(checked) =>
-                      handlePreferenceChange("anonymousContributions", checked)
-                    }
-                  />
                 </div>
+                <Switch
+                  checked={userData.preferences.anonymousContributions}
+                  onCheckedChange={(checked) =>
+                    handlePreferenceChange("anonymousContributions", checked)
+                  }
+                />
+              </div>
 
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-base">Notifications</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Receive notifications about activities
+              <div className="flex items-center justify-between gap-4 p-5">
+                <div className="flex items-start gap-3.5">
+                  <span className="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent text-primary">
+                    <Bell className="h-4.5 w-4.5" />
+                  </span>
+                  <div>
+                    <Label className="text-sm font-bold">Activity &amp; Governance Alerts</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Receive alerts for deposits, votes, invitations, and account updates.
                     </p>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <Bell className="h-4 w-4 text-muted-foreground" />
-                    <Switch
-                      checked={userData.preferences.notificationsEnabled}
-                      onCheckedChange={(checked) =>
-                        handlePreferenceChange("notificationsEnabled", checked)
-                      }
-                    />
-                  </div>
                 </div>
-              </CardContent>
-            </Card>
+                <Switch
+                  checked={userData.preferences.notificationsEnabled}
+                  onCheckedChange={(checked) =>
+                    handlePreferenceChange("notificationsEnabled", checked)
+                  }
+                />
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
 
-        <div className="mt-6">
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? (
-              <>
-                <span className="animate-spin mr-2 h-4 w-4 border-t-2 border-b-2 border-current rounded-full"></span>
-                Saving...
-              </>
-            ) : (
-              "Save Changes"
-            )}
+        <div className="flex justify-end">
+          <Button
+            type="submit"
+            className="h-12 w-full rounded-xl font-semibold shadow-sm sm:w-auto sm:min-w-[13rem]"
+            disabled={isLoading}
+          >
+            Save changes
           </Button>
         </div>
       </form>
 
       <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
-        <DialogContent>
+        <DialogContent className="w-[calc(100%-2rem)] max-w-md rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Change Password</DialogTitle>
-            <DialogDescription>Enter your new password below (minimum 8 characters).</DialogDescription>
+            <DialogTitle>Update account password</DialogTitle>
+            <DialogDescription>
+              Enter a new password with at least 8 characters.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label htmlFor="new-password">New Password</Label>
+              <Label htmlFor="new-password">New password</Label>
               <Input
                 id="new-password"
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="At least 8 characters"
+                className="h-11 rounded-xl"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirm-new-password">Confirm New Password</Label>
+              <Label htmlFor="confirm-new-password">Confirm new password</Label>
               <Input
                 id="confirm-new-password"
                 type="password"
                 value={confirmNewPassword}
                 onChange={(e) => setConfirmNewPassword(e.target.value)}
                 placeholder="Re-enter new password"
+                className="h-11 rounded-xl"
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPasswordDialogOpen(false)}>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setPasswordDialogOpen(false)}
+              className="rounded-xl"
+            >
               Cancel
             </Button>
-            <Button onClick={handlePasswordChange} disabled={isChangingPassword}>
-              {isChangingPassword ? "Updating..." : "Update Password"}
+            <Button
+              onClick={handlePasswordChange}
+              disabled={isChangingPassword}
+              className="rounded-xl"
+            >
+              {isChangingPassword ? "Updating…" : "Update password"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,8 +1,8 @@
 # Database Schema & Backend Logic
 
-The live database (`sivvjwffekhfabgxhbcd`, PostgreSQL 17) is built from `master_migration.sql` plus `supabase/migrations/20261121_production_hardening.sql`. Generated TypeScript types live in `src/integrations/supabase/types.ts`.
+The live database (`sivvjwffekhfabgxhbcd`, PostgreSQL 17) is built from `master_migration.sql` plus `supabase/migrations/20261121_production_hardening.sql`, `supabase/migrations/20261122_group_invitation_workflow.sql`, and `supabase/migrations/20261122_super_admin_compliance.sql`. Generated TypeScript types live in `src/integrations/supabase/types.ts`.
 
-## Tables (11)
+## Tables (14)
 
 | Table | Primary Purpose | Key Columns |
 | :--- | :--- | :--- |
@@ -17,6 +17,9 @@ The live database (`sivvjwffekhfabgxhbcd`, PostgreSQL 17) is built from `master_
 | `scheduled_contributions` | One-time future wallet contributions | `id`, `user_id`, `group_id`, `amount`, `scheduled_date`, `status` (`pending`/`completed`/`failed`/`cancelled`), `failure_reason`, `executed_at` |
 | `group_refund_requests` | Group refund governance proposals | `id`, `group_id`, `requester_id`, `reason`, `refund_type` (`full`/`partial`), `partial_percentage`, `status`, `voting_deadline`, `votes`, `total_votes_for`, `total_votes_against`, `total_eligible_voters`, `executed_at`, `execution_details` |
 | `refund_transactions` | Per-contributor refund payout audit | `id`, `refund_request_id`, `user_id`, `group_id`, `original_contribution`, `refund_amount`, `refund_percentage`, `status`, `failure_reason`, `transaction_id`, `completed_at` |
+| `aml_alerts` | Automated & manual AML / anti-fraud risk queue | `id`, `alert_key` (unique), `user_id`, `group_id`, `transaction_id`, `alert_type`, `severity` (`low`/`medium`/`high`/`critical`), `status` (`open`/`investigating`/`escalated`/`resolved`/`dismissed`), `risk_score`, `amount`, `title`, `description`, `evidence` (JSONB), `resolution_note`, `resolved_by`, `resolved_at` |
+| `admin_penalties` | Super Admin compliance fines & penalty ledger | `id`, `user_id`, `group_id`, `aml_alert_id`, `penalty_type` (`late_contribution`/`policy_violation`/`aml_hold`/`fraud_chargeback`/`dispute_fine`), `amount`, `reason`, `status` (`applied`/`waived`/`pending`), `deducted_from_wallet`, `transaction_id`, `issued_by`, `waived_by`, `waived_at` |
+| `admin_audit_logs` | Tamper-evident chronological admin action log | `id`, `admin_id`, `action`, `target_type` (`user`/`group`/`aml_alert`/`penalty`/`transaction`/`system`), `target_id`, `summary`, `metadata` (JSONB), `created_at` |
 
 ## PL/pgSQL RPCs & Trigger Functions
 
@@ -37,7 +40,12 @@ The live database (`sivvjwffekhfabgxhbcd`, PostgreSQL 17) is built from `master_
 | `get_invitation_by_token(p_token)` | `SECURITY DEFINER` | Public/auth invite preview with group summary & inviter display name; expires stale tokens automatically. |
 | `lookup_user_id_by_email(p_email)` | `SECURITY DEFINER` | Case-insensitive email → UUID lookup (returns UUID only, no PII). |
 | `get_group_contributors_safe(p_group_id)` | `SECURITY DEFINER` | Returns group contributors with display name & avatar (respecting `anonymous`) while keeping `profiles` BVN/balance/PIN private. |
-| `admin_deposit_to_user(p_target_user_id, p_amount, p_description)` | `SECURITY DEFINER` | Admin-only atomic wallet credit with transaction ledger entry & user notification. |
+| `admin_deposit_to_user(p_target_user_id, p_amount, p_description)` | `SECURITY DEFINER` | Admin-only atomic wallet credit with transaction ledger entry, user notification, and audit log entry. |
+| `admin_adjust_user_wallet(p_target_user_id, p_amount, p_direction, p_reason)` | `SECURITY DEFINER` | Admin-only atomic wallet credit or debit with balance checks, ledger snapshot, notification, and audit trail. |
+| `admin_update_user_status(p_user_id, p_status, p_reason)` | `SECURITY DEFINER` | Admin-only user account control (`active`/`paused`/`frozen`/`suspended`) with user notification and audit log. |
+| `admin_update_group_status(p_group_id, p_status, p_archived, p_reason)` | `SECURITY DEFINER` | Admin-only group governance control (`active`/`paused`/`frozen`/`completed`/`cancelled` + archive toggle) with creator notification and audit log. |
+| `admin_issue_penalty(...)` / `admin_waive_penalty(...)` | `SECURITY DEFINER` | Admin-only compliance fine issuance (optional atomic wallet deduction) and penalty waiver (optional atomic wallet refund) with notifications and audit logs. |
+| `admin_scan_aml_alerts()` / `admin_update_aml_alert(...)` / `admin_create_aml_alert(...)` | `SECURITY DEFINER` | Admin-only 5-rule live AML detection engine (large tx ≥ ₦500k, structuring, velocity bursts, rapid pass-through, unverified high-volume), case disposition workflow, and manual flagging. |
 | `get_group_voters(p_group_id)` / `expire_withdrawal_requests()` | Mixed | Helper functions for voting eligibility and expiry maintenance. |
 
 ## Row Level Security Summary

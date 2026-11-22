@@ -3,6 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 import { WalletContributionService } from '@/services/supabase/walletContributionService';
 import { useSupabaseUser } from '@/contexts/SupabaseUserContext';
 import { Calendar, Loader2, Clock, Wallet, Timer, Zap, AlertTriangle } from 'lucide-react';
@@ -160,47 +162,62 @@ export function ScheduledContributionDialog({ groupId, groupName, onSuccess }: S
           {/* Time */}
           <div className="space-y-2">
             <Label>Time</Label>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
               {/* Hours */}
-              <select
-                value={hours}
-                onChange={(e) => setHours(e.target.value)}
-                disabled={isProcessing}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => (
-                  <option key={h} value={h.toString().padStart(2, '0')}>
-                    {h.toString().padStart(2, '0')}
-                  </option>
-                ))}
-              </select>
+              <Select value={hours} onValueChange={setHours} disabled={isProcessing}>
+                <SelectTrigger className="h-11 flex-1 rounded-xl font-semibold tabular-nums">
+                  <SelectValue placeholder="HH" />
+                </SelectTrigger>
+                <SelectContent className="max-h-56">
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => {
+                    const val = h.toString().padStart(2, '0');
+                    return (
+                      <SelectItem key={val} value={val} className="tabular-nums">
+                        {val}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
 
-              <span className="flex items-center text-2xl font-bold">:</span>
+              <span className="flex items-center text-xl font-bold text-muted-foreground">:</span>
 
               {/* Minutes */}
-              <select
-                value={minutes}
-                onChange={(e) => setMinutes(e.target.value)}
-                disabled={isProcessing}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                {Array.from({ length: 60 }, (_, i) => i).map((m) => (
-                  <option key={m} value={m.toString().padStart(2, '0')}>
-                    {m.toString().padStart(2, '0')}
-                  </option>
-                ))}
-              </select>
+              <Select value={minutes} onValueChange={setMinutes} disabled={isProcessing}>
+                <SelectTrigger className="h-11 flex-1 rounded-xl font-semibold tabular-nums">
+                  <SelectValue placeholder="MM" />
+                </SelectTrigger>
+                <SelectContent className="max-h-56">
+                  {Array.from({ length: 60 }, (_, i) => i).map((m) => {
+                    const val = m.toString().padStart(2, '0');
+                    return (
+                      <SelectItem key={val} value={val} className="tabular-nums">
+                        {val}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
 
-              {/* AM/PM */}
-              <select
-                value={period}
-                onChange={(e) => setPeriod(e.target.value as 'AM' | 'PM')}
-                disabled={isProcessing}
-                className="flex h-10 w-24 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <option value="AM">AM</option>
-                <option value="PM">PM</option>
-              </select>
+              {/* Native Tactile AM/PM Toggle */}
+              <div className="grid h-11 grid-cols-2 rounded-xl border bg-muted/50 p-1" role="group" aria-label="AM or PM">
+                {(['AM', 'PM'] as const).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    disabled={isProcessing}
+                    onClick={() => setPeriod(p)}
+                    className={cn(
+                      'rounded-lg px-2.5 text-xs font-bold transition-all',
+                      period === p
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
             </div>
             <p className="text-xs text-muted-foreground flex items-center gap-1">
               <Clock className="h-3 w-3" />

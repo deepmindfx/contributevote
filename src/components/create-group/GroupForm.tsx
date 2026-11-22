@@ -7,8 +7,14 @@ import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 import { checkGroupCreationEligibility, createGroupWithFee } from "@/services/supabase/groupEnhancementService";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
-  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import DetailsStep, { getDetailsError } from "./DetailsStep";
 import type { GroupDetails } from "./DetailsStep";
@@ -18,7 +24,7 @@ import StepIndicator from "./StepIndicator";
 
 const FORM_STORAGE_KEY = "group_creation_form_data";
 const STEP_STORAGE_KEY = "group_creation_step";
-type GroupDraft = GroupDetails & GroupSettings & { votingThreshold: number };
+type GroupDraft = GroupDetails & GroupSettings;
 type Step = "goal" | "settings";
 
 function readDraft(): GroupDraft {
@@ -40,7 +46,7 @@ function readDraft(): GroupDraft {
     endDate: saved.endDate ?? "",
     privacy: saved.privacy === "private" ? "private" : "public",
     enableVotingRights: saved.enableVotingRights !== false,
-    votingThreshold: saved.votingThreshold || 60,
+    votingThreshold: Number(saved.votingThreshold) || 60,
   };
 }
 
@@ -59,6 +65,10 @@ export default function GroupForm() {
   const [creating, setCreating] = useState(false);
   const [showFeeConfirmation, setShowFeeConfirmation] = useState(false);
   const stepNumber = step === "goal" ? 1 : 2;
+  const freeRemaining =
+    typeof (user as any)?.groups_created_free_remaining === "number"
+      ? (user as any).groups_created_free_remaining
+      : null;
 
   useEffect(() => {
     localStorage.setItem(FORM_STORAGE_KEY, JSON.stringify(formData));
@@ -75,7 +85,7 @@ export default function GroupForm() {
   const moveToStep = (next: Step) => {
     setStep(next);
     requestAnimationFrame(() => {
-      progressHeading.current?.scrollIntoView({ block: "start" });
+      progressHeading.current?.scrollIntoView({ block: "start", behavior: "smooth" });
       progressHeading.current?.focus({ preventScroll: true });
     });
   };
@@ -107,7 +117,7 @@ export default function GroupForm() {
 
       localStorage.removeItem(FORM_STORAGE_KEY);
       localStorage.removeItem(STEP_STORAGE_KEY);
-      toast.success(result.message || "Group created.");
+      toast.success(result.message || "Group pool created.");
       await Promise.allSettled([refreshCurrentUser(), refreshContributionData()]);
       navigate(result.group_id ? "/groups/" + result.group_id : "/all-groups", { replace: true });
     } catch (error) {
@@ -149,19 +159,48 @@ export default function GroupForm() {
 
   return (
     <>
-      {creating && <BrandLoader variant="overlay" message="Creating your group" submessage="Your group page will open once it’s ready." />}
-      <Card className="group-form-shell min-w-0 rounded-[1.35rem] shadow-sm">
-        <div ref={progressHeading} tabIndex={-1} className="group-form-heading scroll-mt-20 rounded-t-[1.35rem] border-b bg-muted/40 py-3">
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm">
-            <p className="font-semibold">Step {stepNumber} of 2</p>
-            {formData.name && <p className="text-muted-foreground">Draft saved</p>}
+      {creating && (
+        <BrandLoader
+          variant="overlay"
+          message="Creating your group pool"
+          submessage="Configuring your pool rules and opening your group workspace…"
+        />
+      )}
+      <Card className="group-form-shell cp-card-native cp-page-enter min-w-0 overflow-hidden">
+        <div
+          ref={progressHeading}
+          tabIndex={-1}
+          className="group-form-heading scroll-mt-20 border-b bg-muted/35 py-3.5"
+        >
+          <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <p className="font-bold uppercase tracking-wider text-primary">
+              Step {stepNumber} of 2
+            </p>
+            {formData.name && (
+              <span className="rounded-full bg-accent px-2.5 py-0.5 font-semibold text-primary">
+                Draft auto-saved
+              </span>
+            )}
           </div>
           <StepIndicator currentStep={stepNumber} />
         </div>
         {step === "goal" ? (
-          <DetailsStep formData={formData} handleChange={update} onContinue={() => moveToStep("settings")} />
+          <DetailsStep
+            formData={formData}
+            handleChange={update}
+            onContinue={() => moveToStep("settings")}
+          />
         ) : (
-          <SettingsStep formData={formData} onPrivacyChange={(privacy) => update("privacy", privacy)} onVotingChange={(enabled) => update("enableVotingRights", enabled)} onBack={() => moveToStep("goal")} onSubmit={submit} pending={checkingFee || creating} />
+          <SettingsStep
+            formData={formData}
+            freeRemaining={freeRemaining}
+            onPrivacyChange={(privacy) => update("privacy", privacy)}
+            onVotingChange={(enabled) => update("enableVotingRights", enabled)}
+            onThresholdChange={(threshold) => update("votingThreshold", threshold)}
+            onBack={() => moveToStep("goal")}
+            onSubmit={submit}
+            pending={checkingFee || creating}
+          />
         )}
       </Card>
 
@@ -170,12 +209,14 @@ export default function GroupForm() {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm the ₦500 group fee</AlertDialogTitle>
             <AlertDialogDescription>
-              You’ve used your three free groups. Creating this group will deduct ₦500 from your wallet.
+              You’ve used your three free groups. Creating this group will deduct ₦500 from your wallet balance.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmFee}>Create group · ₦500</AlertDialogAction>
+            <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmFee} className="rounded-xl">
+              Create group · ₦500
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

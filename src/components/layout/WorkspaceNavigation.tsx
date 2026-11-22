@@ -5,7 +5,7 @@ import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext"
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { CollectiPayMark } from "@/components/ui/BrandLoader";
-import { getWorkspaceLink, workspaceLinks } from "./navigationItems";
+import { adminWorkspaceLink, getWorkspaceLink, workspaceLinks } from "./navigationItems";
 
 const mobileLinks = workspaceLinks.filter(({ mobileLabel }) => mobileLabel);
 const moneyLinks = [
@@ -17,10 +17,17 @@ const moneyLinks = [
 
 export default function WorkspaceNavigation() {
   const { pathname } = useLocation();
-  const { user } = useSupabaseUser();
+  const { user, isAdmin } = useSupabaseUser();
   const { withdrawalRequests } = useSupabaseContribution();
   const active = getWorkspaceLink(pathname);
-  const mobileActive = active?.to === "/discover" ? "/all-groups" : active?.mobileLabel ? active.to : "/dashboard";
+  const mobileActive =
+    active?.to === "/discover"
+      ? "/all-groups"
+      : active?.to === "/admin"
+      ? "/settings"
+      : "mobileLabel" in (active || {}) && (active as any)?.mobileLabel
+      ? active!.to
+      : "/dashboard";
   const pendingVotes = user ? withdrawalRequests.filter((request) => {
     const votes = Array.isArray(request.votes) ? request.votes as { user_id?: string }[] : [];
     return request.status === "pending" && !votes.some((vote) => vote?.user_id === user.id);
@@ -65,13 +72,23 @@ export default function WorkspaceNavigation() {
               to={to}
               aria-current={active?.to === to ? "page" : undefined}
               aria-label={to === "/votes" ? votesLabel : undefined}
-              className={to === "/settings" ? "workspace-settings" : undefined}
+              className={to === "/settings" && !isAdmin ? "workspace-settings" : undefined}
             >
               <Icon size={18} strokeWidth={1.85} aria-hidden="true" />
               <span>{label}</span>
               {to === "/votes" && pendingVotes > 0 && <span className="workspace-vote-count" aria-hidden="true">{votesBadge}</span>}
             </Link>
           ))}
+          {isAdmin && (
+            <Link
+              to={adminWorkspaceLink.to}
+              aria-current={active?.to === adminWorkspaceLink.to ? "page" : undefined}
+              className="workspace-settings"
+            >
+              <adminWorkspaceLink.icon size={18} strokeWidth={1.85} aria-hidden="true" />
+              <span>{adminWorkspaceLink.label}</span>
+            </Link>
+          )}
         </nav>
       </aside>
       <nav className="app-tabbar" aria-label="Mobile navigation">

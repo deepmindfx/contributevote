@@ -13,6 +13,7 @@ import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext"
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { cn } from "@/lib/utils";
 
 type Transaction = Database["public"]["Tables"]["transactions"]["Row"];
 const filters = {
@@ -165,11 +166,28 @@ export default function WalletHistory() {
         </TabsList>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
           {bankView ? (
-            <Button variant="outline" className="gap-2" disabled={refreshing} onClick={refresh}><RefreshCw size={15} className={refreshing ? "motion-safe:animate-spin" : ""} aria-hidden="true" /> Refresh</Button>
+            <Button variant="outline" className="gap-2 rounded-xl" disabled={refreshing} onClick={refresh}><RefreshCw size={15} className={refreshing ? "motion-safe:animate-spin" : ""} aria-hidden="true" /> Refresh</Button>
           ) : (
-            <select className="wallet-history-filter group-form-select" aria-label="Filter transactions" value={filter} onChange={(event) => setFilter(event.target.value as keyof typeof filters)}>
-              {Object.entries(filters).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-            </select>
+            <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter transactions">
+              {Object.entries(filters).map(([value, label]) => {
+                const active = filter === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setFilter(value as keyof typeof filters)}
+                    className={cn(
+                      "rounded-full border px-3 py-1.5 text-xs font-semibold transition-all",
+                      active
+                        ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                        : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:bg-accent hover:text-foreground"
+                    )}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
           )}
           <CurrencySelector value={currency} onChange={setCurrency} />
         </div>

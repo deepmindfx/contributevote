@@ -14,6 +14,236 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_audit_logs: {
+        Row: {
+          action: string
+          admin_id: string | null
+          created_at: string
+          id: string
+          metadata: Json
+          summary: string
+          target_id: string | null
+          target_type: string
+        }
+        Insert: {
+          action: string
+          admin_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          summary: string
+          target_id?: string | null
+          target_type: string
+        }
+        Update: {
+          action?: string
+          admin_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          summary?: string
+          target_id?: string | null
+          target_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_audit_logs_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_penalties: {
+        Row: {
+          aml_alert_id: string | null
+          amount: number
+          created_at: string
+          deducted_from_wallet: boolean
+          group_id: string | null
+          id: string
+          issued_by: string | null
+          penalty_type: string
+          reason: string
+          status: string
+          transaction_id: string | null
+          user_id: string
+          waive_note: string | null
+          waived_at: string | null
+          waived_by: string | null
+        }
+        Insert: {
+          aml_alert_id?: string | null
+          amount: number
+          created_at?: string
+          deducted_from_wallet?: boolean
+          group_id?: string | null
+          id?: string
+          issued_by?: string | null
+          penalty_type: string
+          reason: string
+          status?: string
+          transaction_id?: string | null
+          user_id: string
+          waive_note?: string | null
+          waived_at?: string | null
+          waived_by?: string | null
+        }
+        Update: {
+          aml_alert_id?: string | null
+          amount?: number
+          created_at?: string
+          deducted_from_wallet?: boolean
+          group_id?: string | null
+          id?: string
+          issued_by?: string | null
+          penalty_type?: string
+          reason?: string
+          status?: string
+          transaction_id?: string | null
+          user_id?: string
+          waive_note?: string | null
+          waived_at?: string | null
+          waived_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_penalties_aml_alert_id_fkey"
+            columns: ["aml_alert_id"]
+            isOneToOne: false
+            referencedRelation: "aml_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_penalties_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "contribution_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_penalties_issued_by_fkey"
+            columns: ["issued_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_penalties_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_penalties_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_penalties_waived_by_fkey"
+            columns: ["waived_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      aml_alerts: {
+        Row: {
+          alert_key: string | null
+          alert_type: string
+          amount: number | null
+          created_at: string
+          description: string
+          evidence: Json
+          group_id: string | null
+          id: string
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          risk_score: number
+          severity: string
+          status: string
+          title: string
+          transaction_id: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          alert_key?: string | null
+          alert_type: string
+          amount?: number | null
+          created_at?: string
+          description: string
+          evidence?: Json
+          group_id?: string | null
+          id?: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          risk_score?: number
+          severity?: string
+          status?: string
+          title: string
+          transaction_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          alert_key?: string | null
+          alert_type?: string
+          amount?: number | null
+          created_at?: string
+          description?: string
+          evidence?: Json
+          group_id?: string | null
+          id?: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          risk_score?: number
+          severity?: string
+          status?: string
+          title?: string
+          transaction_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aml_alerts_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "contribution_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aml_alerts_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aml_alerts_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aml_alerts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contribution_groups: {
         Row: {
           account_details: Json | null
@@ -732,11 +962,75 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_group_invitation: { Args: { p_token: string }; Returns: Json }
+      admin_adjust_user_wallet: {
+        Args: {
+          p_amount: number
+          p_direction: string
+          p_reason?: string
+          p_target_user_id: string
+        }
+        Returns: Json
+      }
+      admin_create_aml_alert: {
+        Args: {
+          p_amount?: number
+          p_description: string
+          p_group_id?: string
+          p_risk_score?: number
+          p_severity?: string
+          p_title: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       admin_deposit_to_user: {
         Args: {
           p_amount: number
           p_description?: string
           p_target_user_id: string
+        }
+        Returns: Json
+      }
+      admin_issue_penalty: {
+        Args: {
+          p_aml_alert_id?: string
+          p_amount: number
+          p_deduct_wallet?: boolean
+          p_group_id?: string
+          p_penalty_type: string
+          p_reason: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      admin_scan_aml_alerts: { Args: never; Returns: Json }
+      admin_update_aml_alert: {
+        Args: {
+          p_alert_id: string
+          p_resolution_note?: string
+          p_status: string
+        }
+        Returns: Json
+      }
+      admin_update_group_status: {
+        Args: {
+          p_archived?: boolean
+          p_group_id: string
+          p_reason?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
+      admin_update_user_status: {
+        Args: { p_reason?: string; p_status: string; p_user_id: string }
+        Returns: Json
+      }
+      admin_waive_penalty: {
+        Args: {
+          p_note?: string
+          p_penalty_id: string
+          p_refund_wallet?: boolean
         }
         Returns: Json
       }
@@ -759,6 +1053,10 @@ export type Database = {
           p_group_id: string
           p_user_id: string
         }
+        Returns: Json
+      }
+      create_group_invitation: {
+        Args: { p_email: string; p_group_id: string }
         Returns: Json
       }
       create_group_with_fee_check: {
@@ -806,9 +1104,6 @@ export type Database = {
         }[]
       }
       get_invitation_by_token: { Args: { p_token: string }; Returns: Json }
-      create_group_invitation: { Args: { p_group_id: string; p_email: string }; Returns: Json }
-      accept_group_invitation: { Args: { p_token: string }; Returns: Json }
-      revoke_group_invitation: { Args: { p_invitation_id: string }; Returns: boolean }
       is_admin: { Args: never; Returns: boolean }
       lookup_user_id_by_email: { Args: { p_email: string }; Returns: string }
       process_approved_withdrawal: {
@@ -831,6 +1126,10 @@ export type Database = {
       record_withdrawal_vote: {
         Args: { p_user_id: string; p_vote: boolean; p_withdrawal_id: string }
         Returns: undefined
+      }
+      revoke_group_invitation: {
+        Args: { p_invitation_id: string }
+        Returns: boolean
       }
       unarchive_group: {
         Args: { p_group_id: string; p_user_id: string }
