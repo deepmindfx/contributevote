@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import {
   ArrowRight,
+  CalendarCheck2,
   CalendarDays,
   CalendarRange,
   Check,
@@ -9,7 +10,6 @@ import {
   Clock,
   Grid2x2,
   Search,
-  Sparkles,
   Sun,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -69,8 +69,8 @@ const FREQUENCY_OPTIONS = [
   {
     value: "one-time",
     label: "One-time",
-    detail: "Flexible lump sum",
-    icon: Sparkles,
+    detail: "Single lump sum",
+    icon: CalendarCheck2,
   },
 ] as const;
 

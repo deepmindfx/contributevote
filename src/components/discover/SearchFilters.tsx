@@ -1,17 +1,15 @@
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { useEffect, useState } from "react";
+import { SlidersHorizontal, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Search, SlidersHorizontal, X } from 'lucide-react';
-import { CATEGORIES } from '@/services/supabase/groupEnhancementService';
-import CategoryIcon from '@/components/ui/CategoryIcon';
-import { DiscoverFilters, SortOption } from '@/services/supabase/discoverService';
-import { useEffect, useState } from 'react';
+} from "@/components/ui/select";
 import {
   Sheet,
   SheetContent,
@@ -19,273 +17,345 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-} from '@/components/ui/sheet';
-import { Label } from '@/components/ui/label';
+} from "@/components/ui/sheet";
+import CategoryIcon from "@/components/ui/CategoryIcon";
+import { CATEGORIES } from "@/services/supabase/groupEnhancementService";
+import { DiscoverFilters, SortOption } from "@/services/supabase/discoverService";
+import { cn } from "@/lib/utils";
 
 interface SearchFiltersProps {
   filters: DiscoverFilters;
   sortBy: SortOption;
   onFiltersChange: (filters: DiscoverFilters) => void;
   onSortChange: (sort: SortOption) => void;
-  onSearch: (query: string) => void;
 }
+
+const QUICK_CATEGORIES = [
+  "community",
+  "religious",
+  "charity",
+  "business",
+  "education",
+  "health",
+  "travel",
+  "investment",
+  "family",
+  "event",
+  "emergency",
+  "housing",
+];
+
+const FREQUENCY_CHIPS = [
+  { value: "", label: "Any" },
+  { value: "daily", label: "Daily" },
+  { value: "weekly", label: "Weekly" },
+  { value: "monthly", label: "Monthly" },
+  { value: "one-time", label: "One-time" },
+];
+
+const PROGRESS_CHIPS = [
+  { value: "", label: "Any progress" },
+  { value: "low", label: "0–25%" },
+  { value: "medium", label: "25–75%" },
+  { value: "high", label: "75–99%" },
+  { value: "complete", label: "Funded" },
+];
 
 export default function SearchFilters({
   filters,
   sortBy,
   onFiltersChange,
   onSortChange,
-  onSearch
 }: SearchFiltersProps) {
-  const [searchQuery, setSearchQuery] = useState(filters.search || '');
-  const [showFilters, setShowFilters] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [minDraft, setMinDraft] = useState(filters.minAmount ? String(filters.minAmount) : "");
+  const [maxDraft, setMaxDraft] = useState(filters.maxAmount ? String(filters.maxAmount) : "");
 
   useEffect(() => {
-    setSearchQuery(filters.search || '');
-  }, [filters.search]);
+    setMinDraft(filters.minAmount ? String(filters.minAmount) : "");
+    setMaxDraft(filters.maxAmount ? String(filters.maxAmount) : "");
+  }, [filters.minAmount, filters.maxAmount]);
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSearch(searchQuery.trim());
+  const setFilter = (key: keyof DiscoverFilters, value: any) => {
+    const next = { ...filters, [key]: value || undefined };
+    onFiltersChange(next);
   };
 
-  const handleFilterChange = (key: keyof DiscoverFilters, value: any) => {
-    onFiltersChange({ ...filters, [key]: value });
+  const clearNonSearchFilters = () => {
+    onFiltersChange(filters.search ? { search: filters.search } : {});
   };
 
-  const clearFilters = () => {
-    onFiltersChange({});
-    setSearchQuery('');
-  };
+  const secondaryFilterCount = [
+    filters.frequency,
+    filters.progress,
+    filters.minAmount,
+    filters.maxAmount,
+  ].filter(Boolean).length;
 
-  const activeFilterCount = Object.keys(filters).filter(
-    key => filters[key as keyof DiscoverFilters] && key !== 'search'
-  ).length;
+  const totalActiveFilters = secondaryFilterCount + (filters.category ? 1 : 0);
+
+  const railCategories = CATEGORIES.filter(
+    (c) => QUICK_CATEGORIES.includes(c.value) || c.value === filters.category
+  );
 
   return (
-    <div className="space-y-4">
-      {/* Search Bar */}
-      <form onSubmit={handleSearchSubmit} className="flex gap-2" role="search">
-        <div className="relative min-w-0 flex-1">
-          <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" aria-hidden="true" />
-          <Input
-            type="search"
-            aria-label="Search groups"
-            placeholder="Search groups"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-11 rounded-xl pl-10"
-          />
-        </div>
-        <Button type="submit" className="h-11 rounded-xl">Search</Button>
-      </form>
+    <div className="space-y-3">
+      {/* Horizontal Category Pill Rail */}
+      <div
+        className="-mx-1 flex items-center gap-1.5 overflow-x-auto px-1 pb-1"
+        role="tablist"
+        aria-label="Filter groups by category"
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={!filters.category}
+          onClick={() => setFilter("category", undefined)}
+          className={cn(
+            "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-semibold transition-all",
+            !filters.category
+              ? "border-primary bg-primary text-primary-foreground shadow-sm"
+              : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:bg-accent hover:text-foreground"
+          )}
+        >
+          All pools
+        </button>
 
-      {/* Filters and Sort */}
-      <div className="flex flex-wrap items-center gap-2">
-        {/* Mobile Filters Sheet */}
-        <Sheet open={showFilters} onOpenChange={setShowFilters}>
-          <SheetTrigger asChild>
-            <Button variant="outline" className="h-11 flex-1 rounded-xl sm:hidden">
-              <SlidersHorizontal className="h-4 w-4 mr-2" />
-              Filters
-              {activeFilterCount > 0 && (
-                <span className="ml-2 bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-xs">
-                  {activeFilterCount}
-                </span>
+        {railCategories.map((cat) => {
+          const active = filters.category === cat.value;
+          return (
+            <button
+              key={cat.value}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setFilter("category", active ? undefined : cat.value)}
+              className={cn(
+                "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-semibold transition-all",
+                active
+                  ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                  : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:bg-accent hover:text-foreground"
               )}
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="bottom" className="max-h-[90dvh] overflow-y-auto rounded-t-3xl pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-            <SheetHeader>
-              <SheetTitle>Filters</SheetTitle>
-              <SheetDescription>Filter by category, frequency, or funding progress.</SheetDescription>
-            </SheetHeader>
-            <div className="mt-6 space-y-4">
-              <FilterControls 
-                filters={filters} 
-                onFilterChange={handleFilterChange}
+            >
+              <CategoryIcon
+                category={cat.value}
+                size={14}
+                className={active ? "text-primary-foreground" : "text-primary"}
               />
-              <Button 
-                variant="outline" 
-                className="h-11 w-full"
-                onClick={clearFilters}
-              >
-                <X className="h-4 w-4 mr-2" />
-                Clear Filters
-              </Button>
-              <Button className="h-11 w-full" onClick={() => setShowFilters(false)}>Show results</Button>
-            </div>
-          </SheetContent>
-        </Sheet>
+              {cat.label}
+            </button>
+          );
+        })}
+      </div>
 
-        {/* Desktop Filters */}
-        <div className="hidden sm:flex gap-3 flex-wrap flex-1">
-          <Select
-            value={filters.category || 'all'}
-            onValueChange={(value) => handleFilterChange('category', value === 'all' ? undefined : value)}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              {CATEGORIES.map((cat) => (
-                <SelectItem key={cat.value} value={cat.value}>
-                  <span className="inline-flex items-center gap-2">
-                    <CategoryIcon category={cat.value} size={14} className="text-primary" />
-                    {cat.label}
+      {/* Compact Action Strip: Refine Sheet + Sort + Clear */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="sm" className="h-10 gap-2 rounded-xl font-semibold">
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                Refine
+                {secondaryFilterCount > 0 && (
+                  <span className="grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-primary-foreground tabular-nums">
+                    {secondaryFilterCount}
                   </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+                )}
+              </Button>
+            </SheetTrigger>
 
-          <Select
-            value={filters.frequency || 'all'}
-            onValueChange={(value) => handleFilterChange('frequency', value === 'all' ? undefined : value)}
-          >
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Frequency" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Frequencies</SelectItem>
-              <SelectItem value="daily">Daily</SelectItem>
-              <SelectItem value="weekly">Weekly</SelectItem>
-              <SelectItem value="monthly">Monthly</SelectItem>
-              <SelectItem value="quarterly">Quarterly</SelectItem>
-              <SelectItem value="yearly">Yearly</SelectItem>
-              <SelectItem value="one-time">One-time</SelectItem>
-            </SelectContent>
-          </Select>
+            <SheetContent
+              side="bottom"
+              className="mx-auto max-h-[88dvh] max-w-xl overflow-y-auto rounded-t-3xl pb-[max(1.5rem,env(safe-area-inset-bottom))]"
+            >
+              <SheetHeader className="text-left">
+                <SheetTitle>Refine public groups</SheetTitle>
+                <SheetDescription>
+                  Narrow pools by category, schedule, progress, or goal size.
+                </SheetDescription>
+              </SheetHeader>
 
-          <Select
-            value={filters.progress || 'all'}
-            onValueChange={(value) => handleFilterChange('progress', value === 'all' ? undefined : value)}
-          >
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Progress" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Progress</SelectItem>
-              <SelectItem value="low">0-25%</SelectItem>
-              <SelectItem value="medium">25-75%</SelectItem>
-              <SelectItem value="high">75-100%</SelectItem>
-              <SelectItem value="complete">Completed</SelectItem>
-            </SelectContent>
-          </Select>
+              <div className="mt-5 space-y-5">
+                {/* Full 19 Categories Grid */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Category
+                  </Label>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setFilter("category", undefined)}
+                      className={cn(
+                        "rounded-full border px-3 py-1.5 text-xs font-semibold",
+                        !filters.category
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "bg-muted/40 text-muted-foreground hover:bg-accent"
+                      )}
+                    >
+                      All
+                    </button>
+                    {CATEGORIES.map((cat) => {
+                      const active = filters.category === cat.value;
+                      return (
+                        <button
+                          key={cat.value}
+                          type="button"
+                          onClick={() => setFilter("category", active ? undefined : cat.value)}
+                          className={cn(
+                            "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold",
+                            active
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "bg-muted/40 text-muted-foreground hover:bg-accent"
+                          )}
+                        >
+                          <CategoryIcon
+                            category={cat.value}
+                            size={13}
+                            className={active ? "text-primary-foreground" : "text-primary"}
+                          />
+                          {cat.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
-          {activeFilterCount > 0 && (
-            <Button variant="ghost" size="sm" onClick={clearFilters}>
-              <X className="h-4 w-4 mr-2" />
-              Clear ({activeFilterCount})
+                {/* Frequency Chips */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Contribution Frequency
+                  </Label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {FREQUENCY_CHIPS.map((item) => {
+                      const active = (filters.frequency || "") === item.value;
+                      return (
+                        <button
+                          key={item.label}
+                          type="button"
+                          onClick={() => setFilter("frequency", item.value || undefined)}
+                          className={cn(
+                            "rounded-full border px-3 py-1.5 text-xs font-semibold",
+                            active
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "bg-muted/40 text-muted-foreground hover:bg-accent"
+                          )}
+                        >
+                          {item.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Funding Progress Chips */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Funding Progress
+                  </Label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {PROGRESS_CHIPS.map((item) => {
+                      const active = (filters.progress || "") === item.value;
+                      return (
+                        <button
+                          key={item.label}
+                          type="button"
+                          onClick={() => setFilter("progress", item.value || undefined)}
+                          className={cn(
+                            "rounded-full border px-3 py-1.5 text-xs font-semibold",
+                            active
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "bg-muted/40 text-muted-foreground hover:bg-accent"
+                          )}
+                        >
+                          {item.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Target Goal Range */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Target Goal Range (₦)
+                  </Label>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      placeholder="Min (e.g. 50,000)"
+                      value={minDraft}
+                      onChange={(e) => {
+                        setMinDraft(e.target.value);
+                        setFilter("minAmount", e.target.value ? Number(e.target.value) : undefined);
+                      }}
+                      className="h-11 rounded-xl tabular-nums"
+                    />
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      placeholder="Max (e.g. 5,000,000)"
+                      value={maxDraft}
+                      onChange={(e) => {
+                        setMaxDraft(e.target.value);
+                        setFilter("maxAmount", e.target.value ? Number(e.target.value) : undefined);
+                      }}
+                      className="h-11 rounded-xl tabular-nums"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2.5 pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={clearNonSearchFilters}
+                    className="h-11 rounded-xl"
+                  >
+                    Reset
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => setSheetOpen(false)}
+                    className="h-11 rounded-xl font-semibold"
+                  >
+                    Show pools
+                  </Button>
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
+
+          {totalActiveFilters > 0 && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={clearNonSearchFilters}
+              className="h-10 gap-1 rounded-xl text-xs text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-3.5 w-3.5" />
+              Clear filters
             </Button>
           )}
         </div>
 
-        {/* Sort */}
-        <Select value={sortBy} onValueChange={(value) => onSortChange(value as SortOption)}>
-          <SelectTrigger className="h-11 min-w-0 flex-1 rounded-xl sm:max-w-[180px]" aria-label="Sort groups">
+        {/* Clean Sort Selector */}
+        <Select value={sortBy} onValueChange={(v) => onSortChange(v as SortOption)}>
+          <SelectTrigger
+            className="h-10 w-[165px] rounded-xl text-xs font-semibold"
+            aria-label="Sort public pools"
+          >
             <SelectValue placeholder="Sort by" />
           </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="newest">Newest First</SelectItem>
-            <SelectItem value="most_funded">Most Funded</SelectItem>
-            <SelectItem value="ending_soon">Ending Soon</SelectItem>
-            <SelectItem value="alphabetical">A-Z</SelectItem>
+          <SelectContent className="rounded-xl">
+            <SelectItem value="newest">Newest first</SelectItem>
+            <SelectItem value="most_funded">Most funded</SelectItem>
+            <SelectItem value="ending_soon">Ending soon</SelectItem>
+            <SelectItem value="alphabetical">A to Z</SelectItem>
           </SelectContent>
         </Select>
       </div>
     </div>
-  );
-}
-
-// Separate component for filter controls (used in both mobile and desktop)
-function FilterControls({ 
-  filters, 
-  onFilterChange 
-}: { 
-  filters: DiscoverFilters; 
-  onFilterChange: (key: keyof DiscoverFilters, value: any) => void;
-}) {
-  return (
-    <>
-      <div className="space-y-2">
-        <Label>Category</Label>
-        <Select
-          value={filters.category || 'all'}
-          onValueChange={(value) => onFilterChange('category', value === 'all' ? undefined : value)}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="All Categories" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
-            {CATEGORIES.map((cat) => (
-              <SelectItem key={cat.value} value={cat.value}>
-                {cat.icon} {cat.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="space-y-2">
-        <Label>Frequency</Label>
-        <Select
-          value={filters.frequency || 'all'}
-          onValueChange={(value) => onFilterChange('frequency', value === 'all' ? undefined : value)}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="All Frequencies" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Frequencies</SelectItem>
-            <SelectItem value="daily">Daily</SelectItem>
-            <SelectItem value="weekly">Weekly</SelectItem>
-            <SelectItem value="monthly">Monthly</SelectItem>
-            <SelectItem value="quarterly">Quarterly</SelectItem>
-            <SelectItem value="yearly">Yearly</SelectItem>
-            <SelectItem value="one-time">One-time</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="space-y-2">
-        <Label>Progress</Label>
-        <Select
-          value={filters.progress || 'all'}
-          onValueChange={(value) => onFilterChange('progress', value === 'all' ? undefined : value)}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="All Progress" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Progress</SelectItem>
-            <SelectItem value="low">0-25%</SelectItem>
-            <SelectItem value="medium">25-75%</SelectItem>
-            <SelectItem value="high">75-100%</SelectItem>
-            <SelectItem value="complete">Completed</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="space-y-2">
-        <Label>Target Amount Range</Label>
-        <div className="grid grid-cols-2 gap-2">
-          <Input
-            type="number"
-            placeholder="Min"
-            value={filters.minAmount || ''}
-            onChange={(e) => onFilterChange('minAmount', e.target.value ? Number(e.target.value) : undefined)}
-          />
-          <Input
-            type="number"
-            placeholder="Max"
-            value={filters.maxAmount || ''}
-            onChange={(e) => onFilterChange('maxAmount', e.target.value ? Number(e.target.value) : undefined)}
-          />
-        </div>
-      </div>
-    </>
   );
 }

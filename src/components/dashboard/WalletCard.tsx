@@ -35,7 +35,6 @@ export default function WalletCard({ onOpenBankAccount, isDepositOpen, setIsDepo
         <p className="break-words text-[clamp(1.875rem,7.6vw,3.3rem)] font-semibold leading-tight tracking-[-.06em] tabular-nums">
           {showBalance ? balance : `${currencyType === "NGN" ? "₦" : "$"}•••••••`}
         </p>
-        {currencyType === "USD" && showBalance && <p className="mt-1 text-sm text-white/80">Approximate USD equivalent</p>}
       </div>
       <CardContent className="dashboard-wallet-content p-0">
         <WalletActions isDepositOpen={isDepositOpen} setIsDepositOpen={setIsDepositOpen} onOpenBankAccount={onOpenBankAccount} showQuickActions />

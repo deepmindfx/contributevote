@@ -1,12 +1,26 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ArrowDownLeft, ArrowUpRight, ChevronRight, RefreshCw, Vote } from "lucide-react";
+import {
+  ArrowDownLeft,
+  ArrowLeft,
+  ArrowUpRight,
+  Building2,
+  ChevronRight,
+  ReceiptText,
+  RefreshCw,
+  Search,
+  Vote,
+  Wallet,
+  X,
+} from "lucide-react";
+import { format, isToday, isYesterday } from "date-fns";
+import Header from "@/components/layout/Header";
+import BrandLoader from "@/components/ui/BrandLoader";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CurrencySelector } from "@/components/wallet/CurrencySelector";
-import { WalletFlow } from "@/components/wallet/WalletFlow";
 import CollectiPayReceipt from "@/components/receipt/CollectiPayReceipt";
 import type { CollectiPayReceiptData } from "@/components/receipt/CollectiPayReceipt";
 import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
@@ -16,17 +30,25 @@ import type { Database } from "@/integrations/supabase/types";
 import { cn } from "@/lib/utils";
 
 type Transaction = Database["public"]["Tables"]["transactions"]["Row"];
+
 const filters = {
-  all: "All transactions",
+  all: "All",
   deposit: "Deposits",
-  transfer: "Bank transfers",
+  transfer: "Transfers",
   contribution: "Contributions",
   withdrawal: "Withdrawals",
   refund: "Refunds",
   vote: "Votes",
 } as const;
+
 const transactionTypes: Record<string, string> = {
-  deposit: "Wallet deposit", transfer: "Bank transfer", contribution: "Group contribution", withdrawal: "Withdrawal", refund: "Group refund", vote: "Vote",
+  deposit: "Wallet deposit",
+  transfer: "Bank transfer",
+  contribution: "Group contribution",
+  withdrawal: "Withdrawal",
+  refund: "Group refund",
+  payment: "Payment",
+  vote: "Governance vote",
 };
 
 const metadata = (transaction: Transaction) => (transaction.metadata || {}) as Record<string, unknown>;
@@ -37,13 +59,26 @@ const metaText = (meta: Record<string, unknown>, ...keys: string[]) => {
   return undefined;
 };
 
-const dateFormat = new Intl.DateTimeFormat("en-NG", { day: "numeric", month: "short", year: "numeric" });
-const dateLabel = (value: string) => {
-  const parsed = new Date(value);
-  return Number.isFinite(parsed.getTime()) ? dateFormat.format(parsed) : "Date unavailable";
-};
 const displayAmount = (value: number, currency: "NGN" | "USD") =>
-  new Intl.NumberFormat("en-NG", { style: "currency", currency, currencyDisplay: "narrowSymbol" }).format(currency === "NGN" ? value : value / 1550);
+  new Intl.NumberFormat("en-NG", {
+    style: "currency",
+    currency,
+    currencyDisplay: "narrowSymbol",
+    maximumFractionDigits: currency === "NGN" ? 0 : 2,
+  }).format(currency === "NGN" ? value : value / 1550);
+
+const formatGroupDay = (iso: string) => {
+  const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return "Earlier";
+  if (isToday(d)) return "Today";
+  if (isYesterday(d)) return "Yesterday";
+  return format(d, "d MMM yyyy");
+};
+
+const formatTime = (iso: string) => {
+  const d = new Date(iso);
+  return Number.isFinite(d.getTime()) ? format(d, "h:mm a") : "";
+};
 
 export default function WalletHistory() {
   const [search, setSearch] = useSearchParams();
@@ -53,60 +88,160 @@ export default function WalletHistory() {
   const [refreshing, setRefreshing] = useState(false);
   const [currency, setCurrency] = useState<"NGN" | "USD">("NGN");
   const [filter, setFilter] = useState<keyof typeof filters>("all");
+  const [query, setQuery] = useState("");
   const [groupNames, setGroupNames] = useState<Record<string, string>>({});
   const [selected, setSelected] = useState<CollectiPayReceiptData | null>(null);
+
   const virtualAccount = (user?.preferences as { virtualAccount?: unknown } | null)?.virtualAccount;
   const userId = user?.id;
 
   useEffect(() => {
-    const ids = [...new Set(transactions.flatMap((item) => (
-      item.user_id === userId && item.contribution_id ? [item.contribution_id] : []
-    )))];
+    const ids = [
+      ...new Set(
+        transactions.flatMap((item) =>
+          item.user_id === userId && item.contribution_id ? [item.contribution_id] : []
+        )
+      ),
+    ];
     if (ids.length === 0) return;
     let active = true;
-    void Promise.resolve(supabase.from("contribution_groups").select("id, name").in("id", ids)).then(({ data }) => {
-      if (active && data) setGroupNames(Object.fromEntries(data.map(({ id, name }) => [id, name])));
-    });
-    return () => { active = false; };
+    void Promise.resolve(supabase.from("contribution_groups").select("id, name").in("id", ids)).then(
+      ({ data }) => {
+        if (active && data) {
+          setGroupNames(Object.fromEntries(data.map(({ id, name }) => [id, name])));
+        }
+      }
+    );
+    return () => {
+      active = false;
+    };
   }, [transactions, userId]);
 
-  const groupName = (id: string | null) => id ? contributions.find((group) => group.id === id)?.name || groupNames[id] : undefined;
-  const seen = new Set<string>();
-  const rows = transactions.filter((transaction) => {
-    if (transaction.user_id !== userId) return false;
-    if (bankView) {
-      if (transaction.type !== "deposit" || transaction.payment_method !== "bank_transfer") return false;
-    } else if (filter !== "all" && transaction.type !== filter) return false;
-    const meta = metadata(transaction);
-    const paymentDetails = meta.paymentDetails as { transactionId?: string } | undefined;
-    const reference = metaText(meta, "paymentReference", "transactionReference") || paymentDetails?.transactionId || transaction.id;
-    if (seen.has(reference)) return false;
-    seen.add(reference);
-    return true;
-  }).sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+  const groupName = (id: string | null) =>
+    id ? contributions.find((group) => group.id === id)?.name || groupNames[id] : undefined;
+
+  // Deduplicated personal ledger
+  const userLedger = useMemo(() => {
+    const seen = new Set<string>();
+    return transactions
+      .filter((tx) => {
+        if (tx.user_id !== userId) return false;
+        const meta = metadata(tx);
+        const paymentDetails = meta.paymentDetails as { transactionId?: string } | undefined;
+        const reference =
+          metaText(meta, "paymentReference", "transactionReference") ||
+          paymentDetails?.transactionId ||
+          tx.id;
+        if (seen.has(reference)) return false;
+        seen.add(reference);
+        return true;
+      })
+      .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+  }, [transactions, userId]);
+
+  // Hero inflow / outflow metrics
+  const { totalInflow, totalOutflow } = useMemo(() => {
+    return userLedger.reduce(
+      (acc, tx) => {
+        if (tx.type === "vote" || tx.status === "failed") return acc;
+        const amt = Number(tx.amount || 0);
+        if (tx.type === "deposit" || tx.type === "refund") acc.totalInflow += amt;
+        else acc.totalOutflow += amt;
+        return acc;
+      },
+      { totalInflow: 0, totalOutflow: 0 }
+    );
+  }, [userLedger]);
+
+  // Filtered rows
+  const rows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return userLedger.filter((tx) => {
+      if (bankView) {
+        if (tx.type !== "deposit" || tx.payment_method !== "bank_transfer") return false;
+      } else if (filter !== "all" && tx.type !== filter) {
+        return false;
+      }
+      if (!q) return true;
+      const pool = groupName(tx.contribution_id)?.toLowerCase() || "";
+      const title = (transactionTypes[tx.type] || "").toLowerCase();
+      return (
+        pool.includes(q) ||
+        title.includes(q) ||
+        (tx.description || "").toLowerCase().includes(q) ||
+        (tx.reference_id || "").toLowerCase().includes(q)
+      );
+    });
+  }, [userLedger, bankView, filter, query, contributions, groupNames]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Date-grouped sections for effortless scanning
+  const groupedSections = useMemo(() => {
+    const groups: { label: string; items: Transaction[] }[] = [];
+    for (const tx of rows) {
+      const label = formatGroupDay(tx.created_at);
+      const last = groups[groups.length - 1];
+      if (last && last.label === label) {
+        last.items.push(tx);
+      } else {
+        groups.push({ label, items: [tx] });
+      }
+    }
+    return groups;
+  }, [rows]);
 
   const openReceipt = (transaction: Transaction) => {
     const meta = metadata(transaction);
     const type = transaction.type;
-    const kind = type === "deposit" || type === "withdrawal" || type === "refund" || type === "contribution" ? type : "transfer";
+    const kind =
+      type === "deposit" || type === "withdrawal" || type === "refund" || type === "contribution"
+        ? type
+        : "transfer";
     const title = transactionTypes[type];
     const pool = groupName(transaction.contribution_id);
-    const sender = type === "deposit" ? metaText(meta, "senderName") || "Bank transfer" : user?.name || user?.email;
+    const sender =
+      type === "deposit"
+        ? metaText(meta, "senderName") || "Bank transfer"
+        : user?.name || user?.email;
     const recipient = metaText(meta, "recipientName", "account_name");
     const fee = Number(meta.fee);
+
     setSelected({
-      kind, title, amount: Number(transaction.amount), date: transaction.created_at, status: transaction.status,
+      kind,
+      title,
+      amount: Number(transaction.amount),
+      date: transaction.created_at,
+      status: transaction.status,
       fee: Number.isFinite(fee) ? fee : undefined,
       reference: metaText(meta, "transactionReference") || transaction.reference_id || transaction.id,
       transactionId: transaction.id,
       groupName: pool,
       narration: transaction.description || metaText(meta, "narration"),
-      paymentMethod: (metaText(meta, "paymentMethod") || transaction.payment_method)?.replace(/_/g, " "),
-      balanceBefore: transaction.balance_before ?? (meta.balance_before != null ? Number(meta.balance_before) : undefined),
-      balanceAfter: transaction.balance_after ?? (meta.balance_after != null ? Number(meta.balance_after) : undefined),
-      sender: sender ? { label: "From", name: sender, bankName: type === "deposit" ? metaText(meta, "senderBank", "bankName") : undefined } : undefined,
-      recipient: pool ? { label: type === "refund" ? "Group" : "To pool", name: pool } : recipient
-        ? { label: "To", name: recipient, bankName: metaText(meta, "bankName", "bank_name"), subtitle: metaText(meta, "accountNumber", "account_number") }
+      paymentMethod: (metaText(meta, "paymentMethod") || transaction.payment_method)?.replace(
+        /_/g,
+        " "
+      ),
+      balanceBefore:
+        transaction.balance_before ??
+        (meta.balance_before != null ? Number(meta.balance_before) : undefined),
+      balanceAfter:
+        transaction.balance_after ??
+        (meta.balance_after != null ? Number(meta.balance_after) : undefined),
+      sender: sender
+        ? {
+            label: "From",
+            name: sender,
+            bankName: type === "deposit" ? metaText(meta, "senderBank", "bankName") : undefined,
+          }
+        : undefined,
+      recipient: pool
+        ? { label: type === "refund" ? "Group" : "To pool", name: pool }
+        : recipient
+        ? {
+            label: "To",
+            name: recipient,
+            bankName: metaText(meta, "bankName", "bank_name"),
+            subtitle: metaText(meta, "accountNumber", "account_number"),
+          }
         : undefined,
     });
   };
@@ -120,87 +255,308 @@ export default function WalletHistory() {
     }
   };
 
-  const transactionList = (
-    <Card className="mt-3 rounded-2xl">
-      {rows.length ? (
-        <ul className="divide-y">
-          {rows.map((transaction) => {
-            const credit = transaction.type === "deposit" || transaction.type === "refund";
-            const vote = transaction.type === "vote";
-            const Icon = credit ? ArrowDownLeft : vote ? Vote : ArrowUpRight;
-            const title = transactionTypes[transaction.type] || "Transaction";
-            const pool = groupName(transaction.contribution_id);
-            const status = transaction.status?.toLowerCase();
-            return (
-              <li key={transaction.id}>
-                <button type="button" className="wallet-history-row hover:bg-muted/45 focus-visible:bg-muted/55" onClick={() => openReceipt(transaction)}>
-                  <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${credit ? "bg-accent text-primary" : "bg-muted text-foreground"}`}><Icon size={18} aria-hidden="true" /></span>
-                  <span className="min-w-0">
-                    <span className="block break-words text-sm font-semibold [overflow-wrap:anywhere]">{pool && transaction.type === "contribution" ? pool : title}</span>
-                    <span className="block text-xs text-muted-foreground">{dateLabel(transaction.created_at)}{status && status !== "completed" && status !== "successful" && <span className="capitalize"> · {status}</span>}</span>
-                  </span>
-                  <span className={`min-w-0 break-words text-right text-sm font-semibold tabular-nums [overflow-wrap:anywhere] ${credit ? "text-primary" : ""}`}>
-                    {!vote && transaction.amount > 0 ? `${credit ? "+" : "−"}${displayAmount(transaction.amount, currency)}` : <ChevronRight size={16} className="ml-auto text-muted-foreground" aria-hidden="true" />}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      ) : (
-        <div className="space-y-3 p-5 text-center text-sm text-muted-foreground">
-          <p role="status">{loading ? "Loading transactions…" : bankView ? "No bank deposits yet." : "No transactions match this view."}</p>
-          {bankView && !virtualAccount && !loading && <Button asChild variant="outline"><Link to="/dashboard?wallet=bank">Set up bank account</Link></Button>}
-          {!bankView && filter !== "all" && !loading && <Button variant="ghost" onClick={() => setFilter("all")}>Clear filter</Button>}
-        </div>
-      )}
-    </Card>
-  );
-
   return (
-    <WalletFlow title="Wallet history" wide>
-      <Tabs value={bankView ? "bank" : "wallet"} onValueChange={(value) => setSearch(value === "bank" ? { view: "bank" } : {}, { replace: true })}>
-        <TabsList className="app-segmented grid w-full grid-cols-2" aria-label="Wallet history sections">
-          <TabsTrigger value="wallet">Wallet</TabsTrigger>
-          <TabsTrigger value="bank">Bank deposits</TabsTrigger>
-        </TabsList>
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-          {bankView ? (
-            <Button variant="outline" className="gap-2 rounded-xl" disabled={refreshing} onClick={refresh}><RefreshCw size={15} className={refreshing ? "motion-safe:animate-spin" : ""} aria-hidden="true" /> Refresh</Button>
+    <div className="min-h-dvh bg-background">
+      <Header mobilePanel />
+
+      <main className="app-page app-panel-page cp-page-enter max-w-3xl">
+        {/* Deep-Emerald Wallet Ledger Hero */}
+        <section className="app-panel-hero" aria-labelledby="wallet-history-title">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Button asChild variant="ghost" className="group-detail-back gap-1.5 px-0">
+              <Link to="/dashboard">
+                <ArrowLeft size={16} aria-hidden="true" />
+                Wallet
+              </Link>
+            </Button>
+
+            <div className="flex items-center gap-2">
+              <CurrencySelector value={currency} onChange={setCurrency} onDark />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                disabled={refreshing}
+                onClick={refresh}
+                aria-label="Refresh wallet history"
+                className="app-panel-secondary h-10 w-10 rounded-xl"
+              >
+                <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
+              </Button>
+            </div>
+          </div>
+
+          <h1 id="wallet-history-title" className="app-page-title mt-3">
+            Wallet history
+          </h1>
+          <p className="panel-kicker mt-1 text-sm">
+            Tap any entry to view, download, or share its verified CollectiPay receipt.
+          </p>
+
+          {/* 3-Column Financial Strip */}
+          <div className="mt-5 grid grid-cols-3 gap-2.5">
+            <div className="rounded-2xl border border-white/15 bg-white/[0.08] p-3.5 backdrop-blur-sm">
+              <span className="block text-[11px] text-[#c3e4d4]">Money in</span>
+              <span className="mt-1 block truncate text-base font-extrabold tabular-nums text-[#dbf5b4] sm:text-xl">
+                +{displayAmount(totalInflow, currency)}
+              </span>
+            </div>
+            <div className="rounded-2xl border border-white/15 bg-white/[0.08] p-3.5 backdrop-blur-sm">
+              <span className="block text-[11px] text-[#c3e4d4]">Money out</span>
+              <span className="mt-1 block truncate text-base font-extrabold tabular-nums text-white sm:text-xl">
+                −{displayAmount(totalOutflow, currency)}
+              </span>
+            </div>
+            <div className="rounded-2xl border border-white/15 bg-white/[0.08] p-3.5 backdrop-blur-sm">
+              <span className="block text-[11px] text-[#c3e4d4]">Balance</span>
+              <span className="mt-1 block truncate text-base font-extrabold tabular-nums text-white sm:text-xl">
+                {displayAmount(Number(user?.wallet_balance || 0), currency)}
+              </span>
+            </div>
+          </div>
+        </section>
+
+        {/* Overlapping Sheet Body */}
+        <div className="app-panel-body space-y-4">
+          <Tabs
+            value={bankView ? "bank" : "wallet"}
+            onValueChange={(value) =>
+              setSearch(value === "bank" ? { view: "bank" } : {}, { replace: true })
+            }
+          >
+            <TabsList
+              className="app-segmented grid w-full grid-cols-2 bg-muted/60 p-1"
+              aria-label="Wallet history view"
+            >
+              <TabsTrigger value="wallet" className="gap-1.5">
+                <Wallet className="h-4 w-4" />
+                <span>All Wallet</span>
+              </TabsTrigger>
+              <TabsTrigger value="bank" className="gap-1.5">
+                <Building2 className="h-4 w-4" />
+                <span>Bank Deposits</span>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          {/* Clean Search + Pill Filters */}
+          <div className="space-y-2.5">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search by pool, reference, or note…"
+                className="h-11 rounded-xl bg-card pl-10 pr-9"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery("")}
+                  aria-label="Clear search"
+                  className="absolute right-2.5 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-lg text-muted-foreground hover:bg-muted"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+
+            {!bankView && (
+              <div
+                className="-mx-1 flex items-center gap-1.5 overflow-x-auto px-1 pb-1"
+                role="group"
+                aria-label="Filter transactions"
+              >
+                {Object.entries(filters).map(([value, label]) => {
+                  const active = filter === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setFilter(value as keyof typeof filters)}
+                      className={cn(
+                        "shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all",
+                        active
+                          ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                          : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:bg-accent hover:text-foreground"
+                      )}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Date-Grouped Clean Ledger */}
+          {loading && userLedger.length === 0 ? (
+            <BrandLoader
+              variant="page"
+              message="Loading wallet history"
+              submessage="Fetching your deposits, transfers, and pool receipts…"
+            />
+          ) : groupedSections.length === 0 ? (
+            <div className="cp-card-native flex flex-col items-center justify-center px-6 py-14 text-center">
+              <span className="grid h-14 w-14 place-items-center rounded-2xl bg-accent text-primary">
+                <ReceiptText className="h-6 w-6" />
+              </span>
+              <h2 className="mt-4 text-base font-bold text-foreground">
+                {bankView ? "No bank deposits yet" : "No transactions found"}
+              </h2>
+              <p className="mt-1 max-w-xs text-xs text-muted-foreground">
+                {bankView
+                  ? "Transfers to your personal CollectiPay virtual account appear here automatically."
+                  : "Try clearing your search or filter, or fund your wallet to get started."}
+              </p>
+              <div className="mt-5 flex flex-wrap justify-center gap-2">
+                {bankView && !virtualAccount ? (
+                  <Button asChild className="h-10 rounded-xl">
+                    <Link to="/dashboard?wallet=bank">Set up bank account</Link>
+                  </Button>
+                ) : (
+                  (filter !== "all" || query) && (
+                    <Button
+                      variant="outline"
+                      className="h-10 rounded-xl"
+                      onClick={() => {
+                        setFilter("all");
+                        setQuery("");
+                      }}
+                    >
+                      Clear filters
+                    </Button>
+                  )
+                )}
+              </div>
+            </div>
           ) : (
-            <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter transactions">
-              {Object.entries(filters).map(([value, label]) => {
-                const active = filter === value;
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setFilter(value as keyof typeof filters)}
-                    className={cn(
-                      "rounded-full border px-3 py-1.5 text-xs font-semibold transition-all",
-                      active
-                        ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                        : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:bg-accent hover:text-foreground"
-                    )}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
+            <div className="space-y-4">
+              {groupedSections.map((section) => (
+                <section key={section.label} className="space-y-2">
+                  <h2 className="px-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    {section.label}
+                  </h2>
+
+                  <div className="cp-card-native divide-y divide-border/70 overflow-hidden">
+                    {section.items.map((tx) => {
+                      const credit = tx.type === "deposit" || tx.type === "refund";
+                      const vote = tx.type === "vote";
+                      const Icon = credit ? ArrowDownLeft : vote ? Vote : ArrowUpRight;
+                      const pool = groupName(tx.contribution_id);
+                      const meta = metadata(tx);
+                      const isPenalty = meta.category === "admin_penalty";
+                      const primaryTitle = isPenalty
+                        ? "Compliance penalty"
+                        : pool && tx.type === "contribution"
+                        ? pool
+                        : transactionTypes[tx.type] || "Transaction";
+                      const subtitleParts = [
+                        formatTime(tx.created_at),
+                        pool && tx.type !== "contribution" ? pool : null,
+                        tx.type === "transfer" ? metaText(meta, "recipientName", "bankName") : null,
+                        tx.type === "deposit" ? metaText(meta, "senderName") : null,
+                      ].filter(Boolean);
+                      const status = tx.status?.toLowerCase();
+                      const showStatusBadge =
+                        status && status !== "completed" && status !== "successful";
+
+                      return (
+                        <button
+                          key={tx.id}
+                          type="button"
+                          onClick={() => openReceipt(tx)}
+                          className="group flex w-full items-center gap-3.5 px-4 py-3.5 text-left transition-colors hover:bg-muted/45 focus-visible:bg-muted/55 focus-visible:outline-none"
+                        >
+                          <span
+                            className={cn(
+                              "grid h-10 w-10 shrink-0 place-items-center rounded-xl",
+                              credit
+                                ? "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
+                                : vote
+                                ? "bg-accent text-primary"
+                                : "bg-muted text-foreground"
+                            )}
+                          >
+                            <Icon size={18} aria-hidden="true" />
+                          </span>
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="truncate text-sm font-bold text-foreground">
+                                {primaryTitle}
+                              </span>
+                              {showStatusBadge && (
+                                <span
+                                  className={cn(
+                                    "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold capitalize",
+                                    status === "failed"
+                                      ? "bg-destructive/12 text-destructive"
+                                      : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                                  )}
+                                >
+                                  {status}
+                                </span>
+                              )}
+                            </div>
+                            <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                              {subtitleParts.join(" · ")}
+                            </span>
+                          </div>
+
+                          <div className="flex shrink-0 items-center gap-1.5 text-right">
+                            {!vote && Number(tx.amount || 0) > 0 ? (
+                              <span
+                                className={cn(
+                                  "text-sm font-extrabold tabular-nums",
+                                  credit
+                                    ? "text-emerald-700 dark:text-emerald-300"
+                                    : "text-foreground"
+                                )}
+                              >
+                                {credit ? "+" : "−"}
+                                {displayAmount(Number(tx.amount), currency)}
+                              </span>
+                            ) : (
+                              <span className="text-xs font-semibold text-primary">Receipt</span>
+                            )}
+                            <ChevronRight
+                              size={15}
+                              className="text-muted-foreground/50 transition-transform group-hover:translate-x-0.5 group-hover:text-primary"
+                              aria-hidden="true"
+                            />
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
             </div>
           )}
-          <CurrencySelector value={currency} onChange={setCurrency} />
         </div>
-        {currency === "USD" && <p className="mt-2 text-xs text-muted-foreground">Approximate USD amounts</p>}
-        <TabsContent value="wallet">{!bankView && transactionList}</TabsContent>
-        <TabsContent value="bank">{bankView && transactionList}</TabsContent>
-      </Tabs>
-      <Dialog open={selected !== null} onOpenChange={(open) => { if (!open) setSelected(null); }}>
+      </main>
+
+      <Dialog
+        open={selected !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelected(null);
+        }}
+      >
         <DialogContent className="max-h-[92dvh] max-w-md border-none bg-transparent p-2 shadow-none sm:p-4">
-          <DialogHeader className="sr-only"><DialogTitle>Transaction receipt</DialogTitle><DialogDescription>Wallet transaction details.</DialogDescription></DialogHeader>
-          {selected && <CollectiPayReceipt data={selected} onDone={() => setSelected(null)} doneLabel="Close receipt" />}
+          <DialogHeader className="sr-only">
+            <DialogTitle>Transaction receipt</DialogTitle>
+            <DialogDescription>Verified CollectiPay wallet transaction receipt.</DialogDescription>
+          </DialogHeader>
+          {selected && (
+            <CollectiPayReceipt
+              data={selected}
+              onDone={() => setSelected(null)}
+              doneLabel="Close receipt"
+            />
+          )}
         </DialogContent>
       </Dialog>
-    </WalletFlow>
+    </div>
   );
 }

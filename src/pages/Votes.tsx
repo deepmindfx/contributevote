@@ -1,22 +1,36 @@
-
 import { useState, useEffect, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft, ThumbsUp, ThumbsDown, Clock, Users, CheckCircle2, XCircle, Activity, Wallet, AlertCircle, ChevronLeft, ChevronRight, Filter } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
-import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
-import { Badge } from "@/components/ui/badge";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  AlertCircle,
+  ArrowLeft,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  ExternalLink,
+  History,
+  ShieldCheck,
+  ThumbsDown,
+  ThumbsUp,
+  Users,
+  Vote,
+  Wallet,
+  XCircle,
+} from "lucide-react";
 import { format, isValid } from "date-fns";
+import { toast } from "sonner";
 import Header from "@/components/layout/Header";
 import BrandLoader from "@/components/ui/BrandLoader";
+import CategoryIcon from "@/components/ui/CategoryIcon";
 import CountdownTimer from "@/components/ui/countdown-timer";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
+import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 import { voteOnWithdrawal } from "@/services/supabase/withdrawalService";
-import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-const ITEMS_PER_PAGE = 5;
+const ITEMS_PER_PAGE = 6;
 
 const VotesPage = () => {
   const navigate = useNavigate();
@@ -24,467 +38,524 @@ const VotesPage = () => {
   const { contributions, withdrawalRequests, refreshContributionData } = useSupabaseContribution();
   const [voteRequests, setVoteRequests] = useState<any[]>([]);
   const [pendingVoteId, setPendingVoteId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
+  const [activeTab, setActiveTab] = useState<"active" | "history">("active");
   const [historyPage, setHistoryPage] = useState(1);
-  const isMobile = useIsMobile();
-  
+
+  const buildVoteList = () => {
+    const formatted = withdrawalRequests.map((request) => {
+      const contribution = contributions.find((c) => c.id === request.contribution_id);
+      const hasContributed = Boolean(contribution);
+      const votesArray = Array.isArray(request.votes) ? (request.votes as any[]) : [];
+      const userVoteData = votesArray.find((v: any) => v.user_id === user?.id);
+      const hasVoted = Boolean(userVoteData);
+      const userVote = userVoteData
+        ? userVoteData.vote === true
+          ? "approve"
+          : "reject"
+        : undefined;
+
+      const totalVotes = votesArray.length;
+      const approveVotes = votesArray.filter((v: any) => v.vote === true).length;
+      const rejectVotes = votesArray.filter((v: any) => v.vote === false).length;
+      const approvalRate = totalVotes > 0 ? (approveVotes / totalVotes) * 100 : 0;
+      const rejectionRate = totalVotes > 0 ? (rejectVotes / totalVotes) * 100 : 0;
+
+      return {
+        requestId: request.id,
+        contributionId: request.contribution_id,
+        contributionName: contribution ? contribution.name : "Group Pool",
+        category: (contribution as any)?.category || "community",
+        threshold: Number((contribution as any)?.voting_threshold || 60),
+        amount: Number(request.amount || 0),
+        purpose: request.purpose || "No purpose specified",
+        createdAt: request.created_at,
+        deadline: request.deadline,
+        hasContributed,
+        hasVoted,
+        userVote,
+        votes: votesArray,
+        status: request.status,
+        stats: {
+          totalVotes,
+          approveVotes,
+          rejectVotes,
+          approvalRate,
+          rejectionRate,
+        },
+      };
+    });
+
+    setVoteRequests(formatted);
+  };
+
   useEffect(() => {
     if (user && contributions && withdrawalRequests) {
-      setUserVotes();
+      buildVoteList();
     }
-  }, [user, contributions, withdrawalRequests]);
-  
-  const formatDate = (dateString: string) => {
-    try {
-      const date = new Date(dateString);
-      if (!isValid(date)) {
-        return "Invalid date";
-      }
-      return format(date, 'MMM d, yyyy • h:mm a');
-    } catch (error) {
-      console.error("Error formatting date:", error, dateString);
-      return "Invalid date";
-    }
+  }, [user, contributions, withdrawalRequests]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const formatDate = (dateString?: string | null) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    return isValid(date) ? format(date, "MMM d, yyyy · h:mm a") : "";
   };
 
-  const setUserVotes = () => {
-    const formattedRequests = withdrawalRequests
-      .map(request => {
-        const contribution = contributions.find(c => c.id === request.contribution_id);
-        const hasContributed = contribution ? true : false;
-        const votes = (request.votes as any) || [];
-        const votesArray = Array.isArray(votes) ? votes : [];
-        const hasVoted = votesArray.some((v: any) => v.user_id === user?.id);
-        const userVoteData = votesArray.find((v: any) => v.user_id === user?.id);
-        const userVote = userVoteData ? (userVoteData.vote === true ? 'approve' : 'reject') : undefined;
-        
-        const totalVotes = votesArray.length;
-        const approveVotes = votesArray.filter((v: any) => v.vote === true).length;
-        const rejectVotes = votesArray.filter((v: any) => v.vote === false).length;
-        
-        const approvalRate = totalVotes > 0 ? (approveVotes / totalVotes) * 100 : 0;
-        const rejectionRate = totalVotes > 0 ? (rejectVotes / totalVotes) * 100 : 0;
+  const activeVotes = useMemo(
+    () =>
+      voteRequests
+        .filter((r) => r.status === "pending")
+        .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime()),
+    [voteRequests]
+  );
 
-        return {
-          requestId: request.id,
-          contributionId: request.contribution_id,
-          contributionName: contribution ? contribution.name : "Unknown Group",
-          amount: request.amount,
-          purpose: request.purpose || "No purpose specified",
-          createdAt: request.created_at,
-          deadline: request.deadline,
-          hasContributed,
-          hasVoted,
-          userVote,
-          votes: votesArray,
-          status: request.status,
-          stats: {
-            totalVotes,
-            approveVotes,
-            rejectVotes,
-            approvalRate,
-            rejectionRate
-          }
-        };
-      });
-    
-    // Sort logic handled in filtered view
-    setVoteRequests(formattedRequests);
-  };
+  const awaitingYourVoteCount = useMemo(
+    () => activeVotes.filter((r) => r.hasContributed && !r.hasVoted).length,
+    [activeVotes]
+  );
 
-  const filteredRequests = useMemo(() => {
-    const requests = activeTab === 'active'
-      ? voteRequests.filter(r => r.status === 'pending')
-      : voteRequests.filter(r => ['approved', 'rejected', 'expired', 'executed'].includes(r.status));
+  const historyVotes = useMemo(
+    () =>
+      voteRequests
+        .filter((r) => ["approved", "rejected", "expired", "executed"].includes(r.status))
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    [voteRequests]
+  );
 
-    // Sort active by deadline (soonest first), history by creation date (newest first)
-    return requests.sort((a, b) => {
-      if (activeTab === 'active') {
-        // Sort by deadline ascending (soonest expiring first)
-        return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
-      } else {
-        // Sort by creation date descending (newest first)
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      }
-    });
-  }, [voteRequests, activeTab]);
+  const displayedRequests = useMemo(() => {
+    if (activeTab === "active") return activeVotes;
+    const start = (historyPage - 1) * ITEMS_PER_PAGE;
+    return historyVotes.slice(start, start + ITEMS_PER_PAGE);
+  }, [activeTab, activeVotes, historyVotes, historyPage]);
 
-  // Pagination for history
-  const paginatedHistory = useMemo(() => {
-    if (activeTab === 'active') return filteredRequests;
-    const startIndex = (historyPage - 1) * ITEMS_PER_PAGE;
-    return filteredRequests.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-  }, [filteredRequests, activeTab, historyPage]);
+  const totalHistoryPages = Math.ceil(historyVotes.length / ITEMS_PER_PAGE);
 
-  const totalHistoryPages = Math.ceil(filteredRequests.length / ITEMS_PER_PAGE);
-  
-  const handleVote = async (requestId: string, voteValue: 'approve' | 'reject') => {
+  const handleVote = async (requestId: string, voteValue: "approve" | "reject") => {
     if (!user) {
-      toast.error('You must be logged in to vote');
+      toast.error("You must be signed in to vote");
       return;
     }
-
     if (pendingVoteId) return;
 
-    const previousRequests = voteRequests;
+    const previous = voteRequests;
     setPendingVoteId(requestId);
 
-    // Optimistic UI update
-    setVoteRequests(prev =>
-      prev.map(request => {
-        if (request.requestId !== requestId) return request;
-
-        const newVote = {
-          user_id: user.id,
-          vote: voteValue === 'approve',
-          voted_at: new Date().toISOString()
-        };
-
-        const currentVotes = Array.isArray(request.votes) ? request.votes : [];
-        const filteredVotes = currentVotes.filter((v: any) => v.user_id !== user.id);
-        const newVotes = [...filteredVotes, newVote];
-
-        const totalVotes = newVotes.length;
-        const approveVotes = newVotes.filter((v: any) => v.vote === true).length;
-        const rejectVotes = newVotes.filter((v: any) => v.vote === false).length;
-        const approvalRate = totalVotes > 0 ? (approveVotes / totalVotes) * 100 : 0;
-        const rejectionRate = totalVotes > 0 ? (rejectVotes / totalVotes) * 100 : 0;
-
+    // Optimistic update
+    setVoteRequests((prev) =>
+      prev.map((req) => {
+        if (req.requestId !== requestId) return req;
+        const nextVotes = [
+          ...(Array.isArray(req.votes) ? req.votes : []).filter((v: any) => v.user_id !== user.id),
+          { user_id: user.id, vote: voteValue === "approve", voted_at: new Date().toISOString() },
+        ];
+        const totalVotes = nextVotes.length;
+        const approveVotes = nextVotes.filter((v: any) => v.vote === true).length;
+        const rejectVotes = nextVotes.filter((v: any) => v.vote === false).length;
         return {
-          ...request,
+          ...req,
           hasVoted: true,
           userVote: voteValue,
-          votes: newVotes,
+          votes: nextVotes,
           stats: {
             totalVotes,
             approveVotes,
             rejectVotes,
-            approvalRate,
-            rejectionRate
-          }
+            approvalRate: totalVotes > 0 ? (approveVotes / totalVotes) * 100 : 0,
+            rejectionRate: totalVotes > 0 ? (rejectVotes / totalVotes) * 100 : 0,
+          },
         };
       })
     );
 
     try {
-      const voteBoolean = voteValue === 'approve';
-      const result = await voteOnWithdrawal(requestId, voteBoolean);
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to vote');
-      }
-      
+      const result = await voteOnWithdrawal(requestId, voteValue === "approve");
+      if (!result.success) throw new Error(result.error || "Failed to record vote");
+
       if (result.votingStatus) {
         const { participation_rate, approval_rate, status } = result.votingStatus;
-        const participationText = typeof participation_rate === 'number' ? `${participation_rate.toFixed(0)}%` : null;
-        const approvalText = typeof approval_rate === 'number' ? `${approval_rate.toFixed(0)}%` : null;
-
-        if (status === 'approved' || status === 'executed') {
-          if (participationText && approvalText) {
-            toast.success(`Withdrawal approved! ${participationText} participated, ${approvalText} approved`);
-          } else {
-            toast.success('Withdrawal approved!');
-          }
-        } else if (status === 'rejected') {
-          toast.error('Withdrawal rejected - thresholds not met');
+        const part = typeof participation_rate === "number" ? `${participation_rate.toFixed(0)}%` : null;
+        const appr = typeof approval_rate === "number" ? `${approval_rate.toFixed(0)}%` : null;
+        if (status === "approved" || status === "executed") {
+          toast.success(
+            part && appr
+              ? `Payout approved (${part} participated · ${appr} yes)`
+              : "Withdrawal approved!"
+          );
+        } else if (status === "rejected") {
+          toast.error("Withdrawal rejected — approval threshold not met");
         } else {
-          toast.success(`Vote recorded! Participation: ${participationText || '0%'}, Approval: ${approvalText || '0%'}`);
+          toast.success(
+            part && appr
+              ? `Vote recorded · ${part} participation, ${appr} approval`
+              : "Vote recorded"
+          );
         }
       } else {
-        toast.success('Vote recorded successfully!');
+        toast.success("Vote recorded");
       }
-      
+
       await refreshContributionData();
-      setUserVotes();
     } catch (error) {
-      setVoteRequests(previousRequests);
-      console.error('Error voting:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to vote');
+      setVoteRequests(previous);
+      toast.error(error instanceof Error ? error.message : "Failed to vote");
     } finally {
       setPendingVoteId(null);
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const statusMeta = (status: string) => {
     switch (status) {
-      case 'pending': return 'text-amber-600 bg-amber-50 border-amber-200 dark:text-amber-400 dark:bg-amber-900/20 dark:border-amber-800';
-      case 'approved': return 'text-green-600 bg-green-50 border-green-200 dark:text-green-400 dark:bg-green-900/20 dark:border-green-800';
-      case 'executed': return 'text-blue-600 bg-blue-50 border-blue-200 dark:text-blue-400 dark:bg-blue-900/20 dark:border-blue-800';
-      case 'rejected': return 'text-red-600 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-900/20 dark:border-red-800';
-      case 'expired': return 'text-gray-600 bg-gray-50 border-gray-200 dark:text-gray-400 dark:bg-gray-900/20 dark:border-gray-800';
-      default: return 'text-gray-600 bg-gray-50 border-gray-200';
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'pending': return <Clock className="w-3.5 h-3.5 mr-1.5" />;
-      case 'approved': return <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />;
-      case 'executed': return <Wallet className="w-3.5 h-3.5 mr-1.5" />;
-      case 'rejected': return <XCircle className="w-3.5 h-3.5 mr-1.5" />;
-      case 'expired': return <AlertCircle className="w-3.5 h-3.5 mr-1.5" />;
-      default: return <Activity className="w-3.5 h-3.5 mr-1.5" />;
+      case "pending":
+        return {
+          label: "Open Vote",
+          icon: Clock,
+          pill: "bg-amber-500/12 text-amber-700 dark:text-amber-300",
+        };
+      case "approved":
+        return {
+          label: "Approved",
+          icon: CheckCircle2,
+          pill: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+        };
+      case "executed":
+        return {
+          label: "Paid Out",
+          icon: Wallet,
+          pill: "bg-primary/12 text-primary",
+        };
+      case "rejected":
+        return {
+          label: "Rejected",
+          icon: XCircle,
+          pill: "bg-red-500/12 text-red-700 dark:text-red-300",
+        };
+      default:
+        return {
+          label: "Expired",
+          icon: AlertCircle,
+          pill: "bg-muted text-muted-foreground",
+        };
     }
   };
 
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-10">
+    <div className="min-h-dvh bg-background">
       {pendingVoteId && (
         <BrandLoader
           variant="overlay"
           badge="Governance Vote"
-          message="Recording your vote"
-          submessage="Updating group withdrawal consensus…"
+          message="Recording your ballot"
+          submessage="Updating group consensus and verifying payout thresholds…"
         />
       )}
-      <Header />
-      
-      <main className="app-page max-w-3xl">
-        <div className="flex items-center mb-6">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="-ml-2 text-muted-foreground hover:text-foreground" 
-            onClick={() => navigate("/dashboard")}
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
-          </Button>
-        </div>
 
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
-          <div>
-            <h1 className="app-page-title">Votes</h1>
-            <p className="text-muted-foreground mt-1">Vote on withdrawal requests from your groups.</p>
+      <Header mobilePanel />
+
+      <main className="app-page app-panel-page cp-page-enter max-w-3xl">
+        {/* Deep-Emerald Governance Hero */}
+        <section className="app-panel-hero" aria-labelledby="votes-heading">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              className="group-detail-back gap-1.5 px-0"
+              onClick={() => navigate("/dashboard")}
+            >
+              <ArrowLeft size={16} aria-hidden="true" />
+              Overview
+            </Button>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold text-[#dbf5b4]">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              70% Quorum · 60% Approval
+            </span>
           </div>
 
-          <div className="bg-muted/50 p-1 rounded-lg flex gap-1">
-            <Button
-              variant={activeTab === 'active' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setActiveTab('active')}
-              className={cn("rounded-md transition-all", activeTab === 'active' && "bg-white text-foreground shadow-sm hover:bg-white/90 dark:bg-zinc-800 dark:text-white")}
-            >
-              Active Votes
-              {voteRequests.filter(r => r.status === 'pending').length > 0 && (
-                <Badge variant="secondary" className="ml-2 bg-primary/10 text-primary hover:bg-primary/20 h-5 px-1.5">
-                  {voteRequests.filter(r => r.status === 'pending').length}
-                </Badge>
-              )}
-            </Button>
-            <Button
-              variant={activeTab === 'history' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => {
-                setActiveTab('history');
-                setHistoryPage(1);
-              }}
-              className={cn("rounded-md transition-all", activeTab === 'history' && "bg-white text-foreground shadow-sm hover:bg-white/90 dark:bg-zinc-800 dark:text-white")}
-            >
-              History
-            </Button>
-          </div>
-        </div>
+          <h1 id="votes-heading" className="app-page-title mt-3">
+            Governance votes
+          </h1>
+          <p className="panel-kicker mt-1.5 text-sm">
+            Review and decide on payout requests before money leaves your group pools.
+          </p>
 
-        {paginatedHistory.length === 0 ? (
-          <Card className="border-dashed border-2 bg-muted/30 shadow-none">
-            <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="bg-muted p-4 rounded-full mb-4">
-                {activeTab === 'active' ? (
-                  <CheckCircle2 className="h-8 w-8 text-muted-foreground" />
-                ) : (
-                  <Filter className="h-8 w-8 text-muted-foreground" />
-                )}
-              </div>
-              <h3 className="font-semibold text-lg mb-1">
-                {activeTab === 'active' ? 'All Caught Up!' : 'No History'}
-              </h3>
-              <p className="text-muted-foreground max-w-xs">
-                {activeTab === 'active' 
-                  ? "There are no pending withdrawal requests requiring your vote at the moment."
-                  : "You haven't participated in any past votes yet."}
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-6">
-            {paginatedHistory.map(request => (
-              <Card 
-                key={request.requestId} 
+          {/* Clean 3-Metric Summary Strip */}
+          <div className="mt-5 grid grid-cols-3 gap-2.5">
+            <div className="rounded-2xl border border-white/15 bg-white/[0.08] p-3.5 backdrop-blur-sm">
+              <span className="block text-[11px] text-[#c3e4d4]">Needs your vote</span>
+              <span
                 className={cn(
-                  "overflow-hidden transition-all duration-300 border shadow-sm hover:shadow-md",
-                  request.status === 'pending' ? "ring-1 ring-primary/10 dark:ring-primary/20" : "opacity-90"
+                  "mt-1 block text-2xl font-extrabold tabular-nums",
+                  awaitingYourVoteCount > 0 ? "text-[#dbf5b4]" : "text-white"
                 )}
               >
-                {/* Header Status Banner for Non-Pending */}
-                {request.status !== 'pending' && (
-                  <div className={cn(
-                    "w-full h-1.5",
-                    request.status === 'approved' || request.status === 'executed' ? "bg-green-500" :
-                    request.status === 'rejected' ? "bg-red-500" : "bg-gray-300"
-                  )} />
+                {awaitingYourVoteCount}
+              </span>
+            </div>
+            <div className="rounded-2xl border border-white/15 bg-white/[0.08] p-3.5 backdrop-blur-sm">
+              <span className="block text-[11px] text-[#c3e4d4]">Active ballots</span>
+              <span className="mt-1 block text-2xl font-extrabold tabular-nums text-white">
+                {activeVotes.length}
+              </span>
+            </div>
+            <div className="rounded-2xl border border-white/15 bg-white/[0.08] p-3.5 backdrop-blur-sm">
+              <span className="block text-[11px] text-[#c3e4d4]">Past decisions</span>
+              <span className="mt-1 block text-2xl font-extrabold tabular-nums text-white">
+                {historyVotes.length}
+              </span>
+            </div>
+          </div>
+        </section>
+
+        {/* Overlapping Sheet Body */}
+        <div className="app-panel-body space-y-5">
+          <Tabs
+            value={activeTab}
+            onValueChange={(v) => {
+              setActiveTab(v as "active" | "history");
+              setHistoryPage(1);
+            }}
+          >
+            <TabsList className="app-segmented grid w-full grid-cols-2 bg-muted/60 p-1">
+              <TabsTrigger value="active" className="gap-2">
+                <Vote className="h-4 w-4" />
+                <span>Active</span>
+                {activeVotes.length > 0 && (
+                  <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-bold text-primary tabular-nums">
+                    {activeVotes.length}
+                  </span>
                 )}
+              </TabsTrigger>
+              <TabsTrigger value="history" className="gap-2">
+                <History className="h-4 w-4" />
+                <span>History</span>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
 
-                <CardHeader className="pb-3 space-y-0">
-                  <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge 
-                          variant="outline" 
-                          className={cn("font-medium px-2.5 py-0.5 rounded-full border", getStatusColor(request.status))}
-                        >
-                          {getStatusIcon(request.status)}
-                          {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground font-medium flex items-center">
-                          <span className="w-1 h-1 rounded-full bg-muted-foreground/40 mx-2" />
-                          {formatDate(request.createdAt)}
-                        </span>
-                      </div>
-                      <CardTitle className="text-2xl font-bold flex items-baseline gap-1 text-foreground">
-                        <span className="text-muted-foreground text-lg font-normal">₦</span>
-                        {request.amount.toLocaleString()}
-                      </CardTitle>
-                      <CardDescription className="text-base font-medium text-foreground/80">
-                        For {request.contributionName}
-                      </CardDescription>
-                    </div>
+          {displayedRequests.length === 0 ? (
+            <div className="cp-card-native flex flex-col items-center justify-center px-6 py-14 text-center">
+              <span className="grid h-14 w-14 place-items-center rounded-2xl bg-accent text-primary">
+                {activeTab === "active" ? (
+                  <CheckCircle2 className="h-7 w-7" />
+                ) : (
+                  <History className="h-7 w-7" />
+                )}
+              </span>
+              <h2 className="mt-4 text-lg font-bold text-foreground">
+                {activeTab === "active" ? "You’re all caught up" : "No past votes yet"}
+              </h2>
+              <p className="mt-1 max-w-xs text-sm text-muted-foreground">
+                {activeTab === "active"
+                  ? "There are no open withdrawal proposals waiting for your decision right now."
+                  : "Completed withdrawal votes from your groups will appear here."}
+              </p>
+              <Button asChild variant="outline" className="mt-5 h-11 rounded-xl">
+                <Link to="/all-groups">View my groups</Link>
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {displayedRequests.map((req) => {
+                const meta = statusMeta(req.status);
+                const StatusIcon = meta.icon;
 
-                    {request.status === 'pending' && request.deadline && (
-                      <div className="flex-shrink-0 bg-amber-50 dark:bg-amber-950/30 p-2 rounded-xl border border-amber-100 dark:border-amber-900/50">
-                        <CountdownTimer 
-                          deadline={request.deadline} 
-                          size={isMobile ? "sm" : "sm"}
-                          showLabel={true}
-                          className="scale-90 origin-top-right"
-                        />
-                      </div>
+                return (
+                  <article
+                    key={req.requestId}
+                    className={cn(
+                      "cp-card-native overflow-hidden transition-all",
+                      req.status === "pending" && !req.hasVoted && req.hasContributed
+                        ? "border-primary/35"
+                        : ""
                     )}
-                  </div>
-                </CardHeader>
+                  >
+                    {/* Header Row */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/20 px-5 py-3.5">
+                      <Link
+                        to={`/groups/${req.contributionId}`}
+                        className="group flex min-w-0 items-center gap-2.5"
+                      >
+                        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-accent text-primary">
+                          <CategoryIcon category={req.category} size={17} />
+                        </span>
+                        <div className="min-w-0">
+                          <span className="flex items-center gap-1 truncate text-sm font-bold text-foreground group-hover:text-primary">
+                            {req.contributionName}
+                            <ExternalLink className="h-3 w-3 shrink-0 opacity-50" />
+                          </span>
+                          <span className="block text-[11px] text-muted-foreground">
+                            {formatDate(req.createdAt)}
+                          </span>
+                        </div>
+                      </Link>
 
-                <CardContent className="pb-6">
-                  <div className="bg-muted/30 p-4 rounded-lg border border-border/50 mb-6">
-                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Purpose</h4>
-                    <p className="text-sm leading-relaxed text-foreground/90">
-                      "{request.purpose}"
-                    </p>
-                  </div>
-
-                  {/* Voting Stats */}
-                  <div className="space-y-3 mb-6">
-                    <div className="flex justify-between items-center text-sm">
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Users className="w-4 h-4" />
-                        <span>{request.stats.totalVotes} votes cast</span>
-                      </div>
-                      <span className="font-medium">
-                        {Math.round(request.stats.approvalRate)}% Approval
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold",
+                          meta.pill
+                        )}
+                      >
+                        <StatusIcon className="h-3.5 w-3.5" />
+                        {meta.label}
                       </span>
                     </div>
-                    
-                    <div className="h-2.5 w-full bg-muted rounded-full overflow-hidden flex">
-                      {request.stats.totalVotes > 0 && (
-                        <>
-                          <div 
-                            className="bg-green-500 h-full transition-all duration-500" 
-                            style={{ width: `${request.stats.approvalRate}%` }}
-                          />
-                          <div 
-                            className="bg-red-500 h-full transition-all duration-500" 
-                            style={{ width: `${request.stats.rejectionRate}%` }}
-                          />
-                        </>
-                      )}
-                    </div>
-                    
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                        <span>Approve ({request.stats.approveVotes})</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <span>Reject ({request.stats.rejectVotes})</span>
-                        <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                      </div>
-                    </div>
-                  </div>
 
-                  {/* Action Buttons */}
-                  {request.hasContributed ? (
-                    request.hasVoted ? (
-                      <div className={cn(
-                        "py-3 px-4 rounded-lg border flex items-center justify-center gap-2 font-medium text-sm",
-                        request.userVote === 'approve' 
-                          ? "bg-green-50 border-green-200 text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400" 
-                          : "bg-red-50 border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400"
-                      )}>
-                        {request.userVote === 'approve' ? (
-                          <><CheckCircle2 className="w-4 h-4" /> You voted to Approve</>
-                        ) : (
-                          <><XCircle className="w-4 h-4" /> You voted to Reject</>
+                    {/* Ballot Content */}
+                    <div className="space-y-5 p-5">
+                      {/* Amount + Countdown */}
+                      <div className="flex flex-wrap items-end justify-between gap-3">
+                        <div>
+                          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                            Requested Payout
+                          </span>
+                          <p className="mt-0.5 text-3xl font-extrabold tracking-tight text-foreground tabular-nums">
+                            ₦{req.amount.toLocaleString("en-NG")}
+                          </p>
+                        </div>
+
+                        {req.status === "pending" && req.deadline && (
+                          <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.07] px-3 py-1.5">
+                            <CountdownTimer
+                              deadline={req.deadline}
+                              size="sm"
+                              showLabel={true}
+                              className="scale-95 origin-right"
+                            />
+                          </div>
                         )}
                       </div>
-                    ) : request.status === 'pending' ? (
-                      <div className="grid grid-cols-2 gap-3">
-                        <Button 
-                          onClick={() => handleVote(request.requestId, 'approve')} 
-                          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm h-11"
-                          disabled={pendingVoteId === request.requestId}
-                        >
-                          <ThumbsUp className="h-4 w-4 mr-2" />
-                          Approve
-                        </Button>
-                        <Button 
-                          onClick={() => handleVote(request.requestId, 'reject')} 
-                          variant="destructive" 
-                          className="w-full bg-white border-2 border-red-100 text-red-600 hover:bg-red-50 hover:border-red-200 dark:bg-transparent dark:border-red-900/30 dark:text-red-400 shadow-sm h-11"
-                          disabled={pendingVoteId === request.requestId}
-                        >
-                          <ThumbsDown className="h-4 w-4 mr-2" />
-                          Reject
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="text-center p-3 bg-muted/50 rounded-lg text-sm text-muted-foreground">
-                        Voting is closed
-                      </div>
-                    )
-                  ) : (
-                    <div className="p-3 bg-amber-50 border border-amber-100 rounded-lg text-amber-800 text-sm text-center dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-400">
-                      Only active contributors can vote on this request
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
 
-            {/* Pagination for History Tab */}
-            {activeTab === 'history' && totalHistoryPages > 1 && (
-              <div className="flex items-center justify-center gap-2 mt-8">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
-                  disabled={historyPage === 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <span className="text-sm text-muted-foreground">
-                  Page {historyPage} of {totalHistoryPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setHistoryPage(p => Math.min(totalHistoryPages, p + 1))}
-                  disabled={historyPage === totalHistoryPages}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
-          </div>
-        )}
+                      {/* Purpose Block */}
+                      <div className="rounded-2xl border bg-muted/30 px-4 py-3">
+                        <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                          Stated Purpose
+                        </span>
+                        <p className="mt-1 text-sm leading-relaxed text-foreground">
+                          {req.purpose}
+                        </p>
+                      </div>
+
+                      {/* Clean Consensus Meter */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="inline-flex items-center gap-1.5 font-medium text-muted-foreground">
+                            <Users className="h-3.5 w-3.5" />
+                            {req.stats.totalVotes} {req.stats.totalVotes === 1 ? "vote" : "votes"} cast
+                          </span>
+                          <span className="font-bold text-foreground tabular-nums">
+                            {Math.round(req.stats.approvalRate)}% approved
+                          </span>
+                        </div>
+
+                        <div className="flex h-2 w-full overflow-hidden rounded-full bg-secondary">
+                          {req.stats.totalVotes > 0 && (
+                            <>
+                              <div
+                                className="h-full bg-primary transition-all duration-500"
+                                style={{ width: `${req.stats.approvalRate}%` }}
+                              />
+                              <div
+                                className="h-full bg-destructive/80 transition-all duration-500"
+                                style={{ width: `${req.stats.rejectionRate}%` }}
+                              />
+                            </>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between text-[11px] font-medium text-muted-foreground tabular-nums">
+                          <span className="text-primary">Approve ({req.stats.approveVotes})</span>
+                          <span className="text-destructive/90">Reject ({req.stats.rejectVotes})</span>
+                        </div>
+                      </div>
+
+                      {/* Clean Action Footer */}
+                      {req.hasContributed ? (
+                        req.hasVoted ? (
+                          <div
+                            className={cn(
+                              "flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-bold",
+                              req.userVote === "approve"
+                                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                                : "border-destructive/30 bg-destructive/10 text-destructive"
+                            )}
+                          >
+                            {req.userVote === "approve" ? (
+                              <>
+                                <CheckCircle2 className="h-4 w-4" />
+                                You voted to Approve
+                              </>
+                            ) : (
+                              <>
+                                <XCircle className="h-4 w-4" />
+                                You voted to Reject
+                              </>
+                            )}
+                          </div>
+                        ) : req.status === "pending" ? (
+                          <div className="grid grid-cols-2 gap-3">
+                            <Button
+                              type="button"
+                              onClick={() => handleVote(req.requestId, "approve")}
+                              disabled={pendingVoteId === req.requestId}
+                              className="h-12 gap-2 rounded-xl font-bold shadow-sm"
+                            >
+                              <ThumbsUp className="h-4 w-4" />
+                              Approve
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => handleVote(req.requestId, "reject")}
+                              disabled={pendingVoteId === req.requestId}
+                              className="h-12 gap-2 rounded-xl border-destructive/35 font-bold text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            >
+                              <ThumbsDown className="h-4 w-4" />
+                              Reject
+                            </Button>
+                          </div>
+                        ) : (
+                          <p className="rounded-xl bg-muted/40 py-2.5 text-center text-xs font-medium text-muted-foreground">
+                            Voting has closed for this proposal
+                          </p>
+                        )
+                      ) : (
+                        <p className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-2.5 text-center text-xs font-medium text-amber-800 dark:text-amber-300">
+                          Contribute to this pool to unlock voting rights
+                        </p>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+
+              {activeTab === "history" && totalHistoryPages > 1 && (
+                <div className="flex items-center justify-center gap-3 pt-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-10 w-10 rounded-xl"
+                    onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
+                    disabled={historyPage === 1}
+                    aria-label="Previous history page"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-xs font-semibold text-muted-foreground tabular-nums">
+                    Page {historyPage} of {totalHistoryPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-10 w-10 rounded-xl"
+                    onClick={() => setHistoryPage((p) => Math.min(totalHistoryPages, p + 1))}
+                    disabled={historyPage === totalHistoryPages}
+                    aria-label="Next history page"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </main>
     </div>
   );
