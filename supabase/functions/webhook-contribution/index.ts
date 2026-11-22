@@ -6,6 +6,113 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, verif-hash'
 };
 
+function maskAccountNumber(acc?: string | null): string | null {
+  if (!acc) return null;
+  const clean = String(acc).trim();
+  if (clean.length <= 4) return clean;
+  return `${'*'.repeat(Math.max(2, clean.length - 4))}${clean.slice(-4)}`;
+}
+
+async function trackExternalPaymentAndScreenAml(
+  supabase: any,
+  params: {
+    referenceId: string;
+    sourceChannel: 'group_bank_transfer' | 'wallet_bank_transfer' | 'card_checkout' | 'share_link';
+    groupId?: string | null;
+    userId?: string | null;
+    transactionId?: string | null;
+    amount: number;
+    senderName?: string | null;
+    senderBank?: string | null;
+    senderAccount?: string | null;
+    senderEmail?: string | null;
+    destinationAccount?: string | null;
+    narration?: string | null;
+    requiresVerification?: boolean;
+    rawMetadata?: Record<string, any>;
+  }
+) {
+  try {
+    const flags: string[] = [];
+    let riskLevel: 'low' | 'medium' | 'high' | 'critical' = 'low';
+
+    if (params.amount >= 2000000) {
+      flags.push('critical_value_gte_2m');
+      riskLevel = 'critical';
+    } else if (params.amount >= 500000) {
+      flags.push('high_value_gte_500k');
+      riskLevel = 'high';
+    } else if (params.amount >= 250000) {
+      flags.push('elevated_external_gte_250k');
+      riskLevel = 'medium';
+    }
+
+    if (params.requiresVerification) {
+      flags.push('unlinked_external_sender');
+      if (params.amount >= 250000 && riskLevel === 'medium') riskLevel = 'high';
+    }
+    if (!params.senderName || params.senderName.toLowerCase() === 'anonymous') {
+      flags.push('anonymous_originator');
+    }
+
+    const { data: track } = await supabase
+      .from('external_payment_tracks')
+      .upsert(
+        {
+          reference_id: params.referenceId,
+          source_channel: params.sourceChannel,
+          group_id: params.groupId || null,
+          user_id: params.userId || null,
+          transaction_id: params.transactionId || null,
+          amount: params.amount,
+          sender_name: params.senderName || null,
+          sender_bank: params.senderBank || null,
+          sender_account_masked: maskAccountNumber(params.senderAccount),
+          sender_email: params.senderEmail || null,
+          destination_account: params.destinationAccount || null,
+          narration: params.narration || null,
+          verification_status: params.requiresVerification ? 'unverified' : 'verified',
+          aml_risk_level: riskLevel,
+          aml_flags: flags,
+          raw_metadata: params.rawMetadata || {},
+        },
+        { onConflict: 'reference_id' }
+      )
+      .select('id')
+      .maybeSingle();
+
+    // Auto-raise real-time AML alert on high/critical outside payments
+    if (riskLevel === 'high' || riskLevel === 'critical') {
+      await supabase.from('aml_alerts').upsert(
+        {
+          alert_key: `ext_webhook:${params.referenceId}`,
+          user_id: params.userId || null,
+          group_id: params.groupId || null,
+          transaction_id: params.transactionId || null,
+          alert_type: 'external_payment_risk',
+          severity: riskLevel,
+          status: 'open',
+          risk_score: riskLevel === 'critical' ? 92 : 78,
+          amount: params.amount,
+          title: `Real-Time External Payment Alert (${params.sourceChannel.replace(/_/g, ' ')})`,
+          description: `Outside payment of NGN ${params.amount.toLocaleString()} from ${params.senderName || 'Unidentified sender'} (${params.senderBank || 'External channel'}) flagged automatically.`,
+          evidence: {
+            reference_id: params.referenceId,
+            source_channel: params.sourceChannel,
+            sender_name: params.senderName,
+            sender_bank: params.senderBank,
+            flags,
+            track_id: track?.id || null,
+          },
+        },
+        { onConflict: 'alert_key', ignoreDuplicates: true }
+      );
+    }
+  } catch (err) {
+    console.error('Non-fatal error logging external payment track:', err);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -291,6 +398,7 @@ async function handleSuccessfulPayment(supabase: any, paymentData: any) {
     }
   };
 
+  let insertedTxId: string | null = existingTx?.id || null;
   if (existingTx) {
     const { error: updateTxErr } = await supabase
       .from('transactions')
@@ -298,11 +406,30 @@ async function handleSuccessfulPayment(supabase: any, paymentData: any) {
       .eq('id', existingTx.id);
     if (updateTxErr) throw updateTxErr;
   } else {
-    const { error: txError } = await supabase
+    const { data: createdTx, error: txError } = await supabase
       .from('transactions')
-      .insert(transactionData);
+      .insert(transactionData)
+      .select('id')
+      .single();
     if (txError) throw txError;
+    insertedTxId = createdTx?.id || null;
   }
+
+  await trackExternalPaymentAndScreenAml(supabase, {
+    referenceId,
+    sourceChannel: isContribution ? 'card_checkout' : 'wallet_bank_transfer',
+    groupId: isContribution ? groupId : null,
+    userId: user.id,
+    transactionId: insertedTxId,
+    amount,
+    senderName: paymentData.meta_data?.originatorname || paymentData.customer?.name || user.name,
+    senderBank: paymentData.meta_data?.bankname || paymentData.payment_type || 'Flutterwave',
+    senderAccount: paymentData.meta_data?.originatoraccountnumber || null,
+    senderEmail: paymentData.customer?.email || user.email,
+    narration: transactionData.description,
+    requiresVerification: isContribution && paymentData.payment_type === 'bank_transfer',
+    rawMetadata: transactionData.metadata,
+  });
 
   if (isContribution) {
     if (paymentData.payment_type === 'bank_transfer') {
@@ -469,7 +596,7 @@ async function handleGroupAccountCredit(supabase: any, group: any, creditData: a
     });
   }
 
-  const { error: txError } = await supabase
+  const { data: groupTx, error: txError } = await supabase
     .from('transactions')
     .insert({
       user_id: group.creator_id,
@@ -493,9 +620,27 @@ async function handleGroupAccountCredit(supabase: any, group: any, creditData: a
         votingRightsGranted: false,
         requiresVerification: true
       }
-    });
+    })
+    .select('id')
+    .single();
 
   if (txError) throw txError;
+
+  await trackExternalPaymentAndScreenAml(supabase, {
+    referenceId,
+    sourceChannel: 'group_bank_transfer',
+    groupId: group.id,
+    userId: group.creator_id,
+    transactionId: groupTx?.id || null,
+    amount,
+    senderName: creditData.sender_name || creditData.senderName || 'External Sender',
+    senderBank: creditData.sender_bank || creditData.bankName || 'External Bank',
+    senderAccount: creditData.originator_account_number || creditData.sender_account || null,
+    destinationAccount: creditData.account_number || creditData.accountNumber || group.account_number,
+    narration: creditData.narration || `Transfer to ${group.name}`,
+    requiresVerification: true,
+    rawMetadata: creditData,
+  });
 
   // Record bank transfer contributor WITHOUT double-incrementing group balance
   await recordBankTransferContribution(
@@ -617,7 +762,7 @@ async function handleVirtualAccountCredit(supabase: any, creditData: any) {
   const balanceBefore = Number(user.wallet_balance || 0);
   const balanceAfter = isContribution ? balanceBefore : balanceBefore + amount;
 
-  const { error: txError } = await supabase
+  const { data: vaTx, error: txError } = await supabase
     .from('transactions')
     .insert({
       user_id: user.id,
@@ -644,9 +789,28 @@ async function handleVirtualAccountCredit(supabase: any, creditData: any) {
         votingRightsGranted: false,
         requiresVerification: isContribution
       }
-    });
+    })
+    .select('id')
+    .single();
 
   if (txError) throw txError;
+
+  await trackExternalPaymentAndScreenAml(supabase, {
+    referenceId,
+    sourceChannel: isContribution ? 'group_bank_transfer' : 'wallet_bank_transfer',
+    groupId: isContribution ? groupId : null,
+    userId: user.id,
+    transactionId: vaTx?.id || null,
+    amount,
+    senderName: creditData.sender_name || creditData.senderName || 'External Sender',
+    senderBank: creditData.sender_bank || creditData.bankName || 'External Bank',
+    senderAccount: creditData.originator_account_number || creditData.sender_account || null,
+    senderEmail: user.email,
+    destinationAccount: accountNumber,
+    narration: creditData.narration || `Virtual account credit`,
+    requiresVerification: isContribution,
+    rawMetadata: creditData,
+  });
 
   if (isContribution) {
     await recordBankTransferContribution(supabase, groupId, amount, {

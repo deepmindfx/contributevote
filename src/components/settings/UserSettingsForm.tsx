@@ -18,6 +18,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp
 import BrandLoader from "@/components/ui/BrandLoader";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { supabase } from "@/integrations/supabase/client";
+import { saveUserBvn } from "@/services/supabase/groupEnhancementService";
 import { toast } from "sonner";
 import {
   AtSign,
@@ -49,7 +50,7 @@ const splitName = (fullName?: string | null) => {
 };
 
 const UserSettingsForm = () => {
-  const { user, updateProfile } = useSupabaseUser();
+  const { user, updateProfile, refreshCurrentUser } = useSupabaseUser();
   const [searchParams] = useSearchParams();
 
   const existingPrefs = (user?.preferences || {}) as Record<string, any>;
@@ -81,6 +82,10 @@ const UserSettingsForm = () => {
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [isChangingPassword, setIsChangingPassword] = useState(false);
 
+  // Inline BVN KYC verification state
+  const [bvnInput, setBvnInput] = useState("");
+  const [isVerifyingBvn, setIsVerifyingBvn] = useState(false);
+
   useEffect(() => {
     if (!user) return;
     const prefs = (user.preferences || {}) as Record<string, any>;
@@ -105,6 +110,32 @@ const UserSettingsForm = () => {
   if (!user) return null;
 
   const hasSavedPin = /^\d{4}$/.test(String(existingPrefs.transactionPin || ""));
+  const verifiedBvn = /^\d{11}$/.test(String(user.bvn || "").trim())
+    ? String(user.bvn).trim()
+    : null;
+
+  const handleVerifyBvn = async () => {
+    const clean = bvnInput.replace(/\D/g, "");
+    if (clean.length !== 11) {
+      toast.error("Please enter a valid 11-digit BVN");
+      return;
+    }
+    setIsVerifyingBvn(true);
+    try {
+      const res = await saveUserBvn(clean);
+      if (!res?.success) {
+        toast.error(res?.error || "Could not verify BVN");
+        return;
+      }
+      toast.success(`BVN ending in ${res.bvn_last4} verified for group creation & AML compliance`);
+      setBvnInput("");
+      await refreshCurrentUser();
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to verify BVN");
+    } finally {
+      setIsVerifyingBvn(false);
+    }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -221,10 +252,16 @@ const UserSettingsForm = () => {
 
   return (
     <>
-      {(isLoading || isChangingPassword) && (
+      {(isLoading || isChangingPassword || isVerifyingBvn) && (
         <BrandLoader
           variant="overlay"
-          message={isChangingPassword ? "Updating your password" : "Saving your settings"}
+          message={
+            isVerifyingBvn
+              ? "Verifying your BVN"
+              : isChangingPassword
+              ? "Updating your password"
+              : "Saving your settings"
+          }
           submessage="Syncing your account securely with CollectiPay…"
         />
       )}
@@ -499,6 +536,69 @@ const UserSettingsForm = () => {
                     </p>
                   )}
                 </div>
+              </div>
+            </div>
+
+            {/* BVN Identity Verification (KYC / AML) Card */}
+            <div className="cp-card-native overflow-hidden">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b px-5 py-4">
+                <div>
+                  <h2 className="text-base font-bold text-foreground">
+                    BVN Identity Verification (KYC / AML)
+                  </h2>
+                  <p className="text-xs text-muted-foreground">
+                    Required to create group pools and open dedicated Flutterwave deposit accounts.
+                  </p>
+                </div>
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold",
+                    verifiedBvn
+                      ? "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
+                      : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                  )}
+                >
+                  {verifiedBvn ? <ShieldCheck className="h-3.5 w-3.5" /> : <ShieldAlert className="h-3.5 w-3.5" />}
+                  {verifiedBvn ? `Verified · ***${verifiedBvn.slice(-4)}` : "Not Verified"}
+                </span>
+              </div>
+
+              <div className="p-5">
+                {verifiedBvn ? (
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    Your 11-digit BVN ending in{" "}
+                    <strong className="font-mono text-foreground">{verifiedBvn.slice(-4)}</strong> is
+                    verified and encrypted privately on your profile. Group creation and bank account
+                    provisioning are fully unlocked.
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                    <div className="flex-1 space-y-1.5">
+                      <Label htmlFor="settings-bvn" className="text-xs font-semibold">
+                        Enter your 11-digit BVN
+                      </Label>
+                      <Input
+                        id="settings-bvn"
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        maxLength={11}
+                        placeholder="12345678901"
+                        value={bvnInput}
+                        onChange={(e) => setBvnInput(e.target.value.replace(/\D/g, "").slice(0, 11))}
+                        className="h-11 rounded-xl font-mono font-bold tracking-widest"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={handleVerifyBvn}
+                      disabled={isVerifyingBvn || bvnInput.length !== 11}
+                      className="h-11 rounded-xl font-semibold"
+                    >
+                      Verify BVN
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
 

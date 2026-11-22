@@ -412,6 +412,110 @@ export type Database = {
           },
         ]
       }
+      external_payment_tracks: {
+        Row: {
+          aml_flags: Json
+          aml_risk_level: string
+          amount: number
+          created_at: string
+          currency: string
+          destination_account: string | null
+          group_id: string | null
+          id: string
+          narration: string | null
+          raw_metadata: Json
+          reference_id: string | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          sender_account_masked: string | null
+          sender_bank: string | null
+          sender_email: string | null
+          sender_name: string | null
+          source_channel: string
+          transaction_id: string | null
+          user_id: string | null
+          verification_status: string
+        }
+        Insert: {
+          aml_flags?: Json
+          aml_risk_level?: string
+          amount: number
+          created_at?: string
+          currency?: string
+          destination_account?: string | null
+          group_id?: string | null
+          id?: string
+          narration?: string | null
+          raw_metadata?: Json
+          reference_id?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sender_account_masked?: string | null
+          sender_bank?: string | null
+          sender_email?: string | null
+          sender_name?: string | null
+          source_channel: string
+          transaction_id?: string | null
+          user_id?: string | null
+          verification_status?: string
+        }
+        Update: {
+          aml_flags?: Json
+          aml_risk_level?: string
+          amount?: number
+          created_at?: string
+          currency?: string
+          destination_account?: string | null
+          group_id?: string | null
+          id?: string
+          narration?: string | null
+          raw_metadata?: Json
+          reference_id?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sender_account_masked?: string | null
+          sender_bank?: string | null
+          sender_email?: string | null
+          sender_name?: string | null
+          source_channel?: string
+          transaction_id?: string | null
+          user_id?: string | null
+          verification_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_payment_tracks_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "contribution_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_payment_tracks_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_payment_tracks_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_payment_tracks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       group_invitations: {
         Row: {
           accepted_at: string | null
@@ -1004,6 +1108,10 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_review_external_payment: {
+        Args: { p_note?: string; p_status: string; p_track_id: string }
+        Returns: Json
+      }
       admin_scan_aml_alerts: { Args: never; Returns: Json }
       admin_update_aml_alert: {
         Args: {
@@ -1131,6 +1239,7 @@ export type Database = {
         Args: { p_invitation_id: string }
         Returns: boolean
       }
+      save_user_bvn: { Args: { p_bvn: string }; Returns: Json }
       unarchive_group: {
         Args: { p_group_id: string; p_user_id: string }
         Returns: Json

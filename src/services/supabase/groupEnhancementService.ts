@@ -25,6 +25,17 @@ export const CATEGORIES = [
 
 export type CategoryValue = typeof CATEGORIES[number]['value'];
 
+// Verify & save user BVN for mandatory AML/KYC group creation gate
+export async function saveUserBvn(
+  bvn: string
+): Promise<{ success: boolean; bvn_last4?: string; message?: string; error?: string; code?: string }> {
+  const { data, error } = await (supabase as any).rpc('save_user_bvn', {
+    p_bvn: bvn.replace(/\D/g, '').slice(0, 11),
+  });
+  if (error) throw error;
+  return data;
+}
+
 // Check if user can create group for free or needs to pay
 export async function checkGroupCreationEligibility(userId: string): Promise<any> {
   try {

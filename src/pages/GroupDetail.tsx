@@ -299,7 +299,22 @@ export default function GroupDetail() {
               <Link to="/all-groups"><ArrowLeft size={16} aria-hidden="true" /> My groups</Link>
             </Button>
             <div className="app-panel-tools flex flex-wrap gap-2">
-              {isPublic && <ShareGroupButton groupId={group.id} groupName={group.name} groupDescription={group.description || ""} />}
+              {isPublic && (
+                <ShareGroupButton
+                  groupId={group.id}
+                  groupName={group.name}
+                  groupDescription={group.description || ""}
+                  category={group.category}
+                  targetAmount={targetAmount}
+                  currentAmount={currentAmount}
+                  frequency={group.frequency}
+                  accountNumber={accountNumber}
+                  bankName={group.bank_name || group.account_details?.bank_name || group.account_details?.bankName}
+                  accountName={group.account_name || group.account_details?.accountName || group.name}
+                  memberCount={Array.isArray(group.contributors) ? group.contributors.length : undefined}
+                  enableVotingRights={group.enable_voting_rights !== false}
+                />
+              )}
               {!isPublic && isCreator && isActive && <InviteMembersDialog key={group.id} groupId={group.id} groupName={group.name} />}
             </div>
           </div>

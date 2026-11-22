@@ -78,6 +78,36 @@ export interface AdminWithdrawalRecord {
   profiles?: { name: string | null; email: string | null } | null;
 }
 
+export interface ExternalPaymentTrackRecord {
+  id: string;
+  reference_id: string | null;
+  source_channel:
+    | "group_bank_transfer"
+    | "wallet_bank_transfer"
+    | "card_checkout"
+    | "share_link"
+    | "manual_claim";
+  group_id: string | null;
+  user_id: string | null;
+  transaction_id: string | null;
+  amount: number;
+  currency: string;
+  sender_name: string | null;
+  sender_bank: string | null;
+  sender_account_masked: string | null;
+  sender_email: string | null;
+  destination_account: string | null;
+  narration: string | null;
+  verification_status: "unverified" | "verified" | "flagged" | "blocked";
+  aml_risk_level: AmlAlertSeverity;
+  aml_flags: string[];
+  review_note: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  user_profile?: { name: string | null; email: string | null } | null;
+  group?: { name: string | null } | null;
+}
+
 export const PENALTY_TYPE_OPTIONS: { value: PenaltyType; label: string; description: string }[] = [
   {
     value: "late_contribution",
@@ -164,6 +194,35 @@ export const AdminComplianceService = {
 
     if (error) throw error;
     return (data || []) as AdminWithdrawalRecord[];
+  },
+
+  async getExternalPayments(): Promise<ExternalPaymentTrackRecord[]> {
+    const { data, error } = await (supabase as any)
+      .from("external_payment_tracks")
+      .select(`
+        *,
+        user_profile:profiles!external_payment_tracks_user_id_fkey(name, email),
+        group:contribution_groups!external_payment_tracks_group_id_fkey(name)
+      `)
+      .order("created_at", { ascending: false })
+      .limit(150);
+
+    if (error) throw error;
+    return (data || []) as ExternalPaymentTrackRecord[];
+  },
+
+  async reviewExternalPayment(
+    trackId: string,
+    status: "unverified" | "verified" | "flagged" | "blocked",
+    note?: string
+  ): Promise<{ success: boolean; status?: string; error?: string }> {
+    const { data, error } = await (supabase as any).rpc("admin_review_external_payment", {
+      p_track_id: trackId,
+      p_status: status,
+      p_note: note || null,
+    });
+    if (error) throw error;
+    return data;
   },
 
   async runAmlScan(): Promise<{ success: boolean; new_alerts?: number; active_alerts?: number; error?: string }> {

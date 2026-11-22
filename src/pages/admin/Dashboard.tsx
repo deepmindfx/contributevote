@@ -6,15 +6,17 @@ import {
   Archive,
   ArrowDownLeft,
   ArrowUpRight,
+  Ban,
+  Building2,
   CheckCircle2,
   ClipboardList,
   ExternalLink,
   Flag,
   Gavel,
   Globe,
+  Globe2,
   Layers,
   Lock,
-  Pause,
   Play,
   ReceiptText,
   RefreshCw,
@@ -41,6 +43,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
+import { supabase } from "@/integrations/supabase/client";
 import { ContributionService } from "@/services/supabase/contributionService";
 import { TransactionService } from "@/services/supabase/transactionService";
 import {
@@ -51,6 +54,7 @@ import {
   type AmlAlertRecord,
   type AmlAlertSeverity,
   type AmlAlertStatus,
+  type ExternalPaymentTrackRecord,
   type PenaltyType,
 } from "@/services/supabase/adminComplianceService";
 import {
@@ -60,6 +64,7 @@ import {
   ManualAmlFlagDialog,
   WalletAdjustDialog,
 } from "@/components/admin/AdminActionDialogs";
+import { FlipCounterHero } from "@/components/admin/FlipCounterHero";
 import { cn } from "@/lib/utils";
 
 const HIGH_VALUE_THRESHOLD = 500000;
@@ -112,6 +117,9 @@ const AdminDashboard = () => {
   const [penalties, setPenalties] = useState<AdminPenaltyRecord[]>([]);
   const [auditLogs, setAuditLogs] = useState<AdminAuditLogRecord[]>([]);
   const [withdrawals, setWithdrawals] = useState<AdminWithdrawalRecord[]>([]);
+  const [externalPayments, setExternalPayments] = useState<ExternalPaymentTrackRecord[]>([]);
+  const [extFilter, setExtFilter] = useState<"all" | "unverified" | "flagged" | "blocked" | "verified">("all");
+  const [extQuery, setExtQuery] = useState("");
   const [loadingPlatformData, setLoadingPlatformData] = useState(true);
 
   // Busy overlay state for kinetic Pooling-C feedback
@@ -152,13 +160,14 @@ const AdminDashboard = () => {
   const loadPlatformData = useCallback(async () => {
     setLoadingPlatformData(true);
     try {
-      const [groupsRes, txRes, alertsRes, penaltiesRes, logsRes, wdRes] = await Promise.allSettled([
+      const [groupsRes, txRes, alertsRes, penaltiesRes, logsRes, wdRes, extRes] = await Promise.allSettled([
         ContributionService.getContributionGroups(),
         TransactionService.getTransactions(),
         AdminComplianceService.getAmlAlerts(),
         AdminComplianceService.getPenalties(),
         AdminComplianceService.getAuditLogs(),
         AdminComplianceService.getPendingWithdrawals(),
+        AdminComplianceService.getExternalPayments(),
         refreshUserData(),
       ]);
 
@@ -168,6 +177,7 @@ const AdminDashboard = () => {
       if (penaltiesRes.status === "fulfilled") setPenalties(penaltiesRes.value || []);
       if (logsRes.status === "fulfilled") setAuditLogs(logsRes.value || []);
       if (wdRes.status === "fulfilled") setWithdrawals(wdRes.value || []);
+      if (extRes.status === "fulfilled") setExternalPayments(extRes.value || []);
     } catch (error) {
       console.error("Error loading admin command center:", error);
       toast.error("Failed to sync platform operations data");
@@ -179,6 +189,24 @@ const AdminDashboard = () => {
   useEffect(() => {
     loadPlatformData();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Realtime subscription so the Mechanical Flip-Board User Counter flips live on new signups
+  useEffect(() => {
+    const channel = supabase
+      .channel("admin-live-user-counter")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "profiles" },
+        () => {
+          void refreshUserData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [refreshUserData]);
 
   // Executive KPIs
   const totalWalletFloat = useMemo(
@@ -295,6 +323,55 @@ const AdminDashboard = () => {
         log.admin_profile?.name?.toLowerCase().includes(q)
     );
   }, [auditLogs, auditQuery]);
+
+  const filteredExternalPayments = useMemo(() => {
+    const q = extQuery.trim().toLowerCase();
+    return externalPayments.filter((ep) => {
+      if (extFilter !== "all" && ep.verification_status !== extFilter) return false;
+      if (!q) return true;
+      return (
+        ep.sender_name?.toLowerCase().includes(q) ||
+        ep.sender_bank?.toLowerCase().includes(q) ||
+        ep.reference_id?.toLowerCase().includes(q) ||
+        ep.group?.name?.toLowerCase().includes(q) ||
+        ep.narration?.toLowerCase().includes(q)
+      );
+    });
+  }, [externalPayments, extFilter, extQuery]);
+
+  const unverifiedExternalCount = useMemo(
+    () => externalPayments.filter((ep) => ep.verification_status === "unverified" || ep.verification_status === "flagged").length,
+    [externalPayments]
+  );
+
+  const handleReviewExternalPayment = async (
+    trackId: string,
+    status: "verified" | "flagged" | "blocked"
+  ) => {
+    setActionPending(true);
+    setOverlayState({
+      message: `Marking outside payment as ${status}`,
+      submessage: status === "verified" ? "Clearing external deposit in compliance ledger…" : "Updating risk status and raising AML case…",
+    });
+    try {
+      const res = await AdminComplianceService.reviewExternalPayment(
+        trackId,
+        status,
+        `Reviewed in Super Admin Outside Payments tracker`
+      );
+      if (!res?.success) {
+        toast.error(res?.error || "Failed to update external payment");
+        return;
+      }
+      toast.success(`Outside payment marked ${status}`);
+      await loadPlatformData();
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to review external payment");
+    } finally {
+      setActionPending(false);
+      setOverlayState(null);
+    }
+  };
 
   // Action Handlers
   const handleRunAmlScan = async () => {
@@ -691,7 +768,16 @@ const AdminDashboard = () => {
         </section>
 
         {/* Overlapping Operations Body */}
-        <div className="app-panel-body">
+        <div className="app-panel-body space-y-6">
+          {/* Bold Mechanical Split-Flap Live User Counter Showcase */}
+          <FlipCounterHero
+            userCount={users.length}
+            bvnVerifiedCount={bvnVerifiedCount}
+            groupCount={allGroups.length}
+            totalLiquidity={totalGroupLiquidity}
+            externalPaymentsCount={externalPayments.length}
+          />
+
           {loadingPlatformData && users.length === 0 ? (
             <BrandLoader
               variant="page"
@@ -701,13 +787,22 @@ const AdminDashboard = () => {
           ) : (
             <Tabs defaultValue="aml" className="w-full space-y-6">
               <div className="overflow-x-auto pb-1">
-                <TabsList className="app-segmented inline-flex w-max min-w-full justify-start gap-1 bg-muted/60 p-1 sm:grid sm:w-full sm:grid-cols-6">
+                <TabsList className="app-segmented inline-flex w-max min-w-full justify-start gap-1 bg-muted/60 p-1 lg:grid lg:w-full lg:grid-cols-7">
                   <TabsTrigger value="aml" className="gap-1.5 px-3">
                     <ShieldAlert className="h-4 w-4" />
                     <span>AML Alerts</span>
                     {activeAmlAlerts.length > 0 && (
                       <span className="ml-0.5 rounded-full bg-destructive px-1.5 py-0.2 text-[10px] font-bold text-destructive-foreground tabular-nums">
                         {activeAmlAlerts.length}
+                      </span>
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger value="external" className="gap-1.5 px-3">
+                    <Globe2 className="h-4 w-4" />
+                    <span>Outside Pay</span>
+                    {unverifiedExternalCount > 0 && (
+                      <span className="ml-0.5 rounded-full bg-amber-500/20 px-1.5 text-[10px] font-bold text-amber-700 dark:text-amber-300 tabular-nums">
+                        {unverifiedExternalCount}
                       </span>
                     )}
                   </TabsTrigger>
@@ -761,11 +856,14 @@ const AdminDashboard = () => {
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
                     {[
+                      "Mandatory Unique BVN for Group Creation",
                       "Single Tx ≥ ₦500,000",
                       "Structuring / Smurfing (3+ split txs ≥ ₦400k/day)",
                       "Velocity Burst (≥ 5 txs/hr)",
                       "Rapid Pass-Through (≥ 80% outflow < 2h)",
                       "Unverified KYC Volume (No BVN ≥ ₦250k/30d)",
+                      "Outside / External Payment ≥ ₦250k Screened",
+                      "Rapid Group Churn Guard (Max 3/24h)",
                     ].map((rule) => (
                       <span
                         key={rule}
@@ -946,6 +1044,177 @@ const AdminDashboard = () => {
                             >
                               <Gavel className="h-3.5 w-3.5" />
                               Penalty
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* ================================================================
+                  TAB 1B: OUTSIDE / EXTERNAL PAYMENT TRACKING & AML SCREENING
+                 ================================================================ */}
+              <TabsContent value="external" className="space-y-4">
+                <div className="cp-card-native space-y-3 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <h2 className="text-sm font-bold text-foreground">
+                        External &amp; Outside Payment Tracker
+                      </h2>
+                      <p className="text-xs text-muted-foreground">
+                        Every outside bank transfer, virtual account credit, and third-party checkout is automatically logged, masked, and AML-scored.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="relative flex-1">
+                      <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        placeholder="Search by sender name, bank, reference, or group…"
+                        value={extQuery}
+                        onChange={(e) => setExtQuery(e.target.value)}
+                        className="h-11 rounded-xl pl-10"
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(["all", "unverified", "flagged", "blocked", "verified"] as const).map((st) => (
+                        <button
+                          key={st}
+                          type="button"
+                          onClick={() => setExtFilter(st)}
+                          className={cn(
+                            "rounded-full border px-3 py-1.5 text-xs font-semibold capitalize",
+                            extFilter === st
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "bg-muted/30 text-muted-foreground hover:bg-accent"
+                          )}
+                        >
+                          {st}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {filteredExternalPayments.length === 0 ? (
+                  <div className="cp-card-native py-14 text-center">
+                    <Building2 className="mx-auto h-10 w-10 text-muted-foreground/60" />
+                    <p className="mt-3 text-sm font-semibold text-foreground">
+                      No external payments in this view
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Outside bank transfers and Flutterwave checkouts will appear here automatically via webhook tracking.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {filteredExternalPayments.map((ep) => (
+                      <div
+                        key={ep.id}
+                        className="cp-card-native flex flex-col justify-between gap-4 p-4 lg:flex-row lg:items-center"
+                      >
+                        <div className="min-w-0 flex-1 space-y-1.5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span
+                              className={cn(
+                                "rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase",
+                                severityBadgeStyle(ep.aml_risk_level)
+                              )}
+                            >
+                              {ep.aml_risk_level} risk
+                            </span>
+                            <Badge
+                              variant={
+                                ep.verification_status === "blocked" || ep.verification_status === "flagged"
+                                  ? "destructive"
+                                  : ep.verification_status === "verified"
+                                  ? "outline"
+                                  : "secondary"
+                              }
+                              className="capitalize"
+                            >
+                              {ep.verification_status}
+                            </Badge>
+                            <span className="rounded-full bg-muted px-2.5 py-0.5 text-[10px] font-semibold capitalize text-muted-foreground">
+                              {ep.source_channel.replace(/_/g, " ")}
+                            </span>
+                            <span className="text-[11px] text-muted-foreground">
+                              {safeFormatDate(ep.created_at)}
+                            </span>
+                          </div>
+
+                          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                            <span className="text-base font-extrabold text-foreground tabular-nums">
+                              {formatNaira(ep.amount)}
+                            </span>
+                            <span className="text-sm font-semibold text-foreground">
+                              From: {ep.sender_name || "Unidentified External Sender"}
+                            </span>
+                            {ep.sender_bank && (
+                              <span className="text-xs text-muted-foreground">
+                                ({ep.sender_bank}
+                                {ep.sender_account_masked ? ` · ${ep.sender_account_masked}` : ""})
+                              </span>
+                            )}
+                          </div>
+
+                          <p className="truncate text-xs text-muted-foreground">
+                            {ep.group?.name ? `Pool: ${ep.group.name} · ` : ""}
+                            {ep.user_profile?.name ? `Account: ${ep.user_profile.name} · ` : ""}
+                            Ref: <span className="font-mono">{ep.reference_id || ep.id.slice(0, 12)}</span>
+                          </p>
+
+                          {Array.isArray(ep.aml_flags) && ep.aml_flags.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 pt-0.5">
+                              {ep.aml_flags.map((flag) => (
+                                <span
+                                  key={flag}
+                                  className="rounded-md bg-amber-500/12 px-2 py-0.5 font-mono text-[10px] font-semibold text-amber-800 dark:text-amber-300"
+                                >
+                                  {flag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap gap-1.5 lg:shrink-0">
+                          {ep.verification_status !== "verified" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={actionPending}
+                              onClick={() => handleReviewExternalPayment(ep.id, "verified")}
+                              className="h-9 gap-1 rounded-xl text-xs"
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
+                              Verify
+                            </Button>
+                          )}
+                          {ep.verification_status !== "flagged" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={actionPending}
+                              onClick={() => handleReviewExternalPayment(ep.id, "flagged")}
+                              className="h-9 gap-1 rounded-xl border-amber-500/40 text-xs text-amber-700 hover:bg-amber-500/10 dark:text-amber-300"
+                            >
+                              <Flag className="h-3.5 w-3.5" />
+                              Flag AML
+                            </Button>
+                          )}
+                          {ep.verification_status !== "blocked" && (
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              disabled={actionPending}
+                              onClick={() => handleReviewExternalPayment(ep.id, "blocked")}
+                              className="h-9 gap-1 rounded-xl text-xs"
+                            >
+                              <Ban className="h-3.5 w-3.5" />
+                              Block
                             </Button>
                           )}
                         </div>

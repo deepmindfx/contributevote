@@ -2,6 +2,7 @@ import { ArrowDownLeft, ArrowLeftRight, Bell, Building2, Clock, Home, Plus, Send
 import { Link } from "react-router-dom";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { CollectiPayMark } from "@/components/ui/BrandLoader";
+import { CommunityStoriesSection } from "@/components/landing/CommunityStoriesSection";
 import "@/styles/landing.css";
 
 const steps = [
@@ -71,6 +72,7 @@ export default function Index() {
         <div className="landing-width">
           <Link to="/" className="landing-brand"><CollectiPayMark size={34} /> CollectiPay</Link>
           <nav aria-label="Main navigation">
+            <a href="#stories" className="landing-nav-detail">Stories</a>
             <a href="#how-it-works" className="landing-nav-detail">How it works</a>
             <Link to="/discover" className="landing-nav-detail">Discover</Link>
             <Link to={isAuthenticated ? "/dashboard" : "/auth"} className="landing-sign-in">
@@ -92,6 +94,8 @@ export default function Index() {
           </div>
           <ProductPreview />
         </section>
+
+        <CommunityStoriesSection startPath={startPath} />
 
         <section id="how-it-works" className="landing-how">
           <div className="landing-width">

@@ -1,8 +1,8 @@
 # Database Schema & Backend Logic
 
-The live database (`sivvjwffekhfabgxhbcd`, PostgreSQL 17) is built from `master_migration.sql` plus `supabase/migrations/20261121_production_hardening.sql`, `supabase/migrations/20261122_group_invitation_workflow.sql`, and `supabase/migrations/20261122_super_admin_compliance.sql`. Generated TypeScript types live in `src/integrations/supabase/types.ts`.
+The live database (`sivvjwffekhfabgxhbcd`, PostgreSQL 17) is built from `master_migration.sql` plus `supabase/migrations/20261121_production_hardening.sql`, `supabase/migrations/20261122_group_invitation_workflow.sql`, `supabase/migrations/20261122_super_admin_compliance.sql`, and `supabase/migrations/20261122_aml_hardening_bvn_tracking.sql`. Generated TypeScript types live in `src/integrations/supabase/types.ts`.
 
-## Tables (14)
+## Tables (15)
 
 | Table | Primary Purpose | Key Columns |
 | :--- | :--- | :--- |
@@ -19,7 +19,8 @@ The live database (`sivvjwffekhfabgxhbcd`, PostgreSQL 17) is built from `master_
 | `refund_transactions` | Per-contributor refund payout audit | `id`, `refund_request_id`, `user_id`, `group_id`, `original_contribution`, `refund_amount`, `refund_percentage`, `status`, `failure_reason`, `transaction_id`, `completed_at` |
 | `aml_alerts` | Automated & manual AML / anti-fraud risk queue | `id`, `alert_key` (unique), `user_id`, `group_id`, `transaction_id`, `alert_type`, `severity` (`low`/`medium`/`high`/`critical`), `status` (`open`/`investigating`/`escalated`/`resolved`/`dismissed`), `risk_score`, `amount`, `title`, `description`, `evidence` (JSONB), `resolution_note`, `resolved_by`, `resolved_at` |
 | `admin_penalties` | Super Admin compliance fines & penalty ledger | `id`, `user_id`, `group_id`, `aml_alert_id`, `penalty_type` (`late_contribution`/`policy_violation`/`aml_hold`/`fraud_chargeback`/`dispute_fine`), `amount`, `reason`, `status` (`applied`/`waived`/`pending`), `deducted_from_wallet`, `transaction_id`, `issued_by`, `waived_by`, `waived_at` |
-| `admin_audit_logs` | Tamper-evident chronological admin action log | `id`, `admin_id`, `action`, `target_type` (`user`/`group`/`aml_alert`/`penalty`/`transaction`/`system`), `target_id`, `summary`, `metadata` (JSONB), `created_at` |
+| `admin_audit_logs` | Tamper-evident chronological admin action log | `id`, `admin_id`, `action`, `target_type` (`user`/`group`/`aml_alert`/`penalty`/`transaction`/`external_payment`/`system`), `target_id`, `summary`, `metadata` (JSONB), `created_at` |
+| `external_payment_tracks` | End-to-end tracker for outside bank & checkout inflows | `id`, `reference_id`, `source_channel` (`group_bank_transfer`/`wallet_bank_transfer`/`card_checkout`/`share_link`/`manual_claim`), `group_id`, `user_id`, `transaction_id`, `amount`, `sender_name`, `sender_bank`, `sender_account_masked`, `verification_status`, `aml_risk_level`, `aml_flags`, `reviewed_by`, `reviewed_at` |
 
 ## PL/pgSQL RPCs & Trigger Functions
 
@@ -28,8 +29,9 @@ The live database (`sivvjwffekhfabgxhbcd`, PostgreSQL 17) is built from `master_
 | `is_admin()` | `SECURITY DEFINER` | Checks if `auth.uid()` has `profiles.role = 'admin'` without triggering RLS recursion. |
 | `handle_new_user()` | `SECURITY DEFINER` | `AFTER INSERT ON auth.users` trigger that initializes a `profiles` row with `wallet_balance = 0` and `groups_created_free_remaining = 3`. |
 | `contribute_from_wallet(p_user_id, p_group_id, p_amount, p_anonymous)` | `SECURITY DEFINER` | Row-locks `profiles`, verifies balance, debits wallet, credits `contribution_groups.current_amount`, upserts `contributors` with `has_voting_rights = true`, and logs transaction with `balance_before`/`balance_after`. |
-| `check_group_creation_eligibility(p_user_id)` | `SECURITY DEFINER` | Returns whether user has free group creations remaining (`3` free) or owes `₦500`. |
-| `create_group_with_fee_check(...)` | `SECURITY DEFINER` | Atomically deducts `₦500` if `groups_created_free_remaining <= 0`, inserts group with schedule/voting params, decrements quota, and logs fee transaction with balance snapshots. |
+| `save_user_bvn(p_bvn)` | `SECURITY DEFINER` | Validates 11-digit BVN, enforces unique BVN across accounts (anti-sybil/anti-mule, logging critical AML alert on duplicate attempts), and unlocks group creation. |
+| `check_group_creation_eligibility(p_user_id)` | `SECURITY DEFINER` | Checks mandatory 11-digit BVN, active account status, 24h velocity guard (max 3/day), and free group quota (`3` free) or `₦500` fee. |
+| `create_group_with_fee_check(...)` | `SECURITY DEFINER` | Strictly enforces active status, mandatory 11-digit BVN, and 24h anti-churn rate limit; atomically deducts `₦500` if quota exhausted, inserts group, and logs fee transaction. |
 | `archive_group(p_group_id, p_user_id)` / `unarchive_group(...)` | `SECURITY DEFINER` | Creator-only archive/restore toggles. |
 | `check_withdrawal_voting(p_withdrawal_id)` | `SECURITY DEFINER` | Evaluates 70% participation + 60% approval thresholds; auto-executes via `process_approved_withdrawal` or rejects past deadline. |
 | `process_approved_withdrawal(p_withdrawal_id)` | `SECURITY DEFINER` | Row-locks request & group, deducts group balance, credits requester wallet, logs transaction, marks `'executed'`, sends notification. |

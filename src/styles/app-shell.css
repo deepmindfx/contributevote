@@ -115,6 +115,119 @@ button:not(:disabled):active,
   }
 }
 
+/* ============================================================================
+ * Mechanical Split-Flap Live Counter (Super Admin Growth Display)
+ * ========================================================================== */
+.cp-flip-unit {
+  perspective: 620px;
+  border-radius: 0.75rem;
+  box-shadow:
+    0 10px 24px -10px rgba(0, 0, 0, 0.75),
+    0 0 0 1px rgba(219, 245, 180, 0.14);
+}
+
+.cp-flip-half {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 50%;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.cp-flip-half > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200%;
+  line-height: 1;
+  color: #f6fff9;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+
+.cp-flip-top {
+  top: 0;
+  border-radius: 0.75rem 0.75rem 0 0;
+  background: linear-gradient(180deg, #1b312b 0%, #12241f 100%);
+  align-items: flex-start;
+}
+
+.cp-flip-bottom {
+  bottom: 0;
+  border-radius: 0 0 0.75rem 0.75rem;
+  background: linear-gradient(180deg, #0d1c18 0%, #142822 100%);
+  align-items: flex-end;
+}
+
+.cp-flip-bottom > span {
+  transform: translateY(0);
+  color: #e4fbe0;
+}
+
+.cp-flip-flap-top {
+  z-index: 4;
+  transform-origin: 50% 100%;
+  animation: cp-flap-down-top 280ms cubic-bezier(0.37, 0.01, 0.94, 0.35) forwards;
+}
+
+.cp-flip-flap-bottom {
+  z-index: 5;
+  transform-origin: 50% 0%;
+  transform: rotateX(90deg);
+  animation: cp-flap-down-bottom 280ms cubic-bezier(0.15, 0.45, 0.28, 1) 260ms forwards;
+}
+
+.cp-flip-crease {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.72);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.07);
+  z-index: 6;
+}
+
+.cp-flip-notch {
+  position: absolute;
+  top: 50%;
+  width: 4px;
+  height: 10px;
+  transform: translateY(-50%);
+  background: #041310;
+  border-radius: 2px;
+  z-index: 7;
+}
+
+.cp-flip-notch-l { left: -1px; }
+.cp-flip-notch-r { right: -1px; }
+
+@keyframes cp-flap-down-top {
+  0% {
+    transform: rotateX(0deg);
+    filter: brightness(1);
+  }
+  100% {
+    transform: rotateX(-90deg);
+    filter: brightness(0.55);
+  }
+}
+
+@keyframes cp-flap-down-bottom {
+  0% {
+    transform: rotateX(90deg);
+    filter: brightness(0.6);
+  }
+  100% {
+    transform: rotateX(0deg);
+    filter: brightness(1);
+  }
+}
+
 .app-header {
   position: fixed;
   inset: 0 0 auto;
