@@ -20,6 +20,8 @@ Authenticate provider callbacks and verify operation, idempotency key, customer,
 
 ## Wallet ledger mode
 
-The database locks the wallet row before reducing available funds. Repeating an accepted quote returns the same lock. An identical amount and duration cannot be submitted again for ten minutes. The maturity worker uses the same row order to return the full principal and record one wallet credit. Users can check a due release if the worker is late, and the database still enforces the exact maturity cutoff. Existing wallet funding and payouts use the Flutterwave integration.
+The database locks the wallet row before reducing available funds. Repeating an accepted quote returns the same lock. An identical amount and duration cannot be submitted again for ten minutes. The PostgreSQL job uses the same row order to return the full principal and record one wallet credit. If the job is late, **Withdraw to wallet** calls `withdraw_fixed_savings` for the signed-in owner, even while intake is paused. The database enforces the exact maturity time and posts a single credit across manual requests and scheduled runs. Existing wallet funding and payouts use the Flutterwave integration.
+
+Apply `20261122211000_ice_vault_manual_release.sql` to keep older unsettled locks visible and isolate alert failures from wallet settlement. Check database warnings for alerts that could not be recorded.
 
 New locks require terms acceptance, a transaction PIN, a healthy scheduler, and an enabled program. Customer balances and savings data are scoped to the signed-in account. The database clock determines release eligibility. Super Admin settings edits use a revision check and record the actor and before-and-after settings in the private audit table.

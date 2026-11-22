@@ -36,6 +36,7 @@ export type SavingsCursor = { before: string; id: string };
 type SavingsPage = {
   enabled: boolean;
   items: SavingsItem[];
+  open_items?: SavingsItem[];
   totals: { locked: number; pending: number; available: number; active_count: number };
   limits: { min_amount: number; max_amount: number; allowed_days: SavingsPeriod[] };
   server_now: string;

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDownToLine, ArrowRight, Clock3, LockKeyhole, Snowflake } from "lucide-react";
 import { toast } from "sonner";
@@ -44,19 +44,25 @@ function SavingsIce({ progress = 0, thawed = false, hero = false }: { progress?:
   </div>;
 }
 
+function canWithdrawLock(item: SavingsItem, now: number) {
+  if (item.credited_at) return false;
+  return item.status === "matured" || (item.settlement_mode === "wallet_ledger" &&
+    item.status === "active" && Date.parse(item.maturity_at) <= now);
+}
+
 function LockCard({ item, now, onWithdraw, busy }: { item: SavingsItem; now: number; onWithdraw: (id: string) => void; busy: boolean }) {
   const start = Date.parse(item.locked_at || item.requested_at);
   const remaining = Date.parse(item.maturity_at) - now;
   const released = item.status === "matured" || item.status === "withdrawn";
   const approaching = item.status === "active" && remaining <= day;
-  const nativeReleaseDue = item.settlement_mode === "wallet_ledger" && item.status === "active" && remaining <= 0;
+  const readyToWithdraw = canWithdrawLock(item, now);
   const label = item.status === "reserving" ? "Confirming lock" : item.status === "failed" ? "Returned to wallet"
-    : item.status === "matured" ? "Matured" : item.status === "withdrawn" ? "Withdrawn to wallet"
+    : readyToWithdraw || item.status === "matured" ? "Matured" : item.status === "withdrawn" ? "Withdrawn to wallet"
     : approaching ? "Maturing" : "Active";
   const progress = released ? 1 : Math.max(0, Math.min(1, (now - start) / Math.max(1, Date.parse(item.maturity_at) - start)));
 
   return <Card className="min-w-0 overflow-hidden rounded-2xl">
-    {item.status !== "failed" && <SavingsIce progress={progress} thawed={released} />}
+    {item.status !== "failed" && <SavingsIce progress={progress} thawed={released || readyToWithdraw} />}
     <div className="space-y-3 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="break-words text-xl font-semibold tabular-nums">{naira.format(item.amount)}</p>
@@ -66,14 +72,14 @@ function LockCard({ item, now, onWithdraw, busy }: { item: SavingsItem; now: num
         <div className="flex flex-wrap justify-between gap-1 text-muted-foreground"><dt>{item.locked_at ? "Locked on" : "Requested on"}</dt><dd>{ngDate.format(new Date(start))}</dd></div>
         <div className="flex flex-wrap justify-between gap-1 text-muted-foreground"><dt>Maturity</dt><dd>{ngDate.format(new Date(item.maturity_at))}</dd></div>
       </dl>
-      {item.status === "active" && <div className="space-y-2">
+      {item.status === "active" && !readyToWithdraw && <div className="space-y-2">
         <progress className="savings-progress block h-1 w-full" max={1} value={progress} aria-label="Lock period elapsed" />
         <p className="flex items-center gap-1.5 text-xs font-medium tabular-nums"><Clock3 size={13} aria-hidden="true" />
-          {remaining <= 0 ? nativeReleaseDue ? "Maturity reached. Returning to your wallet." : "Waiting for release confirmation" : timeRemaining(remaining)}
+          {remaining <= 0 ? "Waiting for release confirmation" : timeRemaining(remaining)}
         </p>
       </div>}
-      {(nativeReleaseDue || (item.status === "matured" && !item.credited_at)) && <Button className="h-11 w-full gap-2" disabled={busy} onClick={() => onWithdraw(item.id)}>
-        <ArrowDownToLine size={16} aria-hidden="true" /> {busy ? "Checking…" : nativeReleaseDue ? "Check wallet release" : "Withdraw to wallet"}
+      {readyToWithdraw && <Button className="h-11 w-full gap-2" disabled={busy} onClick={() => onWithdraw(item.id)}>
+        <ArrowDownToLine size={16} aria-hidden="true" /> {busy ? "Withdrawing…" : "Withdraw to wallet"}
       </Button>}
       {item.credited_at && <>
         <p className="text-xs text-muted-foreground">Credited to wallet {ngDate.format(new Date(item.credited_at))}</p>
@@ -108,6 +114,7 @@ function AccountSavings({ owner }: { owner: string }) {
   const { user, refreshCurrentUser } = useSupabaseUser();
   const { refreshContributionData } = useSupabaseContribution();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [amount, setAmount] = useState("");
   const [days, setDays] = useState<SavingsPeriod>(30);
   const [quote, setQuote] = useState(() => recoverQuote(owner));
@@ -131,9 +138,12 @@ function AccountSavings({ owner }: { owner: string }) {
       const item = last.items[last.items.length - 1];
       return last.items.length === 24 && item ? { before: item.requested_at, id: item.id } : undefined;
     },
-    refetchInterval: (current) => (current.state.data?.pages.some((page) =>
-      page.items.some((item) => item.status === "reserving" ||
-        (item.status === "active" && Date.parse(item.maturity_at) - Date.now() < day))) ? 15_000 : false),
+    refetchInterval: (current) => {
+      const pages = current.state.data?.pages ?? [];
+      const candidates = pages[0]?.open_items ?? pages.flatMap((page) => page.items);
+      return candidates.some((item) => item.status === "reserving" ||
+        (item.status === "active" && Date.parse(item.maturity_at) - Date.now() < day)) ? 15_000 : false;
+    },
   });
   const first = query.data?.pages[0];
   const periods = first?.limits?.allowed_days ?? savingsPeriods;
@@ -141,9 +151,10 @@ function AccountSavings({ owner }: { owner: string }) {
   const minimum = first?.limits?.min_amount ?? 1;
   const maximum = first?.limits?.max_amount;
   const items = query.data?.pages.flatMap((page) => page.items) ?? [];
-  const existingQuote = quote && items.some((item) => item.id === quote.id);
+  const unsettledItems = first?.open_items ?? items.filter((item) => item.status !== "failed" && !item.credited_at);
+  const existingQuote = quote && (unsettledItems.some((item) => item.id === quote.id) || items.some((item) => item.id === quote.id));
   const now = first ? Date.parse(first.server_now) + Math.max(0, tick - first.received_at) : tick;
-  const canTick = showReview || items.some((item) => item.status === "active");
+  const canTick = showReview || unsettledItems.some((item) => item.status === "active");
   const canStart = Boolean(first?.enabled && user?.status === "active");
   const pinSet = hasTransactionPin(user?.preferences);
 
@@ -231,16 +242,21 @@ function AccountSavings({ owner }: { owner: string }) {
     setWithdrawingId(id);
     try {
       await withdrawSavings(id);
-      toast.success("Your savings are now in your wallet.");
+      toast.success("Your savings are now in your wallet.", {
+        action: { label: "Transfer to bank", onClick: () => navigate("/transfer") },
+      });
       await refresh();
-    } catch (error) { toast.error(error instanceof Error ? error.message : "Couldn’t move funds to your wallet."); }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Couldn’t move funds to your wallet.");
+      void query.refetch();
+    }
     finally { withdrawGuard.current = false; setWithdrawingId(null); }
   };
 
   const approvedTerms = quote ? termsLink(quote.terms_url) : null;
   const quoteExpired = Boolean(quote && Date.parse(quote.expires_at) <= now);
-  const openItems = items.filter((item) => item.status === "active" || item.status === "reserving" ||
-    (item.status === "matured" && !item.credited_at));
+  const dueItems = unsettledItems.filter((item) => canWithdrawLock(item, now));
+  const openItems = unsettledItems.filter((item) => !canWithdrawLock(item, now));
   const history = items.filter((item) => item.status === "failed" || Boolean(item.credited_at));
 
   return (
@@ -257,9 +273,14 @@ function AccountSavings({ owner }: { owner: string }) {
         {query.isPending ? <p role="status" className="text-sm text-muted-foreground">Loading savings…</p> : query.isError && !first ? (
           <Card className="space-y-3 p-4"><p role="alert">Couldn’t load Ice Vault.</p><Button variant="outline" onClick={() => void query.refetch()}>Try again</Button></Card>
         ) : <>
+          {dueItems.length > 0 && <section className="space-y-3" aria-labelledby="savings-ready-title">
+            <h2 id="savings-ready-title" className="app-section-title">Ready to withdraw</h2>
+            <p className="text-sm text-muted-foreground">These locks have matured. You can return the full amount to your wallet now.</p>
+            <div className="grid gap-3 sm:grid-cols-2">{dueItems.map((item) => <LockCard key={item.id} item={item} now={now} onWithdraw={(id) => void withdraw(id)} busy={withdrawingId === item.id} />)}</div>
+          </section>}
           {first && (first.totals.pending > 0 || first.totals.available > 0) && <dl className="grid grid-cols-2 gap-3 text-sm">
             <Card className="p-3"><dt className="text-muted-foreground">Awaiting confirmation</dt><dd className="font-semibold">{naira.format(first.totals.pending)}</dd></Card>
-            <Card className="p-3"><dt className="text-muted-foreground">Ready to withdraw</dt><dd className="font-semibold">{naira.format(first.totals.available)}</dd></Card>
+            <Card className="p-3"><dt className="text-muted-foreground">Available to claim</dt><dd className="font-semibold">{naira.format(first.totals.available)}</dd></Card>
           </dl>}
           {canStart && pinSet ? <Card className="rounded-2xl p-4 sm:p-5">
             <form className="space-y-4" onSubmit={review}>
