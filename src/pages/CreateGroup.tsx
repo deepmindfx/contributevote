@@ -8,7 +8,7 @@ export default function CreateGroup() {
   return (
     <div className="min-h-dvh">
       <Header mobilePanel />
-      <main className="app-page app-panel-page max-w-2xl">
+      <main className="app-page app-panel-page desktop-panel-split max-w-2xl">
         <section className="app-panel-hero" aria-labelledby="create-group-title">
           <Button asChild variant="ghost" className="app-panel-secondary mb-4 gap-1">
             <Link to="/all-groups"><ChevronLeft size={18} aria-hidden="true" /> My groups</Link>

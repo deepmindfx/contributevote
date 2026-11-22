@@ -309,7 +309,7 @@ const ActivityHistory = () => {
     <div className="min-h-screen">
       <Header mobilePanel />
 
-      <main className="app-page app-panel-page max-w-4xl">
+      <main className="app-page app-panel-page desktop-panel-wide max-w-4xl">
         {/* Deep-Emerald Native Activity Summary Hero */}
         <section className="app-panel-hero" aria-labelledby="activity-title">
           <p className="panel-kicker text-xs font-semibold uppercase tracking-[0.11em]">

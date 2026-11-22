@@ -34,8 +34,8 @@ export function GroupAdminPanel({ groupId, isAdmin }: GroupAdminPanelProps) {
         <Alert className="text-sm">
           <AlertCircle className="h-4 w-4 flex-shrink-0" />
           <AlertDescription className="text-xs md:text-sm">
-            As an admin, you can verify bank transfers and grant voting rights to contributors.
-            Card/bank payments through the app automatically grant voting rights.
+            Confirmed wallet, card, and bank payments made through CollectiPay grant voting rights automatically.
+            For transfers made outside the app, verify the payment and link it to a registered contributor.
           </AlertDescription>
         </Alert>
 
@@ -49,7 +49,7 @@ export function GroupAdminPanel({ groupId, isAdmin }: GroupAdminPanelProps) {
             </TabsTrigger>
             <TabsTrigger value="pending" className="text-xs md:text-sm px-2 py-2 md:px-3 md:py-2.5">
               <AlertCircle className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
-              <span>Pending</span>
+              <span>Transfers</span>
             </TabsTrigger>
             <TabsTrigger value="contributors" className="text-xs md:text-sm px-2 py-2 md:px-3 md:py-2.5">
               <Users className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />

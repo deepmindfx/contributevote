@@ -28,6 +28,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 import { voteOnWithdrawal } from "@/services/supabase/withdrawalService";
+import { naira } from "@/services/supabase/pricingService";
 import { cn } from "@/lib/utils";
 
 const ITEMS_PER_PAGE = 6;
@@ -82,6 +83,7 @@ const VotesPage = () => {
         threshold,
         eligibleVoters,
         amount: Number(request.amount || 0),
+        fee: Number(request.fee_amount || 0),
         purpose: request.purpose || "No purpose specified",
         createdAt: request.created_at,
         deadline: request.deadline,
@@ -266,7 +268,7 @@ const VotesPage = () => {
 
       <Header mobilePanel />
 
-      <main className="app-page app-panel-page cp-page-enter max-w-3xl">
+      <main className="app-page app-panel-page desktop-panel-split cp-page-enter max-w-3xl">
         {/* Deep-Emerald Governance Hero */}
         <section className="app-panel-hero" aria-labelledby="votes-heading">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -425,6 +427,9 @@ const VotesPage = () => {
                           <p className="mt-0.5 text-3xl font-extrabold tracking-tight text-foreground tabular-nums">
                             ₦{req.amount.toLocaleString("en-NG")}
                           </p>
+                          {req.fee > 0 && (
+                            <p className="text-xs text-muted-foreground">{naira.format(req.fee)} fee · {naira.format(req.amount - req.fee)} to wallet</p>
+                          )}
                         </div>
 
                         {req.status === "pending" && req.deadline && (

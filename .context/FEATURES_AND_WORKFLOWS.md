@@ -11,7 +11,7 @@
 - **Funding**:
   - **Bank Transfer**: Transferring to the personal virtual account triggers Flutterwave webhook → `webhook-contribution` → idempotently credits `profiles.wallet_balance`, inserts a `deposit` transaction with balance snapshots, and creates a `wallet_deposit` notification.
   - **Card / Payment Link**: `WalletService.createPaymentInvoice` calls `flutterwave-invoice`; callback `/payment-callback` verifies server-side via `flutterwave-verify-transaction` (idempotent against webhook).
-- **Outbound Bank Transfer** (`/transfer`): Fetches Nigerian banks (`flutterwave-banks`), resolves beneficiary name (`flutterwave-resolve-account`), verifies user's 4-digit PIN, calculates fee (`₦10.75` ≤ `₦5,000`, `₦26.50` > `₦5,000`), and calls `flutterwave-transfer` (which debits wallet with optimistic concurrency lock, rolls back on API failure, and logs a `transfer` transaction). Failed async payouts are auto-refunded by `webhook-contribution`.
+- **Outbound Bank Transfer** (`/transfer`): The wallet and Send screen show the bank transfer allowance in Lagos time. After free transfers, the fee is ₦10.75 through ₦5,000 and ₦26.50 above ₦5,000. The provider transfer starts after a database transaction verifies the reviewed fee, reserves the daily allowance, and debits the wallet. Confirmed failures refund the full debit and release the allowance.
 
 ## 3. Contribution Groups & Quota
 - **Creation Wizard** (`/create-group`, `GroupForm`): Native 2-step builder with custom interactive inputs — quick goal presets (`₦50k`–`₦1M`), tactile Contribution Frequency tile cards (`Daily`/`Weekly`/`Monthly`/`One-time`), inline + searchable 19-category `CategoryIcon` picker sheet, quick target-date chips, privacy & governance tile selectors, customizable Voting Threshold (`50%`/`60%`/`75%`/`80%`), and a live emerald Pool Blueprint summary card before creation.
@@ -21,12 +21,13 @@
 
 ## 4. Funding a Group & Voting Rights Model
 - **Wallet Contribution** (Instant Voting Rights): `ContributeButton`, `/contribute/:id`, or `/contribute/share/:id` invoke `contribute_from_wallet` RPC → atomically moves funds from user wallet to group and grants `has_voting_rights = true`.
-- **Card / Online Checkout** (Automatic Voting Rights): Verified via `webhook-contribution` or `flutterwave-verify-transaction` → grants `has_voting_rights = true`.
-- **Direct Bank Transfer to Group Account** (Manual Verification): `webhook-contribution` credits `contribution_groups.current_amount`, inserts an anonymous `contributors` row with `has_voting_rights = false`, and notifies the group creator. The creator links the transfer to a registered user (by **email** or **UUID**) in **Admin Panel → Pending** (`PendingBankTransfers`) to grant voting rights.
+- **In-app Card or Bank Checkout** (Automatic Voting Rights): Either the webhook or the payment-return page settles the same server-issued checkout. A confirmed group payment credits the group and grants voting rights in one operation.
+- **Direct Bank Transfer to Group Account** (Manual Verification): The webhook credits the group and records the payment without a voter. In **Manage → Transfers**, a group administrator matches the confirmed payment to an active, registered account by verified email or user ID to grant voting rights. Assignment leaves the previously credited group balance intact.
 
 ## 5. Democratic Governance (Withdrawals & Refunds)
 - **Threshold Rule**: Both withdrawal requests and group refund requests require **≥ 70% participation** of eligible voters AND **≥ 60% approval** of votes cast, within a **7-day** voting window. Early approval executes immediately once both thresholds are reached.
 - **Withdrawals**:
+  - **Platform fee**: Show the gross withdrawal, fee, and net wallet credit before authorization. A voted request keeps its quoted fee through execution. Charity groups have no platform withdrawal fee.
   - Groups with `enable_voting_rights = true`: Creator submits a withdrawal request (`WithdrawalRequest`), eligible contributors are notified and vote on `/votes`. Each vote calls `voteOnWithdrawal` → records a `'vote'` ledger entry → calls `check_withdrawal_voting` → auto-executes `process_approved_withdrawal` (deducting group balance and crediting requester wallet) upon reaching thresholds.
   - Groups with `enable_voting_rights = false`: Creator withdraws immediately via `process_instant_withdrawal`.
 - **Group Refunds**:
@@ -47,6 +48,7 @@
 ## 8. Super Admin Fintech Operations, Penalties & AML Compliance
 - **Live Mechanical Split-Flap User Counter** (`FlipCounterHero`): Real-time 3D split-flap growth board on `/admin` subscribed to `profiles` `INSERT` events via Supabase Realtime, with a **Big Screen Display** fullscreen mode and live KPI tickers (BVN verified, active pools, liquidity, outside payments).
 - **Command Center** (`/admin`, `src/pages/admin/Dashboard.tsx`): 7-tab operations workspace (`AML Alerts`, `Outside Pay`, `Users`, `Groups`, `Penalties`, `Ledger`, `Audit Log`) backed by `AdminComplianceService` and `is_admin()`-gated PostgreSQL RPCs.
+- **Pricing & revenue**: Edit the daily free-transfer allowance, Friday promotion, and standard group withdrawal percentage. This view shows gross fee revenue from settled transfers and group withdrawals recorded under this policy. The initial withdrawal percentage is 0% until configured by an admin.
 - **Anti-Money Laundering Hardening**:
   - **Mandatory Unique BVN Gate**: Organizers must verify a unique 11-digit BVN (`save_user_bvn` — duplicate BVN attempts are blocked and auto-raise a critical AML alert) before creating any group pool; non-admin accounts are capped at 3 new groups per 24h.
   - **Outside Payment Tracking** (`external_payment_tracks` + `webhook-contribution` v5): Every outside bank transfer, virtual account deposit, and third-party checkout is recorded with masked sender account, bank, channel, and real-time AML risk score; high/critical outside payments raise immediate AML alerts.

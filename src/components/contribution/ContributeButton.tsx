@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { useSupabaseUser } from '@/contexts/SupabaseUserContext';
 import { WalletContributionService } from '@/services/supabase/walletContributionService';
 import { toast } from 'sonner';
-import { Wallet, ArrowUpRight } from 'lucide-react';
+import { Wallet, ArrowUpRight, CreditCard } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils';
 import { GroupRules, groupRuleColumns } from './GroupRules';
 import type { GroupRuleDetails } from './GroupRules';
 import { supabase } from '@/integrations/supabase/client';
+import { WalletService } from '@/services/supabase/walletService';
 
 interface ContributeButtonProps {
   groupId: string;
@@ -65,6 +66,22 @@ export function ContributeButton({
   const walletBalance = Number(user?.wallet_balance || 0);
   const parsedAmount = parseFloat(amount || '0');
   const hasBalance = walletBalance >= parsedAmount;
+  const validAmount = /^\d+(?:\.\d{1,2})?$/.test(amount) && parsedAmount >= 100;
+
+  const startCheckout = async () => {
+    if (!groupRules || !user?.email || !validAmount || isProcessing) return;
+    setIsProcessing(true);
+    try {
+      const checkout = await WalletService.createPaymentInvoice({
+        amount: parsedAmount, description: `Contribution to ${groupName}`,
+        customerEmail: user.email, customerName: user.name || user.email,
+        userId: user.id, contributionId: groupId,
+      });
+      if (checkout?.checkoutUrl) window.location.assign(checkout.checkoutUrl);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   const handleOpenChange = (open: boolean) => {
     if (isProcessing) return;
@@ -224,7 +241,7 @@ export function ContributeButton({
               <DialogHeader>
                 <DialogTitle className="tracking-tight">Contribute to {groupName}</DialogTitle>
                 <DialogDescription>
-                  Pay from your CollectiPay wallet.
+                  Pay with your wallet, card, or bank. A confirmed in-app payment grants voting rights.
                 </DialogDescription>
               </DialogHeader>
 
@@ -291,19 +308,23 @@ export function ContributeButton({
                 {!hasBalance && amount && (
                   <Alert variant="destructive" className="rounded-xl">
                     <AlertDescription>
-                      Insufficient balance. You need ₦{(parsedAmount - walletBalance).toLocaleString()} more.
+                      Your wallet is short by ₦{(parsedAmount - walletBalance).toLocaleString()}. You can pay by card or bank instead.
                     </AlertDescription>
                   </Alert>
                 )}
 
                 <Button
                   onClick={handleStartContribution}
-                  disabled={isProcessing || !groupRules || !amount || parsedAmount < 100 || !hasBalance}
+                  disabled={isProcessing || !groupRules || !validAmount || !hasBalance}
                   className="h-12 w-full rounded-xl font-semibold"
                   size="lg"
                 >
                   <Wallet className="mr-2 h-4 w-4" />
-                  Contribute {parsedAmount > 0 ? `₦${parsedAmount.toLocaleString()}` : ''}
+                  Pay from wallet {validAmount ? `· ₦${parsedAmount.toLocaleString()}` : ''}
+                </Button>
+                <Button type="button" variant="outline" onClick={startCheckout}
+                  disabled={isProcessing || !groupRules || !validAmount || !user?.email} className="h-11 w-full gap-2 rounded-xl">
+                  <CreditCard size={16} aria-hidden="true" /> Pay by card or bank
                 </Button>
               </div>
             </>

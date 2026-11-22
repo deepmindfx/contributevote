@@ -41,7 +41,7 @@ export default function Dashboard() {
     <div className="dashboard-wallet-mode min-h-dvh">
       <Header mobileGreeting={greeting} />
       <main className="app-page dashboard-page max-w-[82rem]">
-        <div className="app-page-intro dashboard-intro flex flex-wrap items-center justify-between gap-3">
+        <div className="app-page-intro dashboard-intro desktop-dashboard-hero flex flex-wrap items-center justify-between gap-3">
           <h1 className="app-page-title">{greeting}</h1>
           <Button asChild variant="outline" className="h-11 gap-2 lg:hidden">
             <Link to="/create-group"><Plus size={17} aria-hidden="true" /> Create group</Link>

@@ -793,19 +793,27 @@ button:not(:disabled):active,
     flex-direction: column;
     width: var(--sidebar-width);
     overflow-y: auto;
-    border-right: 1px solid hsl(var(--border));
-    background-color: hsl(var(--card));
+    border-right: 1px solid #214a3d;
+    background: #092e25;
     padding: .6rem 1rem 1rem;
   }
 
   .workspace-brand {
     margin: 0 .45rem .95rem;
     min-height: 3.15rem;
+    color: #f8fffb;
   }
 
   .workspace-create {
     justify-content: flex-start;
     margin-bottom: 1.15rem;
+    background-color: #dcf6b8;
+    color: #133b2d;
+  }
+
+  .workspace-create:hover {
+    background-color: #efffdc;
+    color: #133b2d;
   }
 
   .workspace-links {
@@ -822,14 +830,14 @@ button:not(:disabled):active,
     gap: .7rem;
     padding-inline: .75rem;
     border-radius: .65rem;
-    color: hsl(var(--muted-foreground));
+    color: #dbede3;
     font-size: .88rem;
     font-weight: 550;
   }
 
   .workspace-links a:hover, .workspace-links a[aria-current="page"] {
-    background: hsl(var(--accent));
-    color: hsl(var(--accent-foreground));
+    background: #1b4c3a;
+    color: #f1fbdc;
   }
 
   .workspace-links a[aria-current="page"] {
@@ -842,7 +850,7 @@ button:not(:disabled):active,
 
   .workspace-vote-count {
     margin-inline-start: auto;
-    color: hsl(var(--primary));
+    color: #dcf6b8;
     font-variant-numeric: tabular-nums;
   }
 }

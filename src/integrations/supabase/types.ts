@@ -1109,6 +1109,8 @@ export type Database = {
           contribution_id: string
           created_at: string | null
           deadline: string
+          fee_amount: number
+          fee_percent: number
           id: string
           purpose: string
           requester_id: string
@@ -1121,6 +1123,8 @@ export type Database = {
           contribution_id: string
           created_at?: string | null
           deadline: string
+          fee_amount?: number
+          fee_percent?: number
           id?: string
           purpose: string
           requester_id: string
@@ -1133,6 +1137,8 @@ export type Database = {
           contribution_id?: string
           created_at?: string | null
           deadline?: string
+          fee_amount?: number
+          fee_percent?: number
           id?: string
           purpose?: string
           requester_id?: string
@@ -1368,6 +1374,15 @@ export type Database = {
         }[]
       }
       get_invitation_by_token: { Args: { p_token: string }; Returns: Json }
+      get_platform_pricing: { Args: Record<never, never>; Returns: Json }
+      get_wallet_transfer_allowance: { Args: Record<never, never>; Returns: Json }
+      admin_platform_pricing_report: { Args: Record<never, never>; Returns: Json }
+      admin_update_platform_pricing: { Args: { p_daily_free: number; p_friday_free: boolean; p_withdrawal_percent: number }; Returns: Json }
+      list_group_bank_transfer_assignments: {
+        Args: { p_group_id: string }
+        Returns: { id: string; amount: number; sender_name: string | null; sender_bank: string | null; reference_id: string; created_at: string; verification_status: string }[]
+      }
+      assign_group_bank_transfer: { Args: { p_payment_id: string; p_account: string; p_grant_vote: boolean }; Returns: undefined }
       get_public_payment_config: { Args: never; Returns: Json }
       is_admin: { Args: never; Returns: boolean }
       lookup_user_id_by_email: { Args: { p_email: string }; Returns: string }

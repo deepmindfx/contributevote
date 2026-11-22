@@ -16,6 +16,8 @@ interface TransferRequest {
   currency: string;
   beneficiary_name: string;
   transaction_pin?: string;
+  expected_fee: number;
+  attempt_id: string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -98,104 +100,61 @@ Deno.serve(async (req: Request) => {
       throw new Error('Incorrect 4-digit Transaction PIN.');
     }
 
-    const fee = numericAmount > 5000 ? 26.5 : 10.75;
-    const totalAmount = Math.round((numericAmount + fee) * 100) / 100;
-
-    // Atomically debit wallet via locked SQL RPC to eliminate race conditions / double-spend
-    const { data: debitRes, error: debitError } = await supabaseAdmin.rpc(
-      'service_adjust_wallet_balance',
-      { p_user_id: user.id, p_delta: -totalAmount }
-    );
-
-    if (debitError || !debitRes?.success) {
-      throw new Error(
-        debitRes?.error === 'Insufficient wallet balance'
-          ? `Insufficient balance. You need ₦${totalAmount.toFixed(2)} (₦${numericAmount} + ₦${fee} fee)`
-          : debitRes?.error || 'Could not debit wallet for transfer'
-      );
+    if (currency !== 'NGN' || !Number.isFinite(body.expected_fee)) throw new Error('Review the transfer fee before sending.');
+    if (!/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(body.attempt_id || '')) throw new Error('Review this transfer again.');
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(user.id + ':' + body.attempt_id.toLowerCase()));
+    const reference = 'TRF_' + Array.from(new Uint8Array(digest, 0, 16), (byte) => byte.toString(16).padStart(2, '0')).join('');
+    const { data: reserved, error: reserveError } = await supabaseAdmin.rpc('service_reserve_priced_transfer', {
+      p_user_id: user.id, p_reference: reference, p_amount: numericAmount, p_expected_fee: body.expected_fee,
+      p_metadata: { account_number, account_bank, beneficiary_name, narration: narration || '' },
+    });
+    if (reserveError || !reserved?.success) throw new Error(reserveError?.message || reserved?.error || 'Could not reserve the transfer');
+    const fee = Number(reserved.fee);
+    if (reserved.replayed) {
+      return new Response(JSON.stringify({
+        status: 'success',
+        data: {
+          reference, amount: numericAmount, fee, fee_reason: reserved.fee_reason, status: reserved.status,
+          created_at: reserved.created_at, full_name: beneficiary_name, account_number,
+          bank_name: reserved.bank_name || account_bank, narration,
+        },
+      }), { headers: { 'Content-Type': 'application/json', ...corsHeaders } });
     }
 
-    const balanceBefore = Number(debitRes.balance_before);
-    const balanceAfter = Number(debitRes.balance_after);
-    const reference = `TRF_${Date.now()}_${user.id.substring(0, 8)}`;
+    const settle = async (status: 'pending' | 'completed' | 'failed', details: Record<string, unknown>) => {
+      const { data, error } = await supabaseAdmin.rpc('service_settle_priced_transfer', {
+        p_reference: reference, p_status: status, p_details: details,
+      });
+      if (error || !data?.found) throw new Error('We couldn’t confirm the transfer. Check Wallet history before trying again.');
+      return data.status as string;
+    };
 
-    const { response: transferResponse, routedViaStaticIp } = await flutterwaveFetch(
-      '/transfers',
-      {
-        method: 'POST',
-        body: {
-          account_bank,
-          account_number,
-          amount: numericAmount,
-          narration: narration || 'Transfer from CollectiPay',
-          currency,
-          reference,
-          callback_url: config.webhookUrl,
-          debit_currency: currency,
-          beneficiary_name,
-        },
+    const { response: transferResponse, routedViaStaticIp } = await flutterwaveFetch('/transfers', {
+      method: 'POST',
+      body: {
+        account_bank, account_number, amount: numericAmount, beneficiary_name, reference, currency,
+        debit_currency: currency, narration: narration || 'Transfer from CollectiPay', callback_url: config.webhookUrl,
       },
-      config
-    );
+    }, config);
 
-    if (!transferResponse.ok) {
-      const errorData = await transferResponse.text();
-      console.error('Flutterwave transfer error:', errorData);
-      // Atomic credit rollback — preserves any concurrent deposits!
-      await supabaseAdmin.rpc('service_adjust_wallet_balance', {
-        p_user_id: user.id,
-        p_delta: totalAmount,
-      });
-      let parsedMsg = 'Transfer failed at payment provider. Your wallet was not charged.';
-      try {
-        const parsed = JSON.parse(errorData);
-        if (parsed?.message) parsedMsg = String(parsed.message);
-      } catch {
-        // Keep generic safe message
-      }
-      throw new Error(parsedMsg);
+    // A timeout or provider server error can occur after acceptance. Keep the reserved payment pending.
+    if (transferResponse.status >= 500 || transferResponse.status === 408) {
+      throw new Error('The bank hasn’t confirmed this transfer yet. Check Wallet history before trying again.');
     }
-
-    const transferData = await transferResponse.json();
-    if (transferData.status !== 'success') {
-      await supabaseAdmin.rpc('service_adjust_wallet_balance', {
-        p_user_id: user.id,
-        p_delta: totalAmount,
-      });
-      throw new Error(transferData.message || 'Transfer failed');
+    const transferData = await transferResponse.json().catch(() => null);
+    if (!transferResponse.ok || transferData?.status === 'error') {
+      await settle('failed', {});
+      throw new Error(transferData?.message || 'The transfer failed and the wallet debit was refunded.');
     }
-
-    const { error: transactionError } = await supabaseAdmin
-      .from('transactions')
-      .insert({
-        user_id: user.id,
-        type: 'transfer',
-        amount: numericAmount,
-        status: transferData.data.status === 'SUCCESSFUL' ? 'completed' : 'pending',
-        description: `Transfer to ${beneficiary_name} (${account_number})`,
-        payment_method: 'bank_transfer',
-        reference_id: reference,
-        balance_before: balanceBefore,
-        balance_after: balanceAfter,
-        metadata: {
-          account_number,
-          account_bank,
-          beneficiary_name,
-          bank_name: transferData.data.bank_name || account_bank,
-          narration: narration || '',
-          fee,
-          total_debited: totalAmount,
-          routed_via_static_ip: routedViaStaticIp,
-          static_ip: routedViaStaticIp ? config.staticIpAddress : null,
-          flutterwave_id: transferData.data.id,
-          flutterwave_reference: transferData.data.reference,
-        },
-      });
-
-    if (transactionError) {
-      console.error('Failed to create transaction record:', transactionError);
+    if (!transferData?.data || transferData.status !== 'success') {
+      throw new Error('The bank hasn’t confirmed this transfer yet. Check Wallet history before trying again.');
     }
-
+    const providerStatus = String(transferData.data.status || '').toUpperCase();
+    const settledStatus = await settle(providerStatus === 'SUCCESSFUL' ? 'completed' : providerStatus === 'FAILED' ? 'failed' : 'pending', {
+      bank_name: transferData.data.bank_name || account_bank,
+      flutterwave_id: transferData.data.id, flutterwave_reference: transferData.data.reference,
+      routed_via_static_ip: routedViaStaticIp, static_ip: routedViaStaticIp ? config.staticIpAddress : null,
+    });
     return new Response(JSON.stringify({
       status: 'success',
       message: 'Transfer initiated successfully',
@@ -204,7 +163,8 @@ Deno.serve(async (req: Request) => {
         reference,
         amount: numericAmount,
         fee,
-        status: transferData.data.status,
+        status: settledStatus,
+        fee_reason: reserved.fee_reason,
         created_at: new Date().toISOString(),
         full_name: beneficiary_name,
         account_number,

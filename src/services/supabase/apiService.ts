@@ -56,6 +56,8 @@ export class SupabaseApiService {
     currency: string;
     narration?: string;
     transactionPin?: string;
+    expectedFee: number;
+    attemptId: string;
   }) {
     try {
       const { data, error } = await supabase.functions.invoke('flutterwave-transfer', {
@@ -67,11 +69,17 @@ export class SupabaseApiService {
           beneficiary_name: transferData.beneficiaryName,
           narration: transferData.narration,
           transaction_pin: transferData.transactionPin,
+          expected_fee: transferData.expectedFee,
+          attempt_id: transferData.attemptId,
         }
       });
 
-      if (error) throw error;
-      
+      if (error) {
+        const response = error.context;
+        const details = response instanceof Response ? await response.json().catch(() => null) : null;
+        throw new Error(typeof details?.message === "string" ? details.message : error.message);
+      }
+
       if (data.status !== 'success') {
         throw new Error(data.message || 'Transfer failed');
       }

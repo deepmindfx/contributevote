@@ -36,6 +36,7 @@ import { GroupWithdrawalVotesCard } from '@/components/contribution/GroupWithdra
 import { GroupActivityTimeline } from '@/components/contribution/GroupActivityTimeline';
 import { ContributorsList } from '@/components/contribution/ContributorsList';
 import { GroupAdminPanel } from '@/components/contribution/GroupAdminPanel';
+import { PendingBankTransfers } from '@/components/contribution/PendingBankTransfers';
 import { ShareableBankCard } from '@/components/contribution/ShareableBankCard';
 import { ShareGroupButton } from '@/components/contribution/ShareGroupButton';
 import { InviteMembersDialog } from '@/components/contribution/InviteMembersDialog';
@@ -53,7 +54,7 @@ export default function GroupDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [group, setGroup] = useState<any>(null);
-  const { user } = useSupabaseUser();
+  const { user, isAdmin: isPlatformAdmin } = useSupabaseUser();
   const { contributions, loading, refreshContributionData } = useSupabaseContribution();
   const { hasVotingRights, canVote, isAdmin, loading: rightsLoading, refresh: refreshVotingRights } = useVotingRights(id);
   const [isArchiving, setIsArchiving] = useState(false);
@@ -310,7 +311,7 @@ export default function GroupDetail() {
   const isActive = group.status === 'active' && !group.archived;
   const isPublic = group.privacy === 'public';
   const accountNumber = group.account_number || group.bank_details?.accountNumber;
-  const canManage = isCreator || isAdmin;
+  const canManage = isCreator || isAdmin || isPlatformAdmin;
 
   return (
     <div className="min-h-screen">
@@ -348,7 +349,7 @@ export default function GroupDetail() {
 
       <Header mobilePanel />
 
-      <main className="app-page app-panel-page max-w-4xl">
+      <main className="app-page app-panel-page desktop-panel-split max-w-4xl">
         <section
           className="app-panel-hero group-detail-hero relative overflow-hidden"
           aria-labelledby="group-title"
@@ -390,14 +391,11 @@ export default function GroupDetail() {
             </div>
           </div>
           <p className="panel-kicker text-sm">
-            {isPublic ? "Public" : "Private"} · {getCategoryLabel(group.category)} ·{" "}
-            {group.enable_voting_rights !== false
-              ? `Member Vote (${group.voting_threshold && group.voting_threshold >= 50 ? Math.round(group.voting_threshold) : 60}%)`
-              : "Admin Managed"}
+            {isPublic ? "Public" : "Private"} · {getCategoryLabel(group.category)}
             {!isActive && ` · ${group.archived ? "Archived" : group.status}`}
           </p>
           <h1 id="group-title" className="app-page-title mt-1">{group.name}</h1>
-          {(group.is_verified || group.is_pinned || group.spotlight_label || group.enable_voting_rights !== false) && (
+          {(group.is_verified || group.is_pinned || group.spotlight_label) && (
             <div className="mt-2.5 flex flex-wrap items-center gap-2">
               {(group.is_pinned || group.spotlight_label) && (
                 <SpotlightBadge
@@ -408,11 +406,6 @@ export default function GroupDetail() {
                 />
               )}
               {group.is_verified && <VerifiedCrowdfunderBadge onDark size="md" />}
-              {group.enable_voting_rights !== false && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-0.5 text-[11px] font-semibold text-[#dbf5b4]">
-                  {hasVotingRights ? "Your voting rights: Active" : "Contribute to unlock voting rights"}
-                </span>
-              )}
             </div>
           )}
 
@@ -429,29 +422,6 @@ export default function GroupDetail() {
         </section>
 
         <div className="app-panel-body space-y-4">
-          {/* Crisp Group Detail Picture Card when Cover Photo is Set */}
-          {group.cover_image_url && (
-            <div className="relative overflow-hidden rounded-2xl border bg-card shadow-sm">
-              <img
-                src={group.cover_image_url}
-                alt={group.name}
-                className="max-h-[22rem] w-full object-cover"
-              />
-              {isCreator && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  disabled={isUploadingCover}
-                  onClick={() => coverInputRef.current?.click()}
-                  className="absolute bottom-3 right-3 h-9 gap-1.5 rounded-xl bg-black/65 text-xs font-semibold text-white backdrop-blur-sm hover:bg-black/80"
-                >
-                  <Camera className="h-3.5 w-3.5" />
-                  Change photo
-                </Button>
-              )}
-            </div>
-          )}
           {(isActive || accountNumber || isCreator) && (
             <div className="group-detail-actions">
               {isActive && <ContributeButton groupId={group.id} groupName={group.name} rules={group} onSuccess={handleContributeSuccess} className="h-11 w-full sm:w-auto" />}
@@ -477,6 +447,29 @@ export default function GroupDetail() {
               ) : isCreator && (
                 <Button variant="outline" className="h-11 gap-2 rounded-xl" onClick={() => setShowBvnDialog(true)} disabled={isCreatingAccount}>
                   <Building2 size={16} aria-hidden="true" /> Bank setup
+                </Button>
+              )}
+            </div>
+          )}
+
+          {group.cover_image_url && (
+            <div className="relative overflow-hidden rounded-2xl border bg-card shadow-sm">
+              <img
+                src={group.cover_image_url}
+                alt={group.name}
+                className="max-h-36 w-full object-cover sm:max-h-[22rem]"
+              />
+              {isCreator && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={isUploadingCover}
+                  onClick={() => coverInputRef.current?.click()}
+                  className="absolute bottom-3 right-3 h-9 gap-1.5 rounded-xl bg-black/65 text-xs font-semibold text-white backdrop-blur-sm hover:bg-black/80"
+                >
+                  <Camera className="h-3.5 w-3.5" />
+                  Change photo
                 </Button>
               )}
             </div>
@@ -512,7 +505,14 @@ export default function GroupDetail() {
                     <span className="font-semibold">Group rules</span>
                     <ChevronDown size={16} aria-hidden="true" />
                   </summary>
-                  <div className="pb-4"><GroupRules group={group} showTitle={false} /></div>
+                  <div className="space-y-3 pb-4">
+                    <GroupRules group={group} showTitle={false} />
+                    {group.enable_voting_rights !== false && (
+                      <p className="text-sm text-muted-foreground">
+                        {hasVotingRights ? "Your voting rights are active." : "Contribute to become eligible to vote."}
+                      </p>
+                    )}
+                  </div>
                 </details>
                 {group.enable_voting_rights !== false && (
                   <Link className="group-detail-link" to="/votes">
@@ -549,6 +549,7 @@ export default function GroupDetail() {
             {canManage && (
               <TabsContent value="manage" className="mt-4 space-y-4">
                 {isAdmin && <GroupAdminPanel groupId={group.id} isAdmin={isAdmin} />}
+                {!isAdmin && isPlatformAdmin && <PendingBankTransfers groupId={group.id} isAdmin />}
                 {isCreator && (
                   <Card className="space-y-3 rounded-2xl p-4">
                     <h2 className="app-section-title">Group settings</h2>

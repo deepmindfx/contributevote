@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import WalletActions from "@/components/dashboard/wallet/WalletActions";
 import { CurrencySelector } from "@/components/wallet/CurrencySelector";
+import { TransferAllowanceNotice } from "@/components/wallet/TransferAllowanceNotice";
+import { useTransferAllowance } from "@/hooks/useTransferAllowance";
 
 export default function WalletCard({ onOpenBankAccount, isDepositOpen, setIsDepositOpen }: {
   onOpenBankAccount: () => void;
@@ -12,6 +14,7 @@ export default function WalletCard({ onOpenBankAccount, isDepositOpen, setIsDepo
   setIsDepositOpen: (open: boolean) => void;
 }) {
   const { user } = useSupabaseUser();
+  const { allowance } = useTransferAllowance(user?.id);
   const [showBalance, setShowBalance] = useState(true);
   const [currencyType, setCurrencyType] = useState<"NGN" | "USD">("NGN");
   const naira = Number(user?.wallet_balance || 0);
@@ -38,6 +41,7 @@ export default function WalletCard({ onOpenBankAccount, isDepositOpen, setIsDepo
       </div>
       <CardContent className="dashboard-wallet-content p-0">
         <WalletActions isDepositOpen={isDepositOpen} setIsDepositOpen={setIsDepositOpen} onOpenBankAccount={onOpenBankAccount} showQuickActions />
+        {allowance && <div className="px-3 pb-3 sm:px-4 sm:pb-4"><TransferAllowanceNotice allowance={allowance} /></div>}
       </CardContent>
     </Card>
   );

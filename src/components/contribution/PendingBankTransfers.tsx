@@ -1,188 +1,92 @@
-import { useState, useEffect } from 'react';
-import { ContributorService } from '@/services/supabase/contributorService';
-import { GroupContributionService } from '@/services/supabase/groupContributionService';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { toast } from 'sonner';
-import { Loader2, CheckCircle, XCircle, User } from 'lucide-react';
+import { useEffect, useState } from "react";
+import { Check, Landmark } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { GroupContributionService } from "@/services/supabase/groupContributionService";
+import { naira } from "@/services/supabase/pricingService";
 
-interface PendingBankTransfersProps {
-  groupId: string;
-  isAdmin: boolean;
-}
+type Transfer = Awaited<ReturnType<typeof GroupContributionService.getPendingBankTransfers>>[number];
+const dateFormat = new Intl.DateTimeFormat("en-NG", { dateStyle: "medium", timeZone: "Africa/Lagos" });
 
-export function PendingBankTransfers({ groupId, isAdmin }: PendingBankTransfersProps) {
-  const [pending, setPending] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [verifying, setVerifying] = useState<string | null>(null);
-  const [selectedUserId, setSelectedUserId] = useState<{ [key: string]: string }>({});
+export function PendingBankTransfers({ groupId, isAdmin }: { groupId: string; isAdmin: boolean }) {
+  const [payments, setPayments] = useState<Transfer[]>();
+  const [accounts, setAccounts] = useState<Record<string, string>>({});
+  const [assigning, setAssigning] = useState<string>();
+  const [error, setError] = useState("");
+  const [version, setVersion] = useState(0);
 
   useEffect(() => {
-    loadPendingTransfers();
-  }, [groupId]);
-
-  const loadPendingTransfers = async () => {
-    try {
-      setLoading(true);
-      const data = await ContributorService.getPendingBankTransfers(groupId);
-      setPending(data);
-    } catch (error) {
-      console.error('Error loading pending transfers:', error);
-      toast.error('Failed to load pending transfers');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerify = async (contributorId: string, amount: number, grantVoting: boolean) => {
-    const userId = selectedUserId[contributorId];
-    if (!userId) {
-      toast.error('Please enter a user ID');
-      return;
-    }
-
-    try {
-      setVerifying(contributorId);
-      await GroupContributionService.verifyBankTransfer(
-        groupId,
-        contributorId,
-        userId,
-        amount,
-        grantVoting
-      );
-      await loadPendingTransfers();
-    } catch (error) {
-      console.error('Error verifying transfer:', error);
-    } finally {
-      setVerifying(null);
-    }
-  };
-
-  const handleReject = async (contributorId: string) => {
-    try {
-      setVerifying(contributorId);
-      await ContributorService.removeContributor(contributorId);
-      await loadPendingTransfers();
-      toast.success('Transfer rejected');
-    } catch (error) {
-      console.error('Error rejecting transfer:', error);
-    } finally {
-      setVerifying(null);
-    }
-  };
-
-  if (!isAdmin) {
-    return null;
-  }
-
-  if (loading) {
-    return (
-      <Card className="p-6">
-        <div className="flex items-center justify-center">
-          <Loader2 className="h-6 w-6 animate-spin" />
-        </div>
-      </Card>
+    if (!isAdmin) return;
+    let active = true;
+    setPayments(undefined);
+    setError("");
+    void GroupContributionService.getPendingBankTransfers(groupId).then(
+      (result) => { if (active) setPayments(result); },
+      () => { if (active) setError("Couldn’t load outside bank transfers."); },
     );
-  }
+    return () => { active = false; };
+  }, [groupId, isAdmin, version]);
 
-  if (pending.length === 0) {
-    return (
-      <Card className="p-6">
-        <p className="text-center text-muted-foreground">
-          No pending bank transfers to review
-        </p>
-      </Card>
-    );
-  }
+  const assign = async (paymentId: string) => {
+    if (assigning || !accounts[paymentId]?.trim()) return;
+    setAssigning(paymentId);
+    try {
+      await GroupContributionService.verifyBankTransfer(paymentId, accounts[paymentId]);
+      setPayments((previous) => previous?.filter(({ id }) => id !== paymentId));
+      toast.success("Transfer linked. The contributor now has voting rights.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Couldn’t link this transfer.");
+    } finally {
+      setAssigning(undefined);
+    }
+  };
+
+  if (!isAdmin) return null;
 
   return (
-    <Card className="p-6">
-      <h3 className="text-lg font-semibold mb-4">Pending Bank Transfers</h3>
-      <p className="text-sm text-muted-foreground mb-4">
-        These contributions were made via bank transfer and need manual verification.
-        Link them to user accounts to grant voting rights.
-      </p>
-
-      <div className="space-y-4">
-        {pending.map((transfer) => (
-          <Card key={transfer.id} className="p-4 border-l-4 border-l-yellow-500">
-            <div className="space-y-3">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="font-medium">
-                    ₦{transfer.total_contributed.toLocaleString()}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {transfer.metadata?.senderName || 'Unknown Sender'}
-                  </p>
-                  {transfer.metadata?.senderBank && (
-                    <p className="text-xs text-muted-foreground">
-                      {transfer.metadata.senderBank}
-                    </p>
-                  )}
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(transfer.joined_at).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor={`user-${transfer.id}`}>
-                  Link to User (Enter User ID or Email)
-                </Label>
-                <Input
-                  id={`user-${transfer.id}`}
-                  placeholder="User ID or email"
-                  value={selectedUserId[transfer.id] || ''}
-                  onChange={(e) =>
-                    setSelectedUserId({
-                      ...selectedUserId,
-                      [transfer.id]: e.target.value
-                    })
-                  }
-                  disabled={verifying === transfer.id}
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  onClick={() => handleVerify(transfer.id, transfer.total_contributed, true)}
-                  disabled={verifying === transfer.id || !selectedUserId[transfer.id]}
-                  className="flex-1"
-                >
-                  {verifying === transfer.id ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  ) : (
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                  )}
-                  Verify & Grant Voting
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleVerify(transfer.id, transfer.total_contributed, false)}
-                  disabled={verifying === transfer.id || !selectedUserId[transfer.id]}
-                  className="flex-1"
-                >
-                  <User className="h-4 w-4 mr-2" />
-                  Verify Only
-                </Button>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => handleReject(transfer.id)}
-                  disabled={verifying === transfer.id}
-                >
-                  <XCircle className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </Card>
-        ))}
+    <Card className="space-y-4 rounded-2xl p-4 sm:p-5">
+      <div>
+        <h3 className="font-semibold">Outside bank transfers</h3>
+        <p className="mt-1 text-sm text-muted-foreground">Match a confirmed transfer to the sender’s registered account. The payment is already in the group balance.</p>
       </div>
+      {error ? (
+        <div className="flex flex-wrap items-center gap-2 text-sm"><p role="status">{error}</p><Button variant="outline" onClick={() => setVersion((count) => count + 1)}>Retry</Button></div>
+      ) : !payments ? (
+        <p role="status" className="text-sm text-muted-foreground">Loading transfers…</p>
+      ) : payments.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No outside transfers to assign.</p>
+      ) : (
+        <ul className="divide-y rounded-xl border">
+          {payments.map((payment) => (
+            <li key={payment.id} className="space-y-3 p-3 sm:p-4">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="flex min-w-0 items-start gap-2.5">
+                  <Landmark size={16} className="mt-0.5 shrink-0 text-primary" aria-hidden="true" />
+                  <div className="min-w-0">
+                    <p className="break-words text-sm font-semibold">{payment.sender_name || "Unidentified sender"}</p>
+                    <p className="text-xs text-muted-foreground">{[payment.sender_bank, dateFormat.format(new Date(payment.created_at))].filter(Boolean).join(" · ")}</p>
+                  </div>
+                </div>
+                <span className="font-semibold tabular-nums">{naira.format(payment.amount)}</span>
+              </div>
+              <p className="break-all text-xs text-muted-foreground">Reference {payment.reference_id}</p>
+              {payment.verification_status === "flagged" && <p className="text-xs font-medium text-destructive">Flagged for platform review.</p>}
+              <form className="flex flex-wrap items-end gap-2" onSubmit={(event) => { event.preventDefault(); void assign(payment.id); }}>
+                <div className="min-w-44 flex-1 space-y-1">
+                  <Label htmlFor={`transfer-member-${payment.id}`}>Registered email or user ID</Label>
+                  <Input id={`transfer-member-${payment.id}`} value={accounts[payment.id] || ""} onChange={(event) => setAccounts((previous) => ({ ...previous, [payment.id]: event.target.value }))} />
+                </div>
+                <Button type="submit" className="h-11 gap-2" disabled={!!assigning || !accounts[payment.id]?.trim()}>
+                  <Check size={16} aria-hidden="true" /> {assigning === payment.id ? "Assigning…" : "Verify and grant rights"}
+                </Button>
+              </form>
+            </li>
+          ))}
+        </ul>
+      )}
     </Card>
   );
 }

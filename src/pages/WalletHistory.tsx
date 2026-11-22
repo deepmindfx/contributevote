@@ -210,9 +210,16 @@ export default function WalletHistory() {
     const transferRecipient = getTransferRecipient(meta);
     const failureReason = getFailureReason(meta, transaction.status);
     const fee = Number(meta.fee);
+    const groupPayout = type === "withdrawal" && Boolean(transaction.contribution_id) && meta.gross_amount != null;
     const va = virtualAccount as { accountNumber?: string; bankName?: string } | undefined;
 
-    const extraRows = failureReason
+    const extraRows = groupPayout
+      ? [
+          { label: "Gross group withdrawal", value: displayAmount(Number(meta.gross_amount), "NGN") },
+          { label: "Platform fee", value: displayAmount(fee || 0, "NGN") },
+          { label: "Wallet credited", value: displayAmount(Number(transaction.amount), "NGN"), highlight: true },
+        ]
+      : failureReason
       ? [
           { label: "Failure Reason", value: failureReason },
           { label: "Wallet Refund", value: "Refunded automatically", highlight: true },
@@ -225,7 +232,7 @@ export default function WalletHistory() {
       amount: Number(transaction.amount),
       date: transaction.created_at,
       status: transaction.status,
-      fee: Number.isFinite(fee) ? fee : undefined,
+      fee: !groupPayout && Number.isFinite(fee) ? fee : undefined,
       reference: metaText(meta, "transactionReference") || transaction.reference_id || transaction.id,
       transactionId: transaction.id,
       groupName: pool,
@@ -240,7 +247,9 @@ export default function WalletHistory() {
         transaction.balance_after ??
         (meta.balance_after != null ? Number(meta.balance_after) : undefined),
       sender:
-        type === "deposit"
+        groupPayout
+          ? { label: "From pool", name: pool || "Group" }
+          : type === "deposit"
           ? {
               label: "From",
               name: depositSender.name || "Bank Transfer",
@@ -255,7 +264,9 @@ export default function WalletHistory() {
               bankName: va?.bankName,
             }
           : undefined,
-      recipient: pool
+      recipient: groupPayout
+        ? { label: "To wallet", name: user?.name || "CollectiPay wallet" }
+        : pool
         ? { label: type === "refund" ? "Group" : "To pool", name: pool }
         : type === "deposit"
         ? {
@@ -471,14 +482,17 @@ export default function WalletHistory() {
 
                   <div className="cp-card-native divide-y divide-border/70 overflow-hidden">
                     {section.items.map((tx) => {
-                      const credit = tx.type === "deposit" || tx.type === "refund";
+                      const meta = metadata(tx);
+                      const groupPayout = tx.type === "withdrawal" && Boolean(tx.contribution_id) && meta.gross_amount != null;
+                      const credit = tx.type === "deposit" || tx.type === "refund" || groupPayout;
                       const vote = tx.type === "vote";
                       const Icon = credit ? ArrowDownLeft : vote ? Vote : ArrowUpRight;
                       const pool = groupName(tx.contribution_id);
-                      const meta = metadata(tx);
                       const isPenalty = meta.category === "admin_penalty";
                       const primaryTitle = isPenalty
                         ? "Compliance penalty"
+                        : groupPayout
+                        ? "Group payout"
                         : pool && tx.type === "contribution"
                         ? pool
                         : transactionTypes[tx.type] || "Transaction";

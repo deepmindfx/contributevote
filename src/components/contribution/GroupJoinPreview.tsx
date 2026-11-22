@@ -30,7 +30,7 @@ export function GroupJoinPreview({ group, loading, error, inviter, children }: {
   return (
     <div className="min-h-dvh">
       <Header mobilePanel />
-      <main className="app-page app-panel-page max-w-xl">
+      <main className="app-page app-panel-page desktop-panel-split max-w-xl">
         <section className="app-panel-hero" aria-labelledby="group-preview-title">
           <Button asChild variant="ghost" className="app-panel-secondary mb-3 gap-2">
             <Link to="/discover"><ArrowLeft size={16} aria-hidden="true" /> Discover</Link>

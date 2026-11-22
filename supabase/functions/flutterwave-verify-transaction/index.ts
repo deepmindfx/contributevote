@@ -93,6 +93,25 @@ Deno.serve(async (req: Request) => {
     if (tx_ref && flwData.tx_ref && flwData.tx_ref !== tx_ref) {
       throw new Error('Transaction reference mismatch');
     }
+    if (String(flwData.tx_ref || '').startsWith('CP_CHECKOUT_')) {
+      const { data, error } = await supabaseAdmin.rpc('service_apply_checkout', {
+        p_reference: flwData.tx_ref, p_provider_reference: String(flwData.id || ''),
+        p_amount: Number(flwData.amount), p_currency: flwData.currency, p_method: flwData.payment_type || null,
+        p_expected_user: user.id,
+      });
+      if (error || !data) throw new Error(error?.message || 'Checkout could not be confirmed.');
+      return new Response(JSON.stringify({ success: true, data }), {
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      });
+    }
+
+    // Legacy checkout attribution must be present in the provider-verified data.
+    // A browser return parameter alone cannot turn a deposit or outside transfer into a voting contribution.
+    const checkoutGroupId = flwData.meta?.group_id && flwData.meta?.user_id === user.id ? flwData.meta.group_id : null;
+    if (group_id && group_id !== checkoutGroupId) throw new Error('Payment does not match a group checkout.');
+    if (String(flwData.tx_ref || '').startsWith('GROUP_') && !checkoutGroupId) {
+      throw new Error('Outside group transfers must be linked by a group administrator.');
+    }
 
     // Ownership check: ensure Flutterwave transaction belongs to this authenticated user
     const flwEmail = String(flwData.customer?.email || '').trim().toLowerCase();
@@ -134,7 +153,7 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const targetGroupId = group_id || flwData.meta?.group_id || null;
+    const targetGroupId = checkoutGroupId;
     const isContribution = !!targetGroupId;
 
     let balanceBefore = Number(profile.wallet_balance || 0);

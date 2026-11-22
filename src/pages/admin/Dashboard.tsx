@@ -7,6 +7,7 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   BadgeCheck,
+  BarChart3,
   Ban,
   Building2,
   CheckCircle2,
@@ -73,6 +74,7 @@ import {
 } from "@/components/admin/AdminActionDialogs";
 import { FlipCounterHero } from "@/components/admin/FlipCounterHero";
 import { AdminPaymentSettings } from "@/components/admin/AdminPaymentSettings";
+import { AdminPricingRevenue } from "@/components/admin/AdminPricingRevenue";
 import {
   SpotlightBadge,
   VerifiedCrowdfunderBadge,
@@ -942,6 +944,10 @@ const AdminDashboard = () => {
                   <TabsTrigger value="gateway" className="gap-1.5 px-3">
                     <KeyRound className="h-4 w-4" />
                     <span>Settings</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="pricing" className="gap-1.5 px-3">
+                    <BarChart3 className="h-4 w-4" />
+                    <span>Pricing &amp; revenue</span>
                   </TabsTrigger>
                 </TabsList>
               </div>
@@ -2064,6 +2070,9 @@ const AdminDashboard = () => {
                  ================================================================ */}
               <TabsContent value="gateway" className="space-y-4">
                 <AdminPaymentSettings onSettingsSaved={() => void loadPlatformData()} />
+              </TabsContent>
+              <TabsContent value="pricing" className="space-y-4">
+                <AdminPricingRevenue />
               </TabsContent>
             </Tabs>
           )}

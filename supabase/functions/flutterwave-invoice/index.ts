@@ -45,24 +45,45 @@ Deno.serve(async (req: Request) => {
       throw new Error('Unauthorized');
     }
 
-    const config = await getFlutterwaveConfig();
+    const supabaseAdmin = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
+    const { data: profile } = await supabaseAdmin.from('profiles').select('status').eq('id', user.id).maybeSingle();
+    if (!profile || (profile.status && profile.status !== 'active')) throw new Error('This account cannot start checkout.');
+    const config = await getFlutterwaveConfig({ supabaseAdmin });
     if (!config.secretKey) {
       throw new Error('Flutterwave secret key not configured');
     }
 
     const body: InvoiceRequest = await req.json();
 
-    if (!body.amount || Number(body.amount) <= 0 || !body.customerEmail || !body.customerName || !body.paymentReference) {
-      throw new Error('Missing required fields: amount, customerEmail, customerName, paymentReference');
+    const amount = Number(body.amount);
+    if (!Number.isFinite(amount) || amount < 100 || !Number.isSafeInteger(Math.round(amount * 100)) ||
+      Math.round(amount * 100) / 100 !== amount || !body.customerName || !user.email || (body.currencyCode && body.currencyCode !== 'NGN')) {
+      throw new Error('Enter a valid amount of at least ₦100 and sign in with an email address.');
     }
+    if (body.groupId) {
+      const { data: group } = await supabaseAdmin.from('contribution_groups')
+        .select('privacy,status,archived,creator_id').eq('id', body.groupId).maybeSingle();
+      if (!group || group.status !== 'active' || group.archived) throw new Error('This group is not accepting contributions.');
+      if (group.privacy !== 'public' && group.creator_id !== user.id) {
+        const { data: membership } = await supabaseAdmin.from('contributors')
+          .select('id').eq('group_id', body.groupId).eq('user_id', user.id).maybeSingle();
+        if (!membership) throw new Error('Join this group before contributing.');
+      }
+    }
+    const paymentReference = 'CP_CHECKOUT_' + crypto.randomUUID();
+    const { error: intentError } = await supabaseAdmin.from('checkout_intents').insert({
+      reference: paymentReference, user_id: user.id, group_id: body.groupId || null, amount,
+    });
+    if (intentError) throw new Error('Could not start checkout.');
 
     const flutterwavePayload: Record<string, unknown> = {
-      tx_ref: body.paymentReference,
-      amount: Number(body.amount),
-      currency: body.currencyCode || 'NGN',
+      tx_ref: paymentReference,
+      amount,
+      currency: 'NGN',
+      payment_options: 'card, banktransfer',
       redirect_url: body.redirectUrl,
       customer: {
-        email: body.customerEmail,
+        email: user.email,
         name: body.customerName,
       },
       customizations: {
@@ -97,7 +118,7 @@ Deno.serve(async (req: Request) => {
     return new Response(JSON.stringify({
       success: true,
       data: {
-        invoiceReference: body.paymentReference,
+        invoiceReference: paymentReference,
         paymentDescription: body.paymentDescription,
         amount: Number(body.amount),
         currencyCode: body.currencyCode || 'NGN',

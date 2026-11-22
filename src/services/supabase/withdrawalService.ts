@@ -5,6 +5,8 @@ export interface WithdrawalRequest {
   contribution_id: string;
   requester_id: string;
   amount: number;
+  fee_amount?: number;
+  fee_percent?: number;
   purpose: string;
   status: 'pending' | 'approved' | 'rejected' | 'expired' | 'executed';
   deadline: string;
@@ -38,14 +40,16 @@ export async function createWithdrawalRequest(
   groupId: string,
   amount: number,
   purpose: string,
-  pin?: string
+  pin: string,
+  expectedFee: number
 ): Promise<{ success: boolean; data?: any; error?: string }> {
   try {
-    const { data, error } = await (supabase as any).rpc('create_withdrawal_request_safe', {
+    const { data, error } = await (supabase as any).rpc('create_priced_withdrawal_request', {
       p_group_id: groupId,
       p_amount: amount,
       p_purpose: purpose.trim(),
       p_pin: pin || null,
+      p_expected_fee: expectedFee,
     });
 
     if (error) throw error;
@@ -62,7 +66,7 @@ export async function createWithdrawalRequest(
     console.error('Error creating withdrawal request:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to create withdrawal request',
+      error: (error as { message?: string })?.message || 'Failed to create withdrawal request',
     };
   }
 }
@@ -184,18 +188,16 @@ export async function processInstantWithdrawal(
   groupId: string,
   amount: number,
   purpose: string,
-  pin?: string
+  pin: string,
+  expectedFee: number
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const userId = (await supabase.auth.getUser()).data.user?.id;
-    if (!userId) throw new Error('User not authenticated');
-
-    const { error } = await (supabase as any).rpc('process_instant_withdrawal', {
+    const { error } = await (supabase as any).rpc('process_priced_instant_withdrawal', {
       p_group_id: groupId,
-      p_admin_id: userId,
       p_amount: amount,
       p_purpose: purpose,
       p_pin: pin || null,
+      p_expected_fee: expectedFee,
     });
 
     if (error) throw error;
@@ -205,7 +207,7 @@ export async function processInstantWithdrawal(
     console.error('Error processing instant withdrawal:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to process withdrawal',
+      error: (error as { message?: string })?.message || 'Failed to process withdrawal',
     };
   }
 }

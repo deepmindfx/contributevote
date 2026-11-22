@@ -43,8 +43,9 @@ export function GroupRules({ group, showTitle = true }: { group: GroupRuleDetail
               : `Eligible contributors vote on withdrawals. At least 70% must participate and ${threshold}% of votes cast must approve within seven days.`}
           </dd>
           {group.enable_voting_rights !== false && (
-            <dd className="mt-1">Wallet contributions unlock voting rights instantly. Direct bank transfers require verification by the creator.</dd>
+            <dd className="mt-1">Confirmed wallet, card, and bank payments through CollectiPay grant voting rights. Outside bank transfers require an admin to verify and link the payment to a registered account.</dd>
           )}
+          <dd className="mt-1">A platform fee may apply to group withdrawals. Charity groups are exempt.</dd>
         </div>
       </dl>
     </section>

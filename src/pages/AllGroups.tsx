@@ -122,7 +122,7 @@ const AllGroups = () => {
     <div className="min-h-screen">
       <Header mobilePanel />
 
-      <main className="app-page app-panel-page max-w-5xl">
+      <main className="app-page app-panel-page desktop-panel-wide max-w-5xl">
         <section className="app-panel-hero" aria-labelledby="my-groups-heading">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <h1 id="my-groups-heading" className="app-page-title">My groups</h1>

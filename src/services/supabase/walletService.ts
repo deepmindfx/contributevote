@@ -255,13 +255,6 @@ export class WalletService {
         groupId: contributionId || undefined,
       };
 
-      if (contributionId) {
-        localStorage.setItem(
-          `flw_transaction_${paymentReference}`,
-          JSON.stringify({ contribution_id: contributionId, anonymous: false })
-        );
-      }
-
       const result = await EdgeFunctionService.createPaymentInvoice(invoiceData);
 
       if (!result || !result.success) {

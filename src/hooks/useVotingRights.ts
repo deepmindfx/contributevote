@@ -53,6 +53,6 @@ export function useVotingRights(groupId: string | undefined) {
     isAdmin,
     loading,
     refresh,
-    canVote: hasVotingRights || isAdmin, // Admins can always vote
+    canVote: hasVotingRights,
   };
 }

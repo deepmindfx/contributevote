@@ -24,6 +24,7 @@ import {
   type WithdrawalRequest,
 } from "@/services/supabase/withdrawalService";
 import { cn } from "@/lib/utils";
+import { naira } from "@/services/supabase/pricingService";
 
 interface GroupWithdrawalVotesCardProps {
   groupId: string;
@@ -210,6 +211,11 @@ export function GroupWithdrawalVotesCard({
                     <p className="mt-1.5 text-2xl font-extrabold tracking-tight text-foreground tabular-nums">
                       ₦{Number(req.amount || 0).toLocaleString("en-NG")}
                     </p>
+                    {Number(req.fee_amount || 0) > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {naira.format(Number(req.fee_amount))} fee · {naira.format(Number(req.amount) - Number(req.fee_amount))} to wallet
+                      </p>
+                    )}
                     <p className="mt-0.5 text-sm text-muted-foreground">{req.purpose}</p>
                   </div>
 
