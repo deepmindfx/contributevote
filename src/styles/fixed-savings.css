@@ -5,7 +5,7 @@
   align-items: stretch;
   overflow: hidden;
   min-height: 12rem;
-  background: #061e1b;
+  background: radial-gradient(ellipse at 82% 45%, #12483e, #061e1b 64%);
   color: #f4fff9;
 }
 
@@ -23,14 +23,13 @@
   aspect-ratio: 3 / 1.62;
   isolation: isolate;
   overflow: hidden;
-  background: #061e1b;
 }
 
 .savings-ice img {
   position: absolute;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   inset: 0;
 }
 
@@ -41,18 +40,15 @@
   min-height: 100%;
 }
 
-.savings-ice--hero img { object-fit: contain; }
-
-.savings-ice--hero::after {
-  position: absolute;
-  content: "";
-  inset: 0;
-  background: linear-gradient(90deg, #061e1b 0%, transparent 26%);
-  pointer-events: none;
+.savings-ice-open {
+  opacity: 0;
+  transition: opacity 800ms ease-out;
 }
 
+.savings-ice--thawed .savings-ice-open { opacity: 1; }
+
 .savings-ice-frozen {
-  opacity: calc(1 - var(--ice-progress, 0) * 0.46);
+  opacity: calc(1 - var(--ice-progress, 0) * 0.18);
   transition: opacity 800ms ease-out, transform 1s ease-out, clip-path 900ms ease-out;
   clip-path: polygon(0 0, 29% 0, 46% 0, 63% 0, 83% 0, 100% 0, 100% 100%, 0 100%);
 }
@@ -98,9 +94,8 @@
 
 @media (max-width: 420px) {
   .savings-summary { min-height: 10.25rem; grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr); }
-  .savings-ice--hero img { object-fit: cover; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .savings-ice-frozen, .savings-ice-crack { transition: none; }
+  .savings-ice-frozen, .savings-ice-open, .savings-ice-crack { transition: none; }
 }

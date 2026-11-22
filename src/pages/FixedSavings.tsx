@@ -322,17 +322,24 @@ function AccountSavings({ owner }: { owner: string }) {
       </div>
       <Dialog open={showReview && Boolean(quote)} onOpenChange={(open) => { if (!committing) setShowReview(open); }}>
         {quote && <DialogContent className="w-[calc(100%-1.5rem)] max-w-lg max-h-[88dvh] overflow-y-auto rounded-2xl">
-          <DialogHeader><DialogTitle>Review your savings lock</DialogTitle><DialogDescription>Confirm the amount and exact maturity time.</DialogDescription></DialogHeader>
+          <DialogHeader><DialogTitle>Review your savings lock</DialogTitle><DialogDescription>Check the amount and maturity time.</DialogDescription></DialogHeader>
           <form className="space-y-4" onSubmit={confirm}>
             <dl className="space-y-2 rounded-xl bg-muted p-3 text-sm">
               <div className="flex items-center justify-between gap-2"><dt>Principal</dt><dd className="font-semibold">{naira.format(quote.amount)}</dd></div>
               <div className="flex flex-wrap justify-between gap-2"><dt>Matures at</dt><dd className="font-semibold">{ngDate.format(new Date(quote.maturity_at))}</dd></div>
               {quote.custodian_name && <div className="flex flex-wrap justify-between gap-2"><dt>Funds held by</dt><dd className="break-words">{quote.custodian_name}</dd></div>}
             </dl>
+            <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
+              <LockKeyhole size={17} className="mt-0.5 shrink-0 text-amber-700 dark:text-amber-300" aria-hidden="true" />
+              <div className="space-y-1">
+                <p className="font-semibold">No early release</p>
+                <p>Once you confirm, you can’t cancel this lock, withdraw the money early, or appeal for early release.</p>
+              </div>
+            </div>
             <p className="text-sm text-muted-foreground">
               {quote.settlement_mode === "wallet_ledger"
-                ? "The amount stays unavailable until maturity. It returns to your wallet automatically once the lock matures."
-                : "The amount stays unavailable until maturity and confirmed release."} Ice Vault pays no interest or bonuses.
+                ? "The full amount returns to your wallet automatically at maturity."
+                : "Your provider confirms release after maturity."} Ice Vault pays no interest or bonuses.
             </p>
             {approvedTerms ? <a href={approvedTerms} target="_blank" rel="noopener noreferrer" onClick={() => setReviewed(true)}
               className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-primary underline underline-offset-4">
@@ -340,7 +347,7 @@ function AccountSavings({ owner }: { owner: string }) {
             </a> : <p role="status" className="text-sm text-muted-foreground">The terms are unavailable. Review a new quote.</p>}
             <label className="flex gap-2 text-sm">
               <input type="checkbox" className="mt-0.5 accent-primary" checked={accepted} disabled={!reviewed || !approvedTerms || committing} onChange={(event) => setAccepted(event.target.checked)} />
-              <span>I accept the terms and confirm this amount and maturity time.</span>
+              <span>I accept the Ice Vault terms and agree to lock this amount until the maturity time shown above.</span>
             </label>
             <div className="space-y-1.5"><Label htmlFor="savings-pin">Transaction PIN</Label>
               <Input id="savings-pin" className="h-11" type="password" inputMode="numeric" autoComplete="off" maxLength={4} value={pin} disabled={committing} onChange={(event) => setPin(event.target.value.replace(/\D/g, ""))} />
