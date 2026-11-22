@@ -144,6 +144,31 @@ const KIND_TITLES: Record<ReceiptKind, string> = {
   refund: "Group Refund",
 };
 
+const formatChannelLabel = (raw?: string) => {
+  if (!raw) return undefined;
+  const normalized = raw.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  const known: Record<string, string> = {
+    bank_transfer: "Bank Transfer",
+    wallet: "CollectiPay Wallet",
+    wallet_transfer: "CollectiPay Wallet",
+    card: "Debit / Credit Card",
+    ussd: "USSD Transfer",
+    transfer: "Bank Transfer",
+  };
+  if (known[normalized]) return known[normalized];
+  return raw
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (ch) => ch.toUpperCase());
+};
+
+const RECEIPT_BADGE_LABELS: Record<ReceiptKind, string> = {
+  deposit: "Deposit Receipt",
+  transfer: "Transfer Receipt",
+  withdrawal: "Withdrawal Receipt",
+  contribution: "Group Receipt",
+  refund: "Group Receipt",
+};
+
 export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
   data,
   showActions = true,
@@ -162,7 +187,7 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
   const StatusIcon = statusMeta.icon;
   const totalAmount = data.amount + (data.fee || 0);
   const isGroupReceipt = data.kind === "contribution" || data.kind === "refund" || Boolean(data.groupName);
-  const receiptBadgeLabel = isGroupReceipt ? "Group Receipt" : "Sender Receipt";
+  const receiptBadgeLabel = isGroupReceipt ? "Group Receipt" : RECEIPT_BADGE_LABELS[data.kind] || "Payment Receipt";
   const displayTitle = data.title || KIND_TITLES[data.kind];
   const filePrefix = `collectipay-${data.kind}-${(data.reference || data.transactionId || Date.now().toString()).slice(-10)}`;
 
@@ -184,11 +209,47 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
 
   const renderCanvas = async () => {
     if (!captureRef.current) return null;
+    if (document.fonts && "ready" in document.fonts) {
+      try {
+        await document.fonts.ready;
+      } catch {
+        // Proceed even if fonts readiness throws
+      }
+    }
     return html2canvas(captureRef.current, {
       scale: 3,
       backgroundColor: "#ffffff",
       useCORS: true,
       logging: false,
+      onclone: (clonedDoc) => {
+        const sheet = clonedDoc.querySelector<HTMLElement>("[data-cp-receipt-sheet]");
+        if (!sheet) return;
+        sheet.style.width = "416px";
+        sheet.style.maxWidth = "416px";
+        sheet.style.boxShadow = "none";
+
+        // Ensure html2canvas never clips text descenders or baselines
+        sheet.querySelectorAll<HTMLElement>("p, span, dt, dd, div").forEach((el) => {
+          const style = clonedDoc.defaultView?.getComputedStyle(el);
+          if (style?.textOverflow === "ellipsis" || el.classList.contains("truncate")) {
+            el.style.overflow = "visible";
+            el.style.whiteSpace = "normal";
+            el.style.textOverflow = "clip";
+          }
+          el.style.animation = "none";
+          el.style.transition = "none";
+        });
+
+        // Align status badge text crisply in html2canvas rasterizer
+        const statusPill = sheet.querySelector<HTMLElement>("[data-cp-receipt-status]");
+        if (statusPill) {
+          statusPill.style.display = "inline-flex";
+          statusPill.style.alignItems = "center";
+          statusPill.style.lineHeight = "1.2";
+          statusPill.style.paddingTop = "6px";
+          statusPill.style.paddingBottom = "6px";
+        }
+      },
     });
   };
 
@@ -249,7 +310,10 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
     detailRows.push({ label: "Group Pool", value: data.groupName, highlight: true });
   }
   if (data.paymentMethod) {
-    detailRows.push({ label: "Channel", value: data.paymentMethod });
+    detailRows.push({
+      label: "Channel",
+      value: formatChannelLabel(data.paymentMethod) || data.paymentMethod,
+    });
   }
   if (typeof data.fee === "number" && data.fee > 0) {
     detailRows.push({ label: "Transfer Amount", value: formatNaira(data.amount) });
@@ -291,6 +355,7 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
       {/* Printable / Exportable Blueprint Receipt Ticket */}
       <div
         ref={captureRef}
+        data-cp-receipt-sheet
         className="overflow-hidden rounded-[1.5rem] border border-[#dce7e1] bg-white text-[#102820] shadow-[0_20px_50px_-24px_rgba(12,48,39,0.34)]"
       >
         {/* Deep-Emerald Pooling-C Blueprint Hero Band */}
@@ -303,44 +368,45 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
                 <CollectiPayMark size={30} />
               </span>
               <div>
-                <span className="block text-[15px] font-bold leading-none tracking-[-0.04em] text-white">
+                <span className="block text-[15px] font-bold leading-tight tracking-[-0.04em] text-white">
                   CollectiPay
                 </span>
-                <span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-[0.1em] text-[#a9ccb9]">
+                <span className="mt-0.5 block text-[10px] font-semibold uppercase leading-tight tracking-[0.1em] text-[#a9ccb9]">
                   {receiptBadgeLabel}
                 </span>
               </div>
             </div>
             <span
+              data-cp-receipt-status
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold",
+                "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold leading-none",
                 statusMeta.pillClass
               )}
             >
-              <StatusIcon className="h-3.5 w-3.5" />
-              {statusMeta.label}
+              <StatusIcon className="h-3.5 w-3.5 shrink-0" />
+              <span className="leading-none">{statusMeta.label}</span>
             </span>
           </div>
 
           <div className="relative z-10 mt-6 text-center">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.13em] text-[#b9decb]">
+            <p className="text-[11px] font-semibold uppercase leading-snug tracking-[0.13em] text-[#b9decb]">
               {displayTitle}
             </p>
-            <p className="mt-1.5 text-[2.35rem] font-extrabold leading-none tracking-[-0.045em] text-white tabular-nums">
+            <p className="mt-1.5 text-[2.35rem] font-extrabold leading-[1.1] tracking-[-0.045em] text-white tabular-nums">
               {data.kind === "deposit" || data.kind === "refund" ? "+" : ""}
               {formatNaira(data.amount)}
             </p>
             {data.groupName && (
-              <div className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-medium text-[#e7f8ef]">
-                <Users className="h-3.5 w-3.5 text-[#dbf5b4]" />
-                <span className="max-w-[16rem] truncate">{data.groupName}</span>
+              <div className="mt-3 inline-flex max-w-full items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-medium leading-snug text-[#e7f8ef]">
+                <Users className="h-3.5 w-3.5 shrink-0 text-[#dbf5b4]" />
+                <span className="break-words">{data.groupName}</span>
               </div>
             )}
 
             {/* Optional Group Pool Progress Strip on Group Receipts */}
             {data.groupProgress && poolPercent !== null && (
               <div className="mt-4 rounded-xl border border-white/12 bg-white/[0.07] px-3.5 py-2.5 text-left">
-                <div className="flex items-center justify-between text-[11px]">
+                <div className="flex items-center justify-between text-[11px] leading-snug">
                   <span className="font-medium text-[#c5e2d3]">Pool progress</span>
                   <span className="font-bold text-[#dbf5b4] tabular-nums">{poolPercent}% funded</span>
                 </div>
@@ -350,7 +416,7 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
                     style={{ width: `${poolPercent}%` }}
                   />
                 </div>
-                <div className="mt-1 flex items-center justify-between text-[10px] text-[#a9ccb9] tabular-nums">
+                <div className="mt-1 flex items-center justify-between text-[10px] leading-snug text-[#a9ccb9] tabular-nums">
                   <span>{formatNaira(data.groupProgress.raised, false)} pooled</span>
                   <span>of {formatNaira(data.groupProgress.target, false)}</span>
                 </div>
@@ -375,14 +441,14 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
                     <Wallet className="h-3.5 w-3.5" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-[#5d776c]">
+                    <p className="text-[10px] font-semibold uppercase leading-snug tracking-wider text-[#5d776c]">
                       {data.sender.label}
                     </p>
-                    <p className="truncate text-sm font-semibold text-[#102820]">
+                    <p className="break-words text-sm font-semibold leading-snug text-[#102820]">
                       {data.sender.name}
                     </p>
                     {(data.sender.subtitle || data.sender.bankName) && (
-                      <p className="truncate text-xs text-[#5d776c]">
+                      <p className="mt-0.5 break-words text-xs leading-snug text-[#5d776c]">
                         {data.sender.subtitle && (
                           <span className="font-mono">{data.sender.subtitle}</span>
                         )}
@@ -395,9 +461,9 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
               )}
 
               {data.sender && data.recipient && (
-                <div className="my-1.5 flex items-center gap-3">
+                <div className="my-2 flex items-center gap-3">
                   <div className="cp-route-track" aria-hidden="true">
-                    <span className="cp-route-pulse" />
+                    <span className="cp-route-pulse" data-html2canvas-ignore="true" />
                   </div>
                   <div className="h-px flex-1 bg-[#e3ece7]" />
                 </div>
@@ -413,14 +479,14 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
                     )}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-[#5d776c]">
+                    <p className="text-[10px] font-semibold uppercase leading-snug tracking-wider text-[#5d776c]">
                       {data.recipient.label}
                     </p>
-                    <p className="truncate text-sm font-semibold text-[#102820]">
+                    <p className="break-words text-sm font-semibold leading-snug text-[#102820]">
                       {data.recipient.name}
                     </p>
                     {(data.recipient.subtitle || data.recipient.bankName) && (
-                      <p className="truncate text-xs text-[#5d776c]">
+                      <p className="mt-0.5 break-words text-xs leading-snug text-[#5d776c]">
                         {data.recipient.subtitle && (
                           <span className="font-mono">{data.recipient.subtitle}</span>
                         )}
@@ -437,7 +503,7 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
           {/* Wallet Balance Snapshot */}
           {typeof data.balanceBefore === "number" &&
             typeof data.balanceAfter === "number" && (
-              <div className="flex items-center justify-between rounded-xl border border-[#e6efe9] bg-[#f7faf8] px-3.5 py-2.5 text-xs">
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-[#e6efe9] bg-[#f7faf8] px-3.5 py-2.5 text-xs leading-snug">
                 <span className="font-medium text-[#5d776c]">Wallet Balance</span>
                 <span className="font-semibold tabular-nums text-[#102820]">
                   <span className="font-normal text-[#6f867c]">
@@ -453,7 +519,7 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
 
           {/* Voting Rights Callout */}
           {data.votingRightsGranted && (
-            <div className="flex items-center gap-2 rounded-xl border border-[#cdecd9] bg-[#edf9f1] px-3.5 py-2.5 text-xs font-medium text-[#146c43]">
+            <div className="flex items-center gap-2 rounded-xl border border-[#cdecd9] bg-[#edf9f1] px-3.5 py-2.5 text-xs font-medium leading-snug text-[#146c43]">
               <ShieldCheck className="h-4 w-4 shrink-0 text-[#1e965b]" />
               <span>Group voting rights active for this pool</span>
             </div>
@@ -464,16 +530,16 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
             {detailRows.map((row) => (
               <div
                 key={row.label}
-                className="flex items-center justify-between gap-4 py-2.5"
+                className="flex items-start justify-between gap-4 py-2.5"
               >
-                <dt className="shrink-0 text-xs font-medium text-[#5d776c]">
+                <dt className="shrink-0 pt-0.5 text-xs font-medium leading-snug text-[#5d776c]">
                   {row.label}
                 </dt>
-                <dd className="flex min-w-0 items-center justify-end gap-1.5 text-right">
+                <dd className="flex min-w-0 max-w-[68%] items-start justify-end gap-1.5 text-right">
                   <span
                     className={cn(
-                      "truncate tabular-nums",
-                      row.mono && "font-mono text-xs",
+                      "leading-snug tabular-nums",
+                      row.mono ? "break-all font-mono text-[11px]" : "break-words text-[13px]",
                       row.highlight
                         ? "font-bold text-[#102820]"
                         : "font-semibold text-[#17352b]"
@@ -485,8 +551,9 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
                   {row.copyable && (
                     <button
                       type="button"
+                      data-html2canvas-ignore="true"
                       onClick={() => handleCopy(row.value, row.label)}
-                      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[#5d776c] transition-colors hover:bg-[#edf4f0] hover:text-[#102820]"
+                      className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[#5d776c] transition-colors hover:bg-[#edf4f0] hover:text-[#102820]"
                       aria-label={`Copy ${row.label}`}
                     >
                       {copiedKey === row.label ? (
@@ -503,9 +570,9 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
         </div>
 
         {/* Authentic Verified Footer */}
-        <div className="flex items-center justify-between gap-2 border-t border-[#e6efe9] bg-[#f4f8f6] px-6 py-3 text-[11px] text-[#557065]">
+        <div className="flex items-center justify-between gap-2 border-t border-[#e6efe9] bg-[#f4f8f6] px-6 py-3 text-[11px] leading-snug text-[#557065]">
           <span className="inline-flex items-center gap-1.5 font-medium">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#1e965b]" />
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#1e965b]" />
             Verified by CollectiPay
           </span>
           <span className="font-medium text-[#6f867c]">Save together. Decide together.</span>

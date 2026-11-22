@@ -7,15 +7,16 @@ export interface ActivityItemProps {
   description: string;
   amount: string;
   date: string;
-  status?: "pending" | "completed" | "rejected";
-  senderDetails?: string;
+  status?: "pending" | "completed" | "rejected" | "failed";
+  senderDetails?: string | null;
 }
 
 const icons = { deposit: ArrowDownLeft, withdrawal: ArrowUpRight, vote: Vote };
-const statusStyles = {
+const statusStyles: Record<string, string> = {
   pending: "bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-200",
   completed: "bg-accent text-accent-foreground",
   rejected: "bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-200",
+  failed: "bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-200",
 };
 
 export default function ActivityItem({ type, title, description, amount, date, status, senderDetails }: ActivityItemProps) {

@@ -12,13 +12,16 @@ import BrandLoader from "@/components/ui/BrandLoader";
 import CollectiPayReceipt from "@/components/receipt/CollectiPayReceipt";
 import { TransactionPinDialog } from "@/components/security/TransactionPinDialog";
 import { WalletFlow } from "@/components/wallet/WalletFlow";
+import { TransferAllowanceNotice } from "@/components/wallet/TransferAllowanceNotice";
+import { useTransferAllowance } from "@/hooks/useTransferAllowance";
+import { pricedTransferFee } from "@/services/supabase/pricingService";
 import { cn } from "@/lib/utils";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 import { ApiService } from "@/services/supabase/apiService";
 
 type Bank = { code: string; name: string };
-type Transfer = { bank: Bank; account: string; recipient: string; amount: number; note: string };
+type Transfer = { bank: Bank; account: string; recipient: string; amount: number; fee: number; note: string };
 type TransferReceipt = {
   id?: number | string;
   reference?: string;
@@ -32,7 +35,6 @@ type TransferReceipt = {
   narration?: string;
 };
 
-const feeFor = (amount: number) => amount > 5000 ? 26.5 : 10.75;
 const ngn = new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", currencyDisplay: "narrowSymbol" });
 const money = (amount: number) => ngn.format(amount);
 
@@ -43,12 +45,25 @@ async function resolveRecipient(bankCode: string, account: string) {
   return name.trim();
 }
 
+const POPULAR_BANK_KEYWORDS = [
+  "opay",
+  "palmpay",
+  "kuda",
+  "moniepoint",
+  "guaranty trust",
+  "access bank",
+  "zenith bank",
+  "united bank for africa",
+  "first bank",
+];
+
 function BankPicker({ bank, onSelect }: { bank: Bank | null; onSelect: (bank: Bank) => void }) {
   const [open, setOpen] = useState(false);
   const [banks, setBanks] = useState<Bank[]>();
   const [search, setSearch] = useState("");
   const [error, setError] = useState(false);
   const [retry, setRetry] = useState(0);
+  const [mobileViewport, setMobileViewport] = useState<{ height: number; top: number } | null>(null);
 
   useEffect(() => {
     if (!open || banks) return;
@@ -65,36 +80,143 @@ function BankPicker({ bank, onSelect }: { bank: Bank | null; onSelect: (bank: Ba
     return () => { active = false; };
   }, [banks, open, retry]);
 
-  const choices = banks?.filter(({ name }) => name.toLowerCase().includes(search.trim().toLowerCase()));
+  // Track visualViewport on mobile so the bank sheet stays 100% visible above the on-screen keyboard
+  useEffect(() => {
+    if (!open || typeof window === "undefined") {
+      setMobileViewport(null);
+      return;
+    }
+
+    const updateViewport = () => {
+      if (window.innerWidth >= 640) {
+        setMobileViewport(null);
+        return;
+      }
+      const vv = window.visualViewport;
+      const height = vv ? Math.round(vv.height) : window.innerHeight;
+      const top = vv ? Math.max(0, Math.round(vv.offsetTop)) : 0;
+      setMobileViewport({ height, top });
+    };
+
+    updateViewport();
+    const vv = window.visualViewport;
+    vv?.addEventListener("resize", updateViewport);
+    vv?.addEventListener("scroll", updateViewport);
+    window.addEventListener("resize", updateViewport);
+
+    return () => {
+      vv?.removeEventListener("resize", updateViewport);
+      vv?.removeEventListener("scroll", updateViewport);
+      window.removeEventListener("resize", updateViewport);
+    };
+  }, [open]);
+
+  const query = search.trim().toLowerCase();
+  const choices = banks?.filter(({ name }) => name.toLowerCase().includes(query));
+  const popularBanks =
+    !query && banks
+      ? POPULAR_BANK_KEYWORDS.map((kw) =>
+          banks.find((b) => b.name.toLowerCase().includes(kw))
+        ).filter((b, idx, arr): b is Bank => Boolean(b) && arr.findIndex((x) => x?.code === b?.code) === idx)
+      : [];
+
   return (
-    <Dialog open={open} onOpenChange={(next) => { setOpen(next); setSearch(""); }}>
+    <Dialog open={open} onOpenChange={(next) => { setOpen(next); if (!next) setSearch(""); }}>
       <DialogTrigger asChild>
         <Button type="button" variant="outline" className="h-12 w-full justify-between gap-2 rounded-xl px-3" aria-label={bank ? `Bank, ${bank.name}` : "Choose bank"}>
           <span className="flex min-w-0 items-center gap-2"><Building2 size={17} className="shrink-0 text-primary" aria-hidden="true" /><span className="truncate">{bank?.name || "Choose bank"}</span></span>
           <ChevronRight size={16} className="shrink-0 text-muted-foreground" aria-hidden="true" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+      <DialogContent
+        onOpenAutoFocus={(event) => {
+          // On mobile, let the user view the bank list first without the soft keyboard slamming open
+          if (typeof window !== "undefined" && window.innerWidth < 640) {
+            event.preventDefault();
+          }
+        }}
+        style={
+          mobileViewport
+            ? {
+                top: `${mobileViewport.top}px`,
+                maxHeight: `${Math.max(240, mobileViewport.height - 8)}px`,
+                height: `${Math.min(Math.max(260, mobileViewport.height - 8), 580)}px`,
+              }
+            : undefined
+        }
+        className="inset-x-0 bottom-auto top-0 flex flex-col gap-3 overflow-hidden rounded-b-3xl rounded-t-none p-4 pt-[max(1rem,env(safe-area-inset-top))] data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:h-auto sm:max-h-[min(85dvh,36rem)] sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:p-6 sm:data-[state=closed]:slide-out-to-top-0 sm:data-[state=open]:slide-in-from-top-0"
+      >
+        <DialogHeader className="shrink-0">
           <DialogTitle>Choose a bank</DialogTitle>
-          <DialogDescription>Select the recipient’s Nigerian bank.</DialogDescription>
+          <DialogDescription>Select or search the recipient’s Nigerian bank.</DialogDescription>
         </DialogHeader>
-        <div className="relative">
-          <Search size={17} className="pointer-events-none absolute left-3 top-3.5 text-muted-foreground" aria-hidden="true" />
-          <Input type="search" aria-label="Search banks" className="pl-9" placeholder="Search banks" value={search} onChange={(event) => setSearch(event.target.value)} />
+        <div className="relative shrink-0">
+          <Search size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+          <Input
+            type="search"
+            aria-label="Search banks"
+            className="h-11 rounded-xl pl-9 pr-9"
+            placeholder="Search bank name (e.g. OPay, GTBank)"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              aria-label="Clear bank search"
+              className="absolute right-2 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-lg text-muted-foreground hover:bg-muted"
+            >
+              <X size={15} />
+            </button>
+          )}
         </div>
+
+        {popularBanks.length > 0 && (
+          <div className="shrink-0 space-y-1.5">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Popular banks
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {popularBanks.slice(0, 6).map((choice) => (
+                <button
+                  key={choice.code}
+                  type="button"
+                  onClick={() => {
+                    onSelect(choice);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                    choice.code === bank?.code
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-muted/40 text-foreground hover:border-primary/40 hover:bg-accent"
+                  )}
+                >
+                  {choice.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {error ? (
           <div className="flex items-center justify-between gap-2 text-sm"><p role="alert">Couldn’t load banks.</p><Button variant="outline" onClick={() => setRetry((count) => count + 1)}>Retry</Button></div>
         ) : choices ? (
-          <ul className="max-h-[min(45dvh,22rem)] divide-y overflow-auto rounded-xl border">
+          <ul className="min-h-0 flex-1 divide-y overflow-y-auto overscroll-contain rounded-xl border sm:max-h-[22rem]">
             {choices.map((choice) => (
               <li key={choice.code}>
-                <button type="button" className="flex min-h-11 w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-muted focus-visible:bg-muted" onClick={() => { onSelect(choice); setOpen(false); }}>
-                  {choice.name}{choice.code === bank?.code && <Check size={16} className="shrink-0 text-primary" aria-hidden="true" />}
+                <button
+                  type="button"
+                  className="flex min-h-11 w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm hover:bg-muted focus-visible:bg-muted"
+                  onClick={() => { onSelect(choice); setOpen(false); }}
+                >
+                  <span className="break-words">{choice.name}</span>
+                  {choice.code === bank?.code && <Check size={16} className="shrink-0 text-primary" aria-hidden="true" />}
                 </button>
               </li>
             ))}
-            {choices.length === 0 && <li className="p-3 text-sm text-muted-foreground">No banks match your search.</li>}
+            {choices.length === 0 && <li className="p-3 text-sm text-muted-foreground">No banks match “{search.trim()}”.</li>}
           </ul>
         ) : <p role="status" className="text-sm text-muted-foreground">Loading banks…</p>}
       </DialogContent>
@@ -104,6 +226,7 @@ function BankPicker({ bank, onSelect }: { bank: Bank | null; onSelect: (bank: Ba
 
 export default function TransferForm() {
   const { user, refreshCurrentUser } = useSupabaseUser();
+  const { allowance, loadError: allowanceError, reload: reloadAllowance } = useTransferAllowance(user?.id);
   const { refreshContributionData } = useSupabaseContribution();
   const navigate = useNavigate();
   const [bank, setBank] = useState<Bank | null>(null);
@@ -129,7 +252,8 @@ export default function TransferForm() {
   const userPin = preferences?.transactionPin;
   const numericAmount = Number(amount);
   const amountValid = /^\d+(?:\.\d{1,2})?$/.test(amount) && numericAmount >= 100 && numericAmount <= 500000;
-  const total = Math.round((numericAmount + feeFor(numericAmount)) * 100) / 100;
+  const feeQuote = allowance && amountValid ? pricedTransferFee(numericAmount, allowance) : undefined;
+  const total = Math.round((numericAmount + (feeQuote ?? 0)) * 100) / 100;
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -161,12 +285,16 @@ export default function TransferForm() {
       setError("Enter an amount between ₦100 and ₦500,000 using up to two decimal places.");
       return;
     }
+    if (feeQuote === undefined) {
+      setError("Transfer pricing is unavailable. Refresh it before sending.");
+      return;
+    }
     if (total > balance) {
       setError(`Your balance needs to cover ${money(total)}, including the fee.`);
       return;
     }
     setError("");
-    setReview({ bank, account, recipient: verified.name, amount: numericAmount, note: note.trim() });
+    setReview({ bank, account, recipient: verified.name, amount: numericAmount, fee: feeQuote, note: note.trim() });
   };
 
   const backToDetails = () => {
@@ -177,7 +305,7 @@ export default function TransferForm() {
 
   const executeTransfer = async (verifiedPin: string) => {
     if (!review || sendInFlight.current) return;
-    if (Math.round((review.amount + feeFor(review.amount)) * 100) / 100 > balance) {
+    if (Math.round((review.amount + review.fee) * 100) / 100 > balance) {
       setError("Your wallet balance changed. Go back to review the amount.");
       return;
     }
@@ -204,13 +332,21 @@ export default function TransferForm() {
         currency: "NGN",
         narration: review.note || undefined,
         transactionPin: verifiedPin,
+        expectedFee: review.fee,
       });
       if (result.status !== "success" || !result.data) throw new Error(result?.message || "Transfer couldn’t be confirmed.");
       setReceipt(result.data);
+      reloadAllowance();
       void Promise.allSettled([refreshCurrentUser(), refreshContributionData(true)]);
     } catch (err) {
       if (submitted) void Promise.allSettled([refreshCurrentUser(), refreshContributionData(true)]);
       const serverMsg = err instanceof Error && err.message ? err.message : "";
+      if (serverMsg.startsWith("The transfer fee changed")) {
+        backToDetails();
+        reloadAllowance();
+        setError(serverMsg);
+        return;
+      }
       setError(
         submitted
           ? serverMsg && !serverMsg.includes("Edge Function returned a non-2xx")
@@ -252,7 +388,7 @@ export default function TransferForm() {
           <summary className="app-disclosure font-semibold">View receipt</summary>
           <CollectiPayReceipt data={{
             kind: "transfer", title: "Bank transfer", status, amount: Number(receipt.amount ?? review.amount),
-            fee: Number(receipt.fee ?? feeFor(review.amount)), date: receipt.created_at || new Date().toISOString(),
+            fee: Number(receipt.fee ?? review.fee), date: receipt.created_at || new Date().toISOString(),
             reference: receipt.reference, transactionId: receipt.id ? String(receipt.id) : undefined,
             narration: receipt.narration || review.note, paymentMethod: "CollectiPay wallet",
             sender: { label: "From", name: user?.name || "CollectiPay wallet" },
@@ -270,9 +406,9 @@ export default function TransferForm() {
   }
 
   if (review) {
-    const fee = feeFor(review.amount);
+    const fee = review.fee;
     return (
-      <WalletFlow title="Review transfer" onBack={sending ? undefined : backToDetails}>
+      <WalletFlow title="Review transfer" onBack={backToDetails} backDisabled={sending}>
         {sending && <BrandLoader variant="overlay" message={`Sending ${money(review.amount)}`} submessage="Waiting for confirmation from the bank." />}
         <Card className="space-y-4 rounded-2xl p-4 sm:p-6">
           <div className="rounded-2xl bg-accent/50 p-3">
@@ -282,7 +418,7 @@ export default function TransferForm() {
           </div>
           <dl className="wallet-value-rows text-sm">
             <div><dt>Amount</dt><dd>{money(review.amount)}</dd></div>
-            <div><dt>Transfer fee</dt><dd>{money(fee)}</dd></div>
+            <div><dt>Transfer fee</dt><dd>{fee === 0 ? "Free" : money(fee)}</dd></div>
             {review.note && <div><dt>Note</dt><dd>{review.note}</dd></div>}
             <div><dt className="font-semibold">Total from wallet</dt><dd>{money(review.amount + fee)}</dd></div>
           </dl>
@@ -307,6 +443,8 @@ export default function TransferForm() {
                 <div className="flex justify-center">
                   <InputOTP
                     maxLength={4}
+                    aria-label="Transaction PIN"
+                    autoComplete="off"
                     value={pin}
                     disabled={sending}
                     inputMode="numeric"
@@ -377,6 +515,13 @@ export default function TransferForm() {
     <WalletFlow title="Send money" description={<>Available balance <strong className="ml-1 font-semibold text-white">{money(balance)}</strong></>}>
       <Card className="rounded-2xl p-4 sm:p-6">
         <form onSubmit={continueToReview} className="space-y-4" noValidate>
+          {allowance && <TransferAllowanceNotice allowance={allowance} />}
+          {allowanceError && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3 text-sm">
+              <p role="alert">Transfer pricing couldn’t load.</p>
+              <Button type="button" variant="outline" onClick={reloadAllowance}>Retry</Button>
+            </div>
+          )}
           <div className="space-y-2">
             <h2 className="text-sm font-semibold">Recipient</h2>
             <BankPicker bank={bank} onSelect={(next) => { setBank(next); setError(""); if (bank?.code !== next.code) setVerification(undefined); }} />
@@ -398,14 +543,16 @@ export default function TransferForm() {
               <Input id="transfer-amount" type="number" inputMode="decimal" min="100" max="500000" step="0.01" placeholder="0.00" value={amount}
                 className="min-w-0 border-0 bg-transparent px-1 text-2xl font-semibold tabular-nums md:text-2xl" onChange={(event) => { setAmount(event.target.value); setError(""); }} />
             </div>
-            <p className="text-xs text-muted-foreground">{amountValid ? `${money(feeFor(numericAmount))} transfer fee · ${money(total)} total` : "₦100 minimum · ₦500,000 maximum"}</p>
+            <p className="text-xs text-muted-foreground">
+              {feeQuote === undefined ? "₦100 minimum · ₦500,000 maximum" : `${feeQuote === 0 ? "Free transfer" : money(feeQuote) + " transfer fee"} · ${money(total)} total`}
+            </p>
           </div>
           <details className="rounded-xl border px-3">
             <summary className="app-disclosure font-medium">Add a note <span className="text-xs text-muted-foreground">Optional</span></summary>
             <div className="pb-3"><Input aria-label="Transfer note" value={note} maxLength={100} onChange={(event) => setNote(event.target.value)} /></div>
           </details>
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-          <Button type="submit" className="h-12 w-full gap-2" disabled={Boolean(key && !verified)}>Review transfer <ArrowRight size={16} aria-hidden="true" /></Button>
+          <Button type="submit" className="h-12 w-full gap-2" disabled={!allowance || Boolean(key && !verified)}>Review transfer <ArrowRight size={16} aria-hidden="true" /></Button>
         </form>
       </Card>
     </WalletFlow>

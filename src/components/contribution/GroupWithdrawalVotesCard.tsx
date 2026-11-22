@@ -158,7 +158,7 @@ export function GroupWithdrawalVotesCard({
                   : "Recent Payout Decisions"}
               </h2>
               <p className="text-[11px] text-muted-foreground">
-                Requires 70% voter participation &amp; {approvalThreshold}% approval
+                At least 70% must vote &amp; {approvalThreshold}% must say yes
               </p>
             </div>
           </div>

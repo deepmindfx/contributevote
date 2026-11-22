@@ -28,6 +28,13 @@ import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { cn } from "@/lib/utils";
+import {
+  formatPaymentMethodLabel,
+  getDepositSender,
+  getFailureReason,
+  getTransferRecipient,
+  metaText,
+} from "@/utils/transactionDisplay";
 
 type Transaction = Database["public"]["Tables"]["transactions"]["Row"];
 
@@ -52,12 +59,6 @@ const transactionTypes: Record<string, string> = {
 };
 
 const metadata = (transaction: Transaction) => (transaction.metadata || {}) as Record<string, unknown>;
-const metaText = (meta: Record<string, unknown>, ...keys: string[]) => {
-  for (const key of keys) {
-    if (typeof meta[key] === "string" && meta[key]) return meta[key] as string;
-  }
-  return undefined;
-};
 
 const displayAmount = (value: number, currency: "NGN" | "USD") =>
   new Intl.NumberFormat("en-NG", {
@@ -165,11 +166,18 @@ export default function WalletHistory() {
       if (!q) return true;
       const pool = groupName(tx.contribution_id)?.toLowerCase() || "";
       const title = (transactionTypes[tx.type] || "").toLowerCase();
+      const meta = metadata(tx);
+      const depositSender = getDepositSender(meta);
+      const transferRecipient = getTransferRecipient(meta);
       return (
         pool.includes(q) ||
         title.includes(q) ||
         (tx.description || "").toLowerCase().includes(q) ||
-        (tx.reference_id || "").toLowerCase().includes(q)
+        (tx.reference_id || "").toLowerCase().includes(q) ||
+        (depositSender.name || "").toLowerCase().includes(q) ||
+        (depositSender.bankName || "").toLowerCase().includes(q) ||
+        (transferRecipient.name || "").toLowerCase().includes(q) ||
+        (transferRecipient.bankName || "").toLowerCase().includes(q)
       );
     });
   }, [userLedger, bankView, filter, query, contributions, groupNames]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -198,12 +206,18 @@ export default function WalletHistory() {
         : "transfer";
     const title = transactionTypes[type];
     const pool = groupName(transaction.contribution_id);
-    const sender =
-      type === "deposit"
-        ? metaText(meta, "senderName") || "Bank transfer"
-        : user?.name || user?.email;
-    const recipient = metaText(meta, "recipientName", "account_name");
+    const depositSender = getDepositSender(meta);
+    const transferRecipient = getTransferRecipient(meta);
+    const failureReason = getFailureReason(meta, transaction.status);
     const fee = Number(meta.fee);
+    const va = virtualAccount as { accountNumber?: string; bankName?: string } | undefined;
+
+    const extraRows = failureReason
+      ? [
+          { label: "Failure Reason", value: failureReason },
+          { label: "Wallet Refund", value: "Refunded automatically", highlight: true },
+        ]
+      : undefined;
 
     setSelected({
       kind,
@@ -216,9 +230,8 @@ export default function WalletHistory() {
       transactionId: transaction.id,
       groupName: pool,
       narration: transaction.description || metaText(meta, "narration"),
-      paymentMethod: (metaText(meta, "paymentMethod") || transaction.payment_method)?.replace(
-        /_/g,
-        " "
+      paymentMethod: formatPaymentMethodLabel(
+        metaText(meta, "paymentMethod") || transaction.payment_method
       ),
       balanceBefore:
         transaction.balance_before ??
@@ -226,30 +239,48 @@ export default function WalletHistory() {
       balanceAfter:
         transaction.balance_after ??
         (meta.balance_after != null ? Number(meta.balance_after) : undefined),
-      sender: sender
-        ? {
-            label: "From",
-            name: sender,
-            bankName: type === "deposit" ? metaText(meta, "senderBank", "bankName") : undefined,
-          }
-        : undefined,
+      sender:
+        type === "deposit"
+          ? {
+              label: "From",
+              name: depositSender.name || "Bank Transfer",
+              subtitle: depositSender.accountNumber,
+              bankName: depositSender.bankName,
+            }
+          : user?.name || user?.email
+          ? {
+              label: "From",
+              name: user?.name || user?.email || "CollectiPay Wallet",
+              subtitle: va?.accountNumber || "CollectiPay Wallet",
+              bankName: va?.bankName,
+            }
+          : undefined,
       recipient: pool
         ? { label: type === "refund" ? "Group" : "To pool", name: pool }
-        : recipient
+        : type === "deposit"
+        ? {
+            label: "To Wallet",
+            name: user?.name || user?.email || "Your CollectiPay Wallet",
+            subtitle:
+              metaText(meta, "virtualAccountNumber") || va?.accountNumber || "CollectiPay Wallet",
+            bankName: va?.bankName,
+          }
+        : transferRecipient.name || transferRecipient.bankName
         ? {
             label: "To",
-            name: recipient,
-            bankName: metaText(meta, "bankName", "bank_name"),
-            subtitle: metaText(meta, "accountNumber", "account_number"),
+            name: transferRecipient.name || "Bank Account",
+            bankName: transferRecipient.bankName,
+            subtitle: transferRecipient.accountNumber,
           }
         : undefined,
+      extraRows,
     });
   };
 
   const refresh = async () => {
     setRefreshing(true);
     try {
-      await refreshContributionData();
+      await refreshContributionData(true);
     } finally {
       setRefreshing(false);
     }
@@ -451,11 +482,17 @@ export default function WalletHistory() {
                         : pool && tx.type === "contribution"
                         ? pool
                         : transactionTypes[tx.type] || "Transaction";
+                      const depositSender = getDepositSender(meta);
+                      const transferRecipient = getTransferRecipient(meta);
                       const subtitleParts = [
                         formatTime(tx.created_at),
                         pool && tx.type !== "contribution" ? pool : null,
-                        tx.type === "transfer" ? metaText(meta, "recipientName", "bankName") : null,
-                        tx.type === "deposit" ? metaText(meta, "senderName") : null,
+                        tx.type === "transfer" || tx.type === "withdrawal"
+                          ? [transferRecipient.name, transferRecipient.bankName].filter(Boolean).join(" • ") || null
+                          : null,
+                        tx.type === "deposit"
+                          ? [depositSender.name, depositSender.bankName].filter(Boolean).join(" • ") || null
+                          : null,
                       ].filter(Boolean);
                       const status = tx.status?.toLowerCase();
                       const showStatusBadge =
@@ -543,7 +580,7 @@ export default function WalletHistory() {
           if (!open) setSelected(null);
         }}
       >
-        <DialogContent className="max-h-[92dvh] max-w-md border-none bg-transparent p-2 shadow-none sm:p-4">
+        <DialogContent className="max-h-[92dvh] max-w-md overflow-y-auto border-none bg-transparent p-2 shadow-none sm:p-4">
           <DialogHeader className="sr-only">
             <DialogTitle>Transaction receipt</DialogTitle>
             <DialogDescription>Verified CollectiPay wallet transaction receipt.</DialogDescription>

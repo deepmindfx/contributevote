@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import ActivityItem from "./ActivityItem";
 import EmptyActivity from "./EmptyActivity";
 import ActivitySkeleton from "./ActivitySkeleton";
+import { getDepositSender, getTransferRecipient } from "@/utils/transactionDisplay";
 
 interface ActivityListProps {
   isLoading: boolean;
@@ -83,12 +84,12 @@ const ActivityList = ({ isLoading }: ActivityListProps) => {
           title: titleMap[transaction.type] || "Transaction",
           description: contribution ? contribution.name : 
                        transaction.description || 
-                       (meta?.bankName ? `Via ${meta.bankName}` : ''),
+                       (meta?.bankName || meta?.bank_name ? `Via ${meta.bankName || meta.bank_name}` : ''),
           amount: transaction.type === 'vote' ? 
                   `₦${Number(transaction.amount).toLocaleString()}` : 
                   `${isCredit ? '+' : '-'}₦${Number(transaction.amount).toLocaleString()}`,
           date: formatDate(transaction.created_at),
-          status: transaction.status as "pending" | "completed" | "rejected",
+          status: transaction.status as "pending" | "completed" | "rejected" | "failed",
           senderDetails: getSenderDetails(transaction),
           id: transaction.id,
           reference: meta?.paymentReference || meta?.transactionReference,
@@ -121,27 +122,25 @@ const ActivityList = ({ isLoading }: ActivityListProps) => {
     }
   }
 
-  // Enhanced function to get sender details from transaction
+  // Enhanced function to get clean sender/recipient details from transaction
   function getSenderDetails(transaction: any) {
-    if (transaction.type !== 'deposit' && transaction.type !== 'contribution') return null;
-    
-    const meta = (transaction.metadata || {}) as any;
-    const senderName = meta?.senderName || 
-                      meta?.contributorName || 
-                      meta?.customerName;
-                      
-    const bankName = meta?.bankName || 
-                    meta?.senderBank || 
-                    meta?.paymentBank;
-    
-    if (senderName && bankName) {
-      return `From: ${senderName} (${bankName})`;
-    } else if (senderName) {
-      return `From: ${senderName}`;
-    } else if (bankName) {
-      return `Via: ${bankName}`;
+    const meta = (transaction.metadata || {}) as Record<string, unknown>;
+
+    if (transaction.type === 'deposit' || transaction.type === 'contribution') {
+      const { name, bankName } = getDepositSender(meta);
+      if (name && bankName) return `From: ${name} (${bankName})`;
+      if (name) return `From: ${name}`;
+      if (bankName) return `Via: ${bankName}`;
+      return null;
     }
-    
+
+    if (transaction.type === 'transfer' || transaction.type === 'withdrawal') {
+      const { name, bankName } = getTransferRecipient(meta);
+      if (name && bankName) return `To: ${name} (${bankName})`;
+      if (name) return `To: ${name}`;
+      if (bankName) return `To: ${bankName}`;
+    }
+
     return null;
   }
 

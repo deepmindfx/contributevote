@@ -372,7 +372,7 @@ export const WalletContributionService = {
         });
       } else {
         toast.success('Vote recorded', {
-          description: `${participation}% participation · ${approval}% approval (needs 70% quorum & ${threshold}% approval)`,
+          description: `${participation}% voted · ${approval}% said yes (needs 70% of members to vote & ${threshold}% yes)`,
         });
       }
 

@@ -22,6 +22,12 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import CollectiPayReceipt, { type CollectiPayReceiptData, type ReceiptKind } from "@/components/receipt/CollectiPayReceipt";
 import { cn } from "@/lib/utils";
+import {
+  formatPaymentMethodLabel,
+  getDepositSender,
+  getFailureReason,
+  getTransferRecipient,
+} from "@/utils/transactionDisplay";
 
 type ActivityFilter = "all" | "in" | "out" | "groups" | "votes";
 
@@ -62,6 +68,7 @@ const ActivityHistory = () => {
     let groupCount = 0;
 
     for (const tx of userTransactions) {
+      if (String(tx.status || "").toLowerCase() === "failed") continue;
       const amt = Number(tx.amount || 0);
       if (tx.type === "deposit" || tx.type === "refund") {
         totalIn += amt;
@@ -106,15 +113,18 @@ const ActivityHistory = () => {
 
       if (!q) return true;
       const group = contributions.find((c) => c.id === tx.contribution_id);
-      const meta = (tx.metadata || {}) as Record<string, any>;
+      const meta = (tx.metadata || {}) as Record<string, unknown>;
+      const depositSender = getDepositSender(meta);
+      const transferRecipient = getTransferRecipient(meta);
       const haystack = [
         titleMap[tx.type] || tx.type,
         group?.name,
         tx.description,
         tx.reference_id,
-        meta?.bankName,
-        meta?.recipientName,
-        meta?.senderName,
+        depositSender.name,
+        depositSender.bankName,
+        transferRecipient.name,
+        transferRecipient.bankName,
       ]
         .filter(Boolean)
         .join(" ")
@@ -153,7 +163,7 @@ const ActivityHistory = () => {
     if (tx.type === "vote") return;
 
     const group = contributions.find((c) => c.id === tx.contribution_id);
-    const meta = (tx.metadata || {}) as Record<string, any>;
+    const meta = (tx.metadata || {}) as Record<string, unknown>;
     const rawType = String(tx.type || "deposit").toLowerCase();
 
     const kind: ReceiptKind =
@@ -169,16 +179,26 @@ const ActivityHistory = () => {
 
     const isInbound = kind === "deposit" || kind === "refund";
     const userPrefs = (user?.preferences || {}) as Record<string, any>;
+    const depositSender = getDepositSender(meta);
+    const transferRecipient = getTransferRecipient(meta);
+    const failureReason = getFailureReason(meta, tx.status);
+
+    const extraRows = failureReason
+      ? [
+          { label: "Failure Reason", value: failureReason },
+          { label: "Wallet Refund", value: "Refunded automatically", highlight: true },
+        ]
+      : undefined;
 
     setSelectedReceipt({
       kind,
       title: titleMap[rawType] || "Transaction Receipt",
       amount: Number(tx.amount || 0),
-      fee: meta?.fee ? Number(meta.fee) : undefined,
+      fee: meta.fee ? Number(meta.fee) : undefined,
       status: tx.status || "completed",
       date: tx.created_at,
-      reference: meta?.transactionReference || tx.reference_id || tx.id,
-      transactionId: tx.id ? String(tx.id).slice(0, 12).toUpperCase() : undefined,
+      reference: (meta.transactionReference as string) || tx.reference_id || tx.id,
+      transactionId: tx.id ? String(tx.id) : undefined,
       groupName: group?.name,
       groupProgress:
         group && Number(group.target_amount) > 0
@@ -188,29 +208,39 @@ const ActivityHistory = () => {
             }
           : undefined,
       paymentMethod:
-        meta?.paymentMethod ||
-        (tx.payment_method ? String(tx.payment_method).replace(/_/g, " ") : undefined) ||
+        formatPaymentMethodLabel((meta.paymentMethod as string) || tx.payment_method) ||
         (kind === "deposit" ? "Bank Transfer" : "CollectiPay Wallet"),
-      narration: tx.description || meta?.narration,
+      narration: tx.description || (meta.narration as string | undefined),
       balanceBefore:
-        meta?.balance_before !== undefined ? Number(meta.balance_before) : undefined,
+        tx.balance_before != null
+          ? Number(tx.balance_before)
+          : meta.balance_before !== undefined
+          ? Number(meta.balance_before)
+          : undefined,
       balanceAfter:
-        meta?.balance_after !== undefined ? Number(meta.balance_after) : undefined,
+        tx.balance_after != null
+          ? Number(tx.balance_after)
+          : meta.balance_after !== undefined
+          ? Number(meta.balance_after)
+          : undefined,
       votingRightsGranted: kind === "contribution",
       sender: isInbound
         ? {
             label: "From",
             name:
-              meta?.senderName ||
-              meta?.payerName ||
-              (kind === "refund" ? group?.name || "Group Pool" : "External Transfer"),
-            subtitle: meta?.payerEmail || meta?.accountNumber,
-            bankName: meta?.bankName || meta?.senderBank,
+              depositSender.name ||
+              (kind === "refund" ? group?.name || "Group Pool" : "Bank Transfer"),
+            subtitle:
+              depositSender.accountNumber ||
+              (meta.payerEmail as string | undefined) ||
+              (meta.accountNumber as string | undefined),
+            bankName: depositSender.bankName,
           }
         : {
             label: "From",
             name: user?.name || user?.email || "CollectiPay Wallet",
             subtitle: userPrefs?.virtualAccount?.accountNumber || "CollectiPay Wallet",
+            bankName: userPrefs?.virtualAccount?.bankName,
           },
       recipient:
         kind === "contribution" && group
@@ -224,14 +254,19 @@ const ActivityHistory = () => {
           ? {
               label: "To Wallet",
               name: user?.name || user?.email || "Your Wallet",
-              subtitle: userPrefs?.virtualAccount?.accountNumber || "CollectiPay Wallet",
+              subtitle:
+                (meta.virtualAccountNumber as string | undefined) ||
+                userPrefs?.virtualAccount?.accountNumber ||
+                "CollectiPay Wallet",
+              bankName: userPrefs?.virtualAccount?.bankName,
             }
           : {
               label: "To",
-              name: meta?.recipientName || meta?.account_name || meta?.full_name || "Bank Account",
-              subtitle: meta?.accountNumber || meta?.account_number,
-              bankName: meta?.bankName || meta?.bank_name,
+              name: transferRecipient.name || "Bank Account",
+              subtitle: transferRecipient.accountNumber,
+              bankName: transferRecipient.bankName,
             },
+      extraRows,
     });
   };
 
@@ -381,12 +416,23 @@ const ActivityHistory = () => {
                         const timeLabel = isValid(d) ? format(d, "h:mm a") : "";
                         const statusKey = String(tx.status || "completed").toLowerCase();
                         const canOpenReceipt = tx.type !== "vote";
+                        const depositSender = getDepositSender(meta);
+                        const transferRecipient = getTransferRecipient(meta);
+                        const senderSummary = [depositSender.name, depositSender.bankName]
+                          .filter(Boolean)
+                          .join(" • ");
+                        const recipientSummary = [transferRecipient.name, transferRecipient.bankName]
+                          .filter(Boolean)
+                          .join(" • ");
                         const subtitle =
                           group?.name ||
-                          meta?.recipientName ||
-                          meta?.senderName ||
+                          (tx.type === "transfer" || tx.type === "withdrawal"
+                            ? recipientSummary
+                            : tx.type === "deposit"
+                            ? senderSummary
+                            : "") ||
                           tx.description ||
-                          (meta?.bankName ? `Via ${meta.bankName}` : "");
+                          (depositSender.bankName ? `Via ${depositSender.bankName}` : "");
 
                         return (
                           <button

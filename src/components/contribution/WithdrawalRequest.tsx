@@ -131,9 +131,9 @@ export function WithdrawalRequest({ groupId }: WithdrawalRequestProps) {
           <AlertDescription className="text-xs leading-relaxed">
             {groupHasVotingRights ? (
               <>
-                <strong>Vote-governed pool:</strong> Payouts require at least{' '}
-                <strong>70% participation</strong> and{' '}
-                <strong>{approvalThreshold}% approval</strong> from verified contributors within 7 days.
+                <strong>Vote-governed pool:</strong> At least{' '}
+                <strong>70% of members must vote</strong> and{' '}
+                <strong>{approvalThreshold}% must say yes</strong> within 7 days before funds are released.
                 {eligibleVoterCount > 0 ? (
                   <span> Currently <strong>{eligibleVoterCount}</strong> eligible voter{eligibleVoterCount === 1 ? '' : 's'}.</span>
                 ) : (

@@ -1,17 +1,78 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { getFlutterwaveConfig } from "../_shared/flutterwaveConfig.ts";
+import {
+  FLUTTERWAVE_BASE_URL,
+  getFlutterwaveConfig,
+  type FlutterwaveRuntimeConfig,
+} from "../_shared/flutterwaveConfig.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, verif-hash'
 };
 
+const GENERIC_SENDER_NAMES = new Set([
+  'anonymous',
+  'anonymous customer',
+  'unknown',
+  'unknown customer',
+  'unknown sender',
+  'customer',
+  'n/a',
+  'null',
+  'undefined',
+]);
+
+function cleanString(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function cleanSenderName(value: unknown): string | null {
+  const str = cleanString(value);
+  if (!str) return null;
+  if (GENERIC_SENDER_NAMES.has(str.toLowerCase())) return null;
+  return str;
+}
+
 function maskAccountNumber(acc?: string | null): string | null {
   if (!acc) return null;
   const clean = String(acc).trim();
+  if (!clean) return null;
+  if (clean.includes('*')) return clean;
   if (clean.length <= 4) return clean;
   return `${'*'.repeat(Math.max(2, clean.length - 4))}${clean.slice(-4)}`;
+}
+
+async function fetchTransactionVerifyMeta(
+  transactionId: string | number | undefined,
+  flwConfig?: FlutterwaveRuntimeConfig
+): Promise<Record<string, any> | null> {
+  if (!transactionId || !flwConfig?.secretKey) return null;
+  try {
+    const res = await fetch(
+      `${FLUTTERWAVE_BASE_URL}/transactions/${encodeURIComponent(String(transactionId))}/verify`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${flwConfig.secretKey}`,
+          'Content-Type': 'application/json',
+        },
+        signal: AbortSignal.timeout(6000),
+      }
+    );
+    if (!res.ok) return null;
+    const json = await res.json();
+    const meta = json?.data?.meta;
+    if (meta && typeof meta === 'object') {
+      return meta as Record<string, any>;
+    }
+    return null;
+  } catch (err) {
+    console.warn('Non-fatal: could not enrich originator details from Flutterwave verify:', err);
+    return null;
+  }
 }
 
 async function trackExternalPaymentAndScreenAml(
@@ -176,7 +237,7 @@ Deno.serve(async (req) => {
     console.log('Received webhook event:', webhookData.event || webhookData.type);
 
     if (webhookData.event) {
-      return await handleFlutterwaveWebhook(supabase, webhookData);
+      return await handleFlutterwaveWebhook(supabase, webhookData, flwConfig);
     }
 
     const { type, data } = webhookData;
@@ -185,7 +246,7 @@ Deno.serve(async (req) => {
     }
 
     if (type === 'virtual_account_credit' && data) {
-      return await handleVirtualAccountCredit(supabase, data);
+      return await handleVirtualAccountCredit(supabase, data, webhookData.meta_data);
     }
 
     return new Response(JSON.stringify({
@@ -209,8 +270,13 @@ Deno.serve(async (req) => {
   }
 });
 
-async function handleFlutterwaveWebhook(supabase: any, webhookData: any) {
+async function handleFlutterwaveWebhook(
+  supabase: any,
+  webhookData: any,
+  flwConfig?: FlutterwaveRuntimeConfig
+) {
   const { event, data } = webhookData;
+  const topLevelMeta = webhookData.meta_data || webhookData.meta || null;
 
   if (event === 'charge.completed' && data) {
     if (data.status && data.status.toLowerCase() !== 'successful') {
@@ -222,7 +288,7 @@ async function handleFlutterwaveWebhook(supabase: any, webhookData: any) {
         status: 200
       });
     }
-    return await handleSuccessfulPayment(supabase, data);
+    return await handleSuccessfulPayment(supabase, data, topLevelMeta, flwConfig);
   }
 
   if (event === 'transfer.completed' && data) {
@@ -232,7 +298,7 @@ async function handleFlutterwaveWebhook(supabase: any, webhookData: any) {
     }
     // Inbound virtual account credit
     if (data.account_number || data.accountNumber) {
-      return await handleVirtualAccountCredit(supabase, data);
+      return await handleVirtualAccountCredit(supabase, data, topLevelMeta);
     }
     return await handleOutboundTransferCallback(supabase, data);
   }
@@ -249,80 +315,47 @@ async function handleFlutterwaveWebhook(supabase: any, webhookData: any) {
 
 async function handleOutboundTransferCallback(supabase: any, transferData: any) {
   const reference = transferData.reference;
-  const flwStatus = String(transferData.status || '').toUpperCase();
+  const providerStatus = String(transferData.status || '').toUpperCase();
+  if (typeof reference === 'string' && reference.startsWith('TRF_')) {
+    const { error } = await supabase.rpc('service_settle_priced_transfer', {
+      p_reference: reference, p_status: providerStatus === 'SUCCESSFUL' ? 'completed' : providerStatus === 'FAILED' ? 'failed' : 'pending',
+      p_details: { flutterwave_callback_status: providerStatus, complete_message: transferData.complete_message },
+    });
+    if (error) throw error;
+  }
+  return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+}
 
-  if (reference) {
-    const newStatus =
-      flwStatus === 'SUCCESSFUL' ? 'completed' :
-      flwStatus === 'FAILED' ? 'failed' :
-      'pending';
+async function handleSuccessfulPayment(
+  supabase: any,
+  paymentData: any,
+  topLevelMeta?: Record<string, any> | null,
+  flwConfig?: FlutterwaveRuntimeConfig
+) {
+  const checkoutReference = String(paymentData.tx_ref || '');
+  if (checkoutReference.startsWith('CP_CHECKOUT_')) {
+    if (paymentData.status !== 'successful') throw new Error('Checkout payment is not confirmed');
+    const { data, error } = await supabase.rpc('service_apply_checkout', {
+      p_reference: checkoutReference, p_provider_reference: String(paymentData.id || ''),
+      p_amount: Number(paymentData.amount), p_currency: paymentData.currency, p_method: paymentData.payment_type,
+    });
+    if (error || !data) throw error || new Error('Checkout could not be confirmed');
+    return new Response(JSON.stringify({ success: true, data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  }
 
-    const { data: existingTx } = await supabase
-      .from('transactions')
-      .select('id, user_id, amount, status, metadata')
-      .eq('reference_id', reference)
-      .maybeSingle();
-
-    if (existingTx) {
-      if (newStatus === 'failed') {
-        // Atomic status transition: only one concurrent webhook can transition non-failed -> failed and trigger refund
-        const { data: transitioned } = await supabase
-          .from('transactions')
-          .update({
-            status: 'failed',
-            metadata: {
-              ...(existingTx.metadata || {}),
-              flutterwave_callback_status: flwStatus,
-              complete_message: transferData.complete_message
-            },
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', existingTx.id)
-          .neq('status', 'failed')
-          .select('id')
-          .maybeSingle();
-
-        if (transitioned && existingTx.user_id) {
-          const fee = Number(existingTx.metadata?.fee || 0);
-          const refundTotal = Math.round((Number(existingTx.amount || 0) + fee) * 100) / 100;
-          if (refundTotal > 0) {
-            await supabase.rpc('service_adjust_wallet_balance', {
-              p_user_id: existingTx.user_id,
-              p_delta: refundTotal,
-            });
-
-            await supabase.from('notifications').insert({
-              user_id: existingTx.user_id,
-              type: 'transfer_failed',
-              title: 'Transfer Failed & Refunded',
-              message: `Your transfer of ₦${Number(existingTx.amount).toLocaleString()} failed and ₦${refundTotal.toLocaleString()} was refunded to your wallet.`,
-              is_read: false
-            });
-          }
-        }
-      } else {
-        await supabase
-          .from('transactions')
-          .update({
-            status: newStatus,
-            metadata: {
-              ...(existingTx.metadata || {}),
-              flutterwave_callback_status: flwStatus,
-              complete_message: transferData.complete_message
-            },
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', existingTx.id);
-      }
+  const providerMeta = { ...paymentData.meta, ...paymentData.metadata, ...paymentData.meta_data, ...topLevelMeta };
+  if (paymentData.payment_type === 'bank_transfer' && !providerMeta.user_id) {
+    const groupId = providerMeta.group_id || (checkoutReference.startsWith('GROUP_') ? checkoutReference.split('_')[1] : null);
+    if (groupId) {
+      const { data: group } = await supabase.from('contribution_groups').select('id,account_number').eq('id',groupId).maybeSingle();
+      if (group) return await handleGroupAccountCredit(supabase, group, {
+        ...paymentData, payment_reference: paymentData.flw_ref || paymentData.id,
+        sender_name: providerMeta.originatorname || paymentData.customer?.name,
+        sender_bank: providerMeta.bankname, originator_account_number: providerMeta.originatoraccountnumber,
+      });
     }
   }
 
-  return new Response(JSON.stringify({ success: true, message: 'Transfer status updated' }), {
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-  });
-}
-
-async function handleSuccessfulPayment(supabase: any, paymentData: any) {
   const userEmail = paymentData.customer?.email;
   if (!userEmail) {
     return new Response(JSON.stringify({ success: true, message: 'No email found' }), {
@@ -368,8 +401,82 @@ async function handleSuccessfulPayment(supabase: any, paymentData: any) {
     });
   }
 
+  // Merge metadata across all Flutterwave webhook shapes (top-level meta_data, data.meta_data, data.meta)
+  let combinedMeta: Record<string, any> = {
+    ...(paymentData.meta && typeof paymentData.meta === 'object' ? paymentData.meta : {}),
+    ...(paymentData.metadata && typeof paymentData.metadata === 'object' ? paymentData.metadata : {}),
+    ...(paymentData.meta_data && typeof paymentData.meta_data === 'object' ? paymentData.meta_data : {}),
+    ...(topLevelMeta && typeof topLevelMeta === 'object' ? topLevelMeta : {}),
+  };
+
+  let originatorName = cleanSenderName(
+    combinedMeta.originatorname ||
+      combinedMeta.originator_name ||
+      combinedMeta.sender_name ||
+      combinedMeta.senderName
+  );
+  let originatorBank = cleanString(
+    combinedMeta.bankname ||
+      combinedMeta.bank_name ||
+      combinedMeta.sender_bank ||
+      combinedMeta.senderBank
+  );
+  let originatorAccount = cleanString(
+    combinedMeta.originatoraccountnumber ||
+      combinedMeta.originator_account_number ||
+      combinedMeta.sender_account ||
+      combinedMeta.originatorAccountNumber
+  );
+  let virtualAccountNumber = cleanString(
+    combinedMeta.virtualaccountnumber || combinedMeta.virtual_account_number
+  );
+
+  // Flutterwave v3 bank_transfer webhooks sometimes omit originator fields in data.*
+  // Enrich directly from Flutterwave's /transactions/{id}/verify endpoint when missing.
+  if (
+    paymentData.payment_type === 'bank_transfer' &&
+    (!originatorName || !originatorBank) &&
+    paymentData.id
+  ) {
+    const verifyMeta = await fetchTransactionVerifyMeta(paymentData.id, flwConfig);
+    if (verifyMeta) {
+      combinedMeta = { ...combinedMeta, ...verifyMeta };
+      originatorName =
+        originatorName ||
+        cleanSenderName(
+          verifyMeta.originatorname ||
+            verifyMeta.originator_name ||
+            verifyMeta.sender_name ||
+            verifyMeta.senderName
+        );
+      originatorBank =
+        originatorBank ||
+        cleanString(
+          verifyMeta.bankname ||
+            verifyMeta.bank_name ||
+            verifyMeta.sender_bank ||
+            verifyMeta.senderBank
+        );
+      originatorAccount =
+        originatorAccount ||
+        cleanString(
+          verifyMeta.originatoraccountnumber ||
+            verifyMeta.originator_account_number ||
+            verifyMeta.sender_account
+        );
+      virtualAccountNumber =
+        virtualAccountNumber ||
+        cleanString(verifyMeta.virtualaccountnumber || verifyMeta.virtual_account_number);
+    }
+  }
+
+  const cleanCustomerName = cleanSenderName(paymentData.customer?.name);
+  const resolvedSenderName = originatorName || cleanCustomerName || null;
+  const resolvedSenderBank = originatorBank || null;
+  const maskedSenderAccount = maskAccountNumber(originatorAccount);
+
   // Determine if this payment targets a specific group
-  let groupId = paymentData.meta?.group_id || paymentData.metadata?.group_id || null;
+  let groupId = combinedMeta.group_id || paymentData.meta?.group_id || paymentData.metadata?.group_id || null;
   const txRef = paymentData.tx_ref;
 
   if (!groupId && txRef && String(txRef).startsWith('GROUP_')) {
@@ -389,8 +496,19 @@ async function handleSuccessfulPayment(supabase: any, paymentData: any) {
   }
 
   const isContribution = !!groupId;
+  const isVerifiedLegacyCheckout = isContribution && combinedMeta.user_id === user.id && combinedMeta.group_id === groupId;
+  if (isContribution && !isVerifiedLegacyCheckout) {
+    return await handleGroupAccountCredit(supabase, { id: groupId }, {
+      amount, payment_reference: referenceId, sender_name: resolvedSenderName, sender_bank: resolvedSenderBank,
+      originator_account_number: originatorAccount, account_number: virtualAccountNumber,
+    });
+  }
   const balanceBefore = Number(user.wallet_balance || 0);
   const balanceAfter = isContribution ? balanceBefore : balanceBefore + amount;
+  const senderDescriptor = resolvedSenderName
+    ? `${resolvedSenderName}${resolvedSenderBank ? ` (${resolvedSenderBank})` : ''}`
+    : null;
+  const prettyChannel = String(paymentData.payment_type || 'card').replace(/_/g, ' ');
 
   const transactionData = {
     user_id: user.id,
@@ -398,25 +516,34 @@ async function handleSuccessfulPayment(supabase: any, paymentData: any) {
     type: isContribution ? 'contribution' : 'deposit',
     amount,
     description: isContribution
-      ? `Contribution to group via ${paymentData.payment_type || 'card'}`
-      : `Wallet top-up via ${paymentData.payment_type || 'card'}`,
+      ? senderDescriptor
+        ? `Contribution from ${senderDescriptor}`
+        : `Contribution to group via ${prettyChannel}`
+      : senderDescriptor
+        ? `Bank transfer from ${senderDescriptor}`
+        : `Wallet top-up via ${prettyChannel}`,
     reference_id: referenceId,
     payment_method: paymentData.payment_type || 'card',
     status: 'completed',
     balance_before: balanceBefore,
     balance_after: balanceAfter,
     metadata: {
+      flutterwaveId: paymentData.id,
       flutterwaveRef: paymentData.flw_ref,
       txRef: paymentData.tx_ref,
       paymentType: paymentData.payment_type,
       currency: paymentData.currency || 'NGN',
       customerEmail: paymentData.customer?.email,
-      customerName: paymentData.customer?.name,
-      originatorName: paymentData.meta_data?.originatorname,
-      bankName: paymentData.meta_data?.bankname,
+      ...(resolvedSenderName ? { customerName: resolvedSenderName, senderName: resolvedSenderName } : {}),
+      ...(originatorName ? { originatorName } : {}),
+      ...(resolvedSenderBank ? { bankName: resolvedSenderBank, senderBank: resolvedSenderBank } : {}),
+      ...(maskedSenderAccount
+        ? { senderAccount: maskedSenderAccount, originatorAccountNumber: maskedSenderAccount }
+        : {}),
+      ...(virtualAccountNumber ? { virtualAccountNumber } : {}),
       isContribution,
       groupId,
-      votingRightsGranted: isContribution && paymentData.payment_type !== 'bank_transfer'
+      votingRightsGranted: isContribution
     }
   };
 
@@ -444,25 +571,18 @@ async function handleSuccessfulPayment(supabase: any, paymentData: any) {
     userId: user.id,
     transactionId: insertedTxId,
     amount,
-    senderName: paymentData.meta_data?.originatorname || paymentData.customer?.name || user.name,
-    senderBank: paymentData.meta_data?.bankname || paymentData.payment_type || 'Flutterwave',
-    senderAccount: paymentData.meta_data?.originatoraccountnumber || null,
+    senderName: resolvedSenderName || user.name || null,
+    senderBank: resolvedSenderBank || paymentData.payment_type || 'Flutterwave',
+    senderAccount: originatorAccount || null,
     senderEmail: paymentData.customer?.email || user.email,
+    destinationAccount: virtualAccountNumber || null,
     narration: transactionData.description,
-    requiresVerification: isContribution && paymentData.payment_type === 'bank_transfer',
+    requiresVerification: false,
     rawMetadata: transactionData.metadata,
   });
 
   if (isContribution) {
-    if (paymentData.payment_type === 'bank_transfer') {
-      await recordBankTransferContribution(supabase, groupId, amount, {
-        senderName: paymentData.meta_data?.originatorname || 'Anonymous',
-        senderBank: paymentData.meta_data?.bankname || 'Bank',
-        accountNumber: paymentData.meta_data?.originatoraccountnumber || 'Unknown'
-      });
-    } else {
-      await addContributorWithVotingRights(supabase, groupId, user.id, amount);
-    }
+    await addContributorWithVotingRights(supabase, groupId, user.id, amount);
   } else {
     const { data: creditRes, error: balanceError } = await supabase.rpc(
       'service_adjust_wallet_balance',
@@ -477,7 +597,9 @@ async function handleSuccessfulPayment(supabase: any, paymentData: any) {
       user_id: user.id,
       type: 'wallet_deposit',
       title: 'Wallet Funded',
-      message: `₦${amount.toLocaleString()} has been credited to your wallet.`,
+      message: senderDescriptor
+        ? `₦${amount.toLocaleString()} received from ${senderDescriptor} and credited to your wallet.`
+        : `₦${amount.toLocaleString()} has been credited to your wallet.`,
       is_read: false
     });
   }
@@ -485,7 +607,7 @@ async function handleSuccessfulPayment(supabase: any, paymentData: any) {
   return new Response(JSON.stringify({
     success: true,
     message: isContribution ? 'Contribution processed' : 'Payment processed successfully',
-    data: { userId: user.id, amount, isContribution }
+    data: { userId: user.id, amount, isContribution, senderName: resolvedSenderName, senderBank: resolvedSenderBank }
   }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
   });
@@ -591,135 +713,53 @@ async function recordBankTransferContribution(
 }
 
 async function handleGroupAccountCredit(supabase: any, group: any, creditData: any) {
-  const amount = Number(creditData.amount || 0);
-  if (amount <= 0) {
-    return new Response(JSON.stringify({ success: true, message: 'Invalid credit amount' }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-  }
-
-  const referenceId =
-    creditData.payment_reference ||
-    creditData.transaction_reference ||
-    creditData.reference ||
-    `GROUP_BANK_${amount}_${Date.now()}`;
-
-  const { data: existingTx } = await supabase
-    .from('transactions')
-    .select('id, reference_id, amount')
-    .eq('reference_id', referenceId)
-    .maybeSingle();
-
-  if (existingTx) {
-    return new Response(JSON.stringify({
-      success: true,
-      message: 'Already processed',
-      existingTransaction: existingTx
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-  }
-
-  const { data: groupTx, error: txError } = await supabase
-    .from('transactions')
-    .insert({
-      user_id: group.creator_id,
-      contribution_id: group.id,
-      type: 'contribution',
-      amount,
-      description: `Bank transfer to ${group.name} from ${creditData.sender_name || creditData.senderName || 'Bank'}`,
-      reference_id: referenceId,
-      payment_method: 'bank_transfer',
-      status: 'completed',
-      metadata: {
-        senderName: creditData.sender_name || creditData.senderName,
-        senderBank: creditData.sender_bank || creditData.bankName,
-        narration: creditData.narration,
-        paymentReference: creditData.payment_reference,
-        transactionReference: creditData.transaction_reference,
-        accountNumber: creditData.account_number || creditData.accountNumber,
-        isGroupContribution: true,
-        groupId: group.id,
-        groupName: group.name,
-        votingRightsGranted: false,
-        requiresVerification: true
-      }
-    })
-    .select('id')
-    .single();
-
-  if (txError) throw txError;
-
-  await trackExternalPaymentAndScreenAml(supabase, {
-    referenceId,
-    sourceChannel: 'group_bank_transfer',
-    groupId: group.id,
-    userId: group.creator_id,
-    transactionId: groupTx?.id || null,
-    amount,
-    senderName: creditData.sender_name || creditData.senderName || 'External Sender',
-    senderBank: creditData.sender_bank || creditData.bankName || 'External Bank',
-    senderAccount: creditData.originator_account_number || creditData.sender_account || null,
-    destinationAccount: creditData.account_number || creditData.accountNumber || group.account_number,
-    narration: creditData.narration || `Transfer to ${group.name}`,
-    requiresVerification: true,
-    rawMetadata: creditData,
-  });
-
-  // Record bank transfer contributor WITHOUT double-incrementing group balance
-  await recordBankTransferContribution(
-    supabase,
-    group.id,
-    amount,
-    {
-      senderName: creditData.sender_name || creditData.senderName,
-      senderBank: creditData.sender_bank || creditData.bankName,
-      accountNumber: creditData.account_number || creditData.accountNumber
+  const reference = creditData.payment_reference || creditData.transaction_reference || creditData.reference || creditData.id;
+  const { data, error } = await supabase.rpc('service_record_outside_group_payment', {
+    p_group_id: group.id, p_reference: String(reference || ''), p_amount: Number(creditData.amount),
+    p_sender_name: cleanSenderName(creditData.sender_name || creditData.senderName),
+    p_sender_bank: cleanString(creditData.sender_bank || creditData.bankName),
+    p_metadata: {
+      senderAccount: maskAccountNumber(creditData.originator_account_number || creditData.sender_account),
+      accountNumber: creditData.account_number || creditData.accountNumber || group.account_number,
+      narration: creditData.narration,
     },
-    false
-  );
-
-  // Increment group current_amount exactly once
-  const newGroupAmount = Number(group.current_amount || 0) + amount;
-  const { error: groupBalanceError } = await supabase
-    .from('contribution_groups')
-    .update({
-      current_amount: newGroupAmount,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', group.id);
-
-  if (groupBalanceError) throw groupBalanceError;
-
-  if (group.creator_id) {
-    await supabase.from('notifications').insert({
-      user_id: group.creator_id,
-      type: 'bank_transfer_received',
-      title: 'Bank Transfer Received',
-      message: `₦${amount.toLocaleString()} transferred to ${group.name}. Verify the sender in Admin Panel to grant voting rights.`,
-      related_id: group.id,
-      is_read: false
-    });
-  }
-
-  return new Response(JSON.stringify({
-    success: true,
-    message: `Bank transfer to group "${group.name}" recorded successfully`,
-    data: {
-      groupId: group.id,
-      groupName: group.name,
-      amount,
-      newGroupBalance: newGroupAmount,
-      votingRights: false,
-      requiresVerification: true
-    }
-  }), {
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
   });
+  if (error || !data) throw error || new Error('Group transfer could not be recorded');
+  return new Response(JSON.stringify({ success: true, data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 }
 
-async function handleVirtualAccountCredit(supabase: any, creditData: any) {
-  const accountNumber = creditData.account_number || creditData.accountNumber;
+async function handleVirtualAccountCredit(
+  supabase: any,
+  creditData: any,
+  topLevelMeta?: Record<string, any> | null
+) {
+  const mergedCredit = {
+    ...(topLevelMeta && typeof topLevelMeta === 'object' ? topLevelMeta : {}),
+    ...(creditData || {}),
+    sender_name:
+      cleanSenderName(
+        creditData?.sender_name ||
+          creditData?.senderName ||
+          creditData?.originatorname ||
+          topLevelMeta?.originatorname
+      ) || undefined,
+    sender_bank:
+      cleanString(
+        creditData?.sender_bank ||
+          creditData?.bankName ||
+          creditData?.bankname ||
+          topLevelMeta?.bankname
+      ) || undefined,
+    originator_account_number:
+      cleanString(
+        creditData?.originator_account_number ||
+          creditData?.sender_account ||
+          creditData?.originatoraccountnumber ||
+          topLevelMeta?.originatoraccountnumber
+      ) || undefined,
+  };
+
+  const accountNumber = mergedCredit.account_number || mergedCredit.accountNumber;
   if (!accountNumber) {
     return new Response(JSON.stringify({ success: true, message: 'No account number' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -734,7 +774,7 @@ async function handleVirtualAccountCredit(supabase: any, creditData: any) {
     .maybeSingle();
 
   if (group) {
-    return await handleGroupAccountCredit(supabase, group, creditData);
+    return await handleGroupAccountCredit(supabase, group, mergedCredit);
   }
 
   // Otherwise find user profile matching this virtual account number via indexed JSONB lookup (no full table scan)
@@ -750,7 +790,7 @@ async function handleVirtualAccountCredit(supabase: any, creditData: any) {
     });
   }
 
-  const amount = Number(creditData.amount || 0);
+  const amount = Number(mergedCredit.amount || 0);
   if (amount <= 0) {
     return new Response(JSON.stringify({ success: true, message: 'Invalid credit amount' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -758,9 +798,9 @@ async function handleVirtualAccountCredit(supabase: any, creditData: any) {
   }
 
   const referenceId =
-    creditData.payment_reference ||
-    creditData.transaction_reference ||
-    creditData.reference ||
+    mergedCredit.payment_reference ||
+    mergedCredit.transaction_reference ||
+    mergedCredit.reference ||
     `BANK_${amount}_${Date.now()}`;
 
   const { data: existingTx } = await supabase
@@ -779,10 +819,15 @@ async function handleVirtualAccountCredit(supabase: any, creditData: any) {
     });
   }
 
-  const groupId = creditData.meta?.group_id || creditData.metadata?.group_id || null;
+  const groupId = mergedCredit.meta?.group_id || mergedCredit.metadata?.group_id || null;
+  if (groupId) return await handleGroupAccountCredit(supabase, { id: groupId }, mergedCredit);
   const isContribution = !!groupId;
   const balanceBefore = Number(user.wallet_balance || 0);
   const balanceAfter = isContribution ? balanceBefore : balanceBefore + amount;
+  const maskedSenderAccount = maskAccountNumber(mergedCredit.originator_account_number);
+  const senderDescriptor = mergedCredit.sender_name
+    ? `${mergedCredit.sender_name}${mergedCredit.sender_bank ? ` (${mergedCredit.sender_bank})` : ''}`
+    : null;
 
   const { data: vaTx, error: txError } = await supabase
     .from('transactions')
@@ -792,19 +837,26 @@ async function handleVirtualAccountCredit(supabase: any, creditData: any) {
       type: isContribution ? 'contribution' : 'deposit',
       amount,
       description: isContribution
-        ? `Bank transfer contribution from ${creditData.sender_name || creditData.senderName || 'Bank'}`
-        : `Bank transfer from ${creditData.sender_name || creditData.senderName || 'Bank'}`,
+        ? `Bank transfer contribution from ${senderDescriptor || 'Bank'}`
+        : `Bank transfer from ${senderDescriptor || 'Bank'}`,
       reference_id: referenceId,
       payment_method: 'bank_transfer',
       status: 'completed',
       balance_before: balanceBefore,
       balance_after: balanceAfter,
       metadata: {
-        senderName: creditData.sender_name || creditData.senderName,
-        senderBank: creditData.sender_bank || creditData.bankName,
-        narration: creditData.narration,
-        paymentReference: creditData.payment_reference,
-        transactionReference: creditData.transaction_reference,
+        ...(mergedCredit.sender_name
+          ? { senderName: mergedCredit.sender_name, originatorName: mergedCredit.sender_name }
+          : {}),
+        ...(mergedCredit.sender_bank
+          ? { senderBank: mergedCredit.sender_bank, bankName: mergedCredit.sender_bank }
+          : {}),
+        ...(maskedSenderAccount
+          ? { senderAccount: maskedSenderAccount, originatorAccountNumber: maskedSenderAccount }
+          : {}),
+        narration: mergedCredit.narration,
+        paymentReference: mergedCredit.payment_reference,
+        transactionReference: mergedCredit.transaction_reference,
         accountNumber,
         isContribution,
         groupId,
@@ -824,20 +876,20 @@ async function handleVirtualAccountCredit(supabase: any, creditData: any) {
     userId: user.id,
     transactionId: vaTx?.id || null,
     amount,
-    senderName: creditData.sender_name || creditData.senderName || 'External Sender',
-    senderBank: creditData.sender_bank || creditData.bankName || 'External Bank',
-    senderAccount: creditData.originator_account_number || creditData.sender_account || null,
+    senderName: mergedCredit.sender_name || 'External Sender',
+    senderBank: mergedCredit.sender_bank || 'External Bank',
+    senderAccount: mergedCredit.originator_account_number || null,
     senderEmail: user.email,
     destinationAccount: accountNumber,
-    narration: creditData.narration || `Virtual account credit`,
+    narration: mergedCredit.narration || `Virtual account credit`,
     requiresVerification: isContribution,
-    rawMetadata: creditData,
+    rawMetadata: mergedCredit,
   });
 
   if (isContribution) {
     await recordBankTransferContribution(supabase, groupId, amount, {
-      senderName: creditData.sender_name || creditData.senderName,
-      senderBank: creditData.sender_bank || creditData.bankName,
+      senderName: mergedCredit.sender_name,
+      senderBank: mergedCredit.sender_bank,
       accountNumber
     });
   } else {
@@ -854,7 +906,9 @@ async function handleVirtualAccountCredit(supabase: any, creditData: any) {
       user_id: user.id,
       type: 'wallet_deposit',
       title: 'Wallet Credited',
-      message: `₦${amount.toLocaleString()} received via bank transfer.`,
+      message: senderDescriptor
+        ? `₦${amount.toLocaleString()} received from ${senderDescriptor} via bank transfer.`
+        : `₦${amount.toLocaleString()} received via bank transfer.`,
       is_read: false
     });
   }

@@ -281,7 +281,7 @@ const VotesPage = () => {
             </Button>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold text-[#dbf5b4]">
               <ShieldCheck className="h-3.5 w-3.5" />
-              70% Quorum · 60% Approval
+              70% Must Vote · 60% Yes to Pass
             </span>
           </div>
 
@@ -458,7 +458,7 @@ const VotesPage = () => {
                             {req.eligibleVoters > 0 ? ` of ${req.eligibleVoters}` : ""} voted
                             {req.eligibleVoters > 0 && (
                               <span className="font-semibold text-foreground tabular-nums">
-                                ({Math.round(req.stats.participationRate)}% / 70% quorum)
+                                ({Math.round(req.stats.participationRate)}% / 70% min. voters)
                               </span>
                             )}
                           </span>

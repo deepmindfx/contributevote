@@ -57,7 +57,7 @@ const STORY_CHAPTERS: StoryChapter[] = [
       target: "₦10,000,000",
       percent: 85,
       backers: "312 members",
-      rule: "70% Quorum · 60% Vote",
+      rule: "70% Must Vote · 60% Yes",
     },
     highlights: [
       "Dedicated pool account number for Jumu’ah & diaspora transfers",
@@ -307,7 +307,7 @@ export function CommunityStoriesSection({ startPath }: { startPath: string }) {
             <Vote size={20} aria-hidden="true" />
             <div>
               <strong>Democratic Payout Locks</strong>
-              <span>Contributors vote (70% participation · 60% approval) before pooled funds can be disbursed.</span>
+              <span>Contributors vote (at least 70% must vote &amp; 60% say yes) before pooled funds can be released.</span>
             </div>
           </div>
         </div>
