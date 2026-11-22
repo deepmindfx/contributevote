@@ -1389,6 +1389,435 @@
   animation: cp-copy-swap 240ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
+/* Authentic CollectiPay Mobile Dashboard Screen (.dashboard-wallet-mode replica) */
+.cp-demo-app--dashboard {
+  gap: 0;
+  margin: -0.35rem -0.95rem -1.25rem;
+  min-height: 100%;
+  background: #f5f9f7;
+  justify-content: space-between;
+}
+
+.cp-real-wallet-hero {
+  position: relative;
+  padding: 0.45rem 0.9rem 1.85rem;
+  background:
+    repeating-radial-gradient(ellipse at 104% 95%, transparent 0 0.78rem, rgba(181, 247, 209, 0.1) 0.81rem 0.85rem),
+    linear-gradient(160deg, #075847 12%, #063b32 100%);
+  color: #f7fff9;
+}
+
+.cp-real-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+}
+
+.cp-real-avatar {
+  display: grid;
+  place-items: center;
+  width: 1.95rem;
+  height: 1.95rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  padding: 2px;
+}
+
+.cp-real-avatar > span {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background: #c9eddb;
+  color: #074535;
+  font-size: 0.62rem;
+  font-weight: 800;
+}
+
+.cp-real-greeting {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.cp-real-greeting strong {
+  font-size: 0.78rem;
+  font-weight: 760;
+  color: #ffffff;
+  letter-spacing: -0.025em;
+}
+
+.cp-real-greeting span {
+  font-size: 0.62rem;
+  color: #ccece1;
+}
+
+.cp-real-bell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+}
+
+.cp-real-bell > i {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #ffb6aa;
+  border: 1.5px solid #075847;
+}
+
+.cp-real-balance-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.cp-real-balance-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  font-size: 0.68rem;
+  font-weight: 550;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.cp-real-eye-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+}
+
+.cp-real-eye-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.cp-real-currency {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 0.55rem;
+  background: rgba(6, 47, 38, 0.66);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+}
+
+.cp-real-currency > button {
+  padding: 0.18rem 0.42rem;
+  border-radius: 0.42rem;
+  font-size: 0.58rem;
+  font-weight: 720;
+  color: #dfefe7;
+  cursor: pointer;
+}
+
+.cp-real-currency > button[data-active="true"] {
+  background: #ecf8ed;
+  color: #104e3b;
+}
+
+.cp-real-balance-amount {
+  margin-top: 0.2rem;
+  font-size: 1.55rem;
+  font-weight: 760;
+  letter-spacing: -0.055em;
+  font-variant-numeric: tabular-nums;
+  color: #f7fff9;
+  line-height: 1.15;
+}
+
+.cp-real-sheet {
+  position: relative;
+  z-index: 2;
+  margin-top: -1rem;
+  padding: 0.72rem 0.82rem 0.45rem;
+  border-radius: 1.2rem 1.2rem 0 0;
+  background: #f5f9f7;
+  display: flex;
+  flex-direction: column;
+  gap: 0.48rem;
+  flex: 1;
+}
+
+.cp-real-section-title {
+  font-size: 0.73rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  color: #172621;
+}
+
+.cp-real-quick-card {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.2rem;
+  padding: 0.42rem 0.25rem;
+  border-radius: 0.92rem;
+  background: #ffffff;
+  border: 1px solid #dbe5df;
+}
+
+.cp-real-quick-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.22rem;
+  text-align: center;
+}
+
+.cp-real-quick-item > span {
+  display: grid;
+  place-items: center;
+  width: 1.78rem;
+  height: 1.78rem;
+  border-radius: 0.62rem;
+  background: #def2e7;
+  color: #156547;
+}
+
+.cp-real-quick-item.is-primary > span {
+  background: #156a4a;
+  color: #ffffff;
+}
+
+.cp-real-quick-item small {
+  font-size: 0.56rem;
+  font-weight: 680;
+  color: #172621;
+  white-space: nowrap;
+}
+
+.cp-real-allowance {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  padding: 0.42rem 0.55rem;
+  border-radius: 0.75rem;
+  background: #e1f3e9;
+}
+
+.cp-real-allowance strong {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 730;
+  color: #172621;
+  line-height: 1.2;
+}
+
+.cp-real-allowance small {
+  display: block;
+  margin-top: 1px;
+  font-size: 0.54rem;
+  color: #52695f;
+  line-height: 1.25;
+}
+
+.cp-real-groups-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.08rem;
+}
+
+.cp-real-view-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  font-size: 0.6rem;
+  font-weight: 720;
+  color: #156a4a;
+}
+
+.cp-real-groups-card {
+  border-radius: 0.92rem;
+  background: #ffffff;
+  border: 1px solid #dbe5df;
+  overflow: hidden;
+}
+
+.cp-real-group-item {
+  padding: 0.46rem 0.6rem;
+  border-bottom: 1px solid #e7efea;
+}
+
+.cp-real-group-item:last-child {
+  border-bottom: 0;
+}
+
+.cp-real-group-top {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.cp-real-group-icon {
+  display: grid;
+  place-items: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 0.52rem;
+  background: #def2e7;
+  color: #156547;
+  flex-shrink: 0;
+}
+
+.cp-real-group-meta {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.18;
+}
+
+.cp-real-group-meta strong {
+  display: block;
+  font-size: 0.64rem;
+  font-weight: 720;
+  color: #172621;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cp-real-group-meta small {
+  font-size: 0.55rem;
+  color: #64786e;
+}
+
+.cp-real-progress {
+  margin: 0.34rem 0 0.24rem;
+  height: 4px;
+  border-radius: 999px;
+  background: #e4ece8;
+  overflow: hidden;
+}
+
+.cp-real-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: #156a4a;
+}
+
+.cp-real-group-foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 0.56rem;
+  color: #64786e;
+  font-variant-numeric: tabular-nums;
+}
+
+.cp-real-group-foot strong {
+  color: #172621;
+  font-weight: 740;
+}
+
+.cp-real-group-foot em {
+  font-style: normal;
+  font-weight: 720;
+  color: #156a4a;
+}
+
+.cp-real-tabbar {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: end;
+  padding: 0.28rem 0.35rem 0.95rem;
+  border-top: 1px solid #dbe5df;
+  border-radius: 0.95rem 0.95rem 0 0;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 -6px 16px rgba(0, 25, 14, 0.08);
+}
+
+.cp-real-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  color: #6c8076;
+}
+
+.cp-real-tab small {
+  font-size: 0.5rem;
+  font-weight: 620;
+  white-space: nowrap;
+}
+
+.cp-real-tab-pill {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 1.95rem;
+  height: 1.25rem;
+  border-radius: 999px;
+}
+
+.cp-real-tab-pill > i {
+  position: absolute;
+  top: -3px;
+  right: 1px;
+  min-width: 11px;
+  height: 11px;
+  border-radius: 999px;
+  background: #156a4a;
+  color: #ffffff;
+  font-style: normal;
+  font-size: 0.45rem;
+  font-weight: 760;
+  display: grid;
+  place-items: center;
+}
+
+.cp-real-tab.is-active {
+  color: #156a4a;
+}
+
+.cp-real-tab.is-active small {
+  font-weight: 760;
+}
+
+.cp-real-tab.is-active .cp-real-tab-pill {
+  background: rgba(21, 106, 74, 0.16);
+}
+
+.cp-real-tab--fab {
+  position: relative;
+  color: #156a4a;
+}
+
+.cp-real-tab--fab small {
+  font-weight: 740;
+}
+
+.cp-real-fab {
+  margin-top: -0.95rem;
+  display: grid;
+  place-items: center;
+  width: 2.15rem;
+  height: 2.15rem;
+  border-radius: 999px;
+  border: 2.5px solid #ffffff;
+  background: linear-gradient(155deg, #048465, #0b5949);
+  color: #ffffff;
+  box-shadow: 0 4px 10px rgba(6, 59, 50, 0.32);
+}
+
 .cp-demo-nav {
   display: flex;
   align-items: center;

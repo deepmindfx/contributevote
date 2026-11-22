@@ -1,17 +1,22 @@
 import { useState, type ReactNode } from "react";
 import {
-  ArrowDownLeft,
-  ArrowUpRight,
+  ArrowLeftRight,
+  Bell,
   Building2,
+  CalendarDays,
   Check,
   CheckCircle2,
-  KeyRound,
-  Lock,
+  ChevronRight,
+  Clock,
+  Eye,
+  EyeOff,
+  Home,
   Plus,
-  Send,
+  SendHorizontal,
   ShieldCheck,
   Sparkles,
   ThumbsUp,
+  UserRound,
   Users,
   Vote,
   Wifi,
@@ -86,105 +91,175 @@ function IPhoneFrame({
 }
 
 function WalletAppScreen({ interactive = true }: { interactive?: boolean }) {
-  const [transfersLocked, setTransfersLocked] = useState(false);
+  const [showBalance, setShowBalance] = useState(true);
+  const [currency, setCurrency] = useState<"NGN" | "USD">("NGN");
+  const formattedBalance =
+    currency === "NGN" ? "₦245,500.00" : "$158.39";
 
   return (
-    <div className="cp-demo-app cp-demo-app--light">
-      <div className="cp-demo-nav">
-        <span className="cp-demo-back" aria-hidden="true">‹</span>
-        <span className="cp-demo-nav-title">Manage your wallet</span>
-        <span className="cp-demo-nav-badge">NGN</span>
-      </div>
-
-      {/* CollectiPay Deep-Emerald Signature Wallet Card */}
-      <div className="cp-demo-wallet-card">
-        <div className="cp-demo-wallet-top">
-          <div className="cp-demo-wallet-brand">
-            <img src="/collectipay-mark.svg" alt="" width={20} height={20} />
+    <div className="cp-demo-app cp-demo-app--dashboard">
+      {/* Authentic CollectiPay Mobile Wallet Header (.app-header-wallet + .wallet-overview) */}
+      <div className="cp-real-wallet-hero">
+        <div className="cp-real-header">
+          <span className="cp-real-avatar" aria-hidden="true">
+            <span>AW</span>
+          </span>
+          <div className="cp-real-greeting">
+            <strong>Hi, Aliyu</strong>
             <span>CollectiPay</span>
           </div>
-          <span className="cp-demo-wallet-chip">
-            <ShieldCheck size={10} aria-hidden="true" /> Verified
+          <span className="cp-real-bell" aria-hidden="true">
+            <Bell size={13} />
+            <i />
           </span>
         </div>
 
-        <p className="cp-demo-wallet-label">Available balance</p>
-        <p className="cp-demo-wallet-balance">₦245,500.00</p>
+        <div className="cp-real-balance-row">
+          <div className="cp-real-balance-label">
+            <span>Available balance</span>
+            {interactive ? (
+              <button
+                type="button"
+                onClick={() => setShowBalance((v) => !v)}
+                aria-label={showBalance ? "Hide balance preview" : "Show balance preview"}
+                className="cp-real-eye-btn"
+              >
+                {showBalance ? <EyeOff size={12} /> : <Eye size={12} />}
+              </button>
+            ) : (
+              <span className="cp-real-eye-btn" aria-hidden="true">
+                <EyeOff size={12} />
+              </span>
+            )}
+          </div>
 
-        <div className="cp-demo-wallet-meta">
-          <span>Flutterwave MFB · •• 5281</span>
-          <span className="cp-demo-wallet-free">3 free transfers</span>
-        </div>
-      </div>
-
-      {/* Quick Action Strip */}
-      <div className="cp-demo-quick-grid" aria-hidden="true">
-        <div>
-          <span><Plus size={12} /></span>
-          <small>Add money</small>
-        </div>
-        <div>
-          <span><Send size={11} /></span>
-          <small>Send</small>
-        </div>
-        <div>
-          <span><Users size={11} /></span>
-          <small>Groups</small>
-        </div>
-        <div>
-          <span><Vote size={11} /></span>
-          <small>Votes</small>
-        </div>
-      </div>
-
-      {/* PayPal-Style Crisp Control Rows */}
-      <div className="cp-demo-rows">
-        <div className="cp-demo-row">
-          <span className="cp-demo-row-icon"><Lock size={13} /></span>
-          <span className="cp-demo-row-text">
-            <strong>Freeze outbound transfers</strong>
-          </span>
-          {interactive ? (
+          <div className="cp-real-currency" role="group" aria-label="Currency preview">
             <button
               type="button"
-              role="switch"
-              aria-checked={transfersLocked}
-              aria-label="Toggle freeze outbound transfers preview"
-              onClick={() => setTransfersLocked((v) => !v)}
-              className={`cp-demo-switch ${transfersLocked ? "is-on" : ""}`}
+              disabled={!interactive}
+              data-active={currency === "NGN"}
+              onClick={() => setCurrency("NGN")}
             >
-              <span />
+              NGN
             </button>
-          ) : (
-            <span className="cp-demo-switch" aria-hidden="true"><span /></span>
-          )}
+            <button
+              type="button"
+              disabled={!interactive}
+              data-active={currency === "USD"}
+              onClick={() => setCurrency("USD")}
+            >
+              USD
+            </button>
+          </div>
         </div>
 
-        <div className="cp-demo-row">
-          <span className="cp-demo-row-icon"><Building2 size={13} /></span>
-          <span className="cp-demo-row-text">
-            <strong>Dedicated deposit account</strong>
-            <small>978 000 5281 · Instant credit</small>
-          </span>
-          <span className="cp-demo-pill">Active</span>
+        <p className="cp-real-balance-amount">
+          {showBalance ? formattedBalance : `${currency === "NGN" ? "₦" : "$"}•••••••`}
+        </p>
+      </div>
+
+      {/* Overlapping Rounded Dashboard Sheet (.dashboard-wallet-content) */}
+      <div className="cp-real-sheet">
+        <p className="cp-real-section-title">Quick actions</p>
+        <div className="cp-real-quick-card" aria-hidden="true">
+          <div className="cp-real-quick-item is-primary">
+            <span><Plus size={13} strokeWidth={2.4} /></span>
+            <small>Add money</small>
+          </div>
+          <div className="cp-real-quick-item">
+            <span><SendHorizontal size={12} /></span>
+            <small>Send</small>
+          </div>
+          <div className="cp-real-quick-item">
+            <span><Building2 size={12} /></span>
+            <small>Bank account</small>
+          </div>
+          <div className="cp-real-quick-item">
+            <span><Clock size={12} /></span>
+            <small>History</small>
+          </div>
         </div>
 
-        <div className="cp-demo-row">
-          <span className="cp-demo-row-icon"><KeyRound size={13} /></span>
-          <span className="cp-demo-row-text">
-            <strong>4-Digit Transaction PIN</strong>
-            <small>Protects transfers &amp; payouts</small>
-          </span>
-          <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+        {/* TransferAllowanceNotice */}
+        <div className="cp-real-allowance">
+          <CalendarDays size={13} className="shrink-0 text-[#156a4a] mt-0.5" aria-hidden="true" />
+          <div>
+            <strong>3 free bank transfers left today</strong>
+            <small>Free every Friday. Fees apply after your daily allowance.</small>
+          </div>
         </div>
 
-        <div className="cp-demo-row">
-          <span className="cp-demo-row-icon"><ArrowDownLeft size={13} /></span>
-          <span className="cp-demo-row-text">
-            <strong>Community Borehole Fund</strong>
-            <small>₦420,000 pooled · 18 members</small>
+        {/* My groups (GroupsList.tsx) */}
+        <div className="cp-real-groups-head">
+          <span className="cp-real-section-title">My groups</span>
+          <span className="cp-real-view-all">
+            View all <ChevronRight size={11} />
           </span>
-          <ArrowUpRight size={13} className="text-slate-400 shrink-0" />
+        </div>
+
+        <div className="cp-real-groups-card">
+          <div className="cp-real-group-item">
+            <div className="cp-real-group-top">
+              <span className="cp-real-group-icon"><Users size={12} /></span>
+              <div className="cp-real-group-meta">
+                <strong>Community Borehole Fund</strong>
+                <small>24 members</small>
+              </div>
+              <ChevronRight size={12} className="text-slate-400 shrink-0" />
+            </div>
+            <div className="cp-real-progress">
+              <span style={{ width: "78%" }} />
+            </div>
+            <div className="cp-real-group-foot">
+              <span><strong>₦327,600</strong> of ₦420,000</span>
+              <em>78% funded</em>
+            </div>
+          </div>
+
+          <div className="cp-real-group-item">
+            <div className="cp-real-group-top">
+              <span className="cp-real-group-icon"><Users size={12} /></span>
+              <div className="cp-real-group-meta">
+                <strong>Kano Tech Hub Solar Pool</strong>
+                <small>18 members</small>
+              </div>
+              <ChevronRight size={12} className="text-slate-400 shrink-0" />
+            </div>
+            <div className="cp-real-progress">
+              <span style={{ width: "92%" }} />
+            </div>
+            <div className="cp-real-group-foot">
+              <span><strong>₦184,000</strong> of ₦200,000</span>
+              <em>92% funded</em>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Authentic 5-Column Mobile Bottom Tabbar (.app-tabbar) */}
+      <div className="cp-real-tabbar" aria-hidden="true">
+        <div className="cp-real-tab is-active">
+          <span className="cp-real-tab-pill"><Home size={12} /></span>
+          <small>Home</small>
+        </div>
+        <div className="cp-real-tab">
+          <span className="cp-real-tab-pill"><Users size={12} /></span>
+          <small>Groups</small>
+        </div>
+        <div className="cp-real-tab cp-real-tab--fab">
+          <span className="cp-real-fab"><ArrowLeftRight size={13} strokeWidth={2.3} /></span>
+          <small>Move money</small>
+        </div>
+        <div className="cp-real-tab">
+          <span className="cp-real-tab-pill">
+            <Vote size={12} />
+            <i>2</i>
+          </span>
+          <small>Votes</small>
+        </div>
+        <div className="cp-real-tab">
+          <span className="cp-real-tab-pill"><UserRound size={12} /></span>
+          <small>Account</small>
         </div>
       </div>
     </div>

@@ -20,12 +20,12 @@ const SHOWCASE_MODES: Array<{
 }> = [
   {
     id: "wallet",
-    tabLabel: "Manage Wallet",
+    tabLabel: "App Dashboard",
     icon: Lock,
-    headline: "Your wallet, built for total control",
+    headline: "Your wallet and groups in one place",
     description:
-      "Receive instant bank deposits into your dedicated CollectiPay virtual account, freeze outbound transfers with one tap, and authorize every payout with a 4-digit PIN.",
-    badge: "Try toggling “Freeze outbound transfers” inside the iPhone",
+      "Receive instant bank deposits into your dedicated CollectiPay virtual account, switch between NGN and USD views, and track every shared group goal in real time.",
+    badge: "Try switching NGN / USD or hiding the balance inside the iPhone",
   },
   {
     id: "transfer",
