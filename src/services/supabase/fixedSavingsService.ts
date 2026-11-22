@@ -58,12 +58,21 @@ export async function quoteSavings(amount: number, days: SavingsPeriod): Promise
   return result;
 }
 
+export class SavingsConfirmationRejected extends Error {
+  constructor(message: string, readonly code?: string) {
+    super(message);
+  }
+}
+
 export async function openSavings(quote: SavingsQuote, accepted: boolean, pin: string) {
   const { data, error } = await supabase.rpc("open_fixed_savings", {
     p_quote_id: quote.id, p_terms_version: quote.terms_version, p_accepted: accepted, p_pin: pin,
   });
-  const result = data as { id?: string; status?: SavingsStatus; error?: string; message?: string };
-  if (error || !result?.id || !result.status) throw new Error(result?.error || result?.message || error?.message || "Couldn’t confirm the lock.");
+  const result = data as { id?: string; status?: SavingsStatus; code?: string; error?: string; message?: string };
+  if (error) throw new Error(error.message);
+  const rejection = result?.error || (!result?.id ? result?.message : undefined);
+  if (rejection) throw new SavingsConfirmationRejected(rejection, result?.code);
+  if (!result?.id || !result.status) throw new Error("Couldn’t confirm the lock.");
   return result.status;
 }
 

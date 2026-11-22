@@ -13,7 +13,7 @@ import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 import { hasTransactionPin } from "@/lib/transactionPin";
 import {
-  getFixedSavings, openSavings, quoteSavings, savingsPeriods, withdrawSavings,
+  getFixedSavings, openSavings, quoteSavings, SavingsConfirmationRejected, savingsPeriods, withdrawSavings,
   type SavingsCursor, type SavingsItem, type SavingsPeriod, type SavingsQuote,
 } from "@/services/supabase/fixedSavingsService";
 import { naira } from "@/services/supabase/pricingService";
@@ -115,9 +115,10 @@ function AccountSavings({ owner }: { owner: string }) {
   const { refreshContributionData } = useSupabaseContribution();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [amount, setAmount] = useState("");
-  const [days, setDays] = useState<SavingsPeriod>(30);
   const [quote, setQuote] = useState(() => recoverQuote(owner));
+  const [amount, setAmount] = useState(() => quote ? String(quote.amount) : "");
+  const [days, setDays] = useState<SavingsPeriod>(() => quote?.days ?? 30);
+  const [pendingConfirmation, setPendingConfirmation] = useState(() => Boolean(quote));
   const [showReview, setShowReview] = useState(false);
   const [checkingQuote, setCheckingQuote] = useState(false);
   const [committing, setCommitting] = useState(false);
@@ -167,16 +168,19 @@ function AccountSavings({ owner }: { owner: string }) {
 
   const clearSavedQuote = () => {
     try { sessionStorage.removeItem("collectipay-savings-quote:" + owner); } catch { /* Storage may be unavailable. */ }
+    setPendingConfirmation(false);
     setQuote(null);
     setShowReview(false);
     setPin("");
     setAccepted(false);
     setReviewed(false);
+    setActionError("");
   };
 
   useEffect(() => {
     if (existingQuote && !showReview) {
       try { sessionStorage.removeItem("collectipay-savings-quote:" + owner); } catch { /* Storage may be unavailable. */ }
+      setPendingConfirmation(false);
       setQuote(null);
     }
   }, [existingQuote, owner, showReview]);
@@ -187,11 +191,12 @@ function AccountSavings({ owner }: { owner: string }) {
 
   const review = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (quoteGuard.current || !canStart) return;
-    if (quote && Date.parse(quote.expires_at) > now) {
+    if (quoteGuard.current) return;
+    if (quote && (pendingConfirmation || (canStart && Date.parse(quote.expires_at) > now))) {
       setShowReview(true);
       return;
     }
+    if (!canStart) return;
     const value = Number(amount);
     if (!/^\d+(?:\.\d{1,2})?$/.test(amount.trim()) || !Number.isFinite(value) ||
         value < minimum || (maximum != null && value > maximum)) {
@@ -213,11 +218,13 @@ function AccountSavings({ owner }: { owner: string }) {
 
   const confirm = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!quote || !termsLink(quote.terms_url) || !accepted || !reviewed || !/^\d{4}$/.test(pin) || commitGuard.current) return;
+    if (!quote || (!pendingConfirmation && Date.parse(quote.expires_at) <= now) || !termsLink(quote.terms_url) ||
+        !accepted || !reviewed || !/^\d{4}$/.test(pin) || commitGuard.current) return;
     commitGuard.current = true;
     setCommitting(true);
     setActionError("");
     try {
+      setPendingConfirmation(true);
       try { sessionStorage.setItem("collectipay-savings-quote:" + owner, JSON.stringify(quote)); } catch { /* Storage may be unavailable. */ }
       const status = await openSavings(quote, true, pin);
       clearSavedQuote();
@@ -227,6 +234,16 @@ function AccountSavings({ owner }: { owner: string }) {
         : "Savings status updated.");
       void refresh();
     } catch (error) {
+      if (error instanceof SavingsConfirmationRejected) {
+        if (error.code === "stale_quote") {
+          clearSavedQuote();
+          toast.error(error.message);
+          void query.refetch();
+          return;
+        }
+        try { sessionStorage.removeItem("collectipay-savings-quote:" + owner); } catch { /* Storage may be unavailable. */ }
+        setPendingConfirmation(false);
+      }
       setPin("");
       setActionError(error instanceof Error ? error.message : "Couldn’t confirm the lock. Retry this quote.");
       void query.refetch();
@@ -282,19 +299,19 @@ function AccountSavings({ owner }: { owner: string }) {
             <Card className="p-3"><dt className="text-muted-foreground">Awaiting confirmation</dt><dd className="font-semibold">{naira.format(first.totals.pending)}</dd></Card>
             <Card className="p-3"><dt className="text-muted-foreground">Available to claim</dt><dd className="font-semibold">{naira.format(first.totals.available)}</dd></Card>
           </dl>}
-          {canStart && pinSet ? <Card className="rounded-2xl p-4 sm:p-5">
+          {(canStart && pinSet) || pendingConfirmation ? <Card className="rounded-2xl p-4 sm:p-5">
             <form className="space-y-4" onSubmit={review}>
               <h2 className="app-section-title">Lock money</h2>
               <div className="space-y-1.5">
                 <Label htmlFor="savings-amount">Amount in naira</Label>
-                <Input id="savings-amount" className="h-12" inputMode="decimal" placeholder="0.00" value={amount} disabled={checkingQuote} onChange={(event) => {
+                <Input id="savings-amount" className="h-12" inputMode="decimal" placeholder="0.00" value={amount} disabled={checkingQuote || pendingConfirmation} onChange={(event) => {
                   if (quote) clearSavedQuote();
                   setAmount(event.target.value);
                 }} required={!quote || quoteExpired} />
                 <p className="text-xs text-muted-foreground">{naira.format(Number(user?.wallet_balance || 0))} available in your wallet</p>
                 {maximum != null && <p className="text-xs text-muted-foreground">Per lock {naira.format(minimum)} to {naira.format(maximum)}</p>}
               </div>
-              <fieldset className="space-y-2" disabled={checkingQuote}>
+              <fieldset className="space-y-2" disabled={checkingQuote || pendingConfirmation}>
                 <legend className="text-sm font-medium">Lock period</legend>
                 <div className="flex flex-wrap gap-2">{periods.map((period) =>
                   <label key={period} className="savings-period"><input type="radio" name="savings-period" value={period} checked={period === selectedPeriod} onChange={() => {
@@ -303,7 +320,7 @@ function AccountSavings({ owner }: { owner: string }) {
                   }} />
                     <span>{period} days</span></label>)}</div>
               </fieldset>
-              <Button type="submit" className="h-11 w-full gap-2" disabled={checkingQuote}>{checkingQuote ? "Checking…" : quote && !quoteExpired ? "Resume review" : "Review lock"}<ArrowRight size={16} aria-hidden="true" /></Button>
+              <Button type="submit" className="h-11 w-full gap-2" disabled={checkingQuote}>{checkingQuote ? "Checking…" : pendingConfirmation ? "Check submitted lock" : quote && !quoteExpired ? "Resume review" : "Review lock"}<ArrowRight size={16} aria-hidden="true" /></Button>
             </form>
           </Card> : <Card className="space-y-2 rounded-2xl p-4">
             <div className="flex items-center gap-2"><LockKeyhole size={16} aria-hidden="true" /><h2 className="font-medium">{canStart ? "Set a transaction PIN" : "New savings locks are unavailable"}</h2></div>
@@ -352,10 +369,10 @@ function AccountSavings({ owner }: { owner: string }) {
               <Input id="savings-pin" className="h-11" type="password" inputMode="numeric" autoComplete="off" maxLength={4} value={pin} disabled={committing} onChange={(event) => setPin(event.target.value.replace(/\D/g, ""))} />
             </div>
             {actionError && <p className="text-sm text-destructive" role="alert">{actionError}</p>}
-            {quoteExpired && <p className="text-sm text-muted-foreground">This quote expired. Any submitted lock will appear in your savings list.</p>}
+            {quoteExpired && <p className="text-sm text-muted-foreground">{pendingConfirmation ? "Check this submission before starting another lock." : "This quote expired. Return to the form to request a new quote."}</p>}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={clearSavedQuote} disabled={committing || (!quoteExpired && Boolean(actionError))}>Close review</Button>
-              <Button type="submit" disabled={committing || !accepted || !approvedTerms || pin.length !== 4 || quoteExpired}>{committing ? "Confirming…" : "Confirm lock"}</Button>
+              <Button type="button" variant="outline" onClick={pendingConfirmation ? () => setShowReview(false) : clearSavedQuote} disabled={committing}>Close review</Button>
+              <Button type="submit" disabled={committing || !accepted || !approvedTerms || pin.length !== 4 || (quoteExpired && !pendingConfirmation)}>{committing ? "Confirming…" : pendingConfirmation ? "Retry confirmation" : "Confirm lock"}</Button>
             </DialogFooter>
           </form>
         </DialogContent>}

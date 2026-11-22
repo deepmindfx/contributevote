@@ -24,4 +24,6 @@ The database locks the wallet row before reducing available funds. Repeating an 
 
 Apply `20261122211000_ice_vault_manual_release.sql` to keep older unsettled locks visible and isolate alert failures from wallet settlement. Check database warnings for alerts that could not be recorded.
 
+Apply `20261122214500_ice_vault_reliability.sql` before deploying the matching frontend. The maturity sweep allows one run at a time. The minute-by-minute `collectipay-fixed-savings-notifications` job retries pending alerts independently of wallet settlement. Watch for failed deliveries in database warnings and the private outbox. Ice Vault entries stay in the wallet ledger and are excluded from cash-flow AML rules.
+
 New locks require terms acceptance, a transaction PIN, a healthy scheduler, and an enabled program. Customer balances and savings data are scoped to the signed-in account. The database clock determines release eligibility. Super Admin settings edits use a revision check and record the actor and before-and-after settings in the private audit table.
