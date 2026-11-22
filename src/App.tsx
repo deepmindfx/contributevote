@@ -178,6 +178,7 @@ const AppRoutes = () => {
       <Route path="/auth" element={<screens.auth />} />
       <Route path="/admin-login" element={<screens.adminAuth />} />
       <Route path="/discover" element={<screens.discover />} />
+      <Route path="/faq" element={<screens.faq />} />
       
       {/* Protected Routes */}
       <Route path="/dashboard" element={

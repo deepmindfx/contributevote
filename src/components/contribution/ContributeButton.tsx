@@ -17,6 +17,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import BrandLoader from '@/components/ui/BrandLoader';
 import CollectiPayReceipt, { type CollectiPayReceiptData } from '@/components/receipt/CollectiPayReceipt';
+import { MoneySentAnimation } from '@/components/wallet/MoneySentAnimation';
 import { TransactionPinDialog } from '@/components/security/TransactionPinDialog';
 import { cn } from '@/lib/utils';
 import { GroupRules, groupRuleColumns } from './GroupRules';
@@ -229,17 +230,29 @@ export function ContributeButton({
           )}
         >
           {receipt ? (
-            <>
+            <div className="space-y-3">
               <DialogHeader className="sr-only">
                 <DialogTitle>Contribution Receipt</DialogTitle>
                 <DialogDescription>Verified CollectiPay group contribution receipt.</DialogDescription>
               </DialogHeader>
+              <MoneySentAnimation
+                status="sent"
+                variant="contribution"
+                compact
+                amount={receipt.amount}
+                recipientName={groupName}
+                recipientSubline={
+                  receipt.votingRightsGranted
+                    ? 'Voting rights unlocked in this group'
+                    : 'Added to group balance'
+                }
+              />
               <CollectiPayReceipt
                 data={receipt}
                 onDone={() => handleOpenChange(false)}
                 doneLabel="Done"
               />
-            </>
+            </div>
           ) : (
             <>
               <DialogHeader>

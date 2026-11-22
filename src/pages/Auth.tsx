@@ -38,8 +38,10 @@ export default function Auth() {
       <main className="auth-main">
         <section className="auth-entry" aria-labelledby="auth-title">
           <div className="auth-entry-inner">
-            <h1 id="auth-title">{mode === "signup" ? "Create your account" : "Welcome back"}</h1>
-            <p>{mode === "signup" ? "Start a savings group or join one you’ve been invited to." : "Sign in to manage your wallet and groups."}</p>
+            <div key={mode} className="auth-heading-swap">
+              <h1 id="auth-title">{mode === "signup" ? "Create your account" : "Welcome back"}</h1>
+              <p>{mode === "signup" ? "Start a savings group or join one you’ve been invited to." : "Sign in to manage your wallet and groups."}</p>
+            </div>
             {checkingExistingSession && (
               <div
                 role="status"
@@ -83,6 +85,12 @@ export default function Auth() {
               </div>
             )}
             <AuthForm mode={mode} onModeChange={changeMode} />
+            <p className="mt-5 text-center text-xs text-muted-foreground">
+              Questions about fees, BVN, or group voting?{" "}
+              <Link to="/faq" className="font-semibold text-primary underline-offset-2 hover:underline">
+                Read our FAQ
+              </Link>
+            </p>
           </div>
         </section>
         <aside className="auth-editorial" aria-label="CollectiPay group savings">

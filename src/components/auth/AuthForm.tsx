@@ -1,9 +1,8 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { ArrowRight, Eye, EyeOff, MailCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { meetsPasswordRequirements, PASSWORD_MIN_LENGTH, passwordIssue } from "@/lib/passwordPolicy";
 import { PasswordRequirements } from "@/components/auth/PasswordRequirements";
@@ -50,6 +49,46 @@ export default function AuthForm({ mode, onModeChange }: { mode: AuthMode; onMod
   const [pending, setPending] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [registrationEmail, setRegistrationEmail] = useState("");
+  const prevModeRef = useRef<AuthMode>(mode);
+  const [direction, setDirection] = useState<"forward" | "backward" | "none">("none");
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [panelHeight, setPanelHeight] = useState<number | undefined>(undefined);
+
+  useEffect(() => {
+    if (prevModeRef.current !== mode) {
+      setDirection(mode === "signup" ? "forward" : "backward");
+      prevModeRef.current = mode;
+    }
+  }, [mode]);
+
+  useLayoutEffect(() => {
+    const el = panelRef.current;
+    if (!el) return;
+    const syncHeight = () => {
+      const nextHeight = Math.ceil(el.getBoundingClientRect().height);
+      if (nextHeight > 0) setPanelHeight(nextHeight);
+    };
+    syncHeight();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(syncHeight);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [mode, registrationEmail, errorMessage]);
+
+  const switchMode = (nextMode: AuthMode) => {
+    if (pending || nextMode === mode) return;
+    setErrorMessage("");
+    setDirection(nextMode === "signup" ? "forward" : "backward");
+    prevModeRef.current = nextMode;
+    onModeChange(nextMode);
+  };
+
+  const handleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+      event.preventDefault();
+      switchMode(mode === "signin" ? "signup" : "signin");
+    }
+  };
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -87,32 +126,69 @@ export default function AuthForm({ mode, onModeChange }: { mode: AuthMode; onMod
 
   return (
     <div className="auth-form">
-      <Tabs value={mode} onValueChange={(value) => {
-        setErrorMessage("");
-        onModeChange(value === "signup" ? "signup" : "signin");
-      }}>
-        <TabsList className="auth-modes grid w-full grid-cols-2" aria-label="Account access">
-          <TabsTrigger value="signin" disabled={pending}>Sign in</TabsTrigger>
-          <TabsTrigger value="signup" disabled={pending}>Sign up</TabsTrigger>
-        </TabsList>
-        <TabsContent value="signin">
-          <form onSubmit={handleSubmit} className="space-y-4 pt-4" aria-label="Sign in">
-            <div className="space-y-2">
-              <Label htmlFor="login-email">Email address</Label>
-              <Input id="login-email" name="email" type="email" autoComplete="email" required value={login.email} onChange={(event) => setLogin({ ...login, email: event.target.value })} className="auth-input h-12" />
-            </div>
-            <PasswordField id="login-password" value={login.password} onChange={(password) => setLogin({ ...login, password })} />
-            {errorMessage && <p className="text-sm text-destructive" role="alert">{errorMessage}</p>}
-            <Button className="auth-submit h-12 w-full" type="submit" disabled={pending}>{pending ? "Signing in…" : "Sign in"}<ArrowRight size={17} aria-hidden="true" /></Button>
-          </form>
-        </TabsContent>
-        <TabsContent value="signup">
-          {registrationEmail ? (
+      <div className="auth-modes" role="tablist" aria-label="Account access">
+        <span
+          className="auth-mode-indicator"
+          data-mode={mode}
+          aria-hidden="true"
+        />
+        <button
+          id="auth-tab-signin"
+          type="button"
+          role="tab"
+          aria-selected={mode === "signin"}
+          aria-controls="auth-panel-signin"
+          tabIndex={mode === "signin" ? 0 : -1}
+          disabled={pending}
+          onKeyDown={handleTabKeyDown}
+          onClick={() => switchMode("signin")}
+        >
+          Sign in
+        </button>
+        <button
+          id="auth-tab-signup"
+          type="button"
+          role="tab"
+          aria-selected={mode === "signup"}
+          aria-controls="auth-panel-signup"
+          tabIndex={mode === "signup" ? 0 : -1}
+          disabled={pending}
+          onKeyDown={handleTabKeyDown}
+          onClick={() => switchMode("signup")}
+        >
+          Sign up
+        </button>
+      </div>
+
+      <div
+        className="auth-panel-stage"
+        style={panelHeight !== undefined ? { height: `${panelHeight}px` } : undefined}
+      >
+        <div
+          key={mode}
+          ref={panelRef}
+          id={mode === "signin" ? "auth-panel-signin" : "auth-panel-signup"}
+          role="tabpanel"
+          aria-labelledby={mode === "signin" ? "auth-tab-signin" : "auth-tab-signup"}
+          data-direction={direction}
+          className="auth-panel-content"
+        >
+          {mode === "signin" ? (
+            <form onSubmit={handleSubmit} className="space-y-4 pt-4" aria-label="Sign in">
+              <div className="space-y-2">
+                <Label htmlFor="login-email">Email address</Label>
+                <Input id="login-email" name="email" type="email" autoComplete="email" required value={login.email} onChange={(event) => setLogin({ ...login, email: event.target.value })} className="auth-input h-12" />
+              </div>
+              <PasswordField id="login-password" value={login.password} onChange={(password) => setLogin({ ...login, password })} />
+              {errorMessage && <p className="text-sm text-destructive" role="alert">{errorMessage}</p>}
+              <Button className="auth-submit h-12 w-full" type="submit" disabled={pending}>{pending ? "Signing in…" : "Sign in"}<ArrowRight size={17} aria-hidden="true" /></Button>
+            </form>
+          ) : registrationEmail ? (
             <div className="space-y-3 py-4" role="status">
               <MailCheck size={27} className="text-primary" aria-hidden="true" />
               <h2 className="app-section-title">Check your inbox</h2>
               <p className="break-words text-sm text-muted-foreground">Confirm your email using the link sent to {registrationEmail}.</p>
-              <Button variant="outline" onClick={() => onModeChange("signin")}>Back to sign in</Button>
+              <Button variant="outline" onClick={() => switchMode("signin")}>Back to sign in</Button>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4 pt-4" aria-label="Sign up">
@@ -134,8 +210,8 @@ export default function AuthForm({ mode, onModeChange }: { mode: AuthMode; onMod
               <Button className="auth-submit h-12 w-full" type="submit" disabled={pending || !meetsPasswordRequirements(registration.password)}>{pending ? "Creating account…" : "Create account"}<ArrowRight size={17} aria-hidden="true" /></Button>
             </form>
           )}
-        </TabsContent>
-      </Tabs>
+        </div>
+      </div>
     </div>
   );
 }

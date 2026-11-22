@@ -1,0 +1,436 @@
+/* ============================================================================
+ * CollectiPay Signature "Money Sent" Celebration & Flight Animation
+ * ========================================================================== */
+
+.cp-money-stage {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.5rem;
+  padding: 1.4rem 1.25rem 1.5rem;
+  text-align: center;
+  color: #f6fff9;
+  border: 1px solid rgba(219, 245, 180, 0.18);
+  background:
+    radial-gradient(circle at 50% 18%, rgba(219, 245, 180, 0.16), transparent 56%),
+    linear-gradient(160deg, #0a4d3d 0%, #073228 54%, #06211b 100%);
+  box-shadow: 0 18px 40px -22px rgba(4, 28, 22, 0.65);
+  animation: cp-stage-pop 380ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.cp-money-stage--compact {
+  padding: 1.05rem 1rem 1.15rem;
+  border-radius: 1.25rem;
+}
+
+.cp-money-stage--processing {
+  border-color: rgba(251, 191, 36, 0.28);
+  background:
+    radial-gradient(circle at 50% 18%, rgba(251, 191, 36, 0.14), transparent 56%),
+    linear-gradient(160deg, #0b4338 0%, #092c25 58%, #071e1a 100%);
+}
+
+.cp-money-stage--failed {
+  border-color: rgba(248, 113, 113, 0.34);
+  background:
+    radial-gradient(circle at 50% 18%, rgba(248, 113, 113, 0.18), transparent 56%),
+    linear-gradient(160deg, #3c141a 0%, #260d12 58%, #18080b 100%);
+}
+
+.cp-money-stage-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.34;
+  background-image:
+    radial-gradient(rgba(219, 245, 180, 0.24) 1px, transparent 1px);
+  background-size: 20px 20px;
+  mask-image: radial-gradient(circle at 50% 35%, black 22%, transparent 74%);
+  -webkit-mask-image: radial-gradient(circle at 50% 35%, black 22%, transparent 74%);
+}
+
+.cp-money-pill {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  padding: 0.28rem 0.72rem;
+  border-radius: 999px;
+  border: 1px solid rgba(219, 245, 180, 0.24);
+  background: rgba(255, 255, 255, 0.08);
+  color: #dbf5b4;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  animation: cp-money-fade-up 340ms cubic-bezier(0.22, 1, 0.36, 1) 80ms backwards;
+}
+
+.cp-money-stage--failed .cp-money-pill {
+  border-color: rgba(252, 165, 165, 0.34);
+  color: #fecaca;
+}
+
+.cp-money-stage--processing .cp-money-pill {
+  border-color: rgba(253, 224, 71, 0.3);
+  color: #fde68a;
+}
+
+.cp-money-flight {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  max-width: 19rem;
+  margin: 0.85rem auto 0.6rem;
+  min-height: 4.9rem;
+}
+
+.cp-money-stage--compact .cp-money-flight {
+  margin: 0.55rem auto 0.35rem;
+  min-height: 4.2rem;
+}
+
+.cp-flight-node {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 2.55rem;
+  height: 2.55rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(219, 245, 180, 0.26);
+  background: rgba(255, 255, 255, 0.08);
+  color: #d7f5e5;
+  backdrop-filter: blur(6px);
+}
+
+.cp-flight-node--from {
+  animation: cp-node-launch 420ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.cp-flight-node--to {
+  animation: cp-node-arrive 460ms cubic-bezier(0.22, 1, 0.36, 1) 420ms backwards;
+}
+
+.cp-money-stage--sent .cp-flight-node--to {
+  border-color: rgba(219, 245, 180, 0.52);
+  background: rgba(219, 245, 180, 0.16);
+  color: #dbf5b4;
+}
+
+.cp-flight-svg {
+  width: 100%;
+  height: 4.75rem;
+  overflow: visible;
+  color: #dbf5b4;
+}
+
+.cp-flight-arc {
+  stroke-dasharray: 245;
+  stroke-dashoffset: 245;
+  animation: cp-arc-draw 680ms cubic-bezier(0.22, 1, 0.36, 1) 100ms forwards;
+}
+
+.cp-money-stage--processing .cp-flight-arc {
+  animation: cp-arc-loop 1.8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.cp-flight-shuttle {
+  opacity: 0;
+  animation: cp-shuttle-fly 720ms cubic-bezier(0.22, 1, 0.36, 1) 90ms forwards;
+}
+
+.cp-money-stage--processing .cp-flight-shuttle {
+  animation: cp-shuttle-loop 1.8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.cp-money-seal-wrap {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -44%);
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  width: 3.75rem;
+  height: 3.75rem;
+}
+
+.cp-money-seal {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 999px;
+  background: linear-gradient(145deg, #dbf5b4 0%, #86efac 100%);
+  color: #06372c;
+  box-shadow:
+    0 0 0 4px rgba(219, 245, 180, 0.2),
+    0 10px 24px -6px rgba(134, 239, 172, 0.55);
+  animation: cp-seal-bloom 520ms cubic-bezier(0.34, 1.56, 0.64, 1) 300ms backwards;
+}
+
+.cp-money-stage--processing .cp-money-seal {
+  background: linear-gradient(145deg, #fde68a 0%, #fbbf24 100%);
+  color: #451a03;
+  box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.22);
+  animation: cp-seal-bloom 420ms cubic-bezier(0.22, 1, 0.36, 1) 120ms backwards;
+}
+
+.cp-money-stage--failed .cp-money-seal {
+  background: linear-gradient(145deg, #fca5a5 0%, #ef4444 100%);
+  color: #fff;
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.24);
+  animation: cp-seal-bloom 360ms cubic-bezier(0.22, 1, 0.36, 1) 80ms backwards;
+}
+
+.cp-seal-check {
+  width: 1.9rem;
+  height: 1.9rem;
+}
+
+.cp-seal-check path {
+  stroke-dasharray: 34;
+  stroke-dashoffset: 34;
+  animation: cp-check-stroke 340ms cubic-bezier(0.22, 1, 0.36, 1) 480ms forwards;
+}
+
+.cp-seal-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  border: 2px solid rgba(219, 245, 180, 0.72);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.cp-seal-ring--1 {
+  animation: cp-sonar-pulse 950ms cubic-bezier(0.16, 1, 0.3, 1) 340ms forwards;
+}
+
+.cp-seal-ring--2 {
+  animation: cp-sonar-pulse 1050ms cubic-bezier(0.16, 1, 0.3, 1) 520ms forwards;
+}
+
+.cp-seal-radar {
+  position: absolute;
+  inset: -4px;
+  border-radius: 999px;
+  border: 2px solid rgba(253, 224, 71, 0.55);
+  animation: cp-radar-repeat 1.7s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+.cp-seal-sparks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.cp-seal-spark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 2px;
+  background: #dbf5b4;
+  opacity: 0;
+  transform: rotate(var(--spark-angle)) translateY(0) scale(0.4);
+  animation: cp-spark-burst 760ms cubic-bezier(0.16, 1, 0.3, 1) var(--spark-delay) forwards;
+}
+
+.cp-seal-spark:nth-child(3n) {
+  background: #34d399;
+  border-radius: 999px;
+}
+
+.cp-seal-spark:nth-child(3n + 1) {
+  background: #fef08a;
+  width: 5px;
+  height: 9px;
+  margin: -4.5px 0 0 -2.5px;
+}
+
+.cp-money-title {
+  position: relative;
+  z-index: 2;
+  font-size: 1.05rem;
+  font-weight: 720;
+  letter-spacing: -0.02em;
+  color: #e6faee;
+  animation: cp-money-fade-up 360ms cubic-bezier(0.22, 1, 0.36, 1) 240ms backwards;
+}
+
+.cp-money-amount {
+  position: relative;
+  z-index: 2;
+  margin-top: 0.2rem;
+  font-size: clamp(1.85rem, 7vw, 2.55rem);
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+  color: #ffffff;
+  text-shadow: 0 4px 20px rgba(219, 245, 180, 0.22);
+  animation: cp-money-fade-up 420ms cubic-bezier(0.22, 1, 0.36, 1) 300ms backwards;
+}
+
+.cp-money-stage--compact .cp-money-amount {
+  font-size: clamp(1.55rem, 6vw, 2.05rem);
+}
+
+.cp-money-recipient {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.12rem;
+  max-width: 100%;
+  margin-top: 0.65rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.07);
+  animation: cp-money-fade-up 420ms cubic-bezier(0.22, 1, 0.36, 1) 380ms backwards;
+}
+
+.cp-money-recipient-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 100%;
+  font-size: 0.84rem;
+  font-weight: 650;
+  color: #ffffff;
+}
+
+.cp-money-recipient-sub {
+  font-size: 0.72rem;
+  color: rgba(216, 243, 229, 0.78);
+}
+
+@keyframes cp-stage-pop {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0) scale(0.975);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes cp-node-launch {
+  0% { transform: scale(0.82); opacity: 0; }
+  65% { transform: scale(1.06); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes cp-node-arrive {
+  0% { transform: scale(0.88); }
+  55% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+
+@keyframes cp-arc-draw {
+  0% { stroke-dashoffset: 245; opacity: 0.4; }
+  100% { stroke-dashoffset: 0; opacity: 1; }
+}
+
+@keyframes cp-arc-loop {
+  0% { stroke-dashoffset: 245; opacity: 0.35; }
+  60% { stroke-dashoffset: 0; opacity: 1; }
+  100% { stroke-dashoffset: -245; opacity: 0.25; }
+}
+
+@keyframes cp-shuttle-fly {
+  0% { opacity: 0; }
+  14% { opacity: 1; }
+  84% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes cp-shuttle-loop {
+  0% { opacity: 0; }
+  14% { opacity: 1; }
+  84% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes cp-seal-bloom {
+  0% { opacity: 0; transform: scale(0.45); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes cp-check-stroke {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes cp-sonar-pulse {
+  0% { opacity: 0.85; transform: scale(0.95); }
+  100% { opacity: 0; transform: scale(2.15); }
+}
+
+@keyframes cp-radar-repeat {
+  0% { opacity: 0.72; transform: scale(0.96); }
+  100% { opacity: 0; transform: scale(1.9); }
+}
+
+@keyframes cp-spark-burst {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--spark-angle)) translateY(0) scale(0.4);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--spark-angle)) translateY(calc(-1 * var(--spark-dist))) scale(1.05);
+  }
+}
+
+@keyframes cp-money-fade-up {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cp-money-stage,
+  .cp-money-pill,
+  .cp-flight-node,
+  .cp-flight-arc,
+  .cp-flight-shuttle,
+  .cp-money-seal,
+  .cp-seal-check path,
+  .cp-seal-ring,
+  .cp-seal-radar,
+  .cp-seal-spark,
+  .cp-money-title,
+  .cp-money-amount,
+  .cp-money-recipient {
+    animation: none !important;
+  }
+
+  .cp-flight-arc,
+  .cp-seal-check path {
+    stroke-dashoffset: 0;
+  }
+
+  .cp-flight-shuttle,
+  .cp-seal-ring,
+  .cp-seal-spark {
+    display: none;
+  }
+}

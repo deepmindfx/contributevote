@@ -74,6 +74,7 @@ export const screens = {
   join: screen(() => import("./pages/JoinGroup")),
   transfer: screen(() => import("./components/TransferForm")),
   payment: screen(() => import("./pages/PaymentCallback")),
+  faq: screen(() => import("./pages/Faq")),
 };
 
 const routes: Record<string, keyof typeof screens> = {
@@ -92,6 +93,7 @@ const routes: Record<string, keyof typeof screens> = {
   "/all-groups": "groups",
   "/transfer": "transfer",
   "/payment-callback": "payment",
+  "/faq": "faq",
 };
 
 const preloaded = new Set<string>();

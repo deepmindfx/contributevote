@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ChevronLeft, ShieldCheck } from "lucide-react";
+import { ChevronLeft, HelpCircle, ShieldCheck } from "lucide-react";
 import Header from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import UserSettingsForm from "@/components/settings/UserSettingsForm";
@@ -22,10 +22,18 @@ const UserSettings = () => {
                 Profile
               </Link>
             </Button>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-[#dbf5b4]">
-              <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
-              {hasPin ? "PIN Security Active" : "Finish Security Setup"}
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button asChild variant="ghost" className="app-panel-secondary gap-1.5 rounded-xl">
+                <Link to="/faq">
+                  <HelpCircle size={15} aria-hidden="true" />
+                  Help &amp; FAQ
+                </Link>
+              </Button>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-[#dbf5b4]">
+                <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                {hasPin ? "PIN Security Active" : "Finish Security Setup"}
+              </span>
+            </div>
           </div>
 
           <h1 id="settings-title" className="app-page-title mt-4">

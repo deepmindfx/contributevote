@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { CollectiPayMark } from "@/components/ui/BrandLoader";
 import { CommunityStoriesSection } from "@/components/landing/CommunityStoriesSection";
+import { FaqSection } from "@/components/landing/FaqSection";
 import "@/styles/landing.css";
 
 const steps = [
@@ -33,6 +34,7 @@ const sectionLinks = [
   { href: "#how-it-works", text: "How it works" },
   { href: "#why-collectipay", text: "Why CollectiPay" },
   { href: "#pricing", text: "Pricing" },
+  { href: "#faq", text: "FAQ" },
 ];
 
 function GroupPhoto() {
@@ -174,6 +176,8 @@ export default function Index() {
         </section>
 
         <CommunityStoriesSection />
+
+        <FaqSection />
 
         <section className="landing-end landing-width" aria-labelledby="start-title" data-scroll-reveal>
           <h2 id="start-title">What are you saving for?</h2>
