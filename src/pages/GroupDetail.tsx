@@ -27,8 +27,9 @@ import {
   getCategoryLabel,
 } from '@/services/supabase/groupEnhancementService';
 import {
+  formatByteSize,
   updateGroupCoverImage,
-  uploadGroupCoverImage,
+  uploadGroupCoverImageWithMeta,
 } from '@/services/supabase/groupImageService';
 import { createGroupVirtualAccount } from '@/services/flutterwave/virtualAccounts';
 import { ContributeButton } from '@/components/contribution/ContributeButton';
@@ -110,10 +111,16 @@ export default function GroupDetail() {
 
     setIsUploadingCover(true);
     try {
-      const publicUrl = await uploadGroupCoverImage(user.id, file);
+      const { publicUrl, originalBytes, compressedBytes } = await uploadGroupCoverImageWithMeta(user.id, file);
       await updateGroupCoverImage(group.id, publicUrl);
       updateCachedGroup({ cover_image_url: publicUrl });
-      toast.success('Group cover photo updated!');
+      if (originalBytes > compressedBytes) {
+        toast.success(
+          `Group cover photo updated (${formatByteSize(originalBytes)} → ${formatByteSize(compressedBytes)} HD)!`
+        );
+      } else {
+        toast.success('Group cover photo updated!');
+      }
       await refreshContributionData(true);
     } catch (error: any) {
       toast.error(error?.message || 'Failed to update cover photo');

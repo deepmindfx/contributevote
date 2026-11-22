@@ -14,6 +14,7 @@ import {
   createGroupWithFee,
   saveUserBvn,
 } from "@/services/supabase/groupEnhancementService";
+import { compressBannerImage, formatByteSize } from "@/lib/imageCompression";
 import { uploadGroupCoverImage } from "@/services/supabase/groupImageService";
 import {
   AlertDialog,
@@ -119,7 +120,7 @@ function AccountGroupForm({ owner }: { owner: string }) {
     };
   }, [coverPreviewUrl]);
 
-  const handleCoverSelect = (file: File | null) => {
+  const handleCoverSelect = async (file: File | null) => {
     if (coverPreviewUrl) URL.revokeObjectURL(coverPreviewUrl);
     if (!file) {
       setCoverFile(null);
@@ -134,8 +135,27 @@ function AccountGroupForm({ owner }: { owner: string }) {
       toast.error("Image must be smaller than 10 MB.");
       return;
     }
-    setCoverFile(file);
-    setCoverPreviewUrl(URL.createObjectURL(file));
+    try {
+      const compressed = await compressBannerImage(file, {
+        maxInputBytes: 10 * 1024 * 1024,
+        maxWidth: 1600,
+        maxHeight: 1200,
+        targetMaxBytes: 320 * 1024,
+      });
+      const baseName = file.name.replace(/\.[^.]+$/, "") || "group-cover";
+      const optimizedFile = new File([compressed.blob], `${baseName}.${compressed.ext}`, {
+        type: compressed.mimeType,
+      });
+      setCoverFile(optimizedFile);
+      setCoverPreviewUrl(URL.createObjectURL(compressed.blob));
+      if (compressed.originalBytes > compressed.compressedBytes) {
+        toast.success(
+          `Cover photo optimized (${formatByteSize(compressed.originalBytes)} → ${formatByteSize(compressed.compressedBytes)} HD)`
+        );
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Could not process the selected cover photo.");
+    }
   };
 
   const stepNumber = step === "goal" ? 1 : 2;

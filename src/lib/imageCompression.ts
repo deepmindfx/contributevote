@@ -7,12 +7,33 @@ export interface CompressedImageResult {
   mimeType: string;
 }
 
+export interface CompressedBannerBlobResult {
+  blob: Blob;
+  ext: string;
+  mimeType: string;
+  originalBytes: number;
+  compressedBytes: number;
+  width: number;
+  height: number;
+}
+
 export interface CompressProfileImageOptions {
   /** Maximum allowed source file size in bytes (default: 5 MB) */
   maxInputBytes?: number;
   /** Target output dimension in pixels for 1:1 Retina avatar (default: 640px = 8x 80px avatar) */
   maxDimension?: number;
   /** Target maximum compressed output size in bytes (default: 180 KB) */
+  targetMaxBytes?: number;
+}
+
+export interface CompressBannerImageOptions {
+  /** Maximum allowed source file size in bytes (default: 10 MB) */
+  maxInputBytes?: number;
+  /** Maximum output width in pixels for Retina HD group header (default: 1600px) */
+  maxWidth?: number;
+  /** Maximum output height in pixels (default: 1200px) */
+  maxHeight?: number;
+  /** Target maximum compressed output size in bytes (default: 320 KB) */
   targetMaxBytes?: number;
 }
 
@@ -223,5 +244,153 @@ export async function compressProfileImage(
     width: targetSize,
     height: targetSize,
     mimeType: bestMime,
+  };
+}
+
+/**
+ * Multi-step 2x progressive downsampling for aspect-preserving group header / cover banners.
+ */
+function renderHighQualityBannerCanvas(
+  img: HTMLImageElement,
+  targetW: number,
+  targetH: number
+): HTMLCanvasElement {
+  let curW = img.naturalWidth || img.width;
+  let curH = img.naturalHeight || img.height;
+
+  let currentCanvas = document.createElement("canvas");
+  const firstW = curW > targetW * 2 ? Math.round(curW / 2) : targetW;
+  const firstH = curH > targetH * 2 ? Math.round(curH / 2) : targetH;
+  currentCanvas.width = firstW;
+  currentCanvas.height = firstH;
+
+  const firstCtx = currentCanvas.getContext("2d");
+  if (!firstCtx) return currentCanvas;
+  firstCtx.imageSmoothingEnabled = true;
+  firstCtx.imageSmoothingQuality = "high";
+  firstCtx.drawImage(img, 0, 0, curW, curH, 0, 0, firstW, firstH);
+  curW = firstW;
+  curH = firstH;
+
+  while (curW > targetW || curH > targetH) {
+    const nextW = Math.max(targetW, Math.round(curW / 2));
+    const nextH = Math.max(targetH, Math.round(curH / 2));
+    const nextCanvas = document.createElement("canvas");
+    nextCanvas.width = nextW;
+    nextCanvas.height = nextH;
+    const nextCtx = nextCanvas.getContext("2d");
+    if (!nextCtx) break;
+    nextCtx.imageSmoothingEnabled = true;
+    nextCtx.imageSmoothingQuality = "high";
+    nextCtx.drawImage(currentCanvas, 0, 0, curW, curH, 0, 0, nextW, nextH);
+    currentCanvas = nextCanvas;
+    curW = nextW;
+    curH = nextH;
+  }
+
+  return currentCanvas;
+}
+
+/**
+ * Compresses a group header / cover picture (up to 10 MB) using multi-step 2x progressive
+ * downsampling and near-lossless WebP/JPEG encoding into a fast-loading HD Blob.
+ */
+export async function compressBannerImage(
+  file: File,
+  options: CompressBannerImageOptions = {}
+): Promise<CompressedBannerBlobResult> {
+  const maxInputBytes = options.maxInputBytes ?? 10 * 1024 * 1024;
+  const maxWidth = options.maxWidth ?? 1600;
+  const maxHeight = options.maxHeight ?? 1200;
+  const targetMaxBytes = options.targetMaxBytes ?? 320 * 1024;
+
+  if (!file.type.startsWith("image/")) {
+    throw new Error("Please select a valid image file (JPG, PNG, or WebP).");
+  }
+
+  if (file.size > maxInputBytes) {
+    throw new Error(
+      `Image is ${formatByteSize(file.size)}. Please choose a photo up to ${formatByteSize(maxInputBytes)}.`
+    );
+  }
+
+  const img = await loadImageElement(file);
+  const srcW = Math.max(1, img.naturalWidth || img.width);
+  const srcH = Math.max(1, img.naturalHeight || img.height);
+
+  // Pass through already-compact images untouched (bit-for-bit lossless)
+  if (
+    file.size <= 280 * 1024 &&
+    srcW <= maxWidth &&
+    srcH <= maxHeight &&
+    ["image/webp", "image/jpeg", "image/png"].includes(file.type)
+  ) {
+    const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+    return {
+      blob: file,
+      ext,
+      mimeType: file.type,
+      originalBytes: file.size,
+      compressedBytes: file.size,
+      width: srcW,
+      height: srcH,
+    };
+  }
+
+  const scale = Math.min(1, maxWidth / srcW, maxHeight / srcH);
+  const targetW = Math.max(1, Math.round(srcW * scale));
+  const targetH = Math.max(1, Math.round(srcH * scale));
+  const canvas = renderHighQualityBannerCanvas(img, targetW, targetH);
+
+  const qualitySteps = [0.92, 0.88, 0.82, 0.76];
+  const candidateMimes: Array<{ mime: string; ext: string }> = [
+    { mime: "image/webp", ext: "webp" },
+    { mime: "image/jpeg", ext: "jpg" },
+  ];
+
+  let bestBlob: Blob | null = null;
+  let bestMime = "image/webp";
+  let bestExt = "webp";
+
+  for (const { mime, ext } of candidateMimes) {
+    let mimeSupported = false;
+    for (const quality of qualitySteps) {
+      const blob = await canvasToBlob(canvas, mime, quality);
+      if (!blob || blob.type !== mime) {
+        break;
+      }
+      mimeSupported = true;
+      bestBlob = blob;
+      bestMime = mime;
+      bestExt = ext;
+      if (blob.size <= targetMaxBytes) {
+        break;
+      }
+    }
+    if (mimeSupported && bestBlob) {
+      break;
+    }
+  }
+
+  if (!bestBlob) {
+    return {
+      blob: file,
+      ext: "jpg",
+      mimeType: file.type || "image/jpeg",
+      originalBytes: file.size,
+      compressedBytes: file.size,
+      width: srcW,
+      height: srcH,
+    };
+  }
+
+  return {
+    blob: bestBlob,
+    ext: bestExt,
+    mimeType: bestMime,
+    originalBytes: file.size,
+    compressedBytes: bestBlob.size,
+    width: targetW,
+    height: targetH,
   };
 }
