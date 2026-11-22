@@ -327,7 +327,6 @@ function AccountSavings({ owner }: { owner: string }) {
             <dl className="space-y-2 rounded-xl bg-muted p-3 text-sm">
               <div className="flex items-center justify-between gap-2"><dt>Principal</dt><dd className="font-semibold">{naira.format(quote.amount)}</dd></div>
               <div className="flex flex-wrap justify-between gap-2"><dt>Matures at</dt><dd className="font-semibold">{ngDate.format(new Date(quote.maturity_at))}</dd></div>
-              {quote.custodian_name && <div className="flex flex-wrap justify-between gap-2"><dt>Funds held by</dt><dd className="break-words">{quote.custodian_name}</dd></div>}
             </dl>
             <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
               <LockKeyhole size={17} className="mt-0.5 shrink-0 text-amber-700 dark:text-amber-300" aria-hidden="true" />
