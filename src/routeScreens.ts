@@ -116,3 +116,40 @@ export function preloadLinkedScreen(target: EventTarget | null) {
   const link = target.closest<HTMLAnchorElement>("a[href]");
   if (link?.origin === location.origin && link.pathname !== location.pathname) preloadScreen(link.pathname);
 }
+
+let workspaceWarmed = false;
+
+/**
+ * Quietly preloads core authenticated app screens during browser idle time
+ * so tapping tabs, wallet actions, or groups feels instantaneous like a native app.
+ */
+export function preloadWorkspaceScreens() {
+  if (workspaceWarmed || typeof window === "undefined") return;
+  const connection = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+  if (connection?.saveData || connection?.effectiveType?.endsWith("2g")) return;
+  workspaceWarmed = true;
+
+  const corePaths = [
+    "/dashboard",
+    "/all-groups",
+    "/votes",
+    "/discover",
+    "/transfer",
+    "/wallet-history",
+    "/activity",
+    "/settings",
+    "/profile",
+  ];
+
+  const run = () => {
+    for (const p of corePaths) preloadScreen(p);
+  };
+
+  const ric = (window as { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number })
+    .requestIdleCallback;
+  if (typeof ric === "function") {
+    ric(run, { timeout: 2200 });
+  } else {
+    globalThis.setTimeout(run, 800);
+  }
+}

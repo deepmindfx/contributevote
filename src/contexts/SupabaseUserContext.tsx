@@ -25,7 +25,11 @@ interface SupabaseUserContextType {
   refreshCurrentUser: () => Promise<void>;
   refreshNotifications: () => Promise<void>;
   markNotificationRead: (notificationId: string) => Promise<void>;
+  toggleNotificationRead: (notificationId: string, isRead: boolean) => Promise<boolean>;
   markAllNotificationsRead: () => Promise<void>;
+  deleteNotification: (notificationId: string) => Promise<boolean>;
+  clearReadNotifications: () => Promise<boolean>;
+  clearAllNotifications: () => Promise<boolean>;
   updateProfile: (userData: Partial<Profile>) => Promise<void>;
   updateUserAsAdmin: (userId: string, userData: Partial<Profile>) => Promise<void>;
   depositToUserAsAdmin: (userId: string, amount: number) => Promise<void>;
@@ -284,10 +288,63 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
     await NotificationService.markAsRead(notificationId);
   }, []);
 
+  const toggleNotificationRead = useCallback(async (notificationId: string, isRead: boolean) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === notificationId ? { ...n, is_read: isRead } : n))
+    );
+    const ok = await NotificationService.setReadStatus(notificationId, isRead);
+    if (!ok) {
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notificationId ? { ...n, is_read: !isRead } : n))
+      );
+    }
+    return ok;
+  }, []);
+
   const markAllNotificationsRead = useCallback(async () => {
     if (!user?.id) return;
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
     await NotificationService.markAllAsRead(user.id);
+  }, [user?.id]);
+
+  const deleteNotification = useCallback(async (notificationId: string) => {
+    let removed: NotificationRecord | undefined;
+    setNotifications((prev) => {
+      removed = prev.find((n) => n.id === notificationId);
+      return prev.filter((n) => n.id !== notificationId);
+    });
+    const ok = await NotificationService.deleteNotification(notificationId);
+    if (!ok && removed) {
+      const restore = removed;
+      setNotifications((prev) => [restore, ...prev].sort(
+        (a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)
+      ));
+    }
+    return ok;
+  }, []);
+
+  const clearReadNotifications = useCallback(async () => {
+    if (!user?.id) return false;
+    let snapshot: NotificationRecord[] = [];
+    setNotifications((prev) => {
+      snapshot = prev;
+      return prev.filter((n) => !n.is_read);
+    });
+    const ok = await NotificationService.clearReadNotifications(user.id);
+    if (!ok) setNotifications(snapshot);
+    return ok;
+  }, [user?.id]);
+
+  const clearAllNotifications = useCallback(async () => {
+    if (!user?.id) return false;
+    let snapshot: NotificationRecord[] = [];
+    setNotifications((prev) => {
+      snapshot = prev;
+      return [];
+    });
+    const ok = await NotificationService.clearAllNotifications(user.id);
+    if (!ok) setNotifications(snapshot);
+    return ok;
   }, [user?.id]);
 
   const currentRefresh = useRef<{ id: string; request: Promise<void> }>();
@@ -480,7 +537,11 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
         refreshCurrentUser,
         refreshNotifications,
         markNotificationRead,
+        toggleNotificationRead,
         markAllNotificationsRead,
+        deleteNotification,
+        clearReadNotifications,
+        clearAllNotifications,
         updateProfile,
         updateUserAsAdmin,
         depositToUserAsAdmin,

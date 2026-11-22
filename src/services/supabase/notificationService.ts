@@ -59,6 +59,19 @@ export const NotificationService = {
     return true;
   },
 
+  async setReadStatus(notificationId: string, isRead: boolean): Promise<boolean> {
+    const { error } = await supabase
+      .from('notifications')
+      .update({ is_read: isRead })
+      .eq('id', notificationId);
+
+    if (error) {
+      console.error('Error updating notification status:', error);
+      return false;
+    }
+    return true;
+  },
+
   async markAllAsRead(userId: string): Promise<boolean> {
     const { error } = await supabase
       .from('notifications')
@@ -68,6 +81,46 @@ export const NotificationService = {
 
     if (error) {
       console.error('Error marking all notifications as read:', error);
+      return false;
+    }
+    return true;
+  },
+
+  async deleteNotification(notificationId: string): Promise<boolean> {
+    const { error } = await supabase
+      .from('notifications')
+      .delete()
+      .eq('id', notificationId);
+
+    if (error) {
+      console.error('Error deleting notification:', error);
+      return false;
+    }
+    return true;
+  },
+
+  async clearReadNotifications(userId: string): Promise<boolean> {
+    const { error } = await supabase
+      .from('notifications')
+      .delete()
+      .eq('user_id', userId)
+      .eq('is_read', true);
+
+    if (error) {
+      console.error('Error clearing read notifications:', error);
+      return false;
+    }
+    return true;
+  },
+
+  async clearAllNotifications(userId: string): Promise<boolean> {
+    const { error } = await supabase
+      .from('notifications')
+      .delete()
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Error clearing all notifications:', error);
       return false;
     }
     return true;

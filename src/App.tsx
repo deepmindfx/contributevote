@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigationType } from "react-router-dom";
 import { SupabaseUserProvider } from "@/contexts/SupabaseUserContext";
 import { SupabaseContributionProvider } from "@/contexts/SupabaseContributionContext";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
@@ -12,8 +12,8 @@ import { getWorkspaceLink } from "@/components/layout/navigationItems";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SessionRecovery } from "@/components/auth/SessionRecovery";
 import { applyAppearance, usesDarkMode } from "@/lib/appearance";
-import { Suspense, useEffect, Component, ErrorInfo, ReactNode, lazy } from "react";
-import { preloadLinkedScreen, preloadScreen, recoverFromStaleChunk, screens } from "./routeScreens";
+import { Suspense, useEffect, useState, Component, ErrorInfo, ReactNode, lazy } from "react";
+import { preloadLinkedScreen, preloadScreen, preloadWorkspaceScreens, recoverFromStaleChunk, screens } from "./routeScreens";
 
 // Error Boundary Component
 interface ErrorBoundaryState {
@@ -76,13 +76,38 @@ preloadScreen(window.location.pathname);
 
 const queryClient = new QueryClient();
 
+const TOP_LEVEL_TABS = new Set([
+  "/",
+  "/dashboard",
+  "/all-groups",
+  "/votes",
+  "/discover",
+  "/settings",
+  "/admin",
+]);
+
 function RouteSkeleton() {
+  const [visible, setVisible] = useState(false);
+
+  // Avoid flashing a skeleton on fast cached transitions; show subtle native top progress + soft placeholder only if loading > 110ms
+  useEffect(() => {
+    const timer = window.setTimeout(() => setVisible(true), 110);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  if (!visible) {
+    return <div className="min-h-[60dvh]" role="status" aria-label="Loading screen" />;
+  }
+
   return (
-    <main className="app-page mx-auto max-w-3xl space-y-4" role="status" aria-label="Loading screen">
-      <Skeleton className="h-8 w-40" />
-      <Skeleton className="h-36 rounded-2xl" />
-      <Skeleton className="h-20 rounded-2xl" />
-    </main>
+    <>
+      <div className="cp-nav-progress" aria-hidden="true" />
+      <main className="app-page mx-auto max-w-3xl space-y-4 cp-screen-enter-tab" role="status" aria-label="Loading screen">
+        <Skeleton className="h-8 w-40 rounded-xl" />
+        <Skeleton className="h-36 rounded-2xl" />
+        <Skeleton className="h-20 rounded-2xl" />
+      </main>
+    </>
   );
 }
 
@@ -128,6 +153,8 @@ const AppRoutes = () => {
   const { user, isAuthenticated, isAdmin } = useSupabaseUser();
   const darkMode = usesDarkMode(user?.preferences);
   const { pathname } = useLocation();
+  const navType = useNavigationType();
+  const normalizedPath = pathname.replace(/\/$/, "") || "/";
   const isWorkspace = isAuthenticated && Boolean(getWorkspaceLink(pathname));
 
   useEffect(() => {
@@ -137,6 +164,20 @@ const AppRoutes = () => {
   useEffect(() => {
     applyAppearance(darkMode);
   }, [darkMode, pathname]);
+
+  // Quietly warm core authenticated tabs & screens during idle time so taps feel instant like a native app
+  useEffect(() => {
+    if (isAuthenticated) {
+      preloadWorkspaceScreens();
+    }
+  }, [isAuthenticated]);
+
+  const screenTransitionClass =
+    navType === "POP"
+      ? "cp-screen-stage cp-screen-enter-pop"
+      : TOP_LEVEL_TABS.has(normalizedPath)
+      ? "cp-screen-stage cp-screen-enter-tab"
+      : "cp-screen-stage cp-screen-enter-push";
 
   const routes = (
     <Routes>
@@ -244,9 +285,16 @@ const AppRoutes = () => {
   const intentHandlers = {
     onMouseOver: (event: React.MouseEvent) => preloadLinkedScreen(event.target),
     onFocus: (event: React.FocusEvent) => preloadLinkedScreen(event.target),
+    onPointerDown: (event: React.PointerEvent) => preloadLinkedScreen(event.target),
     onTouchStart: (event: React.TouchEvent) => preloadLinkedScreen(event.target),
   };
-  const content = <Suspense fallback={<RouteSkeleton />}>{routes}</Suspense>;
+  const content = (
+    <Suspense fallback={<RouteSkeleton />}>
+      <div key={normalizedPath} className={screenTransitionClass}>
+        {routes}
+      </div>
+    </Suspense>
+  );
 
   return isWorkspace ? (
     <div {...intentHandlers} className={["/create-group", "/transfer"].includes(pathname.replace(/\/$/, "")) ? "app-workspace app-workspace--focused" : "app-workspace"}>

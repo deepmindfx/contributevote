@@ -15,6 +15,21 @@ const moneyLinks = [
   { to: "/wallet-history", label: "Wallet history", detail: "See your wallet transactions", icon: ReceiptText },
 ];
 
+function triggerTapHaptic() {
+  try {
+    if (
+      typeof window !== "undefined" &&
+      !window.matchMedia("(prefers-reduced-motion: reduce)").matches &&
+      typeof navigator !== "undefined" &&
+      typeof navigator.vibrate === "function"
+    ) {
+      navigator.vibrate(6);
+    }
+  } catch {
+    // Ignore on platforms without Vibration API support
+  }
+}
+
 export default function WorkspaceNavigation() {
   const { pathname } = useLocation();
   const { user } = useSupabaseUser();
@@ -50,6 +65,7 @@ export default function WorkspaceNavigation() {
       <Link
         key={to}
         to={to}
+        onClick={triggerTapHaptic}
         className="app-tab-link"
         aria-current={mobileActive === to ? "page" : undefined}
         aria-label={to === "/votes" ? votesLabel : undefined}
@@ -92,7 +108,7 @@ export default function WorkspaceNavigation() {
       <nav className="app-tabbar" aria-label="Mobile navigation">
         {mobileLinks.slice(0, 2).map(renderMobileLink)}
         <Dialog>
-          <DialogTrigger className="app-tab-action">
+          <DialogTrigger className="app-tab-action" onClick={triggerTapHaptic}>
             <span className="app-tab-action-icon"><ArrowLeftRight size={23} strokeWidth={2.1} aria-hidden="true" /></span>
             <span className="app-tab-label">Move money</span>
           </DialogTrigger>
