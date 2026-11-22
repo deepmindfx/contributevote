@@ -274,9 +274,9 @@ export default function Header({ mobileGreeting, mobilePanel }: { mobileGreeting
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className="min-h-11"
-                    onSelect={async () => {
-                      await logout();
-                      navigate("/");
+                    onSelect={() => {
+                      navigate("/", { replace: true });
+                      void logout();
                     }}
                   >
                     <LogOut size={16} className="mr-2" /> Sign out

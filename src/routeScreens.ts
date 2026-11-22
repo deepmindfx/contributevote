@@ -1,7 +1,56 @@
 import { lazy, type ComponentType } from "react";
 
+const CHUNK_RELOAD_KEY = "cp_chunk_reload_at";
+const CHUNK_RELOAD_COOLDOWN_MS = 15_000;
+
+export function isStaleChunkError(error: unknown): boolean {
+  const message =
+    error instanceof Error
+      ? `${error.name} ${error.message}`
+      : typeof error === "string"
+      ? error
+      : "";
+  return /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|Unable to preload CSS|ChunkLoadError|Loading chunk \d+ failed/i.test(
+    message
+  );
+}
+
+/**
+ * Automatically refreshes the page once (with cooldown guard) when a stale tab
+ * requests a lazy route chunk that was replaced by a newer production deploy.
+ */
+export function recoverFromStaleChunk(error: unknown): boolean {
+  if (typeof window === "undefined" || !isStaleChunkError(error)) return false;
+  try {
+    const lastReload = Number(window.sessionStorage.getItem(CHUNK_RELOAD_KEY) || "0");
+    if (Date.now() - lastReload < CHUNK_RELOAD_COOLDOWN_MS) return false;
+    window.sessionStorage.setItem(CHUNK_RELOAD_KEY, String(Date.now()));
+  } catch {
+    // Proceed even if sessionStorage is unavailable
+  }
+  window.location.reload();
+  return true;
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("vite:preloadError", (event) => {
+    const payload = "payload" in event ? (event as { payload?: unknown }).payload : event;
+    if (recoverFromStaleChunk(payload)) {
+      event.preventDefault();
+    }
+  });
+}
+
 function screen<T extends ComponentType>(load: () => Promise<{ default: T }>) {
-  return Object.assign(lazy(load), { preload: load });
+  const safeLoad = () =>
+    load().catch((error) => {
+      if (recoverFromStaleChunk(error)) {
+        // Keep Suspense fallback visible while the browser reloads fresh assets
+        return new Promise<{ default: T }>(() => undefined);
+      }
+      throw error;
+    });
+  return Object.assign(lazy(safeLoad), { preload: load });
 }
 
 export const screens = {

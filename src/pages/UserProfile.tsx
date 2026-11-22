@@ -52,12 +52,8 @@ const UserProfile = () => {
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
-    try {
-      await logout();
-      navigate("/");
-    } finally {
-      setIsLoggingOut(false);
-    }
+    navigate("/", { replace: true });
+    await logout();
   };
 
   const totalGroups = contributions.length;

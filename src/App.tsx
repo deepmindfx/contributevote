@@ -13,11 +13,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SessionRecovery } from "@/components/auth/SessionRecovery";
 import { applyAppearance, usesDarkMode } from "@/lib/appearance";
 import { Suspense, useEffect, Component, ErrorInfo, ReactNode, lazy } from "react";
-import { preloadLinkedScreen, preloadScreen, screens } from "./routeScreens";
+import { preloadLinkedScreen, preloadScreen, recoverFromStaleChunk, screens } from "./routeScreens";
 
 // Error Boundary Component
 interface ErrorBoundaryState {
   hasError: boolean;
+  reloading?: boolean;
   error?: Error;
 }
 
@@ -27,19 +28,26 @@ class ErrorBoundary extends Component<
 > {
   constructor(props: { children: ReactNode }) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, reloading: false };
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, error };
+    return { hasError: true, reloading: false, error };
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    if (recoverFromStaleChunk(error)) {
+      this.setState({ reloading: true });
+      return;
+    }
     console.error('App Error Boundary caught an error:', error, errorInfo);
   }
 
   render() {
     if (this.state.hasError) {
+      if (this.state.reloading) {
+        return <RouteSkeleton />;
+      }
       return (
         <div className="min-h-screen flex items-center justify-center bg-background">
           <div className="text-center p-8">
