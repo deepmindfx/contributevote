@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Eye, EyeOff, MailCheck } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, MailCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,7 +28,7 @@ function PasswordField({ id, value, onChange, creating = false }: {
           minLength={creating ? 8 : undefined}
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          className="h-12 pr-12"
+          className="auth-input h-12 pr-12"
           aria-describedby={creating ? id + "-hint" : undefined}
         />
         <Button type="button" variant="ghost" size="icon" className="absolute inset-y-0 right-0 h-12 w-12" aria-label={visible ? "Hide password" : "Show password"} onClick={() => setVisible(!visible)}>
@@ -76,24 +76,24 @@ export default function AuthForm({ mode, onModeChange }: { mode: AuthMode; onMod
   }
 
   return (
-    <div className="rounded-[1.35rem] border bg-card p-4 shadow-sm sm:p-5">
+    <div className="auth-form">
       <Tabs value={mode} onValueChange={(value) => {
         setErrorMessage("");
         onModeChange(value === "signup" ? "signup" : "signin");
       }}>
-        <TabsList className="app-segmented grid w-full grid-cols-2" aria-label="Account access">
+        <TabsList className="auth-modes grid w-full grid-cols-2" aria-label="Account access">
           <TabsTrigger value="signin" disabled={pending}>Sign in</TabsTrigger>
           <TabsTrigger value="signup" disabled={pending}>Sign up</TabsTrigger>
         </TabsList>
         <TabsContent value="signin">
-          <form onSubmit={handleSubmit} className="space-y-4 pt-3" aria-label="Sign in">
+          <form onSubmit={handleSubmit} className="space-y-4 pt-4" aria-label="Sign in">
             <div className="space-y-2">
               <Label htmlFor="login-email">Email address</Label>
-              <Input id="login-email" name="email" type="email" autoComplete="email" required value={login.email} onChange={(event) => setLogin({ ...login, email: event.target.value })} className="h-12" />
+              <Input id="login-email" name="email" type="email" autoComplete="email" required value={login.email} onChange={(event) => setLogin({ ...login, email: event.target.value })} className="auth-input h-12" />
             </div>
             <PasswordField id="login-password" value={login.password} onChange={(password) => setLogin({ ...login, password })} />
             {errorMessage && <p className="text-sm text-destructive" role="alert">{errorMessage}</p>}
-            <Button className="h-12 w-full" type="submit" disabled={pending}>{pending ? "Signing in…" : "Sign in"}</Button>
+            <Button className="auth-submit h-12 w-full" type="submit" disabled={pending}>{pending ? "Signing in…" : "Sign in"}<ArrowRight size={17} aria-hidden="true" /></Button>
           </form>
         </TabsContent>
         <TabsContent value="signup">
@@ -105,22 +105,22 @@ export default function AuthForm({ mode, onModeChange }: { mode: AuthMode; onMod
               <Button variant="outline" onClick={() => onModeChange("signin")}>Back to sign in</Button>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-4 pt-3" aria-label="Sign up">
+            <form onSubmit={handleSubmit} className="space-y-4 pt-4" aria-label="Sign up">
               <div className="space-y-2">
                 <Label htmlFor="signup-name">Full name</Label>
-                <Input id="signup-name" name="name" autoComplete="name" required value={registration.name} onChange={(event) => setRegistration({ ...registration, name: event.target.value })} className="h-12" />
+                <Input id="signup-name" name="name" autoComplete="name" required value={registration.name} onChange={(event) => setRegistration({ ...registration, name: event.target.value })} className="auth-input h-12" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="signup-email">Email address</Label>
-                <Input id="signup-email" name="email" type="email" autoComplete="email" required value={registration.email} onChange={(event) => setRegistration({ ...registration, email: event.target.value })} className="h-12" />
+                <Input id="signup-email" name="email" type="email" autoComplete="email" required value={registration.email} onChange={(event) => setRegistration({ ...registration, email: event.target.value })} className="auth-input h-12" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="signup-phone">Phone number <span className="font-normal text-muted-foreground">(optional)</span></Label>
-                <Input id="signup-phone" name="phone" type="tel" autoComplete="tel" value={registration.phone} onChange={(event) => setRegistration({ ...registration, phone: event.target.value })} className="h-12" />
+                <Input id="signup-phone" name="phone" type="tel" autoComplete="tel" value={registration.phone} onChange={(event) => setRegistration({ ...registration, phone: event.target.value })} className="auth-input h-12" />
               </div>
               <PasswordField id="signup-password" value={registration.password} onChange={(password) => setRegistration({ ...registration, password })} creating />
               {errorMessage && <p className="text-sm text-destructive" role="alert">{errorMessage}</p>}
-              <Button className="h-12 w-full" type="submit" disabled={pending}>{pending ? "Creating account…" : "Create account"}</Button>
+              <Button className="auth-submit h-12 w-full" type="submit" disabled={pending}>{pending ? "Creating account…" : "Create account"}<ArrowRight size={17} aria-hidden="true" /></Button>
             </form>
           )}
         </TabsContent>

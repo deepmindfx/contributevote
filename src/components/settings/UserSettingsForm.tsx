@@ -41,6 +41,7 @@ import {
   UserCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { applyAppearance, usesDarkMode } from "@/lib/appearance";
 
 const splitName = (fullName?: string | null) => {
   const parts = (fullName || "").trim().split(/\s+/).filter(Boolean);
@@ -66,7 +67,7 @@ const UserSettingsForm = () => {
     profileImage: existingPrefs.profileImage || "",
     pin: existingPrefs.transactionPin || "",
     preferences: {
-      darkMode: Boolean(existingPrefs.darkMode),
+      darkMode: usesDarkMode(existingPrefs),
       anonymousContributions: Boolean(existingPrefs.anonymousContributions),
       notificationsEnabled: existingPrefs.notificationsEnabled !== false,
       walletNotifications: existingPrefs.walletNotifications !== false,
@@ -102,7 +103,7 @@ const UserSettingsForm = () => {
       profileImage: prefs.profileImage || "",
       pin: prefs.transactionPin || "",
       preferences: {
-        darkMode: Boolean(prefs.darkMode),
+        darkMode: usesDarkMode(prefs),
         anonymousContributions: Boolean(prefs.anonymousContributions),
         notificationsEnabled: prefs.notificationsEnabled !== false,
         walletNotifications: prefs.walletNotifications !== false,
@@ -149,7 +150,7 @@ const UserSettingsForm = () => {
 
   const handlePreferenceChange = (preference: string, value: boolean) => {
     if (preference === "darkMode") {
-      document.documentElement.classList.toggle("dark", value);
+      applyAppearance(value);
     }
     setUserData((prev) => ({
       ...prev,
@@ -670,6 +671,7 @@ const UserSettingsForm = () => {
                     <button
                       key={theme.label}
                       type="button"
+                      aria-pressed={selected}
                       data-selected={selected}
                       onClick={() => handlePreferenceChange("darkMode", theme.dark)}
                       className="cp-tile-option flex flex-col gap-3 p-3.5 text-left"

@@ -85,7 +85,7 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
         role: 'user',
         status: 'active',
         preferences: {
-          darkMode: false,
+          darkMode: true,
           anonymousContributions: false,
           notificationsEnabled: true,
         },

@@ -6,7 +6,6 @@ import {
   Moon,
   Sun,
   Settings,
-  ShieldCheck,
   User,
   Vote,
   Mail,
@@ -32,6 +31,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { InvitationService } from "@/services/supabase/invitationService";
 import { notificationCategory } from "@/services/supabase/notificationService";
+import { applyAppearance, usesDarkMode } from "@/lib/appearance";
 import { CollectiPayMark } from "@/components/ui/BrandLoader";
 import { getWorkspaceLink, workspaceLinks } from "./navigationItems";
 import { cn } from "@/lib/utils";
@@ -69,7 +69,7 @@ function getNotificationIcon(type: string) {
 
 export default function Header({ mobileGreeting, mobilePanel }: { mobileGreeting?: string; mobilePanel?: boolean } = {}) {
   const {
-    user, isAuthenticated, isAdmin, logout, notifications, unreadNotificationCount,
+    user, isAuthenticated, logout, notifications, unreadNotificationCount,
     markNotificationRead, markAllNotificationsRead, updateProfile,
   } = useSupabaseUser();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -77,16 +77,18 @@ export default function Header({ mobileGreeting, mobilePanel }: { mobileGreeting
   const { pathname } = useLocation();
   const section = getWorkspaceLink(pathname);
   const preferences = (user?.preferences || {}) as Record<string, unknown>;
+  const darkAppearance = usesDarkMode(preferences);
   const profileImage = typeof preferences.profileImage === "string" ? preferences.profileImage : undefined;
   const initials = user?.name?.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
 
   const toggleDarkMode = async () => {
-    const darkMode = document.documentElement.classList.toggle("dark");
+    const darkMode = !darkAppearance;
+    applyAppearance(darkMode);
     if (user) {
       try {
         await updateProfile({ preferences: { ...preferences, darkMode } });
       } catch {
-        document.documentElement.classList.toggle("dark", !darkMode);
+        applyAppearance(!darkMode);
         toast.error("Could not save your appearance.");
       }
     }
@@ -262,14 +264,9 @@ export default function Header({ mobileGreeting, mobilePanel }: { mobileGreeting
                     <Link to="/settings"><Settings size={16} className="mr-2" /> Settings</Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem className="min-h-11" onSelect={() => { void toggleDarkMode(); }}>
-                    {preferences.darkMode ? <Sun size={16} className="mr-2" /> : <Moon size={16} className="mr-2" />}
-                    {preferences.darkMode ? "Light mode" : "Dark mode"}
+                    {darkAppearance ? <Sun size={16} className="mr-2" /> : <Moon size={16} className="mr-2" />}
+                    {darkAppearance ? "Light mode" : "Dark mode"}
                   </DropdownMenuItem>
-                  {isAdmin && (
-                    <DropdownMenuItem asChild className="min-h-11">
-                      <Link to="/admin"><ShieldCheck size={16} className="mr-2" /> Admin dashboard</Link>
-                    </DropdownMenuItem>
-                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className="min-h-11"
@@ -287,7 +284,6 @@ export default function Header({ mobileGreeting, mobilePanel }: { mobileGreeting
         ) : (
           <nav aria-label="Main navigation" className="flex items-center gap-2 sm:gap-4">
             <NavLink to="/discover" className="hidden rounded-md px-2 py-3 text-sm font-semibold sm:block">Discover</NavLink>
-            <NavLink to="/admin-login" className="hidden rounded-md px-2 py-3 text-sm text-muted-foreground md:block">Admin</NavLink>
             <Button asChild variant="outline" className="h-11 rounded-xl">
               <Link to={pathname === "/auth" ? "/" : "/auth"}>{pathname === "/auth" ? "Home" : "Sign in"}</Link>
             </Button>

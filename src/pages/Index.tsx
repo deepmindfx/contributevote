@@ -1,4 +1,4 @@
-import { ArrowDownLeft, ArrowLeftRight, Bell, Building2, Clock, Home, Plus, SendHorizontal, UserRound, Users, Vote, Wallet } from "lucide-react";
+import { ArrowDownLeft, ArrowRight, ArrowUpRight, Check, HeartHandshake, UsersRound, Vote, WalletCards } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { CollectiPayMark } from "@/components/ui/BrandLoader";
@@ -6,58 +6,54 @@ import { CommunityStoriesSection } from "@/components/landing/CommunityStoriesSe
 import "@/styles/landing.css";
 
 const steps = [
-  { icon: Users, title: "Start a group", description: "Pick a goal for your event, savings circle, or community project. Make it public or invite people privately." },
-  { icon: Wallet, title: "Contribute together", description: "Use your CollectiPay wallet or the group’s dedicated bank account. Everyone can follow the progress." },
-  { icon: Vote, title: "Have a say", description: "Turn on voting so eligible contributors can decide together on withdrawals and refunds." },
+  {
+    icon: UsersRound, title: "Bring your group together",
+    description: "Set a savings goal and write your group rules. Share a private invite or let people discover your public group.",
+  },
+  {
+    icon: WalletCards, title: "Collect in one place",
+    description: "Contribute from your wallet, pay by card or bank, and follow the group’s progress as payments come in.",
+  },
+  {
+    icon: Vote, title: "Decide together",
+    description: "Enable voting so eligible contributors can approve withdrawals and refunds before the money moves.",
+  },
 ];
 
-function ProductPreview() {
+const comparisons = [
+  { feature: "Joining", manual: "Rules and invitations scattered across chats", product: "Private invite links and group rules you can review before joining" },
+  { feature: "Payments", manual: "Transfers and screenshots to reconcile", product: "In-app payments recorded automatically and confirmed outside transfers matched by an admin" },
+  { feature: "Record keeping", manual: "Spreadsheets to update by hand", product: "Group activity, individual receipts, and monthly insights for owners" },
+  { feature: "Withdrawals", manual: "Approvals discussed in messages", product: "Recorded votes from eligible contributors when group voting is enabled" },
+  { feature: "Sending money", manual: "Payment details confirmed across apps", product: "Verify bank recipient details and authorize wallet transfers with a PIN" },
+];
+
+const sectionLinks = [
+  { href: "#how-it-works", text: "How it works" },
+  { href: "#why-collectipay", text: "Why CollectiPay" },
+  { href: "#pricing", text: "Pricing" },
+];
+
+function GroupPhoto() {
   return (
-    <figure className="landing-preview" aria-label="CollectiPay dashboard preview with example balances and a group savings goal">
-      <div className="landing-phone" aria-hidden="true">
-        <div className="landing-phone-top">
-          <span className="landing-demo-avatar">AO</span>
-          <div><strong>Hi, Amara</strong><small>CollectiPay</small></div>
-          <span className="landing-demo-bell"><Bell size={14} /></span>
+    <figure className="landing-hero-photo">
+      <img
+        src="/images/collectipay-together.webp"
+        srcSet="/images/collectipay-together-small.webp 720w, /images/collectipay-together.webp 1536w"
+        sizes="(min-width: 64rem) 46vw, 100vw"
+        width={1536}
+        height={1024}
+        alt="Three friends planning a shared project together"
+        fetchPriority="high"
+      />
+      <figcaption className="landing-pool-preview">
+        <div className="landing-pool-meta">
+          <span className="landing-pool-icon"><ArrowDownLeft size={18} aria-hidden="true" /></span>
+          <div><span>Example group</span><strong>Community fund</strong></div>
         </div>
-        <div className="landing-demo-wallet">
-          <div className="landing-demo-balance-meta">
-            <span>Available balance</span>
-            <div><strong>₦ NGN</strong><span>$ USD</span></div>
-          </div>
-          <strong>₦75,000.00</strong>
-        </div>
-        <div className="landing-phone-body">
-          <div className="landing-demo-section"><strong>Quick actions</strong></div>
-          <div className="landing-demo-actions">
-            <span><Plus size={14} /> Add money</span>
-            <span><SendHorizontal size={14} /> Send</span>
-            <span><Building2 size={14} /> Bank</span>
-            <span><Clock size={14} /> History</span>
-          </div>
-          <div className="landing-demo-section"><strong>My groups</strong><span>View all</span></div>
-          <div className="landing-demo-group">
-            <div className="landing-demo-group-name">
-              <span><Users size={17} /></span>
-              <div><strong>Community fund</strong><small>Group savings</small></div>
-            </div>
-            <div className="landing-demo-progress"><span /></div>
-            <div className="landing-demo-amount"><strong>₦150,000 raised</strong><span>75%</span></div>
-          </div>
-          <div className="landing-demo-section"><strong>Recent activity</strong></div>
-          <div className="landing-demo-activity">
-            <ArrowDownLeft size={17} /><span>Wallet top-up</span><strong>+₦25,000</strong>
-          </div>
-        </div>
-        <div className="landing-demo-nav">
-          <span><Home size={15} /> Home</span>
-          <span><Users size={15} /> Groups</span>
-          <span><span className="landing-demo-action-icon"><ArrowLeftRight size={14} /></span> Move money</span>
-          <span><Vote size={15} /> Votes</span>
-          <span><UserRound size={15} /> Account</span>
-        </div>
-      </div>
-      <figcaption>Example dashboard</figcaption>
+        <div className="landing-pool-raised"><strong>₦150,000</strong><span>75% funded</span></div>
+        <div className="landing-pool-progress" aria-hidden="true"><span /></div>
+      </figcaption>
     </figure>
   );
 }
@@ -65,69 +61,116 @@ function ProductPreview() {
 export default function Index() {
   const { isAuthenticated } = useSupabaseUser();
   const startPath = isAuthenticated ? "/create-group" : "/auth?mode=signup";
+  const startLabel = isAuthenticated ? "Create a group" : "Get started";
 
   return (
     <div className="landing">
+      <a href="#landing-main" className="landing-skip">Skip to content</a>
       <header className="landing-header">
         <div className="landing-width">
-          <Link to="/" className="landing-brand"><CollectiPayMark size={34} /> CollectiPay</Link>
-          <nav aria-label="Main navigation">
-            <a href="#stories" className="landing-nav-detail">Stories</a>
-            <a href="#how-it-works" className="landing-nav-detail">How it works</a>
-            <Link to="/discover" className="landing-nav-detail">Discover</Link>
-            <Link to={isAuthenticated ? "/dashboard" : "/auth"} className="landing-sign-in">
+          <Link to="/" className="landing-brand"><CollectiPayMark size={35} /> CollectiPay</Link>
+          <nav className="landing-main-nav" aria-label="Main navigation">
+            {sectionLinks.map(({ href, text }) => <a key={href} href={href}>{text}</a>)}
+          </nav>
+          <div className="landing-header-actions">
+            <Link to={isAuthenticated ? "/dashboard" : "/auth"} className="landing-button landing-button-secondary">
               {isAuthenticated ? "Dashboard" : "Sign in"}
             </Link>
-          </nav>
+            {!isAuthenticated && <Link to={startPath} className="landing-button landing-button-primary landing-header-start">Sign up</Link>}
+          </div>
         </div>
       </header>
 
-      <main>
+      <main id="landing-main" tabIndex={-1}>
         <section className="landing-hero landing-width" aria-labelledby="landing-title">
           <div className="landing-intro">
-            <h1 id="landing-title">Save as a group.<br /><span>Decide together.</span></h1>
-            <p>Bring your wallet, group contributions, and withdrawal votes together in one place.</p>
+            <h1 id="landing-title">Save together.<span>Decide together.</span></h1>
+            <p>Collect money for a shared goal, track every contribution, and give eligible members a say in how the money is used.</p>
             <div className="landing-actions">
-              <Link to={startPath} className="landing-button landing-button-primary">{isAuthenticated ? "Create a group" : "Create an account"}</Link>
-              <Link to="/discover" className="landing-button landing-button-secondary">Explore groups</Link>
+              <Link to={startPath} className="landing-button landing-button-primary">{startLabel}<ArrowUpRight size={18} aria-hidden="true" /></Link>
+              <Link to="/discover" className="landing-text-link">Explore groups <ArrowRight size={17} aria-hidden="true" /></Link>
             </div>
           </div>
-          <ProductPreview />
+          <GroupPhoto />
+        </section>
+
+        <section id="how-it-works" className="landing-how" aria-labelledby="how-title">
+          <div className="landing-width">
+            <div className="landing-section-heading">
+              <h2 id="how-title">One place to run<br className="landing-heading-break" /> a group fund.</h2>
+              <p>For savings circles, community projects, and the plans you’re making together.</p>
+            </div>
+            <div className="landing-steps">
+              {steps.map(({ icon: Icon, title, description }) => (
+                <article key={title}>
+                  <span className="landing-step-icon"><Icon size={26} strokeWidth={1.7} aria-hidden="true" /></span>
+                  <h3>{title}</h3>
+                  <p>{description}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="why-collectipay" className="landing-why landing-width" aria-labelledby="why-title">
+          <div className="landing-section-heading">
+            <h2 id="why-title">Why CollectiPay?</h2>
+            <p>Keep payments, records, and decisions where your group can follow them.</p>
+          </div>
+          <table className="landing-compare" aria-labelledby="why-title">
+            <thead>
+              <tr><th scope="col">What you manage</th><th scope="col">Manual groups</th><th scope="col">With CollectiPay</th></tr>
+            </thead>
+            <tbody>
+              {comparisons.map(({ feature, manual, product }) => (
+                <tr key={feature}>
+                  <th scope="row">{feature}</th>
+                  <td><span className="landing-compare-mobile-label" aria-hidden="true">Manual groups</span>{manual}</td>
+                  <td>
+                    <span className="landing-compare-mobile-label" aria-hidden="true">CollectiPay</span>
+                    <span className="landing-compare-benefit"><Check size={16} aria-hidden="true" />{product}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+
+        <section id="pricing" className="landing-pricing" aria-labelledby="pricing-title">
+          <div className="landing-width">
+            <div className="landing-section-heading">
+              <h2 id="pricing-title">Simple, transparent group fees.</h2>
+              <p>See the fee and the net payout before confirming a withdrawal.</p>
+            </div>
+            <dl className="landing-prices">
+              <div>
+                <dt><WalletCards size={21} aria-hidden="true" /> Group withdrawals</dt>
+                <dd>A percentage of the amount withdrawn</dd>
+              </div>
+              <div>
+                <dt><HeartHandshake size={21} aria-hidden="true" /> Charity group withdrawals</dt>
+                <dd>No CollectiPay withdrawal fee</dd>
+              </div>
+            </dl>
+          </div>
         </section>
 
         <CommunityStoriesSection startPath={startPath} />
 
-        <section id="how-it-works" className="landing-how">
-          <div className="landing-width">
-            <div className="landing-section-heading">
-              <h2>From a shared goal to a funded one.</h2>
-              <p>Bring people, payments, and group decisions into one place.</p>
-            </div>
-            <ol className="landing-steps">
-              {steps.map(({ icon: Icon, title, description }) => (
-                <li key={title}>
-                  <span className="landing-step-icon"><Icon size={23} aria-hidden="true" /></span>
-                  <h3>{title}</h3>
-                  <p>{description}</p>
-                </li>
-              ))}
-            </ol>
-            <div className="landing-end">
-              <div>
-                <h2>What are you saving for?</h2>
-                <p>Give your group a place to make it happen.</p>
-              </div>
-              <Link to={startPath} className="landing-button landing-button-primary">{isAuthenticated ? "Create a group" : "Get started"}</Link>
-            </div>
-          </div>
+        <section className="landing-end landing-width" aria-labelledby="start-title">
+          <h2 id="start-title">What are you saving for?</h2>
+          <Link to={startPath} className="landing-button landing-button-primary">{startLabel}<ArrowUpRight size={18} aria-hidden="true" /></Link>
         </section>
       </main>
 
       <footer className="landing-footer">
         <div className="landing-width">
-          <Link to="/" className="landing-brand"><CollectiPayMark size={34} /> CollectiPay</Link>
-          <span>Payments powered by Flutterwave</span>
-          <Link to="/discover">Discover groups</Link>
+          <Link to="/" className="landing-brand"><CollectiPayMark size={32} /> CollectiPay</Link>
+          <nav aria-label="Footer navigation">
+            {sectionLinks.map(({ href, text }) => <a key={href} href={href}>{text}</a>)}
+            <Link to="/discover">Discover groups</Link>
+          </nav>
+          <p>Payments powered by Flutterwave</p>
         </div>
       </footer>
     </div>

@@ -28,7 +28,7 @@ import CategoryIcon from "@/components/ui/CategoryIcon";
 import { cn } from "@/lib/utils";
 
 const UserProfile = () => {
-  const { user, isAdmin, unreadNotificationCount, logout } = useSupabaseUser();
+  const { user, unreadNotificationCount, logout } = useSupabaseUser();
   const { contributions, transactions } = useSupabaseContribution();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const navigate = useNavigate();
@@ -103,17 +103,6 @@ const UserProfile = () => {
       detail: `${transactions.length} recorded transactions · ${unreadNotificationCount} unread alerts`,
       icon: Activity,
     },
-    ...(isAdmin
-      ? [
-          {
-            to: "/admin",
-            label: "Super Admin Command Center",
-            detail: "Manage users, groups, penalties & AML alerts",
-            icon: ShieldCheck,
-            badge: "Admin",
-          },
-        ]
-      : []),
   ];
 
   return (
@@ -176,11 +165,6 @@ const UserProfile = () => {
                   <span className="inline-flex items-center gap-1 rounded-full bg-white/12 px-2.5 py-0.5 text-[11px] font-semibold text-white">
                     {hasBvn ? "BVN Verified" : "Standard Tier"}
                   </span>
-                  {isAdmin && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-[#dbf5b4] px-2.5 py-0.5 text-[11px] font-bold text-[#0c3027]">
-                      Super Admin
-                    </span>
-                  )}
                 </div>
               </div>
             </div>

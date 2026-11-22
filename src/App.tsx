@@ -11,6 +11,7 @@ import WorkspaceNavigation from "@/components/layout/WorkspaceNavigation";
 import { getWorkspaceLink } from "@/components/layout/navigationItems";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SessionRecovery } from "@/components/auth/SessionRecovery";
+import { applyAppearance, usesDarkMode } from "@/lib/appearance";
 import { Suspense, useEffect, Component, ErrorInfo, ReactNode, lazy } from "react";
 import { preloadLinkedScreen, preloadScreen, screens } from "./routeScreens";
 
@@ -117,7 +118,7 @@ function SignInRoute({ children }: { children: ReactNode }) {
 
 const AppRoutes = () => {
   const { user, isAuthenticated, isAdmin } = useSupabaseUser();
-  const darkMode = (user?.preferences as { darkMode?: boolean } | null)?.darkMode === true;
+  const darkMode = usesDarkMode(user?.preferences);
   const { pathname } = useLocation();
   const isWorkspace = isAuthenticated && Boolean(getWorkspaceLink(pathname));
 
@@ -126,8 +127,8 @@ const AppRoutes = () => {
   }, [pathname]);
   
   useEffect(() => {
-    document.documentElement.classList.toggle("dark", darkMode);
-  }, [darkMode]);
+    applyAppearance(darkMode);
+  }, [darkMode, pathname]);
 
   const routes = (
     <Routes>

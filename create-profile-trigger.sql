@@ -15,7 +15,7 @@ BEGIN
     'user',
     'active',
     jsonb_build_object(
-      'darkMode', false,
+      'darkMode', true,
       'anonymousContributions', false,
       'notificationsEnabled', true
     ),
