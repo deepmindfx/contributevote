@@ -880,15 +880,15 @@
 .cp-portal-headline {
   position: relative;
   z-index: 2;
-  max-width: 18ch;
-  margin-top: clamp(2rem, 5.5svh, 3.6rem);
+  max-width: 26ch;
+  margin-top: clamp(2.25rem, 6.5svh, 4.25rem);
   padding-inline: 1.25rem;
   text-align: center;
   color: #062118;
-  font-size: clamp(2.15rem, 5.6vw, 4.25rem);
+  font-size: clamp(1.85rem, 4.6vw, 3.85rem);
   font-weight: 790;
-  letter-spacing: -0.064em;
-  line-height: 0.98;
+  letter-spacing: -0.058em;
+  line-height: 1.08;
   text-wrap: balance;
   will-change: transform, opacity;
 }
@@ -898,14 +898,14 @@
   inset: 0;
   z-index: 3;
   background: #ffffff;
-  clip-path: inset(132px 11.5% 28px 11.5% round 36px);
+  clip-path: inset(215px 11.5% 28px 11.5% round 36px);
   box-shadow: 0 30px 80px -24px rgba(6, 33, 24, 0.35);
   will-change: clip-path;
 }
 
 @media (max-width: 47.99rem) {
   .cp-portal-card {
-    clip-path: inset(104px 4.5% 18px 4.5% round 28px);
+    clip-path: inset(172px 4.5% 18px 4.5% round 28px);
   }
 }
 

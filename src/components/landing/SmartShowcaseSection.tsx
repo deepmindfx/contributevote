@@ -98,34 +98,43 @@ export function SmartShowcaseSection() {
     const paintPortal = (p: number, phoneP: number) => {
       const isMobile = window.innerWidth < 768;
 
-      // 1. Headline rises and fades as card expands (0.00 -> 0.42)
-      const headT = smoothstep(clamp(p / 0.42, 0, 1));
+      // 1. Headline stays fully visible at top, then rises and fades as card expands (0.04 -> 0.38)
+      const headT = smoothstep(clamp((p - 0.04) / 0.34, 0, 1));
       if (headlineRef.current) {
-        headlineRef.current.style.transform = `translate3d(0, ${(-headT * 42).toFixed(2)}px, 0) scale(${(1 - headT * 0.04).toFixed(4)})`;
-        headlineRef.current.style.opacity = (1 - headT * 0.92).toFixed(4);
+        headlineRef.current.style.transform = `translate3d(0, ${(-headT * 38).toFixed(2)}px, 0) scale(${(1 - headT * 0.04).toFixed(4)})`;
+        headlineRef.current.style.opacity = (1 - headT * 0.96).toFixed(4);
       }
 
-      // 2. Portal card expands from centered rounded card to full-bleed stage (0.04 -> 0.72)
-      const expandT = smoothstep(clamp((p - 0.04) / 0.68, 0, 1));
+      // Measure actual headline bottom so the card NEVER overlaps "save smarter" on any screen size
+      const headEl = headlineRef.current;
+      const headBottom = headEl
+        ? headEl.offsetTop + headEl.offsetHeight
+        : isMobile
+          ? 148
+          : 184;
+      const minStartTop = isMobile ? 168 : 210;
+      const startTop = Math.max(minStartTop, headBottom + (isMobile ? 22 : 34));
+
+      // 2. Portal card expands from centered rounded card below headline to full-bleed stage (0.08 -> 0.74)
+      const expandT = smoothstep(clamp((p - 0.08) / 0.66, 0, 1));
+      const startSide = isMobile ? 4.5 : 11.5;
+      const startBottom = isMobile ? 18 : 28;
+      const startRadius = isMobile ? 28 : 36;
+
+      const topPx = (1 - expandT) * startTop;
+      const sidePct = (1 - expandT) * startSide;
+      const bottomPx = (1 - expandT) * startBottom;
+      const radiusPx = (1 - expandT) * startRadius;
+
       if (cardRef.current) {
-        const startTop = isMobile ? 104 : 132;
-        const startSide = isMobile ? 4.5 : 11.5;
-        const startBottom = isMobile ? 18 : 28;
-        const startRadius = isMobile ? 28 : 36;
-
-        const topPx = (1 - expandT) * startTop;
-        const sidePct = (1 - expandT) * startSide;
-        const bottomPx = (1 - expandT) * startBottom;
-        const radiusPx = (1 - expandT) * startRadius;
-
         cardRef.current.style.clipPath = `inset(${topPx.toFixed(2)}px ${sidePct.toFixed(3)}% ${bottomPx.toFixed(2)}px ${sidePct.toFixed(3)}% round ${radiusPx.toFixed(2)}px)`;
       }
 
-      // 3. White CollectiPay top bar inside card tucks away as photo takes over (0.18 -> 0.54)
-      const barT = smoothstep(clamp((p - 0.18) / 0.36, 0, 1));
+      // 3. White CollectiPay top bar rides the top edge of the clipped card, then tucks away (0.20 -> 0.56)
+      const barT = smoothstep(clamp((p - 0.20) / 0.36, 0, 1));
       if (topbarRef.current) {
         topbarRef.current.style.opacity = (1 - barT).toFixed(4);
-        topbarRef.current.style.transform = `translate3d(0, ${(-barT * 26).toFixed(2)}px, 0)`;
+        topbarRef.current.style.transform = `translate3d(0, ${(topPx - barT * 32).toFixed(2)}px, 0)`;
       }
 
       // 4. Inner lifestyle image subtle counter-scale & framing
