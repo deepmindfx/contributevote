@@ -333,6 +333,7 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
         {/* Deep-Emerald Pooling-C Blueprint Hero Band */}
         <div className="cp-receipt-hero px-4 pb-4 pt-3.5 sm:px-5">
           <div className="cp-receipt-blueprint-grid" aria-hidden="true" />
+          <img src="/collectipay-mark.svg" alt="" aria-hidden="true" className="cp-receipt-watermark" />
 
           <div className="relative z-10 flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2">
@@ -403,10 +404,10 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
         </div>
 
         {/* Receipt Body */}
-        <div className="space-y-2.5 bg-white px-4 pb-3 pt-1 sm:px-5">
+        <div className="cp-receipt-body space-y-2.5 px-4 pb-3 pt-1 sm:px-5">
           {/* Sender -> Recipient Kinetic Flow Card */}
           {hasParties && (
-            <div className="rounded-xl border border-[#e6efe9] bg-[#f4f9f6] p-2.5">
+            <div className="rounded-xl border border-[#e6efe9] bg-[#f4f9f6]/65 p-2.5">
               {data.sender && (
                 <div className="flex items-start gap-2.5">
                   <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[#e3f2ea] text-[#146c43]">
@@ -475,7 +476,7 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
           {/* Wallet Balance Snapshot */}
           {typeof data.balanceBefore === "number" &&
             typeof data.balanceAfter === "number" && (
-              <div className="flex items-center justify-between gap-3 rounded-xl border border-[#e6efe9] bg-[#f7faf8] px-3 py-2 text-xs leading-snug">
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-[#e6efe9] bg-[#f7faf8]/65 px-3 py-2 text-xs leading-snug">
                 <span className="font-medium text-[#5d776c]">Wallet Balance</span>
                 <span className="font-semibold tabular-nums text-[#102820]">
                   <span className="font-normal text-[#6f867c]">

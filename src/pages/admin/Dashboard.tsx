@@ -75,6 +75,9 @@ import {
 import { FlipCounterHero } from "@/components/admin/FlipCounterHero";
 import { AdminPaymentSettings } from "@/components/admin/AdminPaymentSettings";
 import { AdminPricingRevenue } from "@/components/admin/AdminPricingRevenue";
+import { AdminTransactionAnalytics } from "@/components/admin/AdminTransactionAnalytics";
+import { AdminWalletBankBonus } from "@/components/admin/AdminWalletBankBonus";
+import { hasTransactionPin } from "@/lib/transactionPin";
 import {
   SpotlightBadge,
   VerifiedCrowdfunderBadge,
@@ -949,6 +952,10 @@ const AdminDashboard = () => {
                     <BarChart3 className="h-4 w-4" />
                     <span>Pricing &amp; revenue</span>
                   </TabsTrigger>
+                  <TabsTrigger value="volume" className="gap-1.5 px-3">
+                    <Activity className="h-4 w-4" />
+                    <span>Transaction analytics</span>
+                  </TabsTrigger>
                 </TabsList>
               </div>
 
@@ -1388,7 +1395,7 @@ const AdminDashboard = () => {
                 <div className="space-y-2.5">
                   {filteredUsers.map((u) => {
                     const prefs = (u.preferences || {}) as Record<string, any>;
-                    const hasPin = /^\d{4}$/.test(String(prefs.transactionPin || ""));
+                    const hasPin = hasTransactionPin(prefs);
                     const hasBvn = Boolean(u.bvn && String(u.bvn).trim().length >= 11);
                     const status = u.status || "active";
                     const isRestricted = status !== "active";
@@ -2073,7 +2080,9 @@ const AdminDashboard = () => {
               </TabsContent>
               <TabsContent value="pricing" className="space-y-4">
                 <AdminPricingRevenue />
+                <AdminWalletBankBonus />
               </TabsContent>
+              <TabsContent value="volume"><AdminTransactionAnalytics /></TabsContent>
             </Tabs>
           )}
         </div>

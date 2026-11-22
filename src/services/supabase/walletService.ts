@@ -1,4 +1,3 @@
-import { supabase } from '@/integrations/supabase/client'
 import { EdgeFunctionService } from '@/services/supabase/edgeFunctionService'
 import { UserService } from './userService'
 import { TransactionService } from './transactionService'
@@ -40,91 +39,16 @@ export class WalletService {
     }
   }
 
-  // Create virtual account using Edge Function
-  static async createVirtualAccount(
-    userId: string,
-    idType: string,
-    idNumber: string
-  ): Promise<ReservedAccountData | null> {
-    try {
-      // Get user data
-      const user = await UserService.getUserById(userId);
-      if (!user) {
-        toast.error("User not found");
-        return null;
-      }
-
-      // Validate ID information
-      if (!idType || !idNumber) {
-        toast.error("BVN is required to create a virtual account");
-        return null;
-      }
-
-      if (idType !== "bvn") {
-        toast.error("Only BVN is supported for virtual account creation");
-        return null;
-      }
-
-      // Enforce anti-sybil unique 11-digit BVN check via hardened RPC before issuing virtual account
-      const cleanBvn = idNumber.replace(/\D/g, "");
-      if (cleanBvn.length !== 11) {
-        toast.error("Please enter a valid 11-digit BVN");
-        return null;
-      }
-
-      const { data: bvnRes, error: bvnErr } = await (supabase as any).rpc("save_user_bvn", {
-        p_bvn: cleanBvn,
-      });
-      if (bvnErr || !bvnRes?.success) {
-        toast.error(bvnRes?.error || bvnErr?.message || "BVN verification failed");
-        return null;
-      }
-
-      // Create a unique transaction reference with additional randomness
-      const txRef = `COLL_${userId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-      // Call Edge Function to create virtual account
-      const result = await EdgeFunctionService.createVirtualAccount({
-        email: user.email || '',
-        tx_ref: txRef,
-        bvn: cleanBvn,
-        narration: `Virtual account for ${user.name || 'User'}`
-      });
-
-      if (!result || !result.success || !result.data) {
-        toast.error(result?.error || "Failed to create virtual account");
-        return null;
-      }
-
-      const responseData = result.data;
-
-      // Create the reserved account data object
-      const reservedAccount: ReservedAccountData = {
-        accountNumber: responseData.account_number,
-        bankName: responseData.bank_name,
-        accountName: user.name || 'User',
-        flwRef: responseData.flw_ref,
-        orderRef: responseData.order_ref,
-        accountReference: responseData.account_reference,
-        createdAt: new Date().toISOString()
-      };
-
-      // Store virtual account details in user profile while preserving all existing preferences
-      await UserService.updateUser(userId, {
-        preferences: {
-          ...(user.preferences as any),
-          virtualAccount: reservedAccount
-        }
-      });
-
-      toast.success("Virtual account created successfully");
-      return reservedAccount;
-
-    } catch (error) {
-      console.error("Error creating virtual account:", error);
-      toast.error("Failed to create virtual account. Please try again.");
-      return null;
+  static async createVirtualAccount(details: { bvn: string; claimBonus: boolean } | { verificationId: string }): Promise<
+    { verificationUrl: string } | { account: ReservedAccountData; bonusAmount: number }
+  > {
+    const result = await EdgeFunctionService.createVirtualAccount({ ...details, purpose: 'wallet' });
+    if (!result?.success) {
+      throw new Error(result?.error || 'Couldn’t set up your bank account. Please try again.');
     }
+    if (typeof result.verificationUrl === 'string') return { verificationUrl: result.verificationUrl };
+    if (!result.account) throw new Error('Couldn’t set up your bank account. Please try again.');
+    return { account: result.account, bonusAmount: Number(result.bonusAmount) || 0 };
   }
 
   // Manual transaction check using account number

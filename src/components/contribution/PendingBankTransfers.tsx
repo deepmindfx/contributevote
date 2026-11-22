@@ -50,7 +50,8 @@ export function PendingBankTransfers({ groupId, isAdmin }: { groupId: string; is
     <Card className="space-y-4 rounded-2xl p-4 sm:p-5">
       <div>
         <h3 className="font-semibold">Outside bank transfers</h3>
-        <p className="mt-1 text-sm text-muted-foreground">Match a confirmed transfer to the sender’s registered account. The payment is already in the group balance.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Check the amount and reference, then use the sender’s verified email or user ID. If they’re new to CollectiPay, invite them to sign up first.</p>
+        <p className="mt-1 text-xs text-muted-foreground">Linking gives the contributor a wallet for any refund. The payment is already in the group balance.</p>
       </div>
       {error ? (
         <div className="flex flex-wrap items-center gap-2 text-sm"><p role="status">{error}</p><Button variant="outline" onClick={() => setVersion((count) => count + 1)}>Retry</Button></div>

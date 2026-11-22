@@ -197,6 +197,22 @@
   overflow: hidden;
 }
 
+.cp-receipt-watermark {
+  position: absolute;
+  inset-inline-end: -2.6rem;
+  top: -3.2rem;
+  width: min(70%, 15rem);
+  aspect-ratio: 1;
+  opacity: .23;
+  pointer-events: none;
+  rotate: -12deg;
+}
+
+.cp-receipt-body {
+  background: #fff url("/images/collectipay-receipt-pattern.svg") repeat;
+  print-color-adjust: exact;
+}
+
 .cp-receipt-blueprint-grid {
   pointer-events: none;
   position: absolute;

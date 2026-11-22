@@ -14,12 +14,14 @@ interface RefundRequestsCardProps {
   groupId: string;
   votingThreshold?: number | null;
   hasVotingRights?: boolean;
+  canRetryRefund?: boolean;
 }
 
 export function RefundRequestsCard({
   groupId,
   votingThreshold,
   hasVotingRights = true,
+  canRetryRefund = false,
 }: RefundRequestsCardProps) {
   const approvalThreshold =
     votingThreshold && votingThreshold >= 50 && votingThreshold <= 100
@@ -96,12 +98,8 @@ export function RefundRequestsCard({
     );
 
     // Submit the vote to the backend
-    const success = await WalletContributionService.voteOnRefund(requestId, user.id, vote);
-    
-    if (!success) {
-      // Revert optimistic update if vote failed
-      await loadRequests();
-    }
+    await WalletContributionService.voteOnRefund(requestId, user.id, vote);
+    await loadRequests();
     
     setVotingOn(null);
   };
@@ -244,6 +242,18 @@ export function RefundRequestsCard({
                   </p>
                 </div>
               </div>
+              {request.status === 'approved' && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm text-muted-foreground">Approved. Wallet credits are pending.</p>
+                  {canRetryRefund && <Button type="button" variant="outline" size="sm" disabled={!!votingOn} onClick={async () => {
+                    setVotingOn(request.id);
+                    await WalletContributionService.processRefund(request.id);
+                    await loadRequests();
+                    setVotingOn(null);
+                  }}>Retry settlement</Button>}
+                  {canRetryRefund && <p className="w-full text-xs text-muted-foreground">Link any outstanding bank contributions under Manage before retrying.</p>}
+                </div>
+              )}
 
               {/* Voting Progress */}
               {request.status === 'pending' && (

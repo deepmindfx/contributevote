@@ -15,6 +15,11 @@ export function AdminPricingRevenue() {
   const [dailyFree, setDailyFree] = useState("");
   const [fridayFree, setFridayFree] = useState(false);
   const [percent, setPercent] = useState("");
+  const [bankEnabled, setBankEnabled] = useState(true);
+  const [groupEnabled, setGroupEnabled] = useState(false);
+  const [smallFee, setSmallFee] = useState("");
+  const [largeFee, setLargeFee] = useState("");
+  const [threshold, setThreshold] = useState("");
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [version, setVersion] = useState(0);
@@ -28,6 +33,11 @@ export function AdminPricingRevenue() {
       setDailyFree(String(result.pricing.daily_free_transfers));
       setFridayFree(result.pricing.friday_free);
       setPercent(String(result.pricing.group_withdrawal_percent));
+      setBankEnabled(result.pricing.bank_transfer_fees_enabled);
+      setGroupEnabled(result.pricing.group_withdrawal_fees_enabled);
+      setSmallFee(String(result.pricing.bank_transfer_small_fee));
+      setLargeFee(String(result.pricing.bank_transfer_large_fee));
+      setThreshold(String(result.pricing.bank_transfer_threshold));
     }, () => { if (active) setLoadError(true); });
     return () => { active = false; };
   }, [version]);
@@ -37,7 +47,12 @@ export function AdminPricingRevenue() {
     if (saving || !report) return;
     setSaving(true);
     try {
-      await savePlatformPricing(Number(dailyFree), fridayFree, Number(percent));
+      await savePlatformPricing({
+        daily_free_transfers: Number(dailyFree), friday_free: fridayFree,
+        bank_transfer_fees_enabled: bankEnabled, bank_transfer_small_fee: Number(smallFee),
+        bank_transfer_large_fee: Number(largeFee), bank_transfer_threshold: Number(threshold),
+        group_withdrawal_fees_enabled: groupEnabled, group_withdrawal_percent: Number(percent),
+      });
       setVersion((count) => count + 1);
       toast.success("Pricing settings saved.");
     } catch (error) {
@@ -80,6 +95,24 @@ export function AdminPricingRevenue() {
       <Card className="rounded-2xl p-4 sm:p-6">
         <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold"><Tag size={19} className="text-primary" aria-hidden="true" /> Pricing settings</h2>
         <form onSubmit={save} className="space-y-4">
+          <div className="flex items-center justify-between gap-3 rounded-xl border p-3">
+            <Label htmlFor="pricing-bank-switch">Charge bank transfer fees</Label>
+            <Switch id="pricing-bank-switch" checked={bankEnabled} onCheckedChange={setBankEnabled} />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="space-y-2">
+              <Label htmlFor="pricing-bank-threshold">Fee threshold (₦)</Label>
+              <Input id="pricing-bank-threshold" type="number" min="100" max="500000" step="0.01" required value={threshold} onChange={(event) => setThreshold(event.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="pricing-small-fee">Fee up to threshold (₦)</Label>
+              <Input id="pricing-small-fee" type="number" min="0" max="500000" step="0.01" required value={smallFee} onChange={(event) => setSmallFee(event.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="pricing-large-fee">Fee above threshold (₦)</Label>
+              <Input id="pricing-large-fee" type="number" min="0" max="500000" step="0.01" required value={largeFee} onChange={(event) => setLargeFee(event.target.value)} />
+            </div>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="pricing-daily-free">Free bank transfers per user per day</Label>
             <Input id="pricing-daily-free" value={dailyFree} onChange={(event) => setDailyFree(event.target.value)} type="number" min="0" max="100" step="1" required />
@@ -91,10 +124,14 @@ export function AdminPricingRevenue() {
             </div>
             <Switch id="pricing-friday" checked={fridayFree} onCheckedChange={setFridayFree} />
           </div>
+          <div className="flex items-center justify-between gap-3 rounded-xl border p-3">
+            <Label htmlFor="pricing-group-switch">Charge group withdrawal fees by default</Label>
+            <Switch id="pricing-group-switch" checked={groupEnabled} onCheckedChange={setGroupEnabled} />
+          </div>
           <div className="space-y-2">
             <Label htmlFor="pricing-group-rate">Group withdrawal fee (%)</Label>
             <Input id="pricing-group-rate" value={percent} onChange={(event) => setPercent(event.target.value)} type="number" min="0" max="99.99" step="0.01" required />
-            <p className="text-xs text-muted-foreground">Charity groups are exempt. Changes apply to new withdrawals.</p>
+            <p className="text-xs text-muted-foreground">Charity groups are exempt. Set exceptions for individual groups under Transaction analytics.</p>
           </div>
           <Button type="submit" disabled={saving} className="w-full">{saving ? "Saving…" : "Save pricing"}</Button>
         </form>

@@ -1,0 +1,15 @@
+project_id = "collectipay"
+
+[auth]
+minimum_password_length = 10
+password_requirements = ""
+
+[auth.hook.before_user_created]
+enabled = true
+uri = "pg-functions://postgres/public/require_signup_phone"
+
+[functions.webhook-contribution]
+verify_jwt = false
+
+[functions.deliver-web-push]
+verify_jwt = false

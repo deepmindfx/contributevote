@@ -1,0 +1,11 @@
+@media (prefers-reduced-motion: no-preference) {
+  .incoming-money-alert[data-vibrate="true"] { animation: incoming-money-nudge 430ms ease-out both; }
+}
+
+@keyframes incoming-money-nudge {
+  0% { opacity: 0; transform: translateY(5px); }
+  35% { opacity: 1; transform: translateX(-3px); }
+  58% { transform: translateX(2px); }
+  80% { transform: translateX(-1px); }
+  100% { transform: translateX(0); }
+}

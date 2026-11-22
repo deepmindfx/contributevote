@@ -13,6 +13,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { hasTransactionPin } from "@/lib/transactionPin";
 
 interface TransactionPinDialogProps {
   open: boolean;
@@ -37,8 +38,7 @@ export function TransactionPinDialog({
   onVerified,
 }: TransactionPinDialogProps) {
   const { user, refreshCurrentUser } = useSupabaseUser();
-  const prefs = (user?.preferences || {}) as Record<string, any>;
-  const hasSavedPin = /^\d{4}$/.test(String(prefs.transactionPin || ""));
+  const hasSavedPin = hasTransactionPin(user?.preferences);
 
   const [pin, setPin] = useState("");
   const [confirmNewPin, setConfirmNewPin] = useState("");

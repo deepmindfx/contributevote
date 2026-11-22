@@ -11,7 +11,7 @@ import { Wallet, AlertCircle, Vote, ShieldCheck } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import BrandLoader from '@/components/ui/BrandLoader';
 import { TransactionPinDialog } from '@/components/security/TransactionPinDialog';
-import { getPlatformPricing, naira, withdrawalFee } from '@/services/supabase/pricingService';
+import { getGroupWithdrawalPolicy, naira, withdrawalFee } from '@/services/supabase/pricingService';
 import {
   createWithdrawalRequest,
   processInstantWithdrawal,
@@ -55,12 +55,14 @@ export function WithdrawalRequest({ groupId }: WithdrawalRequestProps) {
 
   useEffect(() => {
     let active = true;
-    void getPlatformPricing().then(
-      (pricing) => { if (active) setRate(pricing.group_withdrawal_percent); },
+    setRate(undefined);
+    setPricingError(false);
+    void getGroupWithdrawalPolicy(groupId).then(
+      (pricing) => { if (active) setRate(pricing.percent); },
       () => { if (active) setPricingError(true); },
     );
     return () => { active = false; };
-  }, [pricingVersion]);
+  }, [groupId, pricingVersion]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

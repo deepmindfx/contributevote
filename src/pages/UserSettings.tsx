@@ -4,11 +4,11 @@ import Header from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import UserSettingsForm from "@/components/settings/UserSettingsForm";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
+import { hasTransactionPin } from "@/lib/transactionPin";
 
 const UserSettings = () => {
   const { user } = useSupabaseUser();
-  const prefs = ((user?.preferences || {}) as Record<string, any>);
-  const hasPin = /^\d{4}$/.test(String(prefs.transactionPin || ""));
+  const hasPin = hasTransactionPin(user?.preferences);
 
   return (
     <div className="min-h-dvh bg-background">

@@ -16,13 +16,21 @@ self.addEventListener("fetch", (event) => {
 self.addEventListener("push", (event) => {
   let message = {};
   try { message = event.data ? event.data.json() : {}; } catch { /* Use the generic alert. */ }
-  event.waitUntil(self.registration.showNotification(message.title || "CollectiPay", {
-    body: message.body || "You have a new update.",
-    icon: "/icons/icon-192.png",
-    badge: "/icons/icon-192.png",
-    tag: message.id ? "collectipay-" + message.id : undefined,
-    data: { href: message.href || "/dashboard" },
-  }));
+  event.waitUntil((async () => {
+    const payment = message.incoming || message.kind === "wallet" || message.kind === "group";
+    const quiet = payment && message.vibration === false;
+    const windows = message.incoming && !quiet ? await self.clients.matchAll({ type: "window", includeUncontrolled: true }) : [];
+    const appVisible = windows.some((client) => client.visibilityState === "visible");
+    await self.registration.showNotification(message.title || "CollectiPay", {
+      body: message.body || "You have a new update.",
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      image: message.incoming ? "/images/collectipay-money-alert.png" : undefined,
+      tag: message.id ? "collectipay-" + message.id : undefined,
+      ...(quiet ? { silent: true } : message.incoming && !appVisible ? { vibrate: [110, 70, 150] } : {}),
+      data: { href: message.href || "/dashboard" },
+    });
+  })());
 });
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();

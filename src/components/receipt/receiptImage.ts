@@ -1,6 +1,6 @@
 type ExportRow = { label: string; value: string; highlight?: boolean };
 
-export function renderReceiptImage(receipt: {
+export async function renderReceiptImage(receipt: {
   title: string;
   amount: string;
   status: string;
@@ -75,11 +75,23 @@ export function renderReceiptImage(receipt: {
     context.stroke();
   }
 
-  context.fillStyle = "#b9e9c8";
-  context.beginPath();
-  context.arc(39, 31, 15, 0, Math.PI * 2);
-  context.fill();
-  drawText("C", 32, 32, 20, 800, "#10382b");
+  const mark = new Image();
+  mark.src = "/collectipay-mark.svg";
+  const paper = new Image();
+  paper.src = "/images/collectipay-receipt-pattern.svg";
+  await Promise.allSettled([mark.decode(), paper.decode()]);
+  if (mark.naturalWidth) {
+    context.save();
+    context.beginPath();
+    context.rect(0, 0, width, headerHeight);
+    context.clip();
+    context.globalAlpha = .27;
+    context.translate(width - 38, 63);
+    context.rotate(-Math.PI / 15);
+    context.drawImage(mark, -99, -99, 198, 198);
+    context.restore();
+    context.drawImage(mark, 23, 15, 32, 32);
+  }
   drawText("CollectiPay", 61, 32, 19, 750, "#ffffff");
   context.font = font(13, 700);
   const pillWidth = context.measureText(receipt.status).width + 23;
@@ -101,6 +113,16 @@ export function renderReceiptImage(receipt: {
   context.fillStyle = "#dbf5b4";
   context.fillRect(inset, headerHeight - 2, 42, 2);
 
+  const footerHeight = 36;
+  const watermark = paper.naturalWidth ? context.createPattern(paper, "repeat") : null;
+  if (watermark) {
+    context.save();
+    context.translate(0, headerHeight);
+    context.fillStyle = watermark;
+    context.fillRect(0, 0, width, height - headerHeight - footerHeight);
+    context.restore();
+  }
+
   let y = headerHeight + 8;
   for (const row of rows) {
     row.labelLines.forEach((line, index) => drawText(line, inset, y + 16 + index * 18, 13, 600, "#526e63"));
@@ -112,7 +134,7 @@ export function renderReceiptImage(receipt: {
     context.fillRect(inset, y, contentWidth, 1);
   }
   context.fillStyle = "#f0f7f3";
-  context.fillRect(0, height - 36, width, 36);
+  context.fillRect(0, height - footerHeight, width, footerHeight);
   drawText(receipt.tone === "success" ? "Verified by CollectiPay" : "CollectiPay transaction record", inset, height - 18, 12, 650, "#325b49");
   return canvas;
 }

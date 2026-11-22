@@ -1,6 +1,9 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+import { getFlutterwaveConfig } from "../_shared/flutterwaveConfig.ts";
+import { reconcileBankTransfer, transferReconciliationFields } from "../_shared/reconcileBankTransfer.ts";
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -12,9 +15,14 @@ serve(async (req) => {
   }
 
   try {
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (req.method !== "POST") return new Response(null, { status: 405 });
+    if (!serviceKey || req.headers.get("Authorization") !== "Bearer " + serviceKey) {
+      return new Response(null, { status: 401 });
+    }
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      serviceKey
     );
 
     const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
@@ -26,6 +34,7 @@ serve(async (req) => {
       scheduled: { processed: 0, failed: 0 },
       refunds: { processed: 0, failed: 0 },
       withdrawals: { processed: 0, failed: 0 },
+      bankTransfers: { resolved: 0, pending: 0, failed: 0 },
       mode: deadlinesOnly ? 'deadlines-only' : 'full',
     };
 
@@ -182,87 +191,27 @@ serve(async (req) => {
       }
     }
 
-    // 4. Process Refund Voting Deadlines
-    const { data: refundsDue } = await supabaseClient
-      .from('group_refund_requests')
-      .select('*')
-      .eq('status', 'pending')
-      .lte('voting_deadline', now);
+    const { data: expiredRefunds, error: refundError } = await supabaseClient.rpc('service_close_expired_refund_votes');
+    if (refundError) results.refunds.failed++;
+    else results.refunds.processed = Number(expiredRefunds) || 0;
 
-    if (refundsDue) {
-      for (const refund of refundsDue) {
-        try {
-          const votesArray = Array.isArray(refund.votes) ? refund.votes : [];
-          const votesFor =
-            typeof refund.total_votes_for === 'number'
-              ? refund.total_votes_for
-              : votesArray.filter((v: any) => v.vote === 'for').length;
-          const votesAgainst =
-            typeof refund.total_votes_against === 'number'
-              ? refund.total_votes_against
-              : votesArray.filter((v: any) => v.vote === 'against').length;
-          const totalVotes = votesFor + votesAgainst;
-
-          const { count: eligibleVoters } = await supabaseClient
-            .from('contributors')
-            .select('*', { count: 'exact', head: true })
-            .eq('group_id', refund.group_id)
-            .eq('has_voting_rights', true);
-
-          const { data: groupMeta } = await supabaseClient
-            .from('contribution_groups')
-            .select('voting_threshold, status')
-            .eq('id', refund.group_id)
-            .maybeSingle();
-
-          // Skip frozen groups until compliance unfreezes them
-          if (groupMeta?.status === 'frozen') {
-            continue;
+    const { data: pendingTransfers, error: transferError } = await supabaseClient.from('transactions')
+      .select(transferReconciliationFields).eq('type','transfer').eq('status','pending')
+      .filter('metadata->>pricing_reserved','eq','true')
+      .lt('updated_at', new Date(Date.now() - 120_000).toISOString()).order('updated_at').limit(40);
+    if (transferError) results.bankTransfers.failed++;
+    else if (pendingTransfers?.length) {
+      const config = await getFlutterwaveConfig({ supabaseAdmin: supabaseClient });
+      for (let offset = 0; offset < pendingTransfers.length; offset += 8) {
+        await Promise.all(pendingTransfers.slice(offset, offset + 8).map(async (row) => {
+          try {
+            const status = await reconcileBankTransfer(supabaseClient, row, config);
+            if (status === "pending") results.bankTransfers.pending++;
+            else results.bankTransfers.resolved++;
+          } catch {
+            results.bankTransfers.failed++;
           }
-
-          const groupThreshold =
-            typeof groupMeta?.voting_threshold === 'number' &&
-            groupMeta.voting_threshold >= 50 &&
-            groupMeta.voting_threshold <= 100
-              ? groupMeta.voting_threshold
-              : 60;
-
-          const voterPool = eligibleVoters || refund.total_eligible_voters || 0;
-          const participationRate = voterPool > 0 ? (totalVotes / voterPool) * 100 : 0;
-          const approvalRate = totalVotes > 0 ? (votesFor / totalVotes) * 100 : 0;
-
-          const approved = approvalRate >= groupThreshold && participationRate >= 70;
-
-          if (approved) {
-            // Set status to approved BEFORE calling process_group_refund
-            await supabaseClient
-              .from('group_refund_requests')
-              .update({ status: 'approved', updated_at: now })
-              .eq('id', refund.id);
-
-            const { data: refundRes, error: refundError } = await supabaseClient.rpc(
-              'process_group_refund',
-              { p_refund_request_id: refund.id }
-            );
-
-            if (refundError) throw refundError;
-            if (!refundRes?.success) {
-              throw new Error(refundRes?.error || 'Failed to execute approved refund');
-            }
-
-            results.refunds.processed++;
-          } else {
-            await supabaseClient
-              .from('group_refund_requests')
-              .update({ status: 'rejected', updated_at: now })
-              .eq('id', refund.id);
-
-            results.refunds.processed++;
-          }
-        } catch (error) {
-          console.error(`Failed to process refund ${refund.id}:`, error);
-          results.refunds.failed++;
-        }
+        }));
       }
     }
 

@@ -1380,6 +1380,21 @@ export type Database = {
       remove_push_device: { Args: { p_endpoint: string }; Returns: undefined }
       get_wallet_transfer_allowance: { Args: Record<never, never>; Returns: Json }
       admin_platform_pricing_report: { Args: Record<never, never>; Returns: Json }
+      admin_transaction_analytics: { Args: { p_start: string; p_end: string; p_scope: string; p_entity_id?: string }; Returns: Json }
+      admin_search_transaction_entities: { Args: { p_scope: string; p_search: string }; Returns: { id: string; name: string; description: string | null }[] }
+      admin_save_transfer_pricing: { Args: { p_settings: Json }; Returns: Json }
+      admin_set_group_withdrawal_fee: { Args: { p_group_id: string; p_enabled: boolean | null }; Returns: undefined }
+      get_group_withdrawal_policy: { Args: { p_group_id: string }; Returns: Json }
+      create_group_refund_request: { Args: { p_group_id: string; p_reason: string; p_refund_type: string; p_percent: number | null; p_pin: string }; Returns: Json }
+      retry_group_refund: { Args: { p_refund_request_id: string }; Returns: Json }
+      get_my_push_device_status: { Args: { p_endpoint: string }; Returns: Json }
+      send_my_push_test: { Args: { p_endpoint: string }; Returns: boolean }
+      admin_wallet_bank_bonus_report: { Args: Record<never, never>; Returns: Json }
+      admin_update_wallet_bank_bonus: {
+        Args: { p_enabled: boolean; p_amount: number; p_claim_limit: number }
+        Returns: Json
+      }
+      get_wallet_bank_bonus_offer: { Args: Record<never, never>; Returns: Json }
       admin_update_platform_pricing: { Args: { p_daily_free: number; p_friday_free: boolean; p_withdrawal_percent: number }; Returns: Json }
       list_group_bank_transfer_assignments: {
         Args: { p_group_id: string }

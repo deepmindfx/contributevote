@@ -1,10 +1,13 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, useMemo, ReactNode } from 'react';
 import { UserService } from '@/services/supabase/userService';
 import type { User as AuthUser } from '@supabase/supabase-js';
-import { notificationAllowed, NotificationService, NotificationRecord } from '@/services/supabase/notificationService';
+import { notificationAllowed, NotificationService, NotificationRecord, paymentVibrationEnabled } from '@/services/supabase/notificationService';
 import { disablePush } from '@/services/pwa';
 import { Database } from '@/integrations/supabase/types';
 import { supabase } from '@/integrations/supabase/client';
+import { passwordIssue } from '@/lib/passwordPolicy';
+import { normalizeSignupPhone, SIGNUP_PHONE_ERROR } from '@/lib/signupPhone';
+import { announceIncomingMoney } from '@/components/wallet/IncomingMoneyAlert';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 
@@ -49,6 +52,8 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
 
   const sessionOwner = useRef<string | null>();
   const profileOwner = useRef<string>();
+  const notificationPreferences = useRef<Profile["preferences"]>(null);
+  notificationPreferences.current = user?.preferences ?? null;
   const sessionRevision = useRef(0);
   const profileTask = useRef<number>();
   const pendingProfile = useRef<{ id: string; request: Promise<Profile | null> }>();
@@ -249,8 +254,14 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
           table: 'notifications',
           filter: `user_id=eq.${user.id}`,
         },
-        () => {
-          fetchNotificationsForUser(user.id);
+        (payload) => {
+          if (payload.eventType === 'INSERT' && sessionOwner.current === id) {
+            const notification = payload.new as NotificationRecord;
+            if (notification.user_id === id && notificationAllowed(notification.type, notificationPreferences.current)) {
+              announceIncomingMoney(notification, paymentVibrationEnabled(notificationPreferences.current));
+            }
+          }
+          void fetchNotificationsForUser(id);
         }
       )
       .subscribe();
@@ -334,6 +345,10 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, metadata: { name: string; phone?: string }) => {
+    const issue = passwordIssue(password);
+    if (issue) return { error: { message: issue } };
+    const phone = normalizeSignupPhone(metadata.phone);
+    if (!phone) return { error: { message: SIGNUP_PHONE_ERROR } };
     try {
       const { error } = await supabase.auth.signUp({
         email: email.trim(),
@@ -341,7 +356,7 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
         options: {
           data: {
             name: metadata.name,
-            phone: metadata.phone,
+            phone,
           },
         },
       });

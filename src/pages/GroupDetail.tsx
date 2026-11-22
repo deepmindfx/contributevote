@@ -173,34 +173,16 @@ export default function GroupDetail() {
       });
 
       if (accountData.success && accountData.responseBody) {
-        const { error: updateError } = await supabase
-          .from('contribution_groups')
-          .update({
-            account_number: accountData.responseBody.account_number,
-            account_name: group.name,
-            bank_name: accountData.responseBody.bank_name || null,
-            account_reference: accountData.responseBody.order_ref || accountData.responseBody.flw_ref,
-            account_details: accountData.responseBody,
-          })
-          .eq('id', group.id);
-
-        if (updateError) {
-          console.error('Error saving account details:', updateError);
-          toast.error('Failed to save bank account details');
-        } else {
-          toast.success('Bank account created successfully!');
-          setShowBvnDialog(false);
-
-          updateCachedGroup({
-            account_number: accountData.responseBody.account_number,
-            account_name: group.name,
-            bank_name: accountData.responseBody.bank_name || null,
-            account_reference: accountData.responseBody.order_ref || accountData.responseBody.flw_ref,
-            account_details: accountData.responseBody,
-          });
-
-          await refreshContributionData(true);
-        }
+        toast.success('Bank account created successfully.');
+        setShowBvnDialog(false);
+        updateCachedGroup({
+          account_number: accountData.responseBody.account_number,
+          account_name: group.name,
+          bank_name: accountData.responseBody.bank_name || null,
+          account_reference: accountData.responseBody.order_ref || accountData.responseBody.flw_ref,
+          account_details: accountData.responseBody,
+        });
+        await refreshContributionData(true);
       } else {
         toast.error(accountData.message || 'Failed to create bank account');
       }
@@ -450,6 +432,7 @@ export default function GroupDetail() {
             groupId={group.id}
             votingThreshold={group.voting_threshold}
             hasVotingRights={hasVotingRights}
+            canRetryRefund={isCreator}
           />
 
           <Tabs key={group.id} defaultValue="overview">
@@ -532,7 +515,7 @@ export default function GroupDetail() {
                         <Camera size={16} aria-hidden="true" />
                         {group.cover_image_url ? "Change cover photo" : "Add cover photo"}
                       </Button>
-                      {isActive && <GroupRefundDialog groupId={group.id} groupName={group.name} onSuccess={handleContributeSuccess} />}
+                      {isActive && <GroupRefundDialog groupId={group.id} groupName={group.name} votingThreshold={group.voting_threshold} onSuccess={handleContributeSuccess} />}
                       <Button variant="outline" onClick={group.archived ? handleUnarchive : handleArchive} disabled={isArchiving} className="h-11 justify-start gap-2 rounded-xl">
                         {group.archived ? <ArchiveRestore size={16} aria-hidden="true" /> : <Archive size={16} aria-hidden="true" />}
                         {group.archived ? "Restore group" : "Archive group"}

@@ -269,69 +269,25 @@ export const WalletContributionService = {
    */
   async createRefundRequest(
     groupId: string,
-    requesterId: string,
     reason: string,
-    refundType: 'full' | 'partial' = 'full',
-    partialPercentage?: number
+    refundType: 'full' | 'partial',
+    partialPercentage: number | undefined,
+    pin: string,
   ): Promise<GroupRefundRequest | null> {
     try {
-      // Ensure requester is the group creator
-      const { data: group, error: groupError } = await supabase
-        .from('contribution_groups')
-        .select('creator_id, name')
-        .eq('id', groupId)
-        .single();
-
-      if (groupError) throw groupError;
-
-      if (!group || group.creator_id !== requesterId) {
-        toast.error('Only the group creator can request a refund.');
-        return null;
-      }
-
-      // Get total eligible voters
-      const { data: contributors } = await supabase
-        .from('contributors')
-        .select('id')
-        .eq('group_id', groupId)
-        .eq('has_voting_rights', true);
-
-      const totalEligibleVoters = contributors?.length || 0;
-
-      if (totalEligibleVoters === 0) {
-        toast.error('No eligible voters found. Contributors must have voting rights.');
-        return null;
-      }
-
-      // Set voting deadline (7 days from now)
-      const votingDeadline = new Date();
-      votingDeadline.setDate(votingDeadline.getDate() + 7);
-
-      const { data, error } = await supabase
-        .from('group_refund_requests')
-        .insert({
-          group_id: groupId,
-          requester_id: requesterId,
-          reason,
-          refund_type: refundType,
-          partial_percentage: partialPercentage,
-          status: 'pending',
-          voting_deadline: votingDeadline.toISOString(),
-          total_eligible_voters: totalEligibleVoters
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      toast.success('Refund request created!', {
-        description: 'Group members can now vote on this request.'
+      const { data, error } = await supabase.rpc('create_group_refund_request', {
+        p_group_id: groupId,
+        p_reason: reason,
+        p_refund_type: refundType,
+        p_percent: partialPercentage ?? null,
+        p_pin: pin,
       });
-
-      return data as unknown as GroupRefundRequest;
+      const result = data as { request?: GroupRefundRequest; error?: string } | null;
+      if (error || !result?.request) throw new Error(result?.error || error?.message || 'Could not open the refund vote.');
+      toast.success('Refund vote opened.');
+      return result.request;
     } catch (error) {
-      console.error('Error creating refund request:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to create refund request');
+      toast.error(error instanceof Error ? error.message : 'Could not open the refund vote.');
       return null;
     }
   },
@@ -362,10 +318,12 @@ export const WalletContributionService = {
       const approval = Number(data.approval_rate || 0).toFixed(0);
       const threshold = Number(data.voting_threshold || 60);
 
-      if (data.status === 'executed' || data.status === 'approved') {
+      if (data.status === 'executed') {
         toast.success('Refund approved & executed', {
           description: `${participation}% participated · ${approval}% approved (needed ${threshold}%). Refunds credited to wallets.`,
         });
+      } else if (data.status === 'approved') {
+        toast.info('Refund approved. Settlement is pending.');
       } else if (data.status === 'rejected') {
         toast.error('Refund proposal rejected', {
           description: `Did not reach the ${threshold}% approval threshold.`,
@@ -392,7 +350,7 @@ export const WalletContributionService = {
    */
   async processRefund(refundRequestId: string): Promise<boolean> {
     try {
-      const { data, error } = await supabase.rpc('process_group_refund', {
+      const { data, error } = await supabase.rpc('retry_group_refund', {
         p_refund_request_id: refundRequestId
       });
 
@@ -401,6 +359,7 @@ export const WalletContributionService = {
       const result = data as any;
 
       if (result.success) {
+        if (result.already_executed) return true;
         toast.success('Refund processed successfully!', {
           description: `₦${result.total_refunded} refunded to ${result.refunds_processed} contributors`
         });

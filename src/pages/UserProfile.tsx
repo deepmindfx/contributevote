@@ -26,6 +26,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import BrandLoader from "@/components/ui/BrandLoader";
 import CategoryIcon from "@/components/ui/CategoryIcon";
 import { cn } from "@/lib/utils";
+import { hasTransactionPin } from "@/lib/transactionPin";
 
 const UserProfile = () => {
   const { user, unreadNotificationCount, logout } = useSupabaseUser();
@@ -38,7 +39,7 @@ const UserProfile = () => {
   const preferences = (user.preferences || {}) as Record<string, any>;
   const displayName = user.name || user.email?.split("@")[0] || "User";
   const username = preferences.username ? `@${preferences.username}` : null;
-  const hasPin = /^\d{4}$/.test(String(preferences.transactionPin || ""));
+  const hasPin = hasTransactionPin(preferences);
   const hasBvn = Boolean(user.bvn && String(user.bvn).trim().length >= 11);
   const hasVirtualAccount = Boolean(preferences.virtualAccount?.accountNumber);
 

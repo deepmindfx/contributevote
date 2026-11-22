@@ -16,10 +16,11 @@ import { TransactionPinDialog } from '@/components/security/TransactionPinDialog
 interface GroupRefundDialogProps {
   groupId: string;
   groupName: string;
+  votingThreshold?: number | null;
   onSuccess?: () => void;
 }
 
-export function GroupRefundDialog({ groupId, groupName, onSuccess }: GroupRefundDialogProps) {
+export function GroupRefundDialog({ groupId, groupName, votingThreshold, onSuccess }: GroupRefundDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [reason, setReason] = useState('');
   const [refundType, setRefundType] = useState<'full' | 'partial'>('full');
@@ -57,7 +58,7 @@ export function GroupRefundDialog({ groupId, groupName, onSuccess }: GroupRefund
     setPinDialogOpen(true);
   };
 
-  const executeRefundRequest = async () => {
+  const executeRefundRequest = async (pin: string) => {
     if (!user) return;
     setPinDialogOpen(false);
     setIsProcessing(true);
@@ -65,10 +66,10 @@ export function GroupRefundDialog({ groupId, groupName, onSuccess }: GroupRefund
     try {
       const result = await WalletContributionService.createRefundRequest(
         groupId,
-        user.id,
         reason,
         refundType,
-        refundType === 'partial' ? parseFloat(percentage) : undefined
+        refundType === 'partial' ? parseFloat(percentage) : undefined,
+        pin,
       );
 
       if (result) {
@@ -115,7 +116,7 @@ export function GroupRefundDialog({ groupId, groupName, onSuccess }: GroupRefund
           <Alert>
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
-              This will initiate a 7-day governance vote among eligible contributors. At least 70% participation and 60% approval are required for the refund to be processed.
+              The vote needs 70% participation and {votingThreshold && votingThreshold >= 50 && votingThreshold <= 100 ? votingThreshold : 60}% approval. Every registered contributor with a remaining contribution gets a proportional share back in their wallet, including those who cannot vote.
             </AlertDescription>
           </Alert>
 

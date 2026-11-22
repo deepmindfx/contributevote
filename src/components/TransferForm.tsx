@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { hasTransactionPin } from "@/lib/transactionPin";
 import { useQuery } from "@tanstack/react-query";
 import type { FormEvent } from "react";
 import { v4 as uuid } from "uuid";
@@ -249,8 +250,7 @@ export default function TransferForm() {
   const key = bankCode && account.length === 10 ? `${bankCode}/${account}` : "";
   const verified = key && verification?.key === key ? verification : undefined;
   const balance = Number(user?.wallet_balance || 0);
-  const preferences = user?.preferences as { transactionPin?: string } | null;
-  const userPin = preferences?.transactionPin;
+  const pinConfigured = hasTransactionPin(user?.preferences);
   const numericAmount = Number(amount);
   const amountValid = /^\d+(?:\.\d{1,2})?$/.test(amount) && numericAmount >= 100 && numericAmount <= 500000;
   const feeQuote = allowance && amountValid ? pricedTransferFee(numericAmount, allowance) : undefined;
@@ -364,12 +364,7 @@ export default function TransferForm() {
 
   const confirmTransfer = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!review || sendInFlight.current || !userPin) return;
-    if (pin !== userPin) {
-      setError("That transaction PIN is incorrect.");
-      setPin("");
-      return;
-    }
+    if (!review || sendInFlight.current || !pinConfigured || !/^\d{4}$/.test(pin)) return;
     await executeTransfer(pin);
   };
 
@@ -425,7 +420,7 @@ export default function TransferForm() {
             <div><dt className="font-semibold">Total from wallet</dt><dd>{money(review.amount + fee)}</dd></div>
           </dl>
           {error && <p role="alert" className="text-sm text-destructive">{error} {error.includes("Wallet history") && <Link className="underline" to="/wallet-history">Open history</Link>}</p>}
-          {userPin ? (
+          {pinConfigured ? (
             <form onSubmit={confirmTransfer} className="space-y-4">
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between">

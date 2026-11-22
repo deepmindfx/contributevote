@@ -1,10 +1,13 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
+import { PasswordRequirements } from "@/components/auth/PasswordRequirements";
+import { meetsPasswordRequirements, PASSWORD_MIN_LENGTH, passwordIssue } from "@/lib/passwordPolicy";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { DeviceNotificationSettings } from "./DeviceNotificationSettings";
+import { paymentVibrationEnabled } from "@/services/supabase/notificationService";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -15,7 +18,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import BrandLoader from "@/components/ui/BrandLoader";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,9 +28,6 @@ import {
   Bell,
   Camera,
   Check,
-  Eye,
-  EyeOff,
-  KeyRound,
   Lock,
   Mail,
   Moon,
@@ -40,6 +39,7 @@ import {
   User,
   UserCheck,
 } from "lucide-react";
+import { hasTransactionPin } from "@/lib/transactionPin";
 import { cn } from "@/lib/utils";
 import { applyAppearance, usesDarkMode } from "@/lib/appearance";
 
@@ -65,18 +65,20 @@ const UserSettingsForm = () => {
     phone: user?.phone || "",
     username: existingPrefs.username || "",
     profileImage: existingPrefs.profileImage || "",
-    pin: existingPrefs.transactionPin || "",
     preferences: {
       darkMode: usesDarkMode(existingPrefs),
       anonymousContributions: Boolean(existingPrefs.anonymousContributions),
       notificationsEnabled: existingPrefs.notificationsEnabled !== false,
       walletNotifications: existingPrefs.walletNotifications !== false,
       groupNotifications: existingPrefs.groupNotifications !== false,
+      paymentVibration: paymentVibrationEnabled(existingPrefs),
     },
   });
 
-  const [confirmPin, setConfirmPin] = useState(existingPrefs.transactionPin || "");
-  const [showPin, setShowPin] = useState(false);
+  const [currentPin, setCurrentPin] = useState("");
+  const [newPin, setNewPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+  const [isSavingPin, setIsSavingPin] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
@@ -101,21 +103,20 @@ const UserSettingsForm = () => {
       phone: user.phone || "",
       username: prefs.username || "",
       profileImage: prefs.profileImage || "",
-      pin: prefs.transactionPin || "",
       preferences: {
         darkMode: usesDarkMode(prefs),
         anonymousContributions: Boolean(prefs.anonymousContributions),
         notificationsEnabled: prefs.notificationsEnabled !== false,
         walletNotifications: prefs.walletNotifications !== false,
         groupNotifications: prefs.groupNotifications !== false,
+        paymentVibration: paymentVibrationEnabled(prefs),
       },
     });
-    setConfirmPin(prefs.transactionPin || "");
   }, [user?.id, user?.name, user?.email, user?.phone, JSON.stringify(user?.preferences)]);
 
   if (!user) return null;
 
-  const hasSavedPin = /^\d{4}$/.test(String(existingPrefs.transactionPin || ""));
+  const hasSavedPin = hasTransactionPin(existingPrefs);
   const verifiedBvn = /^\d{11}$/.test(String(user.bvn || "").trim())
     ? String(user.bvn).trim()
     : null;
@@ -178,8 +179,9 @@ const UserSettingsForm = () => {
   };
 
   const handlePasswordChange = async () => {
-    if (newPassword.length < 8) {
-      toast.error("Password must be at least 8 characters long");
+    const issue = passwordIssue(newPassword);
+    if (issue) {
+      toast.error(issue);
       return;
     }
     if (newPassword !== confirmNewPassword) {
@@ -202,25 +204,34 @@ const UserSettingsForm = () => {
     }
   };
 
+  async function savePin() {
+    if (isSavingPin || newPin.length !== 4 || newPin !== confirmPin || (hasSavedPin && currentPin.length !== 4)) return;
+    setIsSavingPin(true);
+    try {
+      const { data, error } = await supabase.rpc("set_user_transaction_pin", {
+        p_new_pin: newPin,
+        p_current_pin: hasSavedPin ? currentPin : undefined,
+      });
+      const result = data as { success?: boolean; error?: string } | null;
+      if (error || !result?.success) throw new Error(result?.error || error?.message || "Couldn’t save your PIN.");
+      setCurrentPin("");
+      setNewPin("");
+      setConfirmPin("");
+      toast.success(hasSavedPin ? "Transaction PIN changed." : "Transaction PIN set.");
+      await refreshCurrentUser();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Couldn’t save your PIN.");
+    } finally {
+      setIsSavingPin(false);
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
       const currentPrefs = (user.preferences || {}) as Record<string, any>;
-      const existingPin = currentPrefs.transactionPin || "";
-
-      if (userData.pin && userData.pin !== existingPin) {
-        if (!/^\d{4}$/.test(userData.pin)) {
-          toast.error("Transaction PIN must be exactly 4 digits");
-          return;
-        }
-        if (userData.pin !== confirmPin) {
-          toast.error("PINs don't match");
-          return;
-        }
-      }
-
       const fullName = `${userData.firstName} ${userData.lastName}`.trim();
 
       // IMPORTANT: Spread existingPrefs so virtualAccount and transactionPin are never overwritten!
@@ -231,9 +242,9 @@ const UserSettingsForm = () => {
         notificationsEnabled: userData.preferences.notificationsEnabled,
         walletNotifications: userData.preferences.walletNotifications,
         groupNotifications: userData.preferences.groupNotifications,
+        paymentVibration: userData.preferences.paymentVibration,
         username: userData.username.trim(),
         profileImage: userData.profileImage,
-        ...(userData.pin ? { transactionPin: userData.pin } : {}),
       };
 
       await updateProfile({
@@ -459,92 +470,27 @@ const UserSettingsForm = () => {
               </div>
             </div>
 
-            {/* 4-Digit Native OTP PIN Card */}
-            <div className="cp-card-native overflow-hidden">
-              <div className="flex items-center justify-between gap-2 border-b px-5 py-4">
-                <div>
-                  <h2 className="text-base font-bold text-foreground">4-Digit Transaction PIN</h2>
-                  <p className="text-xs text-muted-foreground">
-                    Required to authorize bank transfers, wallet contributions, withdrawals &amp; refund proposals.
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowPin((v) => !v)}
-                  className="h-9 gap-1.5 rounded-xl text-xs"
-                >
-                  {showPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  {showPin ? "Hide" : "Show"}
-                </Button>
+            <div className="cp-card-native space-y-4 p-4 sm:p-5">
+              <div>
+                <h2 className="text-base font-bold">Transaction PIN</h2>
+                <p className="text-xs text-muted-foreground">Use this PIN when sending money, contributing or withdrawing.</p>
               </div>
-
-              <div className="grid gap-6 p-5 sm:grid-cols-2">
-                <div className="space-y-2.5">
-                  <Label className="flex items-center gap-1.5 text-sm font-semibold">
-                    <KeyRound className="h-4 w-4 text-primary" />
-                    Enter 4-digit PIN
-                  </Label>
-                  <InputOTP
-                    maxLength={4}
-                    value={userData.pin}
-                    onChange={(val) =>
-                      setUserData((prev) => ({ ...prev, pin: val.replace(/\D/g, "").slice(0, 4) }))
-                    }
-                    inputMode="numeric"
-                  >
-                    <InputOTPGroup className="gap-2">
-                      {[0, 1, 2, 3].map((idx) => (
-                        <InputOTPSlot
-                          key={idx}
-                          index={idx}
-                          className={cn(
-                            "h-12 w-12 rounded-xl border text-lg font-bold",
-                            !showPin && userData.pin[idx] && "text-transparent after:absolute after:h-2.5 after:w-2.5 after:rounded-full after:bg-foreground"
-                          )}
-                        />
-                      ))}
-                    </InputOTPGroup>
-                  </InputOTP>
-                </div>
-
-                <div className="space-y-2.5">
-                  <Label className="flex items-center gap-1.5 text-sm font-semibold">
-                    <KeyRound className="h-4 w-4 text-primary" />
-                    Confirm 4-digit PIN
-                  </Label>
-                  <InputOTP
-                    maxLength={4}
-                    value={confirmPin}
-                    onChange={(val) => setConfirmPin(val.replace(/\D/g, "").slice(0, 4))}
-                    inputMode="numeric"
-                  >
-                    <InputOTPGroup className="gap-2">
-                      {[0, 1, 2, 3].map((idx) => (
-                        <InputOTPSlot
-                          key={idx}
-                          index={idx}
-                          className={cn(
-                            "h-12 w-12 rounded-xl border text-lg font-bold",
-                            !showPin && confirmPin[idx] && "text-transparent after:absolute after:h-2.5 after:w-2.5 after:rounded-full after:bg-foreground"
-                          )}
-                        />
-                      ))}
-                    </InputOTPGroup>
-                  </InputOTP>
-                  {userData.pin.length === 4 && confirmPin.length === 4 && (
-                    <p
-                      className={cn(
-                        "text-xs font-semibold",
-                        userData.pin === confirmPin ? "text-primary" : "text-destructive"
-                      )}
-                    >
-                      {userData.pin === confirmPin ? "PINs match" : "PINs do not match"}
-                    </p>
-                  )}
-                </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {[
+                  ...(hasSavedPin ? [{ id: "current-pin", label: "Current PIN", value: currentPin, update: setCurrentPin }] : []),
+                  { id: "new-pin", label: "New PIN", value: newPin, update: setNewPin },
+                  { id: "confirm-pin", label: "Confirm PIN", value: confirmPin, update: setConfirmPin },
+                ].map(({ id, label, value, update }) => (
+                  <div key={id} className="space-y-2">
+                    <Label htmlFor={id}>{label}</Label>
+                    <Input id={id} type="password" inputMode="numeric" autoComplete="off" maxLength={4} value={value}
+                      className="h-11 rounded-xl" onChange={(event) => update(event.target.value.replace(/\D/g, ""))} disabled={isSavingPin} />
+                  </div>
+                ))}
               </div>
+              <Button type="button" onClick={() => void savePin()} disabled={isSavingPin || newPin.length !== 4 || newPin !== confirmPin || (hasSavedPin && currentPin.length !== 4)}>
+                {isSavingPin ? "Saving PIN…" : hasSavedPin ? "Change PIN" : "Set PIN"}
+              </Button>
             </div>
 
             {/* BVN Identity Verification (KYC / AML) Card */}
@@ -756,6 +702,7 @@ const UserSettingsForm = () => {
               {([
                 ["walletNotifications", "Wallet payment alerts", "Deposits, outgoing transfers, and refunds to your wallet."],
                 ["groupNotifications", "Group payment alerts", "Money received by your groups and verified bank contributions."],
+                ["paymentVibration", "Payment vibration", "Vibrate when money arrives on supported devices. Turn this off to keep payment alerts silent."],
               ] as const).map(([key, label, description]) => (
                 <div key={key} className="flex items-center justify-between gap-4 p-5">
                   <div><Label htmlFor={key} className="text-sm font-bold">{label}</Label><p className="text-xs text-muted-foreground">{description}</p></div>
@@ -783,7 +730,7 @@ const UserSettingsForm = () => {
           <DialogHeader>
             <DialogTitle>Update account password</DialogTitle>
             <DialogDescription>
-              Enter a new password with at least 8 characters.
+              Choose a strong password for your CollectiPay account.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -792,17 +739,21 @@ const UserSettingsForm = () => {
               <Input
                 id="new-password"
                 type="password"
+                autoComplete="new-password"
+                minLength={PASSWORD_MIN_LENGTH}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="At least 8 characters"
+                aria-describedby="new-password-requirements"
                 className="h-11 rounded-xl"
               />
+              <PasswordRequirements id="new-password-requirements" password={newPassword} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="confirm-new-password">Confirm new password</Label>
               <Input
                 id="confirm-new-password"
                 type="password"
+                autoComplete="new-password"
                 value={confirmNewPassword}
                 onChange={(e) => setConfirmNewPassword(e.target.value)}
                 placeholder="Re-enter new password"
@@ -820,7 +771,7 @@ const UserSettingsForm = () => {
             </Button>
             <Button
               onClick={handlePasswordChange}
-              disabled={isChangingPassword}
+              disabled={isChangingPassword || !meetsPasswordRequirements(newPassword) || newPassword !== confirmNewPassword}
               className="rounded-xl"
             >
               {isChangingPassword ? "Updating…" : "Update password"}

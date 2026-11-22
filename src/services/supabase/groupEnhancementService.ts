@@ -103,6 +103,8 @@ export async function archiveGroup(groupId: string, userId: string): Promise<any
     } as any);
 
     if (error) throw error;
+    const result = data as { success?: boolean; error?: string } | null;
+    if (!result?.success) throw new Error(result?.error || 'Could not archive the group.');
     return data;
   } catch (error) {
     console.error('Error archiving group:', error);
@@ -119,6 +121,8 @@ export async function unarchiveGroup(groupId: string, userId: string): Promise<a
     } as any);
 
     if (error) throw error;
+    const result = data as { success?: boolean; error?: string } | null;
+    if (!result?.success) throw new Error(result?.error || 'Could not unarchive the group.');
     return data;
   } catch (error) {
     console.error('Error unarchiving group:', error);

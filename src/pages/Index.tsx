@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { ArrowDownLeft, ArrowRight, ArrowUpRight, Check, HeartHandshake, UsersRound, Vote, WalletCards } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
@@ -62,6 +63,21 @@ export default function Index() {
   const { isAuthenticated } = useSupabaseUser();
   const startPath = isAuthenticated ? "/create-group" : "/auth?mode=signup";
   const startLabel = isAuthenticated ? "Create a group" : "Get started";
+  const mainRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const main = mainRef.current;
+    if (!main || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        entry.target.setAttribute("data-revealed", "");
+        observer.unobserve(entry.target);
+      }
+    }, { threshold: 0.12 });
+    main.querySelectorAll("[data-scroll-reveal]").forEach((element) => observer.observe(element));
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <div className="landing">
@@ -71,8 +87,10 @@ export default function Index() {
           <Link to="/" className="landing-brand"><CollectiPayMark size={35} /> CollectiPay</Link>
           <nav className="landing-main-nav" aria-label="Main navigation">
             {sectionLinks.map(({ href, text }) => <a key={href} href={href}>{text}</a>)}
+            <Link to="/discover">Discover groups</Link>
           </nav>
           <div className="landing-header-actions">
+            <Link to="/discover" className="landing-mobile-discover">Discover</Link>
             <Link to={isAuthenticated ? "/dashboard" : "/auth"} className="landing-button landing-button-secondary">
               {isAuthenticated ? "Dashboard" : "Sign in"}
             </Link>
@@ -81,7 +99,7 @@ export default function Index() {
         </div>
       </header>
 
-      <main id="landing-main" tabIndex={-1}>
+      <main id="landing-main" ref={mainRef} tabIndex={-1}>
         <section className="landing-hero landing-width" aria-labelledby="landing-title">
           <div className="landing-intro">
             <h1 id="landing-title">Save together.<span>Decide together.</span></h1>
@@ -96,13 +114,13 @@ export default function Index() {
 
         <section id="how-it-works" className="landing-how" aria-labelledby="how-title">
           <div className="landing-width">
-            <div className="landing-section-heading">
+            <div className="landing-section-heading" data-scroll-reveal>
               <h2 id="how-title">One place to run<br className="landing-heading-break" /> a group fund.</h2>
               <p>For savings circles, community projects, and the plans you’re making together.</p>
             </div>
             <div className="landing-steps">
               {steps.map(({ icon: Icon, title, description }) => (
-                <article key={title}>
+                <article key={title} data-scroll-reveal>
                   <span className="landing-step-icon"><Icon size={26} strokeWidth={1.7} aria-hidden="true" /></span>
                   <h3>{title}</h3>
                   <p>{description}</p>
@@ -113,11 +131,11 @@ export default function Index() {
         </section>
 
         <section id="why-collectipay" className="landing-why landing-width" aria-labelledby="why-title">
-          <div className="landing-section-heading">
+          <div className="landing-section-heading" data-scroll-reveal>
             <h2 id="why-title">Why CollectiPay?</h2>
             <p>Keep payments, records, and decisions where your group can follow them.</p>
           </div>
-          <table className="landing-compare" aria-labelledby="why-title">
+          <table className="landing-compare" aria-labelledby="why-title" data-scroll-reveal>
             <thead>
               <tr><th scope="col">What you manage</th><th scope="col">Manual groups</th><th scope="col">With CollectiPay</th></tr>
             </thead>
@@ -138,11 +156,11 @@ export default function Index() {
 
         <section id="pricing" className="landing-pricing" aria-labelledby="pricing-title">
           <div className="landing-width">
-            <div className="landing-section-heading">
+            <div className="landing-section-heading" data-scroll-reveal>
               <h2 id="pricing-title">Simple, transparent group fees.</h2>
               <p>See the fee and the net payout before confirming a withdrawal.</p>
             </div>
-            <dl className="landing-prices">
+            <dl className="landing-prices" data-scroll-reveal>
               <div>
                 <dt><WalletCards size={21} aria-hidden="true" /> Group withdrawals</dt>
                 <dd>A percentage of the amount withdrawn</dd>
@@ -155,9 +173,9 @@ export default function Index() {
           </div>
         </section>
 
-        <CommunityStoriesSection startPath={startPath} />
+        <CommunityStoriesSection />
 
-        <section className="landing-end landing-width" aria-labelledby="start-title">
+        <section className="landing-end landing-width" aria-labelledby="start-title" data-scroll-reveal>
           <h2 id="start-title">What are you saving for?</h2>
           <Link to={startPath} className="landing-button landing-button-primary">{startLabel}<ArrowUpRight size={18} aria-hidden="true" /></Link>
         </section>

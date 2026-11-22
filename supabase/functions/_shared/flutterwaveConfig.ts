@@ -109,7 +109,7 @@ export async function getFlutterwaveConfig(options?: {
  */
 export async function flutterwaveFetch(
   v3Path: string,
-  init: { method?: string; body?: unknown } = {},
+  init: { method?: string; body?: unknown; signal?: AbortSignal } = {},
   config: FlutterwaveRuntimeConfig
 ): Promise<{ response: Response; routedViaStaticIp: boolean }> {
   const cleanPath = v3Path.startsWith('/') ? v3Path : `/${v3Path}`;
@@ -130,6 +130,7 @@ export async function flutterwaveFetch(
     method: init.method || 'GET',
     headers,
     body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
+    signal: init.signal,
   });
 
   return { response, routedViaStaticIp: useRelay };

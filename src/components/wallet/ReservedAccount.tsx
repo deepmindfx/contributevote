@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
+import { Link, useSearchParams } from "react-router-dom";
 import { Building2, ChevronDown, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
@@ -10,26 +11,49 @@ import { WalletService } from "@/services/supabase/walletService";
 import type { ReservedAccountData } from "@/services/supabase/walletService";
 import { BvnInputDialog } from "@/components/contribution/BvnInputDialog";
 import { WalletAccountDetails } from "./WalletAccountDetails";
+import { formatWalletBonus, WalletBankBonusNotice } from "./WalletBankBonusNotice";
+import { useWalletBankBonus, walletBankBonusOfferKey } from "@/hooks/useWalletBankBonus";
 
 export default function ReservedAccount() {
   const { user, refreshCurrentUser } = useSupabaseUser();
   const { refreshContributionData } = useSupabaseContribution();
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useSearchParams();
+  const verificationId = search.get("wallet-verification");
   const [working, setWorking] = useState(false);
   const [showVerification, setShowVerification] = useState(false);
+  const [createdAccount, setCreatedAccount] = useState<{ userId: string; account: ReservedAccountData }>();
   const userId = user?.id;
-  const account = (user?.preferences as { virtualAccount?: ReservedAccountData } | null)?.virtualAccount;
+  const account = createdAccount && createdAccount.userId === userId
+    ? createdAccount.account
+    : (user?.preferences as { virtualAccount?: ReservedAccountData } | null)?.virtualAccount;
   const primary = account?.accountNumber ? account : account?.accounts?.[0] ? { ...account, ...account.accounts[0] } : null;
+  const offer = useWalletBankBonus(account ? undefined : userId);
   const additional = account?.accounts?.filter((item) => item.accountNumber !== primary?.accountNumber || item.bankName !== primary?.bankName);
 
-  const create = async (bvn: string) => {
+  const create = async (details: { bvn: string; claimBonus: boolean } | { verificationId: string }) => {
     if (!userId || working) return;
     setWorking(true);
     try {
-      const created = await WalletService.createVirtualAccount(userId, "bvn", bvn);
-      if (created) {
-        setShowVerification(false);
-        await refreshCurrentUser();
+      const created = await WalletService.createVirtualAccount(details);
+      if ("verificationUrl" in created) {
+        window.location.assign(created.verificationUrl);
+        return;
       }
+      setCreatedAccount({ userId, account: created.account });
+      setShowVerification(false);
+      if (verificationId) {
+        const next = new URLSearchParams(search);
+        next.delete("wallet-verification");
+        setSearch(next, { replace: true });
+      }
+      toast.success(created.bonusAmount > 0
+        ? `${formatWalletBonus(created.bonusAmount)} added to your wallet`
+        : "Bank account created.");
+      void queryClient.invalidateQueries({ queryKey: walletBankBonusOfferKey });
+      await Promise.allSettled([refreshCurrentUser(), refreshContributionData(true)]);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Couldn’t set up your bank account.");
     } finally {
       setWorking(false);
     }
@@ -72,11 +96,22 @@ export default function ReservedAccount() {
             <div className="grid h-11 w-11 place-items-center rounded-xl bg-accent text-primary"><Building2 size={20} aria-hidden="true" /></div>
             <h2 className="text-lg font-semibold">{account ? "Account number pending" : "Set up bank transfers"}</h2>
             <p className="text-sm text-muted-foreground">{account ? "Refresh to check whether your account number is ready." : "Create a dedicated bank account to receive transfers into your wallet."}</p>
-            <Button className="h-11 w-full" onClick={account ? refresh : () => setShowVerification(true)} disabled={working}>{account ? "Refresh account" : "Set up bank account"}</Button>
+            {offer && <WalletBankBonusNotice offer={offer} />}
+            {verificationId && (
+              <Button className="h-11 w-full" onClick={() => void create({ verificationId })} disabled={working}>
+                {working ? "Checking verification…" : "Finish bank setup"}
+              </Button>
+            )}
+            <Button variant={verificationId ? "outline" : "default"} className="h-11 w-full" onClick={account ? refresh : () => setShowVerification(true)} disabled={working}>
+              {account ? "Refresh account" : verificationId ? "Restart verification" : "Set up bank account"}
+            </Button>
           </>
         )}
       </Card>
-      <BvnInputDialog open={showVerification} onOpenChange={setShowVerification} onSubmit={create} isLoading={working} initialBvn={user?.bvn} accountFor="wallet" />
+      <BvnInputDialog open={showVerification} onOpenChange={setShowVerification}
+        onSubmit={(bvn) => void create({ bvn, claimBonus: false })}
+        onBonusVerification={offer ? (bvn) => void create({ bvn, claimBonus: true }) : undefined}
+        isLoading={working} initialBvn={user?.bvn} accountFor="wallet" />
     </>
   );
 }

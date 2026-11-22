@@ -2,6 +2,8 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 import { logSecurityEvent, validateEmail } from '@/lib/security';
+import { passwordIssue } from '@/lib/passwordPolicy';
+import { normalizeSignupPhone, SIGNUP_PHONE_ERROR } from '@/lib/signupPhone';
 
 interface AuthContextType {
   user: User | null;
@@ -103,9 +105,10 @@ export function SecureAuthProvider({ children }: { children: ReactNode }) {
         throw new Error('Invalid email format');
       }
 
-      if (password.length < 8) {
-        throw new Error('Password must be at least 8 characters');
-      }
+      const issue = passwordIssue(password);
+      if (issue) throw new Error(issue);
+      const phone = normalizeSignupPhone(userData.phone);
+      if (!phone) throw new Error(SIGNUP_PHONE_ERROR);
 
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -113,7 +116,7 @@ export function SecureAuthProvider({ children }: { children: ReactNode }) {
         options: {
           data: {
             name: userData.name,
-            phone: userData.phone,
+            phone,
           }
         }
       });

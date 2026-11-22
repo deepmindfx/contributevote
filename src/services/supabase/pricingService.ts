@@ -4,6 +4,11 @@ export type PlatformPricing = {
   daily_free_transfers: number;
   friday_free: boolean;
   group_withdrawal_percent: number;
+  bank_transfer_fees_enabled: boolean;
+  bank_transfer_small_fee: number;
+  bank_transfer_large_fee: number;
+  bank_transfer_threshold: number;
+  group_withdrawal_fees_enabled: boolean;
   updated_at: string;
 };
 
@@ -15,6 +20,7 @@ export type TransferAllowance = {
   small_fee: number;
   large_fee: number;
   threshold: number;
+  fees_enabled?: boolean;
 };
 
 export type PricingReport = {
@@ -27,7 +33,7 @@ export const naira = new Intl.NumberFormat("en-NG", {
 });
 
 export function pricedTransferFee(amount: number, policy: TransferAllowance) {
-  return policy.free_today || policy.daily_remaining > 0 ? 0 : amount > policy.threshold ? policy.large_fee : policy.small_fee;
+  return policy.fees_enabled === false || policy.free_today || policy.daily_remaining > 0 ? 0 : amount > policy.threshold ? policy.large_fee : policy.small_fee;
 }
 
 export function withdrawalFee(amount: number, rate: number) {
@@ -53,9 +59,18 @@ export async function getPricingReport(): Promise<PricingReport> {
   return data as PricingReport;
 }
 
-export async function savePlatformPricing(dailyFree: number, fridayFree: boolean, withdrawalPercent: number) {
-  const { error } = await supabase.rpc("admin_update_platform_pricing", {
-    p_daily_free: dailyFree, p_friday_free: fridayFree, p_withdrawal_percent: withdrawalPercent,
-  });
+export async function savePlatformPricing(settings: Omit<PlatformPricing, "updated_at">) {
+  const { error } = await supabase.rpc("admin_save_transfer_pricing", { p_settings: settings });
+  if (error) throw new Error(error.message);
+}
+
+export async function getGroupWithdrawalPolicy(groupId: string) {
+  const { data, error } = await supabase.rpc("get_group_withdrawal_policy", { p_group_id: groupId });
+  if (error || !data) throw new Error(error?.message || "Group pricing is unavailable.");
+  return data as { percent: number; override: boolean | null };
+}
+
+export async function setGroupWithdrawalOverride(groupId: string, enabled: boolean | null) {
+  const { error } = await supabase.rpc("admin_set_group_withdrawal_fee", { p_group_id: groupId, p_enabled: enabled });
   if (error) throw new Error(error.message);
 }

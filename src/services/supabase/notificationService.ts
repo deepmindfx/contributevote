@@ -13,6 +13,11 @@ export function notificationAllowed(type: string, preferences: unknown) {
   return prefs[key] !== false && prefs[key] !== "false";
 }
 
+export function paymentVibrationEnabled(preferences: unknown) {
+  const value = (preferences as { paymentVibration?: unknown } | null)?.paymentVibration;
+  return value !== false && value !== "false";
+}
+
 export interface NotificationRecord {
   id: string;
   user_id: string;

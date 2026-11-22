@@ -192,7 +192,7 @@ export async function processInstantWithdrawal(
   expectedFee: number
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const { error } = await (supabase as any).rpc('process_priced_instant_withdrawal', {
+    const { data, error } = await (supabase as any).rpc('process_priced_instant_withdrawal', {
       p_group_id: groupId,
       p_amount: amount,
       p_purpose: purpose,
@@ -202,7 +202,7 @@ export async function processInstantWithdrawal(
 
     if (error) throw error;
 
-    return { success: true };
+    return data?.success === false ? { success: false, error: data.error } : { success: true };
   } catch (error) {
     console.error('Error processing instant withdrawal:', error);
     return {

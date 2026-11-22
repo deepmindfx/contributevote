@@ -54,7 +54,7 @@ https://sivvjwffekhfabgxhbcd.supabase.co/functions/v1/webhook-contribution
 | `flutterwave-invoice` | `true` | Creates Flutterwave Standard payment link |
 | `flutterwave-transactions` | `true` | Queries virtual account transactions |
 | `flutterwave-verify-transaction` | `true` | Server-side verification of payment callbacks (idempotent with webhook) |
-| `deliver-web-push` | `true` | Sends queued device notifications using the service role and Web Push VAPID keys |
+| `deliver-web-push` | `false` | Sends queued device notifications after verifying its dedicated Vault token |
 
 ### Activity, payment status, and Web Push rollout
 
@@ -62,8 +62,21 @@ Apply migrations `20261122040000_activity_and_push.sql` and `20261122040100_paym
 
 - A VAPID key pair in the Edge secrets `WEB_PUSH_PUBLIC_KEY` and `WEB_PUSH_PRIVATE_KEY`, plus `WEB_PUSH_SUBJECT` as a contact URL or `mailto:` address.
 - The same public key as `VITE_WEB_PUSH_PUBLIC_KEY` in the frontend build. Keep the private key in Supabase only.
-- `pg_cron`, `pg_net`, Supabase Vault, and the `collectipay_cron_bearer` Vault entry containing the service-role JWT. The migration schedules `deliver-collectipay-web-push` every minute when those extensions are available.
-- HTTPS on the app domain and individual device permission in Settings → Preferences. On iOS, add CollectiPay to the Home Screen before enabling device alerts.
+- `pg_cron`, `pg_net`, and Supabase Vault. Use the push worker setup below for its dedicated token and schedule.
+- HTTPS on the app domain and individual device permission in Settings → Preferences. On iOS, add CollectiPay to the Home Screen before enabling device alerts. Wallet and group payment alerts are independent of the account-wide Payment vibration preference.
+
+### Personal bank account bonus, transfer authorization and password requirements
+
+1. Apply `20261122130000_wallet_bank_setup_bonus.sql` and `20261122140000_wallet_transfer_security.sql` in order. Coordinate deployment of `flutterwave-virtual-account`, `flutterwave-transfer`, and the frontend in the same release because the migration replaces the transfer authorization RPC and moves PINs out of profile preferences.
+2. The ₦500 offer is paused by default. Obtain Flutterwave merchant approval for BVN consent. Verify the consent return using a test account, including the BVN and confirmed email match. Set `COLLECTIPAY_SITE_URL` in the Edge secrets if the return URL differs from the production site. Once approved and verified, set `verification_ready` on the singleton `wallet_bank_bonus_settings` row using the privileged database connection. Use Super Admin → Pricing & Revenue to open the offer. The database enforces the total cap and retains past claims if it is reopened.
+3. In hosted Supabase Auth, set the minimum password length to 10 and allow any character combination. Enable leaked-password protection on supported plans for Auth API enforcement. The app already blocks common sequences, repeated values and familiar passwords before submission. Verify one random numeric password is accepted and a short or commonly used password is rejected.
+
+### Fee controls, refunds, phone signup and incoming payment alerts
+
+- Before applying `20261122153000_push_delivery_repair.sql` to the hosted project, create the Vault entry `collectipay_push_worker_base_url` with the project's HTTPS API origin and no trailing slash. The migration generates a separate worker token, updates the schedule, and protects the token in Vault. Deploy `deliver-web-push` with JWT gateway verification disabled. Its POST authorizes the Vault token and its GET exposes only the public VAPID key. Confirm the scheduler gets HTTP 200 and send a test alert from an opted-in device.
+- Apply the numbered migrations in order. Deploy `flutterwave-transfer`, `flutterwave-virtual-account`, `flutterwave-verify-transaction`, `process-scheduled-contributions`, and `webhook-contribution` alongside the frontend. Continue deploying `webhook-contribution` with `--no-verify-jwt`; it validates the Flutterwave signature. Scheduled reconciliation requires its existing service-role bearer. Dispatched transfers without a matching provider record remain reserved for review.
+- Enable the hosted Supabase **Before User Created** Auth hook `public.require_signup_phone` alongside the frontend. Existing users sign in normally. New account signup stores a normalized phone number and continues to use email confirmation.
+- Existing unverified refund votes are closed during migration and remain visible in history. The owner can open a new secure vote. An approved refund returns the available amount proportionally to registered contributors, including nonvoters. Link unassigned outside payments to registered wallets before settlement.
 
 ## 5. Hosting Configuration (Vercel & Netlify)
 - **Vercel** (`vercel.json`): Includes SPA fallback rewrites (`/(.*) -> /index.html`) plus CSP, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, and `Permissions-Policy`.

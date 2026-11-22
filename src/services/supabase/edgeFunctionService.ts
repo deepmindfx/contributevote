@@ -36,16 +36,25 @@ export class EdgeFunctionService {
 
   // Create virtual account
   static async createVirtualAccount(userData: {
-    email: string
-    tx_ref: string
-    bvn: string
-    narration: string
+    bvn?: string
+    purpose?: 'wallet'
+    claimBonus?: boolean
+    verificationId?: string
+    email?: string
+    tx_ref?: string
+    narration?: string
   }) {
     const { data, error } = await supabase.functions.invoke('flutterwave-virtual-account', {
       body: userData
     })
     
-    if (error) throw error
+    if (error) {
+      if (error.context instanceof Response) {
+        const details = await error.context.json().catch(() => null)
+        if (details?.error) return details
+      }
+      throw error
+    }
     return data
   }
 

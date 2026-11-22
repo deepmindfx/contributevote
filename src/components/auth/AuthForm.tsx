@@ -5,6 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
+import { meetsPasswordRequirements, PASSWORD_MIN_LENGTH, passwordIssue } from "@/lib/passwordPolicy";
+import { PasswordRequirements } from "@/components/auth/PasswordRequirements";
+import { normalizeSignupPhone, SIGNUP_PHONE_ERROR } from "@/lib/signupPhone";
 
 type AuthMode = "signin" | "signup";
 
@@ -25,7 +28,7 @@ function PasswordField({ id, value, onChange, creating = false }: {
           type={visible ? "text" : "password"}
           autoComplete={creating ? "new-password" : "current-password"}
           required
-          minLength={creating ? 8 : undefined}
+          minLength={creating ? PASSWORD_MIN_LENGTH : undefined}
           value={value}
           onChange={(event) => onChange(event.target.value)}
           className="auth-input h-12 pr-12"
@@ -35,7 +38,7 @@ function PasswordField({ id, value, onChange, creating = false }: {
           {visible ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
         </Button>
       </div>
-      {creating && <p id={id + "-hint"} className="text-sm text-muted-foreground">Use at least 8 characters.</p>}
+      {creating && <PasswordRequirements id={id + "-hint"} password={value} />}
     </div>
   );
 }
@@ -51,6 +54,11 @@ export default function AuthForm({ mode, onModeChange }: { mode: AuthMode; onMod
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending) return;
+    const issue = mode === "signup" ? passwordIssue(registration.password) : undefined;
+    if (issue) {
+      setErrorMessage(issue);
+      return;
+    }
     setPending(true);
     setErrorMessage("");
 
@@ -61,7 +69,9 @@ export default function AuthForm({ mode, onModeChange }: { mode: AuthMode; onMod
           setErrorMessage("Enter your full name.");
           return;
         }
-        const { error } = await signUp(registration.email, registration.password, { name, phone: registration.phone.trim() });
+        const phone = normalizeSignupPhone(registration.phone);
+        if (!phone) { setErrorMessage(SIGNUP_PHONE_ERROR); return; }
+        const { error } = await signUp(registration.email, registration.password, { name, phone });
         if (error) setErrorMessage(error.message || "Registration failed.");
         else setRegistrationEmail(registration.email.trim());
       } else {
@@ -115,12 +125,13 @@ export default function AuthForm({ mode, onModeChange }: { mode: AuthMode; onMod
                 <Input id="signup-email" name="email" type="email" autoComplete="email" required value={registration.email} onChange={(event) => setRegistration({ ...registration, email: event.target.value })} className="auth-input h-12" />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="signup-phone">Phone number <span className="font-normal text-muted-foreground">(optional)</span></Label>
-                <Input id="signup-phone" name="phone" type="tel" autoComplete="tel" value={registration.phone} onChange={(event) => setRegistration({ ...registration, phone: event.target.value })} className="auth-input h-12" />
+                <Label htmlFor="signup-phone">Phone number</Label>
+                <Input id="signup-phone" name="phone" type="tel" autoComplete="tel" required maxLength={28} value={registration.phone}
+                  onChange={(event) => setRegistration({ ...registration, phone: event.target.value })} className="auth-input h-12" />
               </div>
               <PasswordField id="signup-password" value={registration.password} onChange={(password) => setRegistration({ ...registration, password })} creating />
               {errorMessage && <p className="text-sm text-destructive" role="alert">{errorMessage}</p>}
-              <Button className="auth-submit h-12 w-full" type="submit" disabled={pending}>{pending ? "Creating account…" : "Create account"}<ArrowRight size={17} aria-hidden="true" /></Button>
+              <Button className="auth-submit h-12 w-full" type="submit" disabled={pending || !meetsPasswordRequirements(registration.password)}>{pending ? "Creating account…" : "Create account"}<ArrowRight size={17} aria-hidden="true" /></Button>
             </form>
           )}
         </TabsContent>
