@@ -12,16 +12,13 @@ import BrandLoader from "@/components/ui/BrandLoader";
 import CollectiPayReceipt from "@/components/receipt/CollectiPayReceipt";
 import { TransactionPinDialog } from "@/components/security/TransactionPinDialog";
 import { WalletFlow } from "@/components/wallet/WalletFlow";
-import { TransferAllowanceNotice } from "@/components/wallet/TransferAllowanceNotice";
-import { useTransferAllowance } from "@/hooks/useTransferAllowance";
-import { pricedTransferFee } from "@/services/supabase/pricingService";
 import { cn } from "@/lib/utils";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 import { ApiService } from "@/services/supabase/apiService";
 
 type Bank = { code: string; name: string };
-type Transfer = { bank: Bank; account: string; recipient: string; amount: number; fee: number; note: string };
+type Transfer = { bank: Bank; account: string; recipient: string; amount: number; note: string };
 type TransferReceipt = {
   id?: number | string;
   reference?: string;
@@ -35,6 +32,7 @@ type TransferReceipt = {
   narration?: string;
 };
 
+const feeFor = (amount: number) => amount > 5000 ? 26.5 : 10.75;
 const ngn = new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", currencyDisplay: "narrowSymbol" });
 const money = (amount: number) => ngn.format(amount);
 
@@ -226,7 +224,6 @@ function BankPicker({ bank, onSelect }: { bank: Bank | null; onSelect: (bank: Ba
 
 export default function TransferForm() {
   const { user, refreshCurrentUser } = useSupabaseUser();
-  const { allowance, loadError: allowanceError, reload: reloadAllowance } = useTransferAllowance(user?.id);
   const { refreshContributionData } = useSupabaseContribution();
   const navigate = useNavigate();
   const [bank, setBank] = useState<Bank | null>(null);
@@ -252,8 +249,7 @@ export default function TransferForm() {
   const userPin = preferences?.transactionPin;
   const numericAmount = Number(amount);
   const amountValid = /^\d+(?:\.\d{1,2})?$/.test(amount) && numericAmount >= 100 && numericAmount <= 500000;
-  const feeQuote = allowance && amountValid ? pricedTransferFee(numericAmount, allowance) : undefined;
-  const total = Math.round((numericAmount + (feeQuote ?? 0)) * 100) / 100;
+  const total = Math.round((numericAmount + feeFor(numericAmount)) * 100) / 100;
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -285,16 +281,12 @@ export default function TransferForm() {
       setError("Enter an amount between ₦100 and ₦500,000 using up to two decimal places.");
       return;
     }
-    if (feeQuote === undefined) {
-      setError("Transfer pricing is unavailable. Refresh it before sending.");
-      return;
-    }
     if (total > balance) {
       setError(`Your balance needs to cover ${money(total)}, including the fee.`);
       return;
     }
     setError("");
-    setReview({ bank, account, recipient: verified.name, amount: numericAmount, fee: feeQuote, note: note.trim() });
+    setReview({ bank, account, recipient: verified.name, amount: numericAmount, note: note.trim() });
   };
 
   const backToDetails = () => {
@@ -305,7 +297,7 @@ export default function TransferForm() {
 
   const executeTransfer = async (verifiedPin: string) => {
     if (!review || sendInFlight.current) return;
-    if (Math.round((review.amount + review.fee) * 100) / 100 > balance) {
+    if (Math.round((review.amount + feeFor(review.amount)) * 100) / 100 > balance) {
       setError("Your wallet balance changed. Go back to review the amount.");
       return;
     }
@@ -332,21 +324,13 @@ export default function TransferForm() {
         currency: "NGN",
         narration: review.note || undefined,
         transactionPin: verifiedPin,
-        expectedFee: review.fee,
       });
       if (result.status !== "success" || !result.data) throw new Error(result?.message || "Transfer couldn’t be confirmed.");
       setReceipt(result.data);
-      reloadAllowance();
       void Promise.allSettled([refreshCurrentUser(), refreshContributionData(true)]);
     } catch (err) {
       if (submitted) void Promise.allSettled([refreshCurrentUser(), refreshContributionData(true)]);
       const serverMsg = err instanceof Error && err.message ? err.message : "";
-      if (serverMsg.startsWith("The transfer fee changed")) {
-        backToDetails();
-        reloadAllowance();
-        setError(serverMsg);
-        return;
-      }
       setError(
         submitted
           ? serverMsg && !serverMsg.includes("Edge Function returned a non-2xx")
@@ -388,7 +372,7 @@ export default function TransferForm() {
           <summary className="app-disclosure font-semibold">View receipt</summary>
           <CollectiPayReceipt data={{
             kind: "transfer", title: "Bank transfer", status, amount: Number(receipt.amount ?? review.amount),
-            fee: Number(receipt.fee ?? review.fee), date: receipt.created_at || new Date().toISOString(),
+            fee: Number(receipt.fee ?? feeFor(review.amount)), date: receipt.created_at || new Date().toISOString(),
             reference: receipt.reference, transactionId: receipt.id ? String(receipt.id) : undefined,
             narration: receipt.narration || review.note, paymentMethod: "CollectiPay wallet",
             sender: { label: "From", name: user?.name || "CollectiPay wallet" },
@@ -406,9 +390,9 @@ export default function TransferForm() {
   }
 
   if (review) {
-    const fee = review.fee;
+    const fee = feeFor(review.amount);
     return (
-      <WalletFlow title="Review transfer" onBack={backToDetails} backDisabled={sending}>
+      <WalletFlow title="Review transfer" onBack={sending ? undefined : backToDetails}>
         {sending && <BrandLoader variant="overlay" message={`Sending ${money(review.amount)}`} submessage="Waiting for confirmation from the bank." />}
         <Card className="space-y-4 rounded-2xl p-4 sm:p-6">
           <div className="rounded-2xl bg-accent/50 p-3">
@@ -418,7 +402,7 @@ export default function TransferForm() {
           </div>
           <dl className="wallet-value-rows text-sm">
             <div><dt>Amount</dt><dd>{money(review.amount)}</dd></div>
-            <div><dt>Transfer fee</dt><dd>{fee === 0 ? "Free" : money(fee)}</dd></div>
+            <div><dt>Transfer fee</dt><dd>{money(fee)}</dd></div>
             {review.note && <div><dt>Note</dt><dd>{review.note}</dd></div>}
             <div><dt className="font-semibold">Total from wallet</dt><dd>{money(review.amount + fee)}</dd></div>
           </dl>
@@ -443,8 +427,6 @@ export default function TransferForm() {
                 <div className="flex justify-center">
                   <InputOTP
                     maxLength={4}
-                    aria-label="Transaction PIN"
-                    autoComplete="off"
                     value={pin}
                     disabled={sending}
                     inputMode="numeric"
@@ -515,13 +497,6 @@ export default function TransferForm() {
     <WalletFlow title="Send money" description={<>Available balance <strong className="ml-1 font-semibold text-white">{money(balance)}</strong></>}>
       <Card className="rounded-2xl p-4 sm:p-6">
         <form onSubmit={continueToReview} className="space-y-4" noValidate>
-          {allowance && <TransferAllowanceNotice allowance={allowance} />}
-          {allowanceError && (
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3 text-sm">
-              <p role="alert">Transfer pricing couldn’t load.</p>
-              <Button type="button" variant="outline" onClick={reloadAllowance}>Retry</Button>
-            </div>
-          )}
           <div className="space-y-2">
             <h2 className="text-sm font-semibold">Recipient</h2>
             <BankPicker bank={bank} onSelect={(next) => { setBank(next); setError(""); if (bank?.code !== next.code) setVerification(undefined); }} />
@@ -543,16 +518,14 @@ export default function TransferForm() {
               <Input id="transfer-amount" type="number" inputMode="decimal" min="100" max="500000" step="0.01" placeholder="0.00" value={amount}
                 className="min-w-0 border-0 bg-transparent px-1 text-2xl font-semibold tabular-nums md:text-2xl" onChange={(event) => { setAmount(event.target.value); setError(""); }} />
             </div>
-            <p className="text-xs text-muted-foreground">
-              {feeQuote === undefined ? "₦100 minimum · ₦500,000 maximum" : `${feeQuote === 0 ? "Free transfer" : money(feeQuote) + " transfer fee"} · ${money(total)} total`}
-            </p>
+            <p className="text-xs text-muted-foreground">{amountValid ? `${money(feeFor(numericAmount))} transfer fee · ${money(total)} total` : "₦100 minimum · ₦500,000 maximum"}</p>
           </div>
           <details className="rounded-xl border px-3">
             <summary className="app-disclosure font-medium">Add a note <span className="text-xs text-muted-foreground">Optional</span></summary>
             <div className="pb-3"><Input aria-label="Transfer note" value={note} maxLength={100} onChange={(event) => setNote(event.target.value)} /></div>
           </details>
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-          <Button type="submit" className="h-12 w-full gap-2" disabled={!allowance || Boolean(key && !verified)}>Review transfer <ArrowRight size={16} aria-hidden="true" /></Button>
+          <Button type="submit" className="h-12 w-full gap-2" disabled={Boolean(key && !verified)}>Review transfer <ArrowRight size={16} aria-hidden="true" /></Button>
         </form>
       </Card>
     </WalletFlow>
