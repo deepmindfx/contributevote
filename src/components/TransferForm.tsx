@@ -373,6 +373,7 @@ export default function TransferForm() {
     return JSON.stringify({
       saved: prefs.savedBeneficiaries ?? null,
       hidden: prefs.hiddenBeneficiaries ?? null,
+      hiddenAt: prefs.hiddenBeneficiaryTimestamps ?? null,
     });
   }, [user?.preferences]);
 
@@ -414,6 +415,15 @@ export default function TransferForm() {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [stage]);
+
+  // Upgrade raw bank code labels once the Nigerian bank directory resolves
+  useEffect(() => {
+    if (!bank || !bankDirectory.data?.length || bank.name !== bank.code) return;
+    const match = bankDirectory.data.find((b) => b.code.toLowerCase() === bank.code.toLowerCase());
+    if (match && match.name !== bank.name) {
+      setBank(match);
+    }
+  }, [bank, bankDirectory.data]);
 
   // Auto-resolve account name whenever bank + 10-digit account changes (skips if already verified for this key!)
   useEffect(() => {
@@ -1062,13 +1072,24 @@ export default function TransferForm() {
                 </form>
               ) : (
                 <div className="space-y-2.5">
-                  <Button
-                    type="button"
-                    className="h-12 w-full rounded-xl font-bold"
-                    onClick={() => setSetupPinOpen(true)}
-                  >
-                    Create 4-digit PIN &amp; Pay {money(reviewTotal)}
-                  </Button>
+                  <div className="grid grid-cols-[auto_1fr] gap-2.5">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={sending}
+                      onClick={backToAmount}
+                      className="h-12 rounded-xl px-4 font-semibold"
+                    >
+                      Recheck
+                    </Button>
+                    <Button
+                      type="button"
+                      className="h-12 w-full rounded-xl font-bold"
+                      onClick={() => setSetupPinOpen(true)}
+                    >
+                      Set PIN &amp; Pay {money(reviewTotal)}
+                    </Button>
+                  </div>
                   <Button
                     type="button"
                     variant="ghost"
@@ -1195,17 +1216,20 @@ export default function TransferForm() {
                 </span>
                 <Input
                   id="transfer-amount"
-                  type="number"
+                  type="text"
                   inputMode="decimal"
-                  min="100"
-                  max="500000"
-                  step="0.01"
+                  autoComplete="off"
                   placeholder="100.00 – 500,000.00"
                   value={amount}
-                  autoFocus
                   className="h-auto min-w-0 border-0 bg-transparent px-1 py-0 text-3xl font-extrabold tracking-tight tabular-nums shadow-none focus-visible:ring-0 md:text-3xl"
                   onChange={(event) => {
-                    setAmount(event.target.value);
+                    const stripped = event.target.value.replace(/,/g, "").replace(/[^0-9.]/g, "");
+                    const [whole, ...decimals] = stripped.split(".");
+                    const sanitized =
+                      decimals.length > 0
+                        ? `${whole}.${decimals.join("").slice(0, 2)}`
+                        : whole;
+                    setAmount(sanitized);
                     setError("");
                   }}
                 />

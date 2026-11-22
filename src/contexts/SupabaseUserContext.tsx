@@ -581,7 +581,7 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    const hadBrokenSession = sessionUnavailable || !navigator.onLine;
+    const hadBrokenSession = sessionUnavailable || (!user && loading) || !navigator.onLine;
     // Immediately clear React auth state and cancel any stuck restore tasks so UI responds instantly.
     sessionRevision.current++;
     window.clearTimeout(profileTask.current);

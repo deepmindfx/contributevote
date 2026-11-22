@@ -116,11 +116,14 @@
 }
 
 .auth-panel-stage {
+  margin-inline: -4px;
+  margin-bottom: -6px;
   overflow: hidden;
   transition: height 320ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .auth-panel-content {
+  padding: 2px 4px 6px;
   will-change: transform, opacity;
 }
 

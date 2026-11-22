@@ -125,7 +125,11 @@ function isLikelyOwnAccount(accountName: string, userName?: string | null): bool
 
 export function readSavedBeneficiaries(
   preferences: unknown
-): { saved: SavedBeneficiaryPreference[]; hiddenKeys: Set<string> } {
+): {
+  saved: SavedBeneficiaryPreference[];
+  hiddenKeys: Set<string>;
+  hiddenAtByKey: Record<string, string>;
+} {
   const prefs = (preferences && typeof preferences === "object" ? preferences : {}) as Record<
     string,
     unknown
@@ -155,7 +159,17 @@ export function readSavedBeneficiaries(
   const hiddenKeys = new Set<string>(
     rawHidden.filter((value): value is string => typeof value === "string" && value.length > 0)
   );
-  return { saved, hiddenKeys };
+  const rawHiddenAt =
+    prefs.hiddenBeneficiaryTimestamps && typeof prefs.hiddenBeneficiaryTimestamps === "object"
+      ? (prefs.hiddenBeneficiaryTimestamps as Record<string, unknown>)
+      : {};
+  const hiddenAtByKey: Record<string, string> = {};
+  for (const [k, v] of Object.entries(rawHiddenAt)) {
+    if (typeof v === "string" && v.length > 0) {
+      hiddenAtByKey[k] = v;
+    }
+  }
+  return { saved, hiddenKeys, hiddenAtByKey };
 }
 
 export async function fetchTransferBeneficiaries(
@@ -164,7 +178,7 @@ export async function fetchTransferBeneficiaries(
   preferences: unknown,
   userName?: string | null
 ): Promise<TransferBeneficiary[]> {
-  const { saved, hiddenKeys } = readSavedBeneficiaries(preferences);
+  const { saved, hiddenKeys, hiddenAtByKey } = readSavedBeneficiaries(preferences);
   const savedByKey = new Map(saved.map((item) => [item.key, item]));
   const bankNameByCode = new Map((banks || []).map((b) => [b.code.toLowerCase(), b.name]));
   const bankCodeByName = new Map((banks || []).map((b) => [b.name.toLowerCase(), b.code]));
@@ -205,8 +219,14 @@ export async function fetchTransferBeneficiaries(
     const accountName = recipient.name || "Bank Recipient";
     const key = beneficiaryKey(resolvedBankCode, accountNumber);
     const pref = savedByKey.get(key);
+    const rowTime = Date.parse(row.created_at || "");
+    const hiddenAt = hiddenAtByKey[key] ? Date.parse(hiddenAtByKey[key]) : NaN;
+    const isHidden =
+      hiddenKeys.has(key) &&
+      !pref?.favorite &&
+      (Number.isNaN(hiddenAt) || Number.isNaN(rowTime) || rowTime <= hiddenAt);
 
-    if (hiddenKeys.has(key) && !pref?.favorite) continue;
+    if (isHidden) continue;
 
     const existing = merged.get(key);
     if (existing) {
@@ -269,20 +289,24 @@ export function buildUpdatedBeneficiaryPreferences(
     currentPreferences && typeof currentPreferences === "object"
       ? ({ ...(currentPreferences as Record<string, unknown>) } as Record<string, unknown>)
       : {};
-  const { saved, hiddenKeys } = readSavedBeneficiaries(base);
+  const { saved, hiddenKeys, hiddenAtByKey } = readSavedBeneficiaries(base);
 
   if (action.type === "hide") {
     hiddenKeys.add(action.key);
+    const nextHiddenAt = { ...hiddenAtByKey, [action.key]: new Date().toISOString() };
     const nextSaved = saved.filter((entry) => entry.key !== action.key);
     return {
       ...base,
       savedBeneficiaries: nextSaved,
       hiddenBeneficiaries: Array.from(hiddenKeys).slice(-100),
+      hiddenBeneficiaryTimestamps: nextHiddenAt,
     };
   }
 
   const nextKey = beneficiaryKey(action.item.bankCode, action.item.accountNumber);
   hiddenKeys.delete(nextKey);
+  const nextHiddenAt = { ...hiddenAtByKey };
+  delete nextHiddenAt[nextKey];
   const nextSaved = saved.filter((entry) => entry.key !== nextKey);
   if (action.item.favorite || action.item.nickname) {
     nextSaved.unshift({
@@ -296,5 +320,6 @@ export function buildUpdatedBeneficiaryPreferences(
     ...base,
     savedBeneficiaries: nextSaved.slice(0, 60),
     hiddenBeneficiaries: Array.from(hiddenKeys).slice(-100),
+    hiddenBeneficiaryTimestamps: nextHiddenAt,
   };
 }

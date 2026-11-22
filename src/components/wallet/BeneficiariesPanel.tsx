@@ -100,7 +100,7 @@ export function BeneficiariesPanel({
     () => filterList(inlineBase, searchQuery),
     [inlineBase, searchQuery]
   );
-  const visiblePreview = inlineSearchOpen ? inlineFiltered.slice(0, 8) : inlineFiltered.slice(0, 4);
+  const visiblePreview = inlineSearchOpen ? inlineFiltered.slice(0, 8) : inlineFiltered.slice(0, 3);
 
   const sheetBase = sheetTab === "favorites" ? favorites : beneficiaries;
   const sheetFiltered = useMemo(
@@ -109,6 +109,8 @@ export function BeneficiariesPanel({
   );
 
   const openNicknameEditor = (item: TransferBeneficiary) => {
+    // Close the full beneficiaries sheet before opening the nickname dialog so two Radix modals never stack
+    setAllOpen(false);
     setEditing(item);
     setNicknameDraft(item.nickname || "");
   };
@@ -363,7 +365,14 @@ export function BeneficiariesPanel({
 
       {/* Full Beneficiaries Sheet Dialog */}
       <Dialog open={allOpen} onOpenChange={setAllOpen}>
-        <DialogContent className="flex max-h-[86dvh] w-[calc(100%-1.5rem)] max-w-md flex-col gap-3 overflow-hidden rounded-2xl p-4 sm:p-5">
+        <DialogContent
+          onOpenAutoFocus={(event) => {
+            if (typeof window !== "undefined" && window.innerWidth < 640) {
+              event.preventDefault();
+            }
+          }}
+          className="inset-x-0 bottom-auto top-0 flex max-h-[82dvh] w-full flex-col gap-3 overflow-hidden rounded-b-3xl rounded-t-none p-4 pt-[max(1rem,env(safe-area-inset-top))] sm:inset-x-auto sm:left-1/2 sm:top-1/2 sm:max-h-[86dvh] sm:w-[calc(100%-1.5rem)] sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:p-5"
+        >
           <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <Users size={18} className="text-primary" aria-hidden="true" />

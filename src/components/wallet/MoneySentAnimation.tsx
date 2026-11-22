@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Building2, Check, Clock3, ShieldAlert, Sparkles, Users, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 import "./money-sent.css";
@@ -20,6 +20,14 @@ const ngn = new Intl.NumberFormat("en-NG", {
 
 const SPARK_ANGLES = [0, 36, 72, 108, 144, 180, 216, 252, 288, 324];
 
+function pointOnFlightArc(t: number) {
+  // Quadratic Bezier: P0=(14, 54), P1=(110, -8), P2=(206, 54)
+  const u = 1 - t;
+  const x = u * u * 14 + 2 * u * t * 110 + t * t * 206;
+  const y = u * u * 54 + 2 * u * t * -8 + t * t * 54;
+  return { x, y };
+}
+
 export function MoneySentAnimation({
   status,
   amount,
@@ -28,9 +36,16 @@ export function MoneySentAnimation({
   variant = "transfer",
   compact = false,
 }: MoneySentAnimationProps) {
+  const gradientId = useId();
   const [displayAmount, setDisplayAmount] = useState(0);
+  const [shuttle, setShuttle] = useState<{ x: number; y: number; opacity: number; scale: number }>({
+    x: 14,
+    y: 54,
+    opacity: 0,
+    scale: 0.6,
+  });
 
-  // Tactile mobile haptic pulse + smooth rolling number reveal when money is sent
+  // Tactile mobile haptic pulse + rolling amount + precision Bezier coin flight (starts at exact t=0 on mount!)
   useEffect(() => {
     const safeAmount = Number.isFinite(amount) && amount > 0 ? amount : 0;
 
@@ -49,25 +64,62 @@ export function MoneySentAnimation({
     const reducedMotion =
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reducedMotion || status === "failed" || safeAmount === 0) {
+    if (reducedMotion || status === "failed") {
       setDisplayAmount(safeAmount);
+      setShuttle({ x: 14, y: 54, opacity: 0, scale: 0.6 });
       return;
     }
 
     let rafId = 0;
-    const duration = 640;
+    const amountDuration = 640;
+    const flightDelay = status === "processing" ? 0 : 90;
+    const flightDuration = status === "processing" ? 1800 : 720;
     const startedAt = performance.now();
+
     const tick = (now: number) => {
-      const progress = Math.min(1, (now - startedAt) / duration);
-      // Cubic ease-out for crisp landing on exact amount
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setDisplayAmount(safeAmount * eased);
-      if (progress < 1) {
+      const elapsed = now - startedAt;
+
+      // 1. Rolling amount reveal
+      if (safeAmount > 0) {
+        const amountProgress = Math.min(1, elapsed / amountDuration);
+        const easedAmount = 1 - Math.pow(1 - amountProgress, 3);
+        setDisplayAmount(amountProgress < 1 ? safeAmount * easedAmount : safeAmount);
+      } else {
+        setDisplayAmount(0);
+      }
+
+      // 2. Flying Naira coin along quadratic Bezier arc
+      if (elapsed < flightDelay) {
+        setShuttle({ x: 14, y: 54, opacity: 0, scale: 0.6 });
+      } else {
+        const rawT = (elapsed - flightDelay) / flightDuration;
+        const t = status === "processing" ? rawT % 1 : Math.min(1, rawT);
+        // Smooth ease-out for sent, symmetric ease-in-out for processing loop
+        const easedT =
+          status === "processing"
+            ? t < 0.5
+              ? 2 * t * t
+              : 1 - Math.pow(-2 * t + 2, 2) / 2
+            : 1 - Math.pow(1 - t, 3);
+        const { x, y } = pointOnFlightArc(easedT);
+        const fadeIn = Math.min(1, t / 0.14);
+        const fadeOut = Math.min(1, (1 - t) / 0.18);
+        const opacity = Math.max(0, Math.min(fadeIn, fadeOut));
+        const scale = 0.68 + 0.36 * Math.sin(Math.PI * t);
+        setShuttle({ x, y, opacity, scale });
+      }
+
+      const keepRunning =
+        status === "processing" ||
+        elapsed < Math.max(amountDuration, flightDelay + flightDuration);
+      if (keepRunning) {
         rafId = requestAnimationFrame(tick);
       } else {
         setDisplayAmount(safeAmount);
+        setShuttle((prev) => ({ ...prev, opacity: 0 }));
       }
     };
+
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
   }, [amount, status]);
@@ -130,7 +182,7 @@ export function MoneySentAnimation({
           xmlns="http://www.w3.org/2000/svg"
         >
           <defs>
-            <linearGradient id="cp-flight-grad" x1="0" y1="0" x2="220" y2="0" gradientUnits="userSpaceOnUse">
+            <linearGradient id={gradientId} x1="0" y1="0" x2="220" y2="0" gradientUnits="userSpaceOnUse">
               <stop offset="0%" stopColor="#34d399" stopOpacity="0.35" />
               <stop offset="55%" stopColor="#dbf5b4" stopOpacity="0.98" />
               <stop offset="100%" stopColor="#6ee7b7" stopOpacity="1" />
@@ -150,24 +202,18 @@ export function MoneySentAnimation({
             <path
               className="cp-flight-arc"
               d="M 14 54 Q 110 -8 206 54"
-              stroke="url(#cp-flight-grad)"
+              stroke={`url(#${gradientId})`}
               strokeWidth="3.2"
               strokeLinecap="round"
             />
           )}
-          {/* Flying Naira coin shuttle along the exact SVG Bezier trajectory (cross-browser native SVG motion) */}
-          {status !== "failed" && (
-            <g className="cp-flight-shuttle">
-              <animateMotion
-                dur={status === "processing" ? "1.8s" : "0.72s"}
-                begin={status === "processing" ? "0s" : "0.09s"}
-                repeatCount={status === "processing" ? "indefinite" : "1"}
-                fill="freeze"
-                calcMode="spline"
-                keyTimes="0;1"
-                keySplines={status === "processing" ? "0.45 0 0.55 1" : "0.22 1 0.36 1"}
-                path="M 14 54 Q 110 -8 206 54"
-              />
+          {/* Flying Naira coin shuttle driven at exact mount t=0 along the SVG Bezier trajectory */}
+          {status !== "failed" && shuttle.opacity > 0.01 && (
+            <g
+              className="cp-flight-shuttle"
+              opacity={shuttle.opacity}
+              transform={`translate(${shuttle.x.toFixed(2)} ${shuttle.y.toFixed(2)}) scale(${shuttle.scale.toFixed(3)})`}
+            >
               <circle r="11" fill="#dbf5b4" />
               <circle r="15" fill="#dbf5b4" fillOpacity="0.22" />
               <text

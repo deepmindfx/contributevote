@@ -46,12 +46,17 @@ export default function Faq() {
     });
   }, [activeCategory, searchQuery]);
 
+  const autoExpandSearch = searchQuery.trim().length >= 2 && filteredItems.length <= 3;
+
+  const isItemOpen = (id: string) =>
+    id in openIds ? Boolean(openIds[id]) : autoExpandSearch;
+
   const toggleItem = (id: string) => {
-    setOpenIds((prev) => ({ ...prev, [id]: !prev[id] }));
+    setOpenIds((prev) => ({ ...prev, [id]: !(id in prev ? prev[id] : autoExpandSearch) }));
   };
 
   const allVisibleOpen =
-    filteredItems.length > 0 && filteredItems.every((item) => Boolean(openIds[item.id]));
+    filteredItems.length > 0 && filteredItems.every((item) => isItemOpen(item.id));
 
   const toggleExpandAll = () => {
     const nextState = !allVisibleOpen;
@@ -88,7 +93,9 @@ export default function Faq() {
       <main
         className={cn(
           "mx-auto max-w-4xl px-4 pb-16 sm:px-6",
-          isAuthenticated ? "app-page app-panel-page" : "pt-6 sm:pt-10"
+          isAuthenticated
+            ? "app-page app-panel-page"
+            : "app-panel-page !pt-0 sm:!pt-8"
         )}
       >
         <section className="app-panel-hero" aria-labelledby="faq-page-title">
@@ -220,7 +227,7 @@ export default function Faq() {
           ) : (
             <div className="space-y-2.5">
               {filteredItems.map((item) => {
-                const isOpen = Boolean(openIds[item.id]);
+                const isOpen = isItemOpen(item.id);
                 return (
                   <article
                     key={item.id}
