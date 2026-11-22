@@ -102,7 +102,7 @@ Deno.serve(async (req: Request) => {
 
     const { response } = await flutterwaveFetch(
       '/payments',
-      { method: 'POST', body: flutterwavePayload },
+      { method: 'POST', signal: AbortSignal.timeout(20_000), body: flutterwavePayload },
       config
     );
 
@@ -126,7 +126,7 @@ Deno.serve(async (req: Request) => {
         amount: Number(body.amount),
         currencyCode: body.currencyCode || 'NGN',
         invoiceStatus: 'PENDING',
-        customerEmail: body.customerEmail,
+        customerEmail: user.email,
         customerName: body.customerName,
         expiryDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         redirectUrl: body.redirectUrl,

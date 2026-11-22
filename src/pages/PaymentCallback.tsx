@@ -31,8 +31,15 @@ const PaymentCallback = () => {
       }
 
       try {
-        const storedRaw = tx_ref ? localStorage.getItem(`flw_transaction_${tx_ref}`) : null;
-        const storedDetails = storedRaw ? JSON.parse(storedRaw) : null;
+        let storedDetails: { contribution_id?: string; anonymous?: boolean } | null = null;
+        if (tx_ref) {
+          try {
+            const storedRaw = localStorage.getItem(`flw_transaction_${tx_ref}`);
+            storedDetails = storedRaw ? JSON.parse(storedRaw) : null;
+          } catch {
+            storedDetails = null;
+          }
+        }
         targetGroupId = storedDetails?.contribution_id || null;
 
         const result = await EdgeFunctionService.verifyTransaction({

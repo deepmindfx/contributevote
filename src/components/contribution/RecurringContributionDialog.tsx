@@ -24,10 +24,15 @@ export function RecurringContributionDialog({ groupId, groupName, onSuccess }: R
   const [isProcessing, setIsProcessing] = useState(false);
   const { user } = useSupabaseUser();
 
+  const todayLocalIso = (() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  })();
+
   const handleCreate = async () => {
     const contributionAmount = parseFloat(amount);
 
-    if (!contributionAmount || contributionAmount <= 0) {
+    if (!Number.isFinite(contributionAmount) || contributionAmount <= 0) {
       toast.error('Please enter a valid amount');
       return;
     }
@@ -42,6 +47,16 @@ export function RecurringContributionDialog({ groupId, groupName, onSuccess }: R
       return;
     }
 
+    let parsedEndDate: Date | undefined;
+    if (endDate) {
+      parsedEndDate = new Date(`${endDate}T23:59:59`);
+      const firstRun = WalletContributionService.calculateNextContributionDate(frequency, new Date());
+      if (!Number.isFinite(parsedEndDate.getTime()) || parsedEndDate <= firstRun) {
+        toast.error(`End date must be after the first scheduled run (${firstRun.toLocaleDateString()})`);
+        return;
+      }
+    }
+
     setIsProcessing(true);
 
     try {
@@ -51,7 +66,7 @@ export function RecurringContributionDialog({ groupId, groupName, onSuccess }: R
         contributionAmount,
         frequency,
         new Date(),
-        endDate ? new Date(endDate) : undefined
+        parsedEndDate
       );
 
       if (result) {
@@ -147,7 +162,7 @@ export function RecurringContributionDialog({ groupId, groupName, onSuccess }: R
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              min={new Date().toISOString().split('T')[0]}
+              min={todayLocalIso}
               disabled={isProcessing}
             />
             <p className="text-xs text-muted-foreground">

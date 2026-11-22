@@ -71,68 +71,74 @@ export function RefundRequestsCard({
       toast.error('Please login to vote');
       return;
     }
+    if (votingOn) return;
 
-    // Optimistic UI update
+    const previousRequests = requests;
     setVotingOn(requestId);
-    
-    // Update the local state immediately
+
+    // Optimistic UI update (safe against null votes and duplicate votes)
     setRequests((prevRequests) =>
       prevRequests.map((req) => {
-        if (req.id === requestId) {
-          const newVotes = [
-            ...req.votes,
-            { user_id: user.id, vote, voted_at: new Date().toISOString() }
-          ];
-          const votesFor = newVotes.filter((v: any) => v.vote === 'for').length;
-          const votesAgainst = newVotes.filter((v: any) => v.vote === 'against').length;
-          
-          return {
-            ...req,
-            votes: newVotes,
-            total_votes_for: votesFor,
-            total_votes_against: votesAgainst,
-          };
-        }
-        return req;
+        if (req.id !== requestId) return req;
+        const existingVotes = Array.isArray(req.votes) ? req.votes : [];
+        const newVotes = [
+          ...existingVotes.filter((v: any) => v.user_id !== user.id),
+          { user_id: user.id, vote, voted_at: new Date().toISOString() },
+        ];
+        const votesFor = newVotes.filter((v: any) => v.vote === 'for').length;
+        const votesAgainst = newVotes.filter((v: any) => v.vote === 'against').length;
+
+        return {
+          ...req,
+          votes: newVotes,
+          total_votes_for: votesFor,
+          total_votes_against: votesAgainst,
+        };
       })
     );
 
-    // Submit the vote to the backend
-    await WalletContributionService.voteOnRefund(requestId, user.id, vote);
-    await loadRequests();
-    
-    setVotingOn(null);
+    try {
+      const ok = await WalletContributionService.voteOnRefund(requestId, user.id, vote);
+      if (!ok) {
+        setRequests(previousRequests);
+      } else {
+        await loadRequests();
+      }
+    } catch {
+      setRequests(previousRequests);
+    } finally {
+      setVotingOn(null);
+    }
   };
 
   const hasUserVoted = (request: GroupRefundRequest) => {
-    if (!user) return false;
+    if (!user || !Array.isArray(request.votes)) return false;
     return request.votes.some((v: any) => v.user_id === user.id);
   };
 
   const getUserVote = (request: GroupRefundRequest) => {
-    if (!user) return null;
+    if (!user || !Array.isArray(request.votes)) return null;
     const vote = request.votes.find((v: any) => v.user_id === user.id);
     return vote?.vote;
   };
 
   const getVotePercentage = (request: GroupRefundRequest) => {
     if (!request.total_eligible_voters || request.total_eligible_voters === 0) return 0;
-    if (!request.votes || request.votes.length === 0) return 0;
-    return (request.total_votes_for / request.votes.length) * 100;
+    if (!Array.isArray(request.votes) || request.votes.length === 0) return 0;
+    return Math.min(100, (request.total_votes_for / request.votes.length) * 100);
   };
 
   const getParticipationPercentage = (request: GroupRefundRequest) => {
     if (!request.total_eligible_voters || request.total_eligible_voters === 0) return 0;
-    if (!request.votes) return 0;
-    return (request.votes.length / request.total_eligible_voters) * 100;
+    if (!Array.isArray(request.votes)) return 0;
+    return Math.min(100, (request.votes.length / request.total_eligible_voters) * 100);
   };
 
   const getDaysRemaining = (deadline: string) => {
-    const now = new Date();
-    const end = new Date(deadline);
-    const diff = end.getTime() - now.getTime();
-    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-    return days;
+    const end = Date.parse(deadline);
+    if (!Number.isFinite(end)) return 0;
+    const diff = end - Date.now();
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
   };
 
   const getStatusBadge = (status: string) => {
@@ -351,7 +357,11 @@ export function RefundRequestsCard({
                     </div>
                     <div className="flex items-center gap-1 text-muted-foreground ml-auto">
                       <Clock className="h-4 w-4" />
-                      <span>{daysRemaining} days left</span>
+                      <span>
+                        {daysRemaining > 0
+                          ? `${daysRemaining} ${daysRemaining === 1 ? 'day' : 'days'} left`
+                          : 'Voting window ended'}
+                      </span>
                     </div>
                   </div>
 
@@ -407,16 +417,7 @@ export function RefundRequestsCard({
                 </>
               )}
 
-              {/* Approved/Executed Status */}
-              {request.status === 'approved' && (
-                <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900 dark:bg-emerald-950/40">
-                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                  <p className="text-sm text-emerald-900 dark:text-emerald-200">
-                    Refund approved. Processing refunds to all contributors…
-                  </p>
-                </div>
-              )}
-
+              {/* Executed / Rejected Status */}
               {request.status === 'executed' && request.execution_details && (
                 <div className="flex items-center gap-2 rounded-xl border border-primary/25 bg-accent/60 p-3">
                   <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />

@@ -88,6 +88,7 @@ export function SupabaseContributionProvider({ children }: { children: ReactNode
     if (previousUser.current && previousUser.current !== userId) {
       queryClient.removeQueries({ queryKey: ["workspace", previousUser.current] });
       queryClient.removeQueries({ queryKey: ["transfer-allowance", previousUser.current] });
+      queryClient.removeQueries({ queryKey: ["transfer-beneficiaries", previousUser.current] });
     }
     previousUser.current = userId;
   }, [userId, queryClient]);

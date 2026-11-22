@@ -75,23 +75,36 @@ serve(async (req) => {
               throw new Error(contributeResult?.error || 'Wallet contribution failed');
             }
 
+            // Advance nextDate strictly into the future so a previously missed window
+            // never triggers a rapid catch-up burst of back-to-back charges.
             const nextDate = new Date(recurring.next_contribution_date);
-            switch (recurring.frequency) {
-              case 'daily':
-                nextDate.setDate(nextDate.getDate() + 1);
-                break;
-              case 'weekly':
-                nextDate.setDate(nextDate.getDate() + 7);
-                break;
-              case 'monthly':
-                nextDate.setMonth(nextDate.getMonth() + 1);
-                break;
-            }
+            const nowMs = Date.now();
+            let guard = 0;
+            do {
+              switch (recurring.frequency) {
+                case 'daily':
+                  nextDate.setDate(nextDate.getDate() + 1);
+                  break;
+                case 'weekly':
+                  nextDate.setDate(nextDate.getDate() + 7);
+                  break;
+                case 'monthly':
+                  nextDate.setMonth(nextDate.getMonth() + 1);
+                  break;
+                default:
+                  nextDate.setMonth(nextDate.getMonth() + 1);
+                  break;
+              }
+              guard++;
+            } while (nextDate.getTime() <= nowMs && guard < 400);
+
+            const reachedEnd = Boolean(recurring.end_date && nextDate > new Date(recurring.end_date));
 
             await supabaseClient
               .from('recurring_contributions')
               .update({
                 next_contribution_date: nextDate.toISOString(),
+                is_active: !reachedEnd,
                 total_contributions: Number(recurring.total_contributions || 0) + 1,
                 total_amount: Number(recurring.total_amount || 0) + Number(recurring.amount || 0),
                 last_contribution_at: now,

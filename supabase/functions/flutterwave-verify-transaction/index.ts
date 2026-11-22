@@ -67,7 +67,7 @@ Deno.serve(async (req: Request) => {
     // Verify transaction server-side with Flutterwave
     const { response: verifyRes } = await flutterwaveFetch(
       `/transactions/${encodeURIComponent(String(transaction_id))}/verify`,
-      { method: 'GET' },
+      { method: 'GET', signal: AbortSignal.timeout(20_000) },
       config
     );
 

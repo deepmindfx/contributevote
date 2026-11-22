@@ -122,7 +122,12 @@ const VotesPage = () => {
     () =>
       voteRequests
         .filter((r) => r.status === "pending")
-        .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime()),
+        .sort((a, b) => {
+          const aTime = Date.parse(a.deadline || "");
+          const bTime = Date.parse(b.deadline || "");
+          return (Number.isFinite(aTime) ? aTime : Number.MAX_SAFE_INTEGER) -
+            (Number.isFinite(bTime) ? bTime : Number.MAX_SAFE_INTEGER);
+        }),
     [voteRequests]
   );
 
@@ -135,17 +140,18 @@ const VotesPage = () => {
     () =>
       voteRequests
         .filter((r) => ["approved", "rejected", "expired", "executed"].includes(r.status))
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+        .sort((a, b) => (Date.parse(b.createdAt || "") || 0) - (Date.parse(a.createdAt || "") || 0)),
     [voteRequests]
   );
 
+  const totalHistoryPages = Math.max(1, Math.ceil(historyVotes.length / ITEMS_PER_PAGE));
+  const safeHistoryPage = Math.min(historyPage, totalHistoryPages);
+
   const displayedRequests = useMemo(() => {
     if (activeTab === "active") return activeVotes;
-    const start = (historyPage - 1) * ITEMS_PER_PAGE;
+    const start = (safeHistoryPage - 1) * ITEMS_PER_PAGE;
     return historyVotes.slice(start, start + ITEMS_PER_PAGE);
-  }, [activeTab, activeVotes, historyVotes, historyPage]);
-
-  const totalHistoryPages = Math.ceil(historyVotes.length / ITEMS_PER_PAGE);
+  }, [activeTab, activeVotes, historyVotes, safeHistoryPage]);
 
   const handleVote = async (requestId: string, voteValue: "approve" | "reject") => {
     if (!user) {
@@ -168,6 +174,8 @@ const VotesPage = () => {
         const totalVotes = nextVotes.length;
         const approveVotes = nextVotes.filter((v: any) => v.vote === true).length;
         const rejectVotes = nextVotes.filter((v: any) => v.vote === false).length;
+        const participationRate =
+          req.eligibleVoters > 0 ? Math.min(100, (totalVotes / req.eligibleVoters) * 100) : 0;
         return {
           ...req,
           hasVoted: true,
@@ -179,6 +187,7 @@ const VotesPage = () => {
             rejectVotes,
             approvalRate: totalVotes > 0 ? (approveVotes / totalVotes) * 100 : 0,
             rejectionRate: totalVotes > 0 ? (rejectVotes / totalVotes) * 100 : 0,
+            participationRate,
           },
         };
       })
@@ -559,21 +568,21 @@ const VotesPage = () => {
                     variant="outline"
                     size="icon"
                     className="h-10 w-10 rounded-xl"
-                    onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
-                    disabled={historyPage === 1}
+                    onClick={() => setHistoryPage(Math.max(1, safeHistoryPage - 1))}
+                    disabled={safeHistoryPage === 1}
                     aria-label="Previous history page"
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
                   <span className="text-xs font-semibold text-muted-foreground tabular-nums">
-                    Page {historyPage} of {totalHistoryPages}
+                    Page {safeHistoryPage} of {totalHistoryPages}
                   </span>
                   <Button
                     variant="outline"
                     size="icon"
                     className="h-10 w-10 rounded-xl"
-                    onClick={() => setHistoryPage((p) => Math.min(totalHistoryPages, p + 1))}
-                    disabled={historyPage === totalHistoryPages}
+                    onClick={() => setHistoryPage(Math.min(totalHistoryPages, safeHistoryPage + 1))}
+                    disabled={safeHistoryPage === totalHistoryPages}
                     aria-label="Next history page"
                   >
                     <ChevronRight className="h-4 w-4" />

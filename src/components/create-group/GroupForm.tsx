@@ -67,8 +67,12 @@ export default function GroupForm() {
   const submitPending = useRef(false);
   const [formData, setFormData] = useState(readDraft);
   const [step, setStep] = useState<Step>(() => {
-    const savedStep = localStorage.getItem(STEP_STORAGE_KEY);
-    return (savedStep === "settings" || savedStep === "3") && !getDetailsError(formData) ? "settings" : "goal";
+    try {
+      const savedStep = localStorage.getItem(STEP_STORAGE_KEY);
+      return (savedStep === "settings" || savedStep === "3") && !getDetailsError(formData) ? "settings" : "goal";
+    } catch {
+      return "goal";
+    }
   });
   const [checkingFee, setCheckingFee] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -112,11 +116,19 @@ export default function GroupForm() {
       : null;
 
   useEffect(() => {
-    localStorage.setItem(FORM_STORAGE_KEY, JSON.stringify(formData));
+    try {
+      localStorage.setItem(FORM_STORAGE_KEY, JSON.stringify(formData));
+    } catch {
+      // Ignore storage quota or restricted-mode errors
+    }
   }, [formData]);
 
   useEffect(() => {
-    localStorage.setItem(STEP_STORAGE_KEY, step);
+    try {
+      localStorage.setItem(STEP_STORAGE_KEY, step);
+    } catch {
+      // Ignore storage quota or restricted-mode errors
+    }
   }, [step]);
 
   const update = <K extends keyof GroupDraft>(field: K, value: GroupDraft[K]) => {
@@ -168,6 +180,12 @@ export default function GroupForm() {
         uploadedCoverUrl = await uploadGroupCoverImage(user.id, coverFile);
       }
 
+      const toSafeIso = (raw: string, suffix: string) => {
+        if (!raw) return null;
+        const parsed = new Date(`${raw}${suffix}`);
+        return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : null;
+      };
+
       const result = await createGroupWithFee(user.id, {
         name: formData.name.trim(),
         description: formData.description.trim(),
@@ -177,8 +195,8 @@ export default function GroupForm() {
         privacy: formData.privacy,
         enable_voting_rights: formData.enableVotingRights,
         contribution_amount: Number(formData.contributionAmount) || null,
-        start_date: formData.startDate ? new Date(formData.startDate).toISOString() : null,
-        end_date: formData.endDate ? new Date(formData.endDate + "T23:59:59").toISOString() : null,
+        start_date: toSafeIso(formData.startDate, "T00:00:00"),
+        end_date: toSafeIso(formData.endDate, "T23:59:59"),
         voting_threshold: formData.votingThreshold,
         cover_image_url: uploadedCoverUrl,
       });
@@ -188,8 +206,12 @@ export default function GroupForm() {
         return;
       }
 
-      localStorage.removeItem(FORM_STORAGE_KEY);
-      localStorage.removeItem(STEP_STORAGE_KEY);
+      try {
+        localStorage.removeItem(FORM_STORAGE_KEY);
+        localStorage.removeItem(STEP_STORAGE_KEY);
+      } catch {
+        // Ignore storage errors
+      }
       committed = true;
       toast.success(result.message || "Group pool created.");
       void Promise.allSettled([refreshCurrentUser(), refreshContributionData(true)]);

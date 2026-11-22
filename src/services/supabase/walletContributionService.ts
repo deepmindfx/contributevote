@@ -83,12 +83,11 @@ export const WalletContributionService = {
       const result = data as unknown as WalletContributionResult;
 
       if (result.success) {
-        toast.success('Contribution successful!', {
-          description: `New balance: ₦${result.new_balance?.toLocaleString()}. You now have voting rights!`
+        const votingNote =
+          result.voting_rights_granted !== false ? ' Voting rights active!' : '';
+        toast.success('Contribution pooled successfully!', {
+          description: `New wallet balance: ₦${Number(result.new_balance ?? 0).toLocaleString()}.${votingNote}`
         });
-        
-        // The realtime subscription will handle the balance update automatically
-        // DO NOT fetch profile here as it might get stale/cached data
       } else {
         toast.error(result.error || 'Contribution failed');
       }
@@ -96,10 +95,11 @@ export const WalletContributionService = {
       return result;
     } catch (error) {
       console.error('Error contributing from wallet:', error);
-      toast.error('Failed to process contribution');
+      const message = error instanceof Error ? error.message : 'Failed to process contribution';
+      toast.error(message);
       return {
         success: false,
-        error: error.message
+        error: message
       };
     }
   },

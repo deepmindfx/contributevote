@@ -170,7 +170,7 @@ export function TransactionPinDialog({
                       key={idx}
                       index={idx}
                       className={cn(
-                        "h-13 w-13 rounded-xl border text-xl font-bold",
+                        "h-12 w-12 rounded-xl border text-xl font-bold sm:h-14 sm:w-14",
                         !showPin &&
                           pin[idx] &&
                           "text-transparent after:absolute after:h-3 after:w-3 after:rounded-full after:bg-foreground"

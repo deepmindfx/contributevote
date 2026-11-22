@@ -184,7 +184,6 @@ export function ContributeButton({
 
         setAmount('');
         void refreshCurrentUser();
-        toast.success('Contribution pooled successfully!');
         onSuccess?.();
       }
     } catch (error) {

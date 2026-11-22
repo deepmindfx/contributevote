@@ -30,6 +30,10 @@ export function GroupRefundDialog({ groupId, groupName, votingThreshold, onSucce
   const { user } = useSupabaseUser();
 
   const MIN_REASON_LENGTH = 20;
+  const resolvedThreshold =
+    votingThreshold && votingThreshold >= 50 && votingThreshold <= 100
+      ? Math.round(votingThreshold)
+      : 60;
 
   const handleCreateRequest = async () => {
     if (!reason.trim()) {
@@ -116,7 +120,7 @@ export function GroupRefundDialog({ groupId, groupName, votingThreshold, onSucce
           <Alert>
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
-              The vote needs 70% participation and {votingThreshold && votingThreshold >= 50 && votingThreshold <= 100 ? votingThreshold : 60}% approval. Every registered contributor with a remaining contribution gets a proportional share back in their wallet, including those who cannot vote.
+              The vote needs 70% participation and {resolvedThreshold}% approval. Every registered contributor with a remaining contribution gets a proportional share back in their wallet, including those who cannot vote.
             </AlertDescription>
           </Alert>
 
@@ -187,7 +191,7 @@ export function GroupRefundDialog({ groupId, groupName, votingThreshold, onSucce
             </h4>
             <div className="grid grid-cols-3 gap-2 mb-3">
               <div className="bg-white dark:bg-gray-900 p-2 rounded text-center">
-                <div className="text-lg font-bold text-blue-600">60%</div>
+                <div className="text-lg font-bold text-blue-600">{resolvedThreshold}%</div>
                 <div className="text-xs text-muted-foreground">Approval</div>
               </div>
               <div className="bg-white dark:bg-gray-900 p-2 rounded text-center">
@@ -210,7 +214,7 @@ export function GroupRefundDialog({ groupId, groupName, votingThreshold, onSucce
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-blue-600 font-bold">3.</span>
-                <span><strong>60% must approve</strong> (of those who voted)</span>
+                <span><strong>{resolvedThreshold}% must approve</strong> (of those who voted)</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-blue-600 font-bold">4.</span>

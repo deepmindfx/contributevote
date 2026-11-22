@@ -19,7 +19,7 @@ import {
   Users,
   Vote,
 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, isValid } from "date-fns";
 import { toast } from "sonner";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { Button } from "@/components/ui/button";
@@ -151,8 +151,16 @@ export function NotificationCenter() {
       navigate("/votes");
     } else if (type === "group_invitation" && relatedId) {
       const href = await InvitationService.getInvitationLinkById(relatedId);
-      if (href) navigate(new URL(href).pathname);
-      else toast.error("This invitation is unavailable. Open the link shared by the group creator.");
+      if (href) {
+        try {
+          const parsed = new URL(href, window.location.origin);
+          navigate(parsed.pathname + parsed.search);
+        } catch {
+          toast.error("This invitation link is invalid.");
+        }
+      } else {
+        toast.error("This invitation is unavailable. Open the link shared by the group creator.");
+      }
     } else if (relatedId) {
       navigate(`/groups/${relatedId}`);
     } else if (notificationCategory(type) === "wallet") {
@@ -454,13 +462,16 @@ export function NotificationCenter() {
                       {/* Footer row: timestamp + Read more + Manage buttons */}
                       <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
-                          {notification.created_at && (
-                            <span className="text-[11px] font-medium text-muted-foreground/80">
-                              {formatDistanceToNow(new Date(notification.created_at), {
-                                addSuffix: true,
-                              })}
-                            </span>
-                          )}
+                          {(() => {
+                            if (!notification.created_at) return null;
+                            const parsedDate = new Date(notification.created_at);
+                            if (!isValid(parsedDate)) return null;
+                            return (
+                              <span className="text-[11px] font-medium text-muted-foreground/80">
+                                {formatDistanceToNow(parsedDate, { addSuffix: true })}
+                              </span>
+                            );
+                          })()}
                           {isLong && (
                             <button
                               type="button"

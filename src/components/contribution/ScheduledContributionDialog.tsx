@@ -94,16 +94,26 @@ export function ScheduledContributionDialog({ groupId, groupName, onSuccess }: S
     }
   };
 
-  const getDaysUntil = () => {
+  const todayLocalIso = (() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  })();
+
+  const getSchedulePreview = () => {
     if (!scheduledDate) return null;
     const date = new Date(`${scheduledDate}T${get24HourTime()}`);
-    const now = new Date();
-    const diff = date.getTime() - now.getTime();
-    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-    return days;
+    if (!Number.isFinite(date.getTime())) return null;
+    const diffMs = date.getTime() - Date.now();
+    if (diffMs <= 0) return null;
+    const totalHours = Math.ceil(diffMs / (1000 * 60 * 60));
+    if (totalHours < 24) {
+      return totalHours <= 1 ? 'In under an hour' : `In ${totalHours} hours`;
+    }
+    const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    return `In ${days} ${days === 1 ? 'day' : 'days'}`;
   };
 
-  const daysUntil = getDaysUntil();
+  const relativeWindow = getSchedulePreview();
 
   return (
     <>
@@ -154,7 +164,7 @@ export function ScheduledContributionDialog({ groupId, groupName, onSuccess }: S
               type="date"
               value={scheduledDate}
               onChange={(e) => setScheduledDate(e.target.value)}
-              min={new Date().toISOString().split('T')[0]}
+              min={todayLocalIso}
               disabled={isProcessing}
             />
           </div>
@@ -226,7 +236,7 @@ export function ScheduledContributionDialog({ groupId, groupName, onSuccess }: S
           </div>
 
           {/* Preview */}
-          {amount && scheduledDate && daysUntil !== null && daysUntil > 0 && (
+          {amount && scheduledDate && relativeWindow && (
             <div className="rounded-xl border bg-accent/45 p-4">
               <h4 className="mb-2 flex items-center gap-2 text-sm font-semibold">
                 <Clock className="h-4 w-4 text-primary" />
@@ -252,7 +262,7 @@ export function ScheduledContributionDialog({ groupId, groupName, onSuccess }: S
                 </li>
                 <li className="flex items-center gap-2">
                   <Timer className="h-4 w-4 shrink-0 text-primary" />
-                  <span>In {daysUntil} {daysUntil === 1 ? 'day' : 'days'}</span>
+                  <span>{relativeWindow}</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Zap className="h-4 w-4 shrink-0 text-primary" />
@@ -266,7 +276,7 @@ export function ScheduledContributionDialog({ groupId, groupName, onSuccess }: S
           <div className="flex items-start gap-2.5 rounded-xl border border-amber-200/80 bg-amber-50/80 p-3 dark:border-amber-900/60 dark:bg-amber-950/30">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
             <p className="text-xs text-amber-900 dark:text-amber-200">
-              Ensure you have ₦{amount || '0'} in your wallet on the scheduled date.
+              Ensure you have ₦{Number.isFinite(parseFloat(amount)) ? parseFloat(amount).toLocaleString() : '0'} in your wallet on the scheduled date.
             </p>
           </div>
 
