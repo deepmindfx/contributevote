@@ -4,10 +4,36 @@ import type { User as AuthUser } from '@supabase/supabase-js';
 import { notificationAllowed, NotificationService, NotificationRecord, paymentVibrationEnabled } from '@/services/supabase/notificationService';
 import { disablePush } from '@/services/pwa';
 import { Database } from '@/integrations/supabase/types';
-import { supabase } from '@/integrations/supabase/client';
+import {
+  clearLocalSupabaseSession,
+  hasStoredSupabaseSession,
+  supabase,
+} from '@/integrations/supabase/client';
 import { passwordIssue } from '@/lib/passwordPolicy';
 import { normalizeSignupPhone, SIGNUP_PHONE_ERROR } from '@/lib/signupPhone';
 import { announceIncomingMoney } from '@/components/wallet/IncomingMoneyAlert';
+
+function isInvalidSessionError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const err = error as { status?: number; code?: string; message?: string };
+  if (err.status === 400 || err.status === 401 || err.status === 403) return true;
+  const code = String(err.code || '').toLowerCase();
+  if (['pgrst301', '42501', 'refresh_token_not_found', 'invalid_refresh_token', 'session_not_found', 'bad_jwt', 'invalid_grant'].includes(code)) {
+    return true;
+  }
+  const msg = String(err.message || '').toLowerCase();
+  return (
+    msg.includes('refresh token') ||
+    msg.includes('invalid_grant') ||
+    msg.includes('session_not_found') ||
+    msg.includes('session from session_id claim') ||
+    msg.includes('jwt expired') ||
+    msg.includes('invalid jwt') ||
+    msg.includes('bad_jwt') ||
+    msg.includes('user from sub claim') ||
+    msg.includes('not authenticated')
+  );
+}
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 
@@ -172,6 +198,19 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
         applyProfile(profile);
       } catch (error) {
         if (sessionRevision.current !== revision) return;
+        if (isInvalidSessionError(error)) {
+          console.warn('Clearing expired/invalid stored session:', error);
+          clearLocalSupabaseSession();
+          void supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
+          sessionOwner.current = null;
+          profileOwner.current = undefined;
+          pendingProfile.current = undefined;
+          setUser(null);
+          setUsers([]);
+          setNotifications([]);
+          setSessionUnavailable(false);
+          return;
+        }
         console.error('Could not restore the account profile:', error);
         setSessionUnavailable(true);
       } finally {
@@ -184,23 +223,45 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
   }, [applyProfile, loadSessionProfile]);
 
   const retrySession = useCallback(async () => {
-    if (profileTask.current !== undefined) return;
+    window.clearTimeout(profileTask.current);
+    profileTask.current = undefined;
+    pendingProfile.current = undefined;
     const revision = ++sessionRevision.current;
+    const hadStoredToken = hasStoredSupabaseSession();
     setLoading(true);
     setSessionUnavailable(false);
     const timeout = window.setTimeout(() => {
       if (sessionRevision.current !== revision) return;
       sessionRevision.current++;
+      // If there wasn't even a stored session token, treat timeout as cleanly signed out.
+      if (!hadStoredToken) {
+        syncSession(null);
+        return;
+      }
       setSessionUnavailable(true);
       setLoading(false);
-    }, 20_000);
+    }, 12_000);
     try {
       const { data, error } = await supabase.auth.getSession();
       if (sessionRevision.current !== revision) return;
-      if (error) throw error;
+      if (error) {
+        if (isInvalidSessionError(error)) {
+          console.warn('Clearing invalid Supabase session on restore:', error);
+          clearLocalSupabaseSession();
+          void supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
+          syncSession(null);
+          return;
+        }
+        throw error;
+      }
       syncSession(data.session?.user ?? null);
     } catch (error) {
       if (sessionRevision.current !== revision) return;
+      if (isInvalidSessionError(error) || !hadStoredToken) {
+        clearLocalSupabaseSession();
+        syncSession(null);
+        return;
+      }
       console.error('Could not restore the session:', error);
       setSessionUnavailable(true);
       setLoading(false);
@@ -377,6 +438,13 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
   // Proper Supabase Auth signIn
   const signIn = async (email: string, password: string) => {
     try {
+      // Cancel any stale/hung session restore so fresh sign-in takes clean ownership.
+      window.clearTimeout(profileTask.current);
+      profileTask.current = undefined;
+      pendingProfile.current = undefined;
+      sessionRevision.current++;
+      setSessionUnavailable(false);
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
@@ -388,8 +456,12 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
 
       let profile: Profile | null = null;
       if (data.user) {
+        sessionOwner.current = data.user.id;
         profile = await loadSessionProfile(data.user);
-        if (profile && sessionOwner.current === data.user.id) {
+        if (!profile) {
+          return { error: { message: 'Could not load your account profile. Please try again.' }, profile: null };
+        }
+        if (sessionOwner.current === data.user.id) {
           applyProfile(profile);
           setLoading(false);
         }
@@ -509,16 +581,48 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    await Promise.race([disablePush().catch(() => undefined), new Promise<void>((resolve) => window.setTimeout(resolve, 1500))]);
-    try {
-      await supabase.auth.signOut();
-    } catch (error) {
-      console.error('Error logging out:', error);
-    } finally {
-      syncSession(null);
-      currentRefresh.current = undefined;
-      localStorage.removeItem('currentUser');
+    const hadBrokenSession = sessionUnavailable || !navigator.onLine;
+    // Immediately clear React auth state and cancel any stuck restore tasks so UI responds instantly.
+    sessionRevision.current++;
+    window.clearTimeout(profileTask.current);
+    profileTask.current = undefined;
+    pendingProfile.current = undefined;
+    currentRefresh.current = undefined;
+    sessionOwner.current = null;
+    profileOwner.current = undefined;
+    setUser(null);
+    setUsers([]);
+    setNotifications([]);
+    setSessionUnavailable(false);
+    setLoading(false);
+
+    if (hadBrokenSession) {
+      // Wipe stale/corrupted tokens right away so even an immediate reload recovers cleanly.
+      clearLocalSupabaseSession();
+      void Promise.race([
+        supabase.auth.signOut({ scope: 'local' }).catch(() => undefined),
+        new Promise<void>((resolve) => window.setTimeout(resolve, 1000)),
+      ]);
+      return;
     }
+
+    // Best-effort remote push/session cleanup capped at 1.5s so sign-out can never hang.
+    await Promise.race([
+      Promise.allSettled([
+        disablePush().catch(() => undefined),
+        supabase.auth.signOut().catch((error) => {
+          console.error('Error logging out:', error);
+        }),
+      ]),
+      new Promise<void>((resolve) => window.setTimeout(resolve, 1500)),
+    ]);
+
+    // Guarantee dead/stale tokens are removed locally even if network or server sign-out timed out.
+    clearLocalSupabaseSession();
+    void Promise.race([
+      supabase.auth.signOut({ scope: 'local' }).catch(() => undefined),
+      new Promise<void>((resolve) => window.setTimeout(resolve, 1000)),
+    ]);
   };
 
   return (

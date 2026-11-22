@@ -142,13 +142,6 @@ const ProtectedRoute = ({ children }: { children: ReactNode }) => {
   return <>{children}</>;
 };
 
-function SignInRoute({ children }: { children: ReactNode }) {
-  const { loading, sessionUnavailable } = useSupabaseUser();
-  if (loading) return <RouteSkeleton />;
-  if (sessionUnavailable) return <SessionRecovery />;
-  return <>{children}</>;
-}
-
 const AppRoutes = () => {
   const { user, isAuthenticated, isAdmin } = useSupabaseUser();
   const darkMode = usesDarkMode(user?.preferences);
@@ -182,8 +175,8 @@ const AppRoutes = () => {
   const routes = (
     <Routes>
       <Route path="/" element={<screens.index />} />
-      <Route path="/auth" element={<SignInRoute><screens.auth /></SignInRoute>} />
-      <Route path="/admin-login" element={<SignInRoute><screens.adminAuth /></SignInRoute>} />
+      <Route path="/auth" element={<screens.auth />} />
+      <Route path="/admin-login" element={<screens.adminAuth />} />
       <Route path="/discover" element={<screens.discover />} />
       
       {/* Protected Routes */}
