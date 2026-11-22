@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +29,7 @@ const ContributePage = () => {
   const [contribution, setContribution] = useState<any>(null);
   const [fetching, setFetching] = useState(true);
   const [amount, setAmount] = useState<number>(0);
+  const initializedAmountForIdRef = useRef<string | null>(null);
   const [anonymousOverride, setIsAnonymous] = useState<boolean>();
   const isAnonymous = anonymousOverride ?? (user?.preferences as { anonymousContributions?: boolean } | null)?.anonymousContributions === true;
   const [pinDialogOpen, setPinDialogOpen] = useState(false);
@@ -45,8 +46,11 @@ const ContributePage = () => {
       const found = contributions.find((c) => c.id === id);
       if (found) {
         setContribution(found);
-        if (found.contribution_amount) {
-          setAmount(Number(found.contribution_amount));
+        if (initializedAmountForIdRef.current !== found.id) {
+          initializedAmountForIdRef.current = found.id;
+          if (found.contribution_amount) {
+            setAmount(Number(found.contribution_amount));
+          }
         }
         setFetching(false);
         return;
@@ -56,8 +60,11 @@ const ContributePage = () => {
         const fetched = await ContributionService.getContributionGroupById(id);
         if (fetched) {
           setContribution(fetched);
-          if (fetched.contribution_amount) {
-            setAmount(Number(fetched.contribution_amount));
+          if (initializedAmountForIdRef.current !== fetched.id) {
+            initializedAmountForIdRef.current = fetched.id;
+            if (fetched.contribution_amount) {
+              setAmount(Number(fetched.contribution_amount));
+            }
           }
         }
       } catch (error) {

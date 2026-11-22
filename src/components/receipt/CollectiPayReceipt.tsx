@@ -188,8 +188,17 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
   const statusMeta = normalizeStatus(data.status);
   const StatusIcon = statusMeta.icon;
   const totalAmount = data.amount + (data.fee || 0);
+  const isGroupPayoutCredit =
+    data.kind === "withdrawal" &&
+    (data.sender?.label?.toLowerCase().includes("pool") ||
+      data.recipient?.label?.toLowerCase().includes("wallet"));
+  const isCreditDisplay = data.kind === "deposit" || data.kind === "refund" || isGroupPayoutCredit;
   const isGroupReceipt = data.kind === "contribution" || data.kind === "refund" || Boolean(data.groupName);
-  const receiptBadgeLabel = isGroupReceipt ? "Group Receipt" : RECEIPT_BADGE_LABELS[data.kind] || "Payment Receipt";
+  const receiptBadgeLabel = isGroupPayoutCredit
+    ? "Group Payout"
+    : isGroupReceipt
+    ? "Group Receipt"
+    : RECEIPT_BADGE_LABELS[data.kind] || "Payment Receipt";
   const displayTitle = data.title || KIND_TITLES[data.kind];
   const filePrefix = `collectipay-${data.kind}-${(data.reference || data.transactionId || Date.now().toString()).slice(-10)}`;
 
@@ -221,7 +230,7 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
     }
     if (data.votingRightsGranted === true) rows.push({ label: "Voting rights", value: "Granted" });
     return renderReceiptImage({
-      title: displayTitle, amount: (data.kind === "deposit" || data.kind === "refund" ? "+" : "") + formatNaira(data.amount),
+      title: displayTitle, amount: (isCreditDisplay ? "+" : "") + formatNaira(data.amount),
       status: statusMeta.label, tone: statusMeta.tone, rows: [...rows, ...detailRows],
     });
   };
@@ -291,7 +300,7 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
     detailRows.push({ label: "Transfer Amount", value: formatNaira(data.amount) });
     detailRows.push({ label: "Transaction Fee", value: formatNaira(data.fee) });
     detailRows.push({
-      label: "Total Debited",
+      label: statusMeta.tone === "failed" ? "Amount Refunded" : "Total Debited",
       value: formatNaira(totalAmount),
       highlight: true,
     });
@@ -366,7 +375,7 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
               {displayTitle}
             </p>
             <p className="mt-0.5 break-words text-[clamp(1.7rem,8vw,2.35rem)] font-extrabold leading-[1.15] tracking-[-0.045em] text-white tabular-nums">
-              {data.kind === "deposit" || data.kind === "refund" ? "+" : ""}
+              {isCreditDisplay ? "+" : ""}
               {formatNaira(data.amount)}
             </p>
             {data.groupName && (

@@ -52,6 +52,7 @@ export class SupabaseApiService {
     amount: number;
     accountNumber: string;
     bankCode: string;
+    bankName?: string;
     beneficiaryName: string;
     currency: string;
     narration?: string;
@@ -63,6 +64,7 @@ export class SupabaseApiService {
       const { data, error } = await supabase.functions.invoke('flutterwave-transfer', {
         body: {
           account_bank: transferData.bankCode,
+          bank_name: transferData.bankName,
           account_number: transferData.accountNumber,
           amount: transferData.amount,
           currency: transferData.currency,

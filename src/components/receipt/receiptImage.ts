@@ -100,7 +100,21 @@ export async function renderReceiptImage(receipt: {
     : receipt.tone === "failed" ? ["#ffdbdb", "#701f27"] : ["#fff0bb", "#674603"];
   context.fillStyle = palette[0];
   context.beginPath();
-  context.roundRect(pillX, 18, pillWidth, 26, 13);
+  if (typeof context.roundRect === "function") {
+    context.roundRect(pillX, 18, pillWidth, 26, 13);
+  } else {
+    const r = 13;
+    context.moveTo(pillX + r, 18);
+    context.lineTo(pillX + pillWidth - r, 18);
+    context.quadraticCurveTo(pillX + pillWidth, 18, pillX + pillWidth, 18 + r);
+    context.lineTo(pillX + pillWidth, 44 - r);
+    context.quadraticCurveTo(pillX + pillWidth, 44, pillX + pillWidth - r, 44);
+    context.lineTo(pillX + r, 44);
+    context.quadraticCurveTo(pillX, 44, pillX, 44 - r);
+    context.lineTo(pillX, 18 + r);
+    context.quadraticCurveTo(pillX, 18, pillX + r, 18);
+    context.closePath();
+  }
   context.fill();
   drawText(receipt.status, pillX + 11, 32, 13, 700, palette[1]);
   titleLines.forEach((line, index) => drawText(line, inset, 71 + index * 19, 15, 650, "#c2e6d6"));

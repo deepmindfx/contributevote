@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { PasswordRequirements } from "@/components/auth/PasswordRequirements";
 import { meetsPasswordRequirements, PASSWORD_MIN_LENGTH, passwordIssue } from "@/lib/passwordPolicy";
 import { Input } from "@/components/ui/input";
@@ -51,9 +51,18 @@ const splitName = (fullName?: string | null) => {
   };
 };
 
+type SettingsTab = "profile" | "security" | "preferences";
+
+const resolveSettingsTab = (tab: string | null): SettingsTab =>
+  tab === "security" ? "security" : tab === "preferences" ? "preferences" : "profile";
+
 const UserSettingsForm = () => {
   const { user, updateProfile, refreshCurrentUser } = useSupabaseUser();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState<SettingsTab>(() => resolveSettingsTab(searchParams.get("tab")));
+  const dirtyRef = useRef(false);
+  const syncedUserIdRef = useRef<string | null>(user?.id ?? null);
 
   const existingPrefs = (user?.preferences || {}) as Record<string, any>;
   const initialSplit = splitName(user?.name);
@@ -93,7 +102,33 @@ const UserSettingsForm = () => {
   const [isVerifyingBvn, setIsVerifyingBvn] = useState(false);
 
   useEffect(() => {
+    const requestedTab = resolveSettingsTab(searchParams.get("tab"));
+    setActiveTab((current) => (current === requestedTab ? current : requestedTab));
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (location.hash !== "#device-notifications") return;
+    if (activeTab !== "preferences") {
+      setActiveTab("preferences");
+      return;
+    }
+    const frame = requestAnimationFrame(() => {
+      document.getElementById("device-notifications")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [location.hash, activeTab]);
+
+  useEffect(() => {
     if (!user) return;
+    const switchedUser = syncedUserIdRef.current !== user.id;
+    if (switchedUser) {
+      syncedUserIdRef.current = user.id;
+      dirtyRef.current = false;
+      setPreviewImage(null);
+    } else if (dirtyRef.current) {
+      // Preserve unsaved form edits when realtime updates refresh the profile row (e.g. incoming deposit).
+      return;
+    }
     const prefs = (user.preferences || {}) as Record<string, any>;
     const { firstName, lastName } = splitName(user.name);
     setUserData({
@@ -112,7 +147,7 @@ const UserSettingsForm = () => {
         paymentVibration: paymentVibrationEnabled(prefs),
       },
     });
-  }, [user?.id, user?.name, user?.email, user?.phone, JSON.stringify(user?.preferences)]);
+  }, [user?.id, user?.name, user?.email, user?.phone, user?.preferences]);
 
   if (!user) return null;
 
@@ -146,10 +181,12 @@ const UserSettingsForm = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
+    dirtyRef.current = true;
     setUserData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handlePreferenceChange = (preference: string, value: boolean) => {
+    dirtyRef.current = true;
     if (preference === "darkMode") {
       applyAppearance(value);
     }
@@ -172,6 +209,7 @@ const UserSettingsForm = () => {
     const reader = new FileReader();
     reader.onloadend = () => {
       const result = reader.result as string;
+      dirtyRef.current = true;
       setPreviewImage(result);
       setUserData((prev) => ({ ...prev, profileImage: result }));
     };
@@ -253,6 +291,8 @@ const UserSettingsForm = () => {
         preferences: mergedPreferences,
       });
 
+      dirtyRef.current = false;
+      setPreviewImage(null);
       toast.success("Settings saved");
     } catch (error: any) {
       console.error("Error updating profile:", error);
@@ -262,12 +302,14 @@ const UserSettingsForm = () => {
     }
   };
 
-  const defaultTab =
-    searchParams.get("tab") === "security"
-      ? "security"
-      : searchParams.get("tab") === "preferences"
-      ? "preferences"
-      : "profile";
+  const handleTabChange = (next: string) => {
+    const tab = resolveSettingsTab(next);
+    setActiveTab(tab);
+    const updated = new URLSearchParams(searchParams);
+    if (tab === "profile") updated.delete("tab");
+    else updated.set("tab", tab);
+    setSearchParams(updated, { replace: true });
+  };
 
   return (
     <>
@@ -286,7 +328,7 @@ const UserSettingsForm = () => {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <Tabs defaultValue={defaultTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList
             className="app-segmented mb-6 grid w-full grid-cols-3 bg-muted/60 p-1"
             aria-label="Settings sections"

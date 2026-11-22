@@ -37,10 +37,19 @@ self.addEventListener("notificationclick", (event) => {
   const requested = new URL(event.notification.data?.href || "/dashboard", self.location.origin);
   const destination = requested.origin === self.location.origin ? requested.href : self.location.origin + "/dashboard";
   event.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (windows) => {
-    for (const window of windows) {
-      if (new URL(window.url).origin !== self.location.origin) continue;
-      const focused = await window.navigate(destination);
-      if (focused) return focused.focus();
+    for (const client of windows) {
+      if (new URL(client.url).origin !== self.location.origin) continue;
+      try {
+        if (client.url === destination) {
+          return await client.focus();
+        }
+        if ("navigate" in client) {
+          const navigated = await client.navigate(destination);
+          if (navigated) return await navigated.focus();
+        }
+      } catch {
+        // Fall back to opening a new window if focusing or navigating this tab is blocked.
+      }
     }
     return self.clients.openWindow(destination);
   }));

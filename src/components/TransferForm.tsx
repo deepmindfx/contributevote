@@ -328,6 +328,7 @@ export default function TransferForm() {
       const result = await ApiService.processTransfer({
         accountNumber: review.account,
         bankCode: review.bank.code,
+        bankName: review.bank.name,
         beneficiaryName: recipient,
         amount: review.amount,
         currency: "NGN",

@@ -17,6 +17,7 @@ import {
   Receipt,
   ChevronRight,
   Sparkles,
+  X,
 } from "lucide-react";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
@@ -25,7 +26,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import CollectiPayReceipt, { type CollectiPayReceiptData, type ReceiptKind } from "@/components/receipt/CollectiPayReceipt";
 import { cn } from "@/lib/utils";
 import {
@@ -161,13 +162,32 @@ const ActivityHistory = () => {
         ? "contribution"
         : "transfer";
 
-    const isInbound = kind === "deposit" || kind === "refund";
+    const isGroupPayout =
+      rawType === "withdrawal" && Boolean(tx.contribution_id) && meta.gross_amount != null;
+    const isInbound = kind === "deposit" || kind === "refund" || isGroupPayout;
     const userPrefs = (user?.preferences || {}) as Record<string, any>;
     const depositSender = getDepositSender(meta);
     const transferRecipient = getTransferRecipient(meta);
     const failureReason = getFailureReason(meta, tx.status);
+    const parsedFee = meta.fee != null ? Number(meta.fee) : NaN;
 
-    const extraRows = failureReason
+    const extraRows = isGroupPayout
+      ? [
+          {
+            label: "Gross group withdrawal",
+            value: `₦${Number(meta.gross_amount).toLocaleString("en-NG", { maximumFractionDigits: 2 })}`,
+          },
+          {
+            label: "Platform fee",
+            value: `₦${(Number.isFinite(parsedFee) ? parsedFee : 0).toLocaleString("en-NG", { maximumFractionDigits: 2 })}`,
+          },
+          {
+            label: "Wallet credited",
+            value: `₦${Number(tx.amount || 0).toLocaleString("en-NG", { maximumFractionDigits: 2 })}`,
+            highlight: true,
+          },
+        ]
+      : failureReason
       ? [
           { label: "Failure Reason", value: failureReason },
           { label: "Wallet Refund", value: "Refunded automatically", highlight: true },
@@ -176,9 +196,9 @@ const ActivityHistory = () => {
 
     setSelectedReceipt({
       kind,
-      title: titleMap[rawType] || "Transaction Receipt",
+      title: isGroupPayout ? "Group Payout" : titleMap[rawType] || "Transaction Receipt",
       amount: Number(tx.amount || 0),
-      fee: meta.fee ? Number(meta.fee) : undefined,
+      fee: !isGroupPayout && Number.isFinite(parsedFee) ? parsedFee : undefined,
       status: tx.status || "completed",
       date: tx.created_at,
       reference: (meta.transactionReference as string) || tx.reference_id || tx.id,
@@ -208,7 +228,13 @@ const ActivityHistory = () => {
           ? Number(meta.balance_after)
           : undefined,
       votingRightsGranted: kind === "contribution",
-      sender: isInbound
+      sender: isGroupPayout
+        ? {
+            label: "From pool",
+            name: group?.name || "Group Pool",
+            subtitle: group?.account_number || "Group Contribution Vault",
+          }
+        : isInbound
         ? {
             label: "From",
             name:
@@ -227,7 +253,14 @@ const ActivityHistory = () => {
             bankName: userPrefs?.virtualAccount?.bankName,
           },
       recipient:
-        kind === "contribution" && group
+        isGroupPayout
+          ? {
+              label: "To wallet",
+              name: user?.name || user?.email || "Your Wallet",
+              subtitle: userPrefs?.virtualAccount?.accountNumber || "CollectiPay Wallet",
+              bankName: userPrefs?.virtualAccount?.bankName,
+            }
+          : kind === "contribution" && group
           ? {
               label: "To Pool",
               name: group.name,
@@ -356,8 +389,18 @@ const ActivityHistory = () => {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search by group, bank, recipient, or reference…"
                 aria-label="Search activity"
-                className="h-11 rounded-xl pl-10"
+                className="h-11 rounded-xl pl-10 pr-10"
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  aria-label="Clear search"
+                  className="absolute right-2.5 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <X className="h-4 w-4" aria-hidden="true" />
+                </button>
+              )}
             </div>
 
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ActivityFilter)}>
@@ -522,6 +565,7 @@ const ActivityHistory = () => {
         <DialogContent className="max-h-[92dvh] max-w-md overflow-y-auto border-none bg-transparent p-2 shadow-none sm:p-4">
           <DialogHeader className="sr-only">
             <DialogTitle>Transaction Receipt</DialogTitle>
+            <DialogDescription>Verified CollectiPay transaction receipt.</DialogDescription>
           </DialogHeader>
           {selectedReceipt && (
             <CollectiPayReceipt

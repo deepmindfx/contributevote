@@ -31,9 +31,18 @@ export async function reconcileBankTransfer(db: any, row: TransferRow, config: F
   );
   const state = String(match?.status || "").toUpperCase();
   const status = state === "SUCCESSFUL" ? "completed" : ["FAILED", "CANCELLED", "CANCELED"].includes(state) ? "failed" : "pending";
+  const bankName = typeof match?.bank_name === "string" && match.bank_name.trim()
+    ? match.bank_name.trim().slice(0, 120)
+    : undefined;
+  const completeMessage = typeof match?.complete_message === "string" && match.complete_message.trim()
+    ? match.complete_message.trim().slice(0, 240)
+    : undefined;
   const { data, error } = await db.rpc("service_settle_priced_transfer", {
     p_reference: reference, p_status: status, p_details: {
-      provider_checked: true, ...(match?.id ? { flutterwave_id: match.id } : {}),
+      provider_checked: true,
+      ...(match?.id ? { flutterwave_id: match.id } : {}),
+      ...(bankName ? { bank_name: bankName } : {}),
+      ...(completeMessage ? { complete_message: completeMessage } : {}),
     },
   });
   if (error) throw error;

@@ -232,6 +232,7 @@ export function ContributeButton({
             <>
               <DialogHeader className="sr-only">
                 <DialogTitle>Contribution Receipt</DialogTitle>
+                <DialogDescription>Verified CollectiPay group contribution receipt.</DialogDescription>
               </DialogHeader>
               <CollectiPayReceipt
                 data={receipt}

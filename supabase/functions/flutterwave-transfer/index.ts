@@ -12,6 +12,7 @@ const corsHeaders = {
 
 interface TransferRequest {
   account_bank: string;
+  bank_name?: string;
   account_number: string;
   amount: number;
   narration?: string;
@@ -74,7 +75,8 @@ Deno.serve(async (req: Request) => {
       throw new Error('Flutterwave secret key is not configured');
     }
 
-    const { account_bank, account_number, amount, narration, currency, beneficiary_name, transaction_pin } = body;
+    const { account_bank, bank_name, account_number, amount, narration, currency, beneficiary_name, transaction_pin } = body;
+    const cleanBankName = typeof bank_name === 'string' ? bank_name.trim().slice(0, 120) : '';
 
     if (typeof account_number !== 'string' || !/^\d{10}$/.test(account_number)
       || typeof account_bank !== 'string' || !/^[a-z0-9]{2,12}$/i.test(account_bank)
@@ -98,7 +100,14 @@ Deno.serve(async (req: Request) => {
     const reference = 'TRF_' + Array.from(new Uint8Array(digest, 0, 16), (byte) => byte.toString(16).padStart(2, '0')).join('');
     const { data: reserved, error: reserveError } = await supabaseAdmin.rpc('service_authorize_bank_transfer', {
       p_user_id: user.id, p_reference: reference, p_amount: numericAmount, p_expected_fee: body.expected_fee,
-      p_metadata: { account_number, account_bank, beneficiary_name, narration: narration || '', dispatch_guard: true },
+      p_metadata: {
+        account_number,
+        account_bank,
+        ...(cleanBankName ? { bank_name: cleanBankName } : {}),
+        beneficiary_name,
+        narration: narration || '',
+        dispatch_guard: true,
+      },
       p_pin: typeof transaction_pin === 'string' ? transaction_pin : null,
     });
     if (reserveError || !reserved?.success) throw new Error(reserveError?.message || reserved?.error || 'Could not reserve the transfer');
@@ -109,7 +118,7 @@ Deno.serve(async (req: Request) => {
         data: {
           id: remote.id, reference, amount: numericAmount, fee, fee_reason: reserved.fee_reason, status,
           created_at: reserved.created_at || new Date().toISOString(), full_name: beneficiary_name, account_number,
-          bank_name: remote.bank_name || reserved.bank_name || account_bank, narration,
+          bank_name: remote.bank_name || reserved.bank_name || cleanBankName || account_bank, narration,
         },
       }), { headers: { 'Content-Type': 'application/json', ...corsHeaders } });
 
@@ -160,8 +169,12 @@ Deno.serve(async (req: Request) => {
       await settle('pending', { flutterwave_id: transferData.data.id });
       return transferReceipt('pending');
     }
+    const completeMessage = typeof transferData.data.complete_message === 'string' && transferData.data.complete_message.trim()
+      ? transferData.data.complete_message.trim().slice(0, 240)
+      : undefined;
     const settledStatus = await settle(providerStatus === 'SUCCESSFUL' ? 'completed' : providerStatus === 'FAILED' ? 'failed' : 'pending', {
-      bank_name: transferData.data.bank_name || account_bank,
+      bank_name: transferData.data.bank_name || cleanBankName || account_bank,
+      ...(completeMessage ? { complete_message: completeMessage } : {}),
       flutterwave_id: transferData.data.id, flutterwave_reference: transferData.data.reference,
       routed_via_static_ip: routedViaStaticIp, static_ip: routedViaStaticIp ? config.staticIpAddress : null,
     });
