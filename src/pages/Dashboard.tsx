@@ -1,5 +1,5 @@
 import { Link, useSearchParams } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { ChevronRight, Plus, Snowflake } from "lucide-react";
 import Header from "@/components/layout/Header";
 import WalletCard from "@/components/dashboard/WalletCard";
 import GroupsList from "@/components/dashboard/GroupsList";
@@ -51,6 +51,11 @@ export default function Dashboard() {
               isDepositOpen={showAddMoney}
               setIsDepositOpen={(open) => setWalletMode(open ? "add" : null)}
             />
+            <Link to="/fixed-savings" className="mt-3 flex min-h-16 items-center gap-3 rounded-2xl border bg-card p-3 text-card-foreground transition-colors hover:bg-accent">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><Snowflake size={18} aria-hidden="true" /></span>
+              <span className="min-w-0 flex-1"><span className="block text-sm font-semibold">Ice Vault</span><span className="block text-xs text-muted-foreground">Lock money until a date you choose</span></span>
+              <ChevronRight size={17} aria-hidden="true" />
+            </Link>
           </section>
 
           <section className="min-w-0" aria-labelledby="groups-heading">

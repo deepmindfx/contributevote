@@ -1,0 +1,338 @@
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
+import { Link } from "react-router-dom";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowDownToLine, ArrowRight, Clock3, LockKeyhole, Snowflake } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { WalletFlow } from "@/components/wallet/WalletFlow";
+import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
+import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
+import { hasTransactionPin } from "@/lib/transactionPin";
+import {
+  getFixedSavings, openSavings, quoteSavings, savingsPeriods, withdrawSavings,
+  type SavingsCursor, type SavingsItem, type SavingsPeriod, type SavingsQuote,
+} from "@/services/supabase/fixedSavingsService";
+import { naira } from "@/services/supabase/pricingService";
+import "@/styles/fixed-savings.css";
+
+const day = 86_400_000;
+const ngDate = new Intl.DateTimeFormat("en-NG", {
+  day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit",
+  timeZone: "Africa/Lagos", timeZoneName: "short",
+});
+
+function timeRemaining(milliseconds: number) {
+  const total = Math.max(0, Math.ceil(milliseconds / 1000));
+  const hours = Math.floor(total / 3600);
+  if (hours >= 24) return Math.floor(hours / 24) + "d " + (hours % 24) + "h remaining";
+  return hours + "h " + Math.floor(total / 60) % 60 + "m " + total % 60 + "s remaining";
+}
+
+function SavingsIce({ progress = 0, thawed = false, hero = false }: { progress?: number; thawed?: boolean; hero?: boolean }) {
+  return <div
+    className={"savings-ice" + (hero ? " savings-ice--hero" : "") + (thawed ? " savings-ice--thawed" : "")}
+    style={{ "--ice-progress": Math.max(0, Math.min(1, progress)) } as CSSProperties}
+    aria-hidden="true"
+  >
+    {!hero && <img className="savings-ice-open" src="/images/fixed-savings-thawed.webp" alt="" width={768} height={512} loading="lazy" />}
+    <img className="savings-ice-frozen" src="/images/fixed-savings-frozen.webp" alt="" width={768} height={512} loading={hero ? "eager" : "lazy"} />
+    {!hero && <span className="savings-ice-crack" />}
+  </div>;
+}
+
+function LockCard({ item, now, onWithdraw, busy }: { item: SavingsItem; now: number; onWithdraw: (id: string) => void; busy: boolean }) {
+  const start = Date.parse(item.locked_at || item.requested_at);
+  const remaining = Date.parse(item.maturity_at) - now;
+  const released = item.status === "matured" || item.status === "withdrawn";
+  const approaching = item.status === "active" && remaining <= day;
+  const nativeReleaseDue = item.settlement_mode === "wallet_ledger" && item.status === "active" && remaining <= 0;
+  const label = item.status === "reserving" ? "Confirming lock" : item.status === "failed" ? "Returned to wallet"
+    : item.status === "matured" ? "Matured" : item.status === "withdrawn" ? "Withdrawn to wallet"
+    : approaching ? "Maturing" : "Active";
+  const progress = released ? 1 : Math.max(0, Math.min(1, (now - start) / Math.max(1, Date.parse(item.maturity_at) - start)));
+
+  return <Card className="min-w-0 overflow-hidden rounded-2xl">
+    {item.status !== "failed" && <SavingsIce progress={progress} thawed={released} />}
+    <div className="space-y-3 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="break-words text-xl font-semibold tabular-nums">{naira.format(item.amount)}</p>
+        <span className="rounded-full bg-accent px-2.5 py-1 text-xs font-medium text-accent-foreground">{label}</span>
+      </div>
+      <dl className="space-y-2 text-xs">
+        <div className="flex flex-wrap justify-between gap-1 text-muted-foreground"><dt>{item.locked_at ? "Locked on" : "Requested on"}</dt><dd>{ngDate.format(new Date(start))}</dd></div>
+        <div className="flex flex-wrap justify-between gap-1 text-muted-foreground"><dt>Maturity</dt><dd>{ngDate.format(new Date(item.maturity_at))}</dd></div>
+      </dl>
+      {item.status === "active" && <div className="space-y-2">
+        <progress className="savings-progress block h-1 w-full" max={1} value={progress} aria-label="Lock period elapsed" />
+        <p className="flex items-center gap-1.5 text-xs font-medium tabular-nums"><Clock3 size={13} aria-hidden="true" />
+          {remaining <= 0 ? nativeReleaseDue ? "Maturity reached. Returning to your wallet." : "Waiting for release confirmation" : timeRemaining(remaining)}
+        </p>
+      </div>}
+      {(nativeReleaseDue || (item.status === "matured" && !item.credited_at)) && <Button className="h-11 w-full gap-2" disabled={busy} onClick={() => onWithdraw(item.id)}>
+        <ArrowDownToLine size={16} aria-hidden="true" /> {busy ? "Checking…" : nativeReleaseDue ? "Check wallet release" : "Withdraw to wallet"}
+      </Button>}
+      {item.credited_at && <>
+        <p className="text-xs text-muted-foreground">Credited to wallet {ngDate.format(new Date(item.credited_at))}</p>
+        <Button asChild variant="outline" className="h-11 w-full gap-2">
+          <Link to="/transfer">Transfer to bank <ArrowRight size={16} aria-hidden="true" /></Link>
+        </Button>
+      </>}
+    </div>
+  </Card>;
+}
+
+function termsLink(raw: string) {
+  try {
+    const url = new URL(raw);
+    return url.protocol === "https:" && !url.username && !url.password ? url.href : null;
+  } catch { return null; }
+}
+
+function recoverQuote(owner: string): SavingsQuote | null {
+  try {
+    const quote = JSON.parse(sessionStorage.getItem("collectipay-savings-quote:" + owner) || "null") as SavingsQuote | null;
+    return quote?.id && quote.maturity_at && quote.terms_version && termsLink(quote.terms_url) ? quote : null;
+  } catch { return null; }
+}
+
+export default function FixedSavings() {
+  const { user } = useSupabaseUser();
+  return user ? <AccountSavings key={user.id} owner={user.id} /> : null;
+}
+
+function AccountSavings({ owner }: { owner: string }) {
+  const { user, refreshCurrentUser } = useSupabaseUser();
+  const { refreshContributionData } = useSupabaseContribution();
+  const queryClient = useQueryClient();
+  const [amount, setAmount] = useState("");
+  const [days, setDays] = useState<SavingsPeriod>(30);
+  const [quote, setQuote] = useState(() => recoverQuote(owner));
+  const [showReview, setShowReview] = useState(false);
+  const [checkingQuote, setCheckingQuote] = useState(false);
+  const [committing, setCommitting] = useState(false);
+  const [withdrawingId, setWithdrawingId] = useState<string | null>(null);
+  const [pin, setPin] = useState("");
+  const [reviewed, setReviewed] = useState(false);
+  const [accepted, setAccepted] = useState(false);
+  const [actionError, setActionError] = useState("");
+  const commitGuard = useRef(false);
+  const quoteGuard = useRef(false);
+  const withdrawGuard = useRef(false);
+  const [tick, setTick] = useState(Date.now);
+  const cacheKey = ["workspace", owner, "fixed-savings"] as const;
+  const query = useInfiniteQuery({
+    queryKey: cacheKey, initialPageParam: null as SavingsCursor | null,
+    queryFn: ({ pageParam, signal }) => getFixedSavings(pageParam, signal),
+    getNextPageParam: (last) => {
+      const item = last.items[last.items.length - 1];
+      return last.items.length === 24 && item ? { before: item.requested_at, id: item.id } : undefined;
+    },
+    refetchInterval: (current) => (current.state.data?.pages.some((page) =>
+      page.items.some((item) => item.status === "reserving" ||
+        (item.status === "active" && Date.parse(item.maturity_at) - Date.now() < day))) ? 15_000 : false),
+  });
+  const first = query.data?.pages[0];
+  const periods = first?.limits?.allowed_days ?? savingsPeriods;
+  const selectedPeriod = periods.includes(days) ? days : periods[0];
+  const minimum = first?.limits?.min_amount ?? 1;
+  const maximum = first?.limits?.max_amount;
+  const items = query.data?.pages.flatMap((page) => page.items) ?? [];
+  const existingQuote = quote && items.some((item) => item.id === quote.id);
+  const now = first ? Date.parse(first.server_now) + Math.max(0, tick - first.received_at) : tick;
+  const canTick = showReview || items.some((item) => item.status === "active");
+  const canStart = Boolean(first?.enabled && user?.status === "active");
+  const pinSet = hasTransactionPin(user?.preferences);
+
+  useEffect(() => {
+    if (!canTick) return;
+    setTick(Date.now());
+    const timer = window.setInterval(() => setTick(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [canTick]);
+
+  const clearSavedQuote = () => {
+    try { sessionStorage.removeItem("collectipay-savings-quote:" + owner); } catch { /* Storage may be unavailable. */ }
+    setQuote(null);
+    setShowReview(false);
+    setPin("");
+    setAccepted(false);
+    setReviewed(false);
+  };
+
+  useEffect(() => {
+    if (existingQuote && !showReview) {
+      try { sessionStorage.removeItem("collectipay-savings-quote:" + owner); } catch { /* Storage may be unavailable. */ }
+      setQuote(null);
+    }
+  }, [existingQuote, owner, showReview]);
+
+  const refresh = () => Promise.allSettled([
+    queryClient.invalidateQueries({ queryKey: cacheKey }), refreshCurrentUser(), refreshContributionData(true),
+  ]);
+
+  const review = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (quoteGuard.current || !canStart) return;
+    if (quote && Date.parse(quote.expires_at) > now) {
+      setShowReview(true);
+      return;
+    }
+    const value = Number(amount);
+    if (!/^\d+(?:\.\d{1,2})?$/.test(amount.trim()) || !Number.isFinite(value) ||
+        value < minimum || (maximum != null && value > maximum)) {
+      toast.error(maximum ? `Enter an amount between ${naira.format(minimum)} and ${naira.format(maximum)}.` : `Enter at least ${naira.format(minimum)}.`);
+      return;
+    }
+    quoteGuard.current = true;
+    setCheckingQuote(true);
+    setActionError("");
+    try {
+      setQuote(await quoteSavings(value, selectedPeriod));
+      setReviewed(false);
+      setAccepted(false);
+      setShowReview(true);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Couldn’t prepare the lock.");
+    } finally { quoteGuard.current = false; setCheckingQuote(false); }
+  };
+
+  const confirm = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!quote || !termsLink(quote.terms_url) || !accepted || !reviewed || !/^\d{4}$/.test(pin) || commitGuard.current) return;
+    commitGuard.current = true;
+    setCommitting(true);
+    setActionError("");
+    try {
+      try { sessionStorage.setItem("collectipay-savings-quote:" + owner, JSON.stringify(quote)); } catch { /* Storage may be unavailable. */ }
+      const status = await openSavings(quote, true, pin);
+      clearSavedQuote();
+      setAmount("");
+      toast.success(status === "active" ? "Your savings are locked."
+        : status === "reserving" ? "Savings lock submitted. We’ll notify you when it’s confirmed."
+        : "Savings status updated.");
+      void refresh();
+    } catch (error) {
+      setPin("");
+      setActionError(error instanceof Error ? error.message : "Couldn’t confirm the lock. Retry this quote.");
+      void query.refetch();
+    } finally {
+      commitGuard.current = false;
+      setCommitting(false);
+    }
+  };
+
+  const withdraw = async (id: string) => {
+    if (withdrawGuard.current) return;
+    withdrawGuard.current = true;
+    setWithdrawingId(id);
+    try {
+      await withdrawSavings(id);
+      toast.success("Your savings are now in your wallet.");
+      await refresh();
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Couldn’t move funds to your wallet."); }
+    finally { withdrawGuard.current = false; setWithdrawingId(null); }
+  };
+
+  const approvedTerms = quote ? termsLink(quote.terms_url) : null;
+  const quoteExpired = Boolean(quote && Date.parse(quote.expires_at) <= now);
+  const openItems = items.filter((item) => item.status === "active" || item.status === "reserving" ||
+    (item.status === "matured" && !item.credited_at));
+  const history = items.filter((item) => item.status === "failed" || Boolean(item.credited_at));
+
+  return (
+    <WalletFlow title="Ice Vault" wide description="Set money aside until a date you choose. Your principal stays the same.">
+      <div className="fixed-savings-page space-y-5">
+        <section className="savings-summary rounded-3xl" aria-label="Ice Vault summary">
+          <SavingsIce hero />
+          <div className="savings-summary-copy">
+            <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-100"><Snowflake size={15} aria-hidden="true" /> Total locked</span>
+            <p className="break-words text-3xl font-semibold tracking-tight tabular-nums sm:text-4xl">{first ? naira.format(first.totals.locked) : "—"}</p>
+            {first && <p className="text-sm text-emerald-100">{first.totals.active_count} active {first.totals.active_count === 1 ? "lock" : "locks"}</p>}
+          </div>
+        </section>
+        {query.isPending ? <p role="status" className="text-sm text-muted-foreground">Loading savings…</p> : query.isError && !first ? (
+          <Card className="space-y-3 p-4"><p role="alert">Couldn’t load Ice Vault.</p><Button variant="outline" onClick={() => void query.refetch()}>Try again</Button></Card>
+        ) : <>
+          {first && (first.totals.pending > 0 || first.totals.available > 0) && <dl className="grid grid-cols-2 gap-3 text-sm">
+            <Card className="p-3"><dt className="text-muted-foreground">Awaiting confirmation</dt><dd className="font-semibold">{naira.format(first.totals.pending)}</dd></Card>
+            <Card className="p-3"><dt className="text-muted-foreground">Ready to withdraw</dt><dd className="font-semibold">{naira.format(first.totals.available)}</dd></Card>
+          </dl>}
+          {canStart && pinSet ? <Card className="rounded-2xl p-4 sm:p-5">
+            <form className="space-y-4" onSubmit={review}>
+              <h2 className="app-section-title">Lock money</h2>
+              <div className="space-y-1.5">
+                <Label htmlFor="savings-amount">Amount in naira</Label>
+                <Input id="savings-amount" className="h-12" inputMode="decimal" placeholder="0.00" value={amount} disabled={checkingQuote} onChange={(event) => {
+                  if (quote) clearSavedQuote();
+                  setAmount(event.target.value);
+                }} required={!quote || quoteExpired} />
+                <p className="text-xs text-muted-foreground">{naira.format(Number(user?.wallet_balance || 0))} available in your wallet</p>
+                {maximum != null && <p className="text-xs text-muted-foreground">Per lock {naira.format(minimum)} to {naira.format(maximum)}</p>}
+              </div>
+              <fieldset className="space-y-2" disabled={checkingQuote}>
+                <legend className="text-sm font-medium">Lock period</legend>
+                <div className="flex flex-wrap gap-2">{periods.map((period) =>
+                  <label key={period} className="savings-period"><input type="radio" name="savings-period" value={period} checked={period === selectedPeriod} onChange={() => {
+                    if (quote) clearSavedQuote();
+                    setDays(period);
+                  }} />
+                    <span>{period} days</span></label>)}</div>
+              </fieldset>
+              <Button type="submit" className="h-11 w-full gap-2" disabled={checkingQuote}>{checkingQuote ? "Checking…" : quote && !quoteExpired ? "Resume review" : "Review lock"}<ArrowRight size={16} aria-hidden="true" /></Button>
+            </form>
+          </Card> : <Card className="space-y-2 rounded-2xl p-4">
+            <div className="flex items-center gap-2"><LockKeyhole size={16} aria-hidden="true" /><h2 className="font-medium">{canStart ? "Set a transaction PIN" : "New savings locks are unavailable"}</h2></div>
+            <p className="text-sm text-muted-foreground">{canStart ? "Your PIN is required to lock money." : "You can still review existing locks and move matured funds to your wallet."}</p>
+            {canStart && <Button asChild variant="outline"><Link to="/settings">Open security settings</Link></Button>}
+          </Card>}
+          {[["Your locks", openItems], ["Savings history", history]].map(([title, list]) => {
+            const cards = list as SavingsItem[];
+            return cards.length > 0 && <section key={String(title)} className="space-y-3">
+              <h2 className="app-section-title">{String(title)}</h2>
+              <div className="grid gap-3 sm:grid-cols-2">{cards.map((item) => <LockCard key={item.id} item={item} now={now} onWithdraw={(id) => void withdraw(id)} busy={withdrawingId === item.id} />)}</div>
+            </section>;
+          })}
+          {query.hasNextPage && <Button variant="outline" className="h-11 w-full" disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>Load older savings</Button>}
+        </>}
+      </div>
+      <Dialog open={showReview && Boolean(quote)} onOpenChange={(open) => { if (!committing) setShowReview(open); }}>
+        {quote && <DialogContent className="w-[calc(100%-1.5rem)] max-w-lg max-h-[88dvh] overflow-y-auto rounded-2xl">
+          <DialogHeader><DialogTitle>Review your savings lock</DialogTitle><DialogDescription>Confirm the amount and exact maturity time.</DialogDescription></DialogHeader>
+          <form className="space-y-4" onSubmit={confirm}>
+            <dl className="space-y-2 rounded-xl bg-muted p-3 text-sm">
+              <div className="flex items-center justify-between gap-2"><dt>Principal</dt><dd className="font-semibold">{naira.format(quote.amount)}</dd></div>
+              <div className="flex flex-wrap justify-between gap-2"><dt>Matures at</dt><dd className="font-semibold">{ngDate.format(new Date(quote.maturity_at))}</dd></div>
+              {quote.custodian_name && <div className="flex flex-wrap justify-between gap-2"><dt>Funds held by</dt><dd className="break-words">{quote.custodian_name}</dd></div>}
+            </dl>
+            <p className="text-sm text-muted-foreground">
+              {quote.settlement_mode === "wallet_ledger"
+                ? "The amount stays unavailable until maturity. It returns to your wallet automatically once the lock matures."
+                : "The amount stays unavailable until maturity and confirmed release."} Ice Vault pays no interest or bonuses.
+            </p>
+            {approvedTerms ? <a href={approvedTerms} target="_blank" rel="noopener noreferrer" onClick={() => setReviewed(true)}
+              className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-primary underline underline-offset-4">
+              Review Ice Vault terms <ArrowRight size={14} aria-hidden="true" />
+            </a> : <p role="status" className="text-sm text-muted-foreground">The terms are unavailable. Review a new quote.</p>}
+            <label className="flex gap-2 text-sm">
+              <input type="checkbox" className="mt-0.5 accent-primary" checked={accepted} disabled={!reviewed || !approvedTerms || committing} onChange={(event) => setAccepted(event.target.checked)} />
+              <span>I accept the terms and confirm this amount and maturity time.</span>
+            </label>
+            <div className="space-y-1.5"><Label htmlFor="savings-pin">Transaction PIN</Label>
+              <Input id="savings-pin" className="h-11" type="password" inputMode="numeric" autoComplete="off" maxLength={4} value={pin} disabled={committing} onChange={(event) => setPin(event.target.value.replace(/\D/g, ""))} />
+            </div>
+            {actionError && <p className="text-sm text-destructive" role="alert">{actionError}</p>}
+            {quoteExpired && <p className="text-sm text-muted-foreground">This quote expired. Any submitted lock will appear in your savings list.</p>}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={clearSavedQuote} disabled={committing || (!quoteExpired && Boolean(actionError))}>Close review</Button>
+              <Button type="submit" disabled={committing || !accepted || !approvedTerms || pin.length !== 4 || quoteExpired}>{committing ? "Confirming…" : "Confirm lock"}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>}
+      </Dialog>
+    </WalletFlow>
+  );
+}

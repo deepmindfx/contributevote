@@ -1381,6 +1381,17 @@ export type Database = {
       set_push_device: { Args: { p_endpoint: string; p_key: string; p_auth: string }; Returns: undefined }
       remove_push_device: { Args: { p_endpoint: string }; Returns: undefined }
       get_wallet_transfer_allowance: { Args: Record<never, never>; Returns: Json }
+      get_my_fixed_savings: { Args: { p_before?: string; p_before_id?: string }; Returns: Json }
+      quote_fixed_savings: { Args: { p_amount: number; p_days: number }; Returns: Json }
+      open_fixed_savings: { Args: { p_quote_id: string; p_terms_version: string; p_accepted: boolean; p_pin: string }; Returns: Json }
+      withdraw_fixed_savings: { Args: { p_savings_id: string }; Returns: Json }
+      admin_get_fixed_savings: { Args: Record<never, never>; Returns: Json }
+      admin_save_fixed_savings: {
+        Args: { p_revision: number; p_enabled: boolean; p_min_amount: number; p_max_amount: number;
+          p_max_wallet_locked: number; p_max_active_locks: number; p_allowed_days: number[];
+          p_terms_version: string; p_terms_url: string };
+        Returns: Json;
+      }
       admin_platform_pricing_report: { Args: Record<never, never>; Returns: Json }
       admin_transaction_analytics: { Args: { p_start: string; p_end: string; p_scope: string; p_entity_id?: string }; Returns: Json }
       admin_search_transaction_entities: { Args: { p_scope: string; p_search: string }; Returns: { id: string; name: string; description: string | null }[] }

@@ -1,7 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 
 export function notificationCategory(type: string) {
-  if (["wallet_deposit", "transfer_completed", "transfer_failed", "wallet_debit", "wallet_credit", "refund_completed"].includes(type)) return "wallet";
+  if (type.startsWith("fixed_savings_") || ["wallet_deposit", "transfer_completed", "transfer_failed", "wallet_debit", "wallet_credit", "refund_completed"].includes(type)) return "wallet";
   if (["bank_transfer_received", "group_payment_received", "contribution_verified"].includes(type)) return "group";
   return "activity";
 }

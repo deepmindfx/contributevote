@@ -210,7 +210,8 @@ export default function WalletHistory() {
       type === "deposit" || type === "withdrawal" || type === "refund" || type === "contribution"
         ? type
         : "transfer";
-    const title = transactionTypes[type];
+    const savingsMovement = transaction.payment_method === "fixed_savings";
+    const title = savingsMovement ? transaction.description || "Ice Vault" : transactionTypes[type];
     const pool = groupName(transaction.contribution_id);
     const depositSender = getDepositSender(meta);
     const transferRecipient = getTransferRecipient(meta);
@@ -253,6 +254,7 @@ export default function WalletHistory() {
         transaction.balance_after ??
         (meta.balance_after != null ? Number(meta.balance_after) : undefined),
       sender:
+        savingsMovement ? { label: "From", name: type === "deposit" ? "Ice Vault" : "CollectiPay Wallet" } :
         groupPayout
           ? { label: "From pool", name: pool || "Group" }
           : type === "deposit"
@@ -270,7 +272,7 @@ export default function WalletHistory() {
               bankName: va?.bankName,
             }
           : undefined,
-      recipient: groupPayout
+      recipient: savingsMovement ? { label: "To", name: type === "deposit" ? "CollectiPay Wallet" : "Ice Vault" } : groupPayout
         ? { label: "To wallet", name: user?.name || "CollectiPay wallet" }
         : pool
         ? { label: type === "refund" ? "Group" : "To pool", name: pool }
@@ -498,7 +500,9 @@ export default function WalletHistory() {
                       const Icon = credit ? ArrowDownLeft : vote ? Vote : ArrowUpRight;
                       const pool = groupName(tx.contribution_id);
                       const isPenalty = meta.category === "admin_penalty";
-                      const primaryTitle = isPenalty
+                      const primaryTitle = tx.payment_method === "fixed_savings"
+                        ? tx.description || "Ice Vault"
+                        : isPenalty
                         ? "Compliance penalty"
                         : groupPayout
                         ? "Group payout"

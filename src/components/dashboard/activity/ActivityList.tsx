@@ -81,7 +81,7 @@ const ActivityList = ({ isLoading }: ActivityListProps) => {
         
         return {
           type,
-          title: titleMap[transaction.type] || "Transaction",
+          title: transaction.payment_method === "fixed_savings" ? transaction.description || "Ice Vault" : titleMap[transaction.type] || "Transaction",
           description: contribution ? contribution.name : 
                        transaction.description || 
                        (meta?.bankName || meta?.bank_name ? `Via ${meta.bankName || meta.bank_name}` : ''),

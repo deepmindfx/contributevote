@@ -217,6 +217,8 @@ const AppRoutes = () => {
           <screens.walletHistory />
         </ProtectedRoute>
       } />
+      <Route path="/fixed-savings" element={<ProtectedRoute><screens.fixedSavings /></ProtectedRoute>} />
+      <Route path="/terms/ice-vault/v1" element={<screens.iceVaultTerms />} />
       <Route path="/activity" element={
         <ProtectedRoute>
           <screens.activity />

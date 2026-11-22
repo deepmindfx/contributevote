@@ -85,7 +85,7 @@ export function analyzeWalletMonth(entries: LedgerEntry[], month: string): Month
       bankTotal += Number(entry.amount);
       fees += Number((entry.metadata as Record<string, unknown> | null)?.fee) || 0;
     }
-    const label = entry.type === "withdrawal" && entry.contribution_id ? "Group payouts" : ({
+    const label = entry.payment_method === "fixed_savings" ? "Ice Vault" : entry.type === "withdrawal" && entry.contribution_id ? "Group payouts" : ({
       deposit: "Wallet deposits", transfer: "Bank transfers", withdrawal: "Wallet withdrawals",
       contribution: "Group contributions", refund: "Refunds",
     } as Record<string, string>)[entry.type] || "Other payments";

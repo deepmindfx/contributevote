@@ -1,4 +1,4 @@
-import { Activity, Compass, Home, Settings, ShieldCheck, UserRound, Users, Vote, Wallet } from "lucide-react";
+import { Activity, Compass, Home, LockKeyhole, Settings, ShieldCheck, UserRound, Users, Vote, Wallet } from "lucide-react";
 
 export const collectipayMark = "/collectipay-mark.svg";
 
@@ -14,6 +14,7 @@ export const workspaceLinks = [
   { to: "/discover", label: "Discover", icon: Compass },
   { to: "/votes", label: "Votes", mobileLabel: "Votes", icon: Vote },
   { to: "/wallet-history", label: "Wallet history", icon: Wallet },
+  { to: "/fixed-savings", label: "Ice Vault", icon: LockKeyhole },
   { to: "/activity", label: "Activity", icon: Activity },
   { to: "/settings", label: "Settings", mobileLabel: "Account", icon: Settings, mobileIcon: UserRound },
 ];

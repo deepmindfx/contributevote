@@ -147,7 +147,9 @@ export function NotificationCenter() {
     }
     setOpen(false);
     const { type, related_id: relatedId } = notification;
-    if (type === "withdrawal_request") {
+    if (type.startsWith("fixed_savings_")) {
+      navigate("/fixed-savings");
+    } else if (type === "withdrawal_request") {
       navigate("/votes");
     } else if (type === "group_invitation" && relatedId) {
       const href = await InvitationService.getInvitationLinkById(relatedId);

@@ -13,6 +13,7 @@ const times = new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Lagos", hour:
 const months = new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", month: "long", year: "numeric" });
 
 function transactionLabel(row: LedgerEntry) {
+  if (row.payment_method === "fixed_savings") return row.description || "Ice Vault wallet movement";
   switch (row.type) {
     case "deposit": return "Wallet deposit";
     case "transfer": return "Bank transfer";

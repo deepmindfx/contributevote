@@ -150,6 +150,7 @@ const ActivityHistory = () => {
     const group = contributions.find((c) => c.id === tx.contribution_id);
     const meta = (tx.metadata || {}) as Record<string, unknown>;
     const rawType = String(tx.type || "deposit").toLowerCase();
+    const savingsMovement = tx.payment_method === "fixed_savings";
 
     const kind: ReceiptKind =
       rawType === "deposit"
@@ -196,7 +197,7 @@ const ActivityHistory = () => {
 
     setSelectedReceipt({
       kind,
-      title: isGroupPayout ? "Group Payout" : titleMap[rawType] || "Transaction Receipt",
+      title: savingsMovement ? tx.description || "Ice Vault" : isGroupPayout ? "Group Payout" : titleMap[rawType] || "Transaction Receipt",
       amount: Number(tx.amount || 0),
       fee: !isGroupPayout && Number.isFinite(parsedFee) ? parsedFee : undefined,
       status: tx.status || "completed",
@@ -228,7 +229,7 @@ const ActivityHistory = () => {
           ? Number(meta.balance_after)
           : undefined,
       votingRightsGranted: kind === "contribution",
-      sender: isGroupPayout
+      sender: savingsMovement ? { label: "From", name: isInbound ? "Ice Vault" : "CollectiPay Wallet" } : isGroupPayout
         ? {
             label: "From pool",
             name: group?.name || "Group Pool",
@@ -253,7 +254,7 @@ const ActivityHistory = () => {
             bankName: userPrefs?.virtualAccount?.bankName,
           },
       recipient:
-        isGroupPayout
+        savingsMovement ? { label: "To", name: isInbound ? "CollectiPay Wallet" : "Ice Vault" } : isGroupPayout
           ? {
               label: "To wallet",
               name: user?.name || user?.email || "Your Wallet",
@@ -502,7 +503,7 @@ const ActivityHistory = () => {
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
                                 <span className="truncate text-sm font-semibold text-foreground">
-                                  {titleMap[tx.type] || "Transaction"}
+                                  {tx.payment_method === "fixed_savings" ? tx.description || "Ice Vault" : titleMap[tx.type] || "Transaction"}
                                 </span>
                                 {tx.status && statusKey !== "completed" && statusKey !== "successful" && (
                                   <span

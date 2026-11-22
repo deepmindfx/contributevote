@@ -57,7 +57,8 @@ Deno.serve(async (request) => {
           ? [amount, job.kind === "group" ? "Group payment received" : "Added to your wallet"].filter(Boolean).join(" · ")
           : job.notification_type === "device_push_test" ? "This device can receive CollectiPay notifications."
             : job.kind === "wallet" && amount ? amount : "Open CollectiPay to view this update.";
-        const href = job.group_id ? `/groups/${job.group_id}` : job.kind === "wallet" ? "/wallet-history" : "/dashboard";
+        const href = job.notification_type.startsWith("fixed_savings_") ? "/fixed-savings"
+          : job.group_id ? `/groups/${job.group_id}` : job.kind === "wallet" ? "/wallet-history" : "/dashboard";
         await webpush.sendNotification({ endpoint: job.endpoint, keys: { p256dh: job.p256dh, auth: job.auth_key } },
           JSON.stringify({
             id: job.notification_id, title: incoming ? (job.notification_type === "refund_completed" ? "Group refund received" : "Money received") : job.title.slice(0, 90),

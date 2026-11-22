@@ -77,6 +77,7 @@ import { AdminPaymentSettings } from "@/components/admin/AdminPaymentSettings";
 import { AdminPricingRevenue } from "@/components/admin/AdminPricingRevenue";
 import { AdminTransactionAnalytics } from "@/components/admin/AdminTransactionAnalytics";
 import { AdminWalletBankBonus } from "@/components/admin/AdminWalletBankBonus";
+import { AdminIceVault } from "@/components/admin/AdminIceVault";
 import { hasTransactionPin } from "@/lib/transactionPin";
 import {
   SpotlightBadge,
@@ -900,7 +901,7 @@ const AdminDashboard = () => {
           ) : (
             <Tabs defaultValue="aml" className="w-full space-y-6">
               <div className="overflow-x-auto pb-1">
-                <TabsList className="app-segmented inline-flex w-max min-w-full justify-start gap-1 bg-muted/60 p-1 lg:grid lg:w-full lg:grid-cols-8">
+                <TabsList className="app-segmented inline-flex h-auto w-max min-w-full justify-start gap-1 bg-muted/60 p-1 lg:grid lg:w-full lg:grid-cols-6">
                   <TabsTrigger value="aml" className="gap-1.5 px-3">
                     <ShieldAlert className="h-4 w-4" />
                     <span>AML Alerts</span>
@@ -955,6 +956,10 @@ const AdminDashboard = () => {
                   <TabsTrigger value="volume" className="gap-1.5 px-3">
                     <Activity className="h-4 w-4" />
                     <span>Transaction analytics</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="ice-vault" className="gap-1.5 px-3">
+                    <Snowflake className="h-4 w-4" />
+                    <span>Ice Vault</span>
                   </TabsTrigger>
                 </TabsList>
               </div>
@@ -2083,6 +2088,7 @@ const AdminDashboard = () => {
                 <AdminWalletBankBonus />
               </TabsContent>
               <TabsContent value="volume"><AdminTransactionAnalytics /></TabsContent>
+              <TabsContent value="ice-vault"><AdminIceVault /></TabsContent>
             </Tabs>
           )}
         </div>
