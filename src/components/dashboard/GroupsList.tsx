@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight, Users } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -6,48 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
-import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
-import { getGroupsSorted } from "@/services/supabase/groupEnhancementService";
 import CategoryIcon from "@/components/ui/CategoryIcon";
-
-type OverviewGroup = {
-  id: string;
-  name: string;
-  category?: string | null;
-  current_amount?: number | null;
-  target_amount?: number | null;
-  contributors?: { count?: number }[];
-};
 
 const naira = new Intl.NumberFormat("en-NG", { maximumFractionDigits: 2 });
 
 export default function GroupsList() {
-  const { user } = useSupabaseUser();
-  const { contributions } = useSupabaseContribution();
-  const [groups, setGroups] = useState<OverviewGroup[]>([]);
-  const [loading, setLoading] = useState(true);
-  const userId = user?.id;
-
-  useEffect(() => {
-    if (!userId) return;
-    let active = true;
-    const fallback = contributions.filter((group) => !group.archived);
-    const timeout = window.setTimeout(() => {
-      setGroups(fallback.slice(0, 3));
-      setLoading(false);
-    }, 10000);
-    void getGroupsSorted(userId, { sortBy: "date" })
-      .then((result) => { if (active) setGroups(result.slice(0, 3)); })
-      .catch(() => { if (active) setGroups(fallback.slice(0, 3)); })
-      .finally(() => {
-        window.clearTimeout(timeout);
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-      window.clearTimeout(timeout);
-    };
-  }, [contributions, userId]);
+  const { contributions, loading } = useSupabaseContribution();
+  const groups = contributions.filter((group) => !group.archived).slice(0, 3);
 
   return (
     <>
@@ -78,7 +42,7 @@ export default function GroupsList() {
               const raised = group.current_amount ?? 0;
               const target = group.target_amount ?? 0;
               const progress = target > 0 ? Math.min(100, Math.max(0, Math.round(raised / target * 100))) : 0;
-              const members = group.contributors?.[0]?.count ?? group.contributors?.length ?? 0;
+              const members = group.contributors?.length ?? 0;
 
               return (
                 <li key={group.id}>

@@ -3,7 +3,6 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Copy, Share2, Check, Building2, Info, Download, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
-import html2canvas from 'html2canvas';
 import {
   Dialog,
   DialogContent,
@@ -69,11 +68,13 @@ Powered by CollectiPay — https://collectipay.com.ng`;
   };
 
   const downloadAsImage = async () => {
-    if (!cardRef.current) return;
+    const card = cardRef.current;
+    if (!card) return;
 
     setIsGeneratingImage(true);
     try {
-      const canvas = await html2canvas(cardRef.current, {
+      const { default: html2canvas } = await import('html2canvas');
+      const canvas = await html2canvas(card, {
         backgroundColor: '#ffffff',
         scale: 3,
         logging: false,
@@ -102,11 +103,13 @@ Powered by CollectiPay — https://collectipay.com.ng`;
   };
 
   const shareAsImage = async () => {
-    if (!cardRef.current) return;
+    const card = cardRef.current;
+    if (!card) return;
 
     setIsGeneratingImage(true);
     try {
-      const canvas = await html2canvas(cardRef.current, {
+      const { default: html2canvas } = await import('html2canvas');
+      const canvas = await html2canvas(card, {
         backgroundColor: '#ffffff',
         scale: 3,
         logging: false,

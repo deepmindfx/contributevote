@@ -9,13 +9,13 @@ import { toast } from 'sonner';
 const PaymentCallback = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { refreshCurrentUser } = useSupabaseUser();
+  const { loading, refreshCurrentUser } = useSupabaseUser();
   const { refreshContributionData } = useSupabaseContribution();
   const [isVerifying, setIsVerifying] = useState(true);
   const hasVerifiedRef = useRef(false);
 
   useEffect(() => {
-    if (hasVerifiedRef.current) return;
+    if (loading || hasVerifiedRef.current) return;
     hasVerifiedRef.current = true;
 
     const verifyPayment = async () => {
@@ -70,7 +70,7 @@ const PaymentCallback = () => {
     };
 
     void verifyPayment();
-  }, [searchParams, navigate, refreshCurrentUser, refreshContributionData]);
+  }, [loading, searchParams, navigate, refreshCurrentUser, refreshContributionData]);
 
   return (
     <BrandLoader

@@ -1,26 +1,19 @@
-import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getTransferAllowance } from "@/services/supabase/pricingService";
-import type { TransferAllowance } from "@/services/supabase/pricingService";
 
 export function useTransferAllowance(userId?: string) {
-  const [allowance, setAllowance] = useState<TransferAllowance>();
-  const [loadError, setLoadError] = useState(false);
-  const [version, setVersion] = useState(0);
-  const reload = () => {
-    setAllowance(undefined);
-    setLoadError(false);
-    setVersion((previous) => previous + 1);
+  const client = useQueryClient();
+  const queryKey = ["transfer-allowance", userId] as const;
+  const query = useQuery({
+    queryKey,
+    queryFn: getTransferAllowance,
+    enabled: Boolean(userId),
+    staleTime: 10_000,
+    retry: false,
+  });
+  return {
+    allowance: query.isError || query.isFetching ? undefined : query.data,
+    loadError: query.isError && !query.isFetching,
+    reload: () => void client.invalidateQueries({ queryKey }),
   };
-
-  useEffect(() => {
-    if (!userId) return;
-    let active = true;
-    void getTransferAllowance().then(
-      (result) => { if (active) setAllowance(result); },
-      () => { if (active) setLoadError(true); },
-    );
-    return () => { active = false; };
-  }, [userId, version]);
-
-  return { allowance, loadError, reload };
 }

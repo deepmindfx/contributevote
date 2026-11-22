@@ -87,7 +87,7 @@ export default function WalletHistory() {
   const [search, setSearch] = useSearchParams();
   const bankView = search.get("view") === "bank";
   const { user } = useSupabaseUser();
-  const { contributions, transactions, loading, refreshContributionData } = useSupabaseContribution();
+  const { contributions, transactions, transactionsLoading: loading, refreshContributionData } = useSupabaseContribution();
   const [refreshing, setRefreshing] = useState(false);
   const [currency, setCurrency] = useState<"NGN" | "USD">("NGN");
   const [filter, setFilter] = useState<keyof typeof filters>("all");

@@ -161,6 +161,7 @@ export default function GroupForm() {
 
     setCreating(true);
     setShowFeeConfirmation(false);
+    let committed = false;
     try {
       let uploadedCoverUrl: string | null = null;
       if (coverFile) {
@@ -189,14 +190,15 @@ export default function GroupForm() {
 
       localStorage.removeItem(FORM_STORAGE_KEY);
       localStorage.removeItem(STEP_STORAGE_KEY);
+      committed = true;
       toast.success(result.message || "Group pool created.");
-      await Promise.allSettled([refreshCurrentUser(), refreshContributionData(true)]);
+      void Promise.allSettled([refreshCurrentUser(), refreshContributionData(true)]);
       navigate(result.group_id ? "/groups/" + result.group_id : "/all-groups", { replace: true });
     } catch (error: any) {
       console.error("Error creating group:", error);
       toast.error(error?.message || "Couldn’t create the group. Try again.");
     } finally {
-      setCreating(false);
+      if (!committed) setCreating(false);
     }
   };
 

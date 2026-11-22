@@ -74,7 +74,8 @@ const ActivityHistory = () => {
   const exportStatement = async () => {
     if (!ledger.entries || exporting) return;
     setExporting(true);
-    try { await saveBankStatement(month, user?.name || "CollectiPay account", ledger.entries); }
+    const account = (user?.preferences as { virtualAccount?: { accountNumber?: string; accounts?: { accountNumber?: string }[] } } | null)?.virtualAccount;
+    try { await saveBankStatement(month, user?.name || "CollectiPay account", ledger.entries, account?.accountNumber || account?.accounts?.[0]?.accountNumber); }
     catch { toast.error("Couldn’t export the statement."); }
     finally { setExporting(false); }
   };
@@ -309,19 +310,19 @@ const ActivityHistory = () => {
             <div className="min-w-0">
               <p className="text-[11px] font-medium text-[#b9decb]">Money in</p>
               <p className="mt-0.5 break-words text-base font-bold text-[#dbf5b4] tabular-nums sm:text-xl">
-                +₦{summary.incoming.toLocaleString()}
+                {ledger.entries ? `+₦${summary.incoming.toLocaleString()}` : "—"}
               </p>
             </div>
             <div className="min-w-0 border-x border-white/12 px-2.5 sm:px-4">
               <p className="text-[11px] font-medium text-[#b9decb]">Money out</p>
               <p className="mt-0.5 truncate text-base font-bold text-white tabular-nums sm:text-xl">
-                ₦{summary.outgoing.toLocaleString()}
+                {ledger.entries ? `₦${summary.outgoing.toLocaleString()}` : "—"}
               </p>
             </div>
             <div className="min-w-0 pl-1 sm:pl-2">
               <p className="text-[11px] font-medium text-[#b9decb]">Entries</p>
               <p className="mt-0.5 text-base font-bold text-white tabular-nums sm:text-xl">
-                {summary.count}
+                {ledger.entries ? summary.count : "—"}
               </p>
             </div>
           </div>

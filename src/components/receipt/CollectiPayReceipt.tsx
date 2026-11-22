@@ -323,7 +323,7 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
   const hasParties = Boolean(data.sender || data.recipient);
 
   return (
-    <div className={cn("mx-auto w-full max-w-[26rem] space-y-4", className)}>
+    <div className={cn("mx-auto w-full max-w-[25rem] space-y-3", className)}>
       {/* Printable / Exportable Blueprint Receipt Ticket */}
       <div
         ref={captureRef}
@@ -331,13 +331,13 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
         className="overflow-hidden rounded-[1.5rem] border border-[#dce7e1] bg-white text-[#102820] shadow-[0_20px_50px_-24px_rgba(12,48,39,0.34)]"
       >
         {/* Deep-Emerald Pooling-C Blueprint Hero Band */}
-        <div className="cp-receipt-hero px-6 pb-6 pt-5">
+        <div className="cp-receipt-hero px-4 pb-4 pt-3.5 sm:px-5">
           <div className="cp-receipt-blueprint-grid" aria-hidden="true" />
 
           <div className="relative z-10 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
+            <div className="flex min-w-0 items-center gap-2">
               <span className={cn("cp-receipt-seal rounded-full", statusMeta.tone !== "success" && "after:hidden")}>
-                <CollectiPayMark size={30} />
+                <CollectiPayMark size={25} />
               </span>
               <div>
                 <span className="block text-[15px] font-bold leading-tight tracking-[-0.04em] text-white">
@@ -351,7 +351,7 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
             <span
               data-cp-receipt-status
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold leading-none",
+                "inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold leading-none",
                 statusMeta.pillClass
               )}
             >
@@ -360,16 +360,16 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
             </span>
           </div>
 
-          <div className="relative z-10 mt-6 text-center">
+          <div className="relative z-10 mt-3.5">
             <p className="text-[11px] font-semibold uppercase leading-snug tracking-[0.13em] text-[#b9decb]">
               {displayTitle}
             </p>
-            <p className="mt-1.5 break-words text-[clamp(1.6rem,8vw,2.35rem)] font-extrabold leading-[1.2] tracking-[-0.045em] text-white tabular-nums">
+            <p className="mt-0.5 break-words text-[clamp(1.7rem,8vw,2.35rem)] font-extrabold leading-[1.15] tracking-[-0.045em] text-white tabular-nums">
               {data.kind === "deposit" || data.kind === "refund" ? "+" : ""}
               {formatNaira(data.amount)}
             </p>
             {data.groupName && (
-              <div className="mt-3 inline-flex max-w-full items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-medium leading-snug text-[#e7f8ef]">
+              <div className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-medium leading-snug text-[#e7f8ef]">
                 <Users className="h-3.5 w-3.5 shrink-0 text-[#dbf5b4]" />
                 <span className="break-words">{data.groupName}</span>
               </div>
@@ -377,7 +377,7 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
 
             {/* Optional Group Pool Progress Strip on Group Receipts */}
             {data.groupProgress && poolPercent !== null && (
-              <div className="mt-4 rounded-xl border border-white/12 bg-white/[0.07] px-3.5 py-2.5 text-left">
+              <div className="mt-2.5 rounded-xl border border-white/12 bg-white/[0.07] px-3 py-2 text-left">
                 <div className="flex items-center justify-between text-[11px] leading-snug">
                   <span className="font-medium text-[#c5e2d3]">Pool progress</span>
                   <span className="font-bold text-[#dbf5b4] tabular-nums">{poolPercent}% funded</span>
@@ -403,10 +403,10 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
         </div>
 
         {/* Receipt Body */}
-        <div className="space-y-4 bg-white px-6 pb-6 pt-2">
+        <div className="space-y-2.5 bg-white px-4 pb-3 pt-1 sm:px-5">
           {/* Sender -> Recipient Kinetic Flow Card */}
           {hasParties && (
-            <div className="rounded-2xl border border-[#e6efe9] bg-[#f7faf8] p-3.5">
+            <div className="rounded-xl border border-[#e6efe9] bg-[#f4f9f6] p-2.5">
               {data.sender && (
                 <div className="flex items-start gap-2.5">
                   <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[#e3f2ea] text-[#146c43]">
@@ -433,7 +433,7 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
               )}
 
               {data.sender && data.recipient && (
-                <div className="my-2 flex items-center gap-3">
+                <div className="my-1.5 flex items-center gap-3">
                   <div className="cp-route-track" aria-hidden="true">
                     <span className="cp-route-pulse" data-html2canvas-ignore="true" />
                   </div>
@@ -475,7 +475,7 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
           {/* Wallet Balance Snapshot */}
           {typeof data.balanceBefore === "number" &&
             typeof data.balanceAfter === "number" && (
-              <div className="flex items-center justify-between gap-3 rounded-xl border border-[#e6efe9] bg-[#f7faf8] px-3.5 py-2.5 text-xs leading-snug">
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-[#e6efe9] bg-[#f7faf8] px-3 py-2 text-xs leading-snug">
                 <span className="font-medium text-[#5d776c]">Wallet Balance</span>
                 <span className="font-semibold tabular-nums text-[#102820]">
                   <span className="font-normal text-[#6f867c]">
@@ -491,7 +491,7 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
 
           {/* Voting Rights Callout */}
           {data.votingRightsGranted && (
-            <div className="flex items-center gap-2 rounded-xl border border-[#cdecd9] bg-[#edf9f1] px-3.5 py-2.5 text-xs font-medium leading-snug text-[#146c43]">
+            <div className="flex items-center gap-2 rounded-xl border border-[#cdecd9] bg-[#edf9f1] px-3 py-2 text-xs font-medium leading-snug text-[#146c43]">
               <ShieldCheck className="h-4 w-4 shrink-0 text-[#1e965b]" />
               <span>Group voting rights active for this pool</span>
             </div>
@@ -502,15 +502,15 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
             {detailRows.map((row) => (
               <div
                 key={row.label}
-                className="flex items-start justify-between gap-4 py-2.5"
+                className="grid grid-cols-[minmax(0,5.5rem)_minmax(0,1fr)] items-start gap-2 py-1.5"
               >
-                <dt className="shrink-0 pt-0.5 text-xs font-medium leading-snug text-[#5d776c]">
+                <dt className="pt-0.5 text-xs font-medium leading-snug text-[#5d776c]">
                   {row.label}
                 </dt>
-                <dd className="flex min-w-0 max-w-[68%] items-start justify-end gap-1.5 text-right">
+                <dd className="flex min-w-0 items-start justify-end gap-1 text-right">
                   <span
                     className={cn(
-                      "leading-snug tabular-nums",
+                      "min-w-0 leading-snug tabular-nums",
                       row.mono ? "break-all font-mono text-[11px]" : "break-words text-[13px]",
                       row.highlight
                         ? "font-bold text-[#102820]"
@@ -542,12 +542,11 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
         </div>
 
         {/* Authentic Verified Footer */}
-        <div className="flex items-center justify-between gap-2 border-t border-[#e6efe9] bg-[#f4f8f6] px-6 py-3 text-[11px] leading-snug text-[#557065]">
+        <div className="flex items-center gap-1.5 border-t border-[#e6efe9] bg-[#f4f8f6] px-4 py-2.5 text-[11px] leading-snug text-[#557065] sm:px-5">
           <span className="inline-flex items-center gap-1.5 font-medium">
             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#1e965b]" />
-            Verified by CollectiPay
+            {statusMeta.tone === "success" ? "Verified by CollectiPay" : "CollectiPay transaction record"}
           </span>
-          <span className="font-medium text-[#6f867c]">Save together. Decide together.</span>
         </div>
       </div>
 

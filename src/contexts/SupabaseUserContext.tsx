@@ -1,6 +1,6 @@
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useRef, useMemo, ReactNode } from 'react';
 import { UserService } from '@/services/supabase/userService';
-import { SyncService } from '@/services/supabase/syncService';
+import type { User as AuthUser } from '@supabase/supabase-js';
 import { notificationAllowed, NotificationService, NotificationRecord } from '@/services/supabase/notificationService';
 import { disablePush } from '@/services/pwa';
 import { Database } from '@/integrations/supabase/types';
@@ -16,6 +16,8 @@ interface SupabaseUserContextType {
   isAdmin: boolean;
   isAuthenticated: boolean;
   loading: boolean;
+  sessionUnavailable: boolean;
+  retrySession: () => Promise<void>;
   refreshUserData: () => Promise<void>;
   refreshCurrentUser: () => Promise<void>;
   refreshNotifications: () => Promise<void>;
@@ -43,38 +45,35 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
   const [users, setUsers] = useState<Profile[]>([]);
   const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sessionUnavailable, setSessionUnavailable] = useState(false);
+
+  const sessionOwner = useRef<string | null>();
+  const profileOwner = useRef<string>();
+  const sessionRevision = useRef(0);
+  const profileTask = useRef<number>();
+  const pendingProfile = useRef<{ id: string; request: Promise<Profile | null> }>();
 
   const isAuthenticated = !!user;
   const isAdmin = user?.role === 'admin';
-  const visibleNotifications = notifications.filter((n) => n.user_id === user?.id && notificationAllowed(n.type, user?.preferences));
+  const visibleNotifications = useMemo(() => notifications.filter(
+    (notification) => notification.user_id === user?.id && notificationAllowed(notification.type, user?.preferences),
+  ), [notifications, user?.id, user?.preferences]);
   const unreadNotificationCount = visibleNotifications.filter((n) => !n.is_read).length;
 
   const fetchNotificationsForUser = useCallback(async (userId: string) => {
     const data = await NotificationService.getUserNotifications(userId);
-    setNotifications(data);
+    if (sessionOwner.current === userId) setNotifications(data);
   }, []);
 
-  const loadAdminUsers = useCallback(async (profile: Profile | null) => {
-    if (profile?.role !== 'admin') {
-      setUsers([]);
-      return;
-    }
+  const resolveUserProfile = useCallback(async (authUser: AuthUser): Promise<Profile | null> => {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 15_000);
+    let profile: Profile | null;
     try {
-      const allUsers = await UserService.getUsers();
-      setUsers(allUsers);
-    } catch (error) {
-      console.error('Error loading users for admin:', error);
-      setUsers([]);
+      profile = await UserService.getUserById(authUser.id, controller.signal);
+    } finally {
+      window.clearTimeout(timeout);
     }
-  }, []);
-
-  const resolveUserProfile = useCallback(async (authUser: any): Promise<Profile | null> => {
-    const profilePromise = UserService.getUserById(authUser.id);
-    const timeoutPromise = new Promise<null>((_, reject) =>
-      setTimeout(() => reject(new Error('Profile fetch timeout')), 6000)
-    );
-
-    let profile = await Promise.race([profilePromise, timeoutPromise]);
 
     if (!profile) {
       const newProfile = {
@@ -95,103 +94,137 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
       try {
         profile = await UserService.createUser(newProfile);
       } catch (createError) {
-        console.error('Error creating profile:', createError);
-        profile = newProfile as unknown as Profile;
+        if ((createError as { code?: string })?.code !== '23505') throw createError;
+        profile = await UserService.getUserById(authUser.id);
       }
     }
 
     return profile;
   }, []);
 
-  useEffect(() => {
-    let mounted = true;
-    let timeoutId: ReturnType<typeof setTimeout>;
+  const loadSessionProfile = useCallback((authUser: AuthUser) => {
+    if (pendingProfile.current?.id === authUser.id) return pendingProfile.current.request;
+    const request = resolveUserProfile(authUser).catch(async (error) => {
+      const code = (error as { code?: string })?.code;
+      if (!navigator.onLine || !['', '503', '504'].includes(code ?? 'unknown')) throw error;
+      await new Promise((resolve) => window.setTimeout(resolve, 650));
+      if (sessionOwner.current !== authUser.id) throw error;
+      return resolveUserProfile(authUser);
+    }).finally(() => {
+      if (pendingProfile.current?.request === request) pendingProfile.current = undefined;
+    });
+    pendingProfile.current = { id: authUser.id, request };
+    return request;
+  }, [resolveUserProfile]);
 
-    const initializeAuth = async () => {
+  const applyProfile = useCallback((profile: Profile) => {
+    if (sessionOwner.current !== profile.id) return;
+    profileOwner.current = profile.id;
+    setSessionUnavailable(false);
+    setUser((previous) => {
+      if (previous?.id === profile.id && Date.parse(previous.updated_at || "") > Date.parse(profile.updated_at || "")) {
+        return previous;
+      }
+      return profile;
+    });
+  }, []);
+
+  const syncSession = useCallback((authUser: AuthUser | null) => {
+    const nextId = authUser?.id ?? null;
+    if (nextId === sessionOwner.current && profileTask.current !== undefined) return;
+    if (nextId === sessionOwner.current && profileOwner.current === nextId) {
+      setLoading(false);
+      setSessionUnavailable(false);
+      return;
+    }
+
+    if (sessionOwner.current !== nextId) {
+      sessionOwner.current = nextId;
+      profileOwner.current = undefined;
+      pendingProfile.current = undefined;
+      window.clearTimeout(profileTask.current);
+      profileTask.current = undefined;
+      setUser(null);
+      setUsers([]);
+      setNotifications([]);
+    }
+
+    const revision = ++sessionRevision.current;
+    setSessionUnavailable(false);
+    setLoading(Boolean(authUser));
+    if (!authUser) return;
+
+    // Run Supabase requests outside the auth listener's exclusive lock.
+    profileTask.current = window.setTimeout(async () => {
       try {
-        timeoutId = setTimeout(() => {
-          if (mounted) {
-            setLoading(false);
-          }
-        }, 10000);
-
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError) {
-          console.error('Error getting session:', sessionError);
-        }
-
-        if (session?.user && mounted) {
-          try {
-            const profile = await resolveUserProfile(session.user);
-            if (profile && mounted) {
-              setUser(profile);
-              localStorage.setItem('currentUser', JSON.stringify(profile));
-              fetchNotificationsForUser(profile.id);
-              loadAdminUsers(profile);
-            }
-          } catch (error) {
-            console.error('Error fetching user profile:', error);
-            const cachedUser = localStorage.getItem('currentUser');
-            if (cachedUser && mounted) {
-              try {
-                const parsedUser = JSON.parse(cachedUser);
-                if (parsedUser?.id === session.user.id) {
-                  setUser(parsedUser);
-                }
-              } catch (parseError) {
-                console.error('Error parsing cached user:', parseError);
-              }
-            }
-          }
-        }
+        const profile = await loadSessionProfile(authUser);
+        if (sessionRevision.current !== revision) return;
+        if (!profile) throw new Error('Account profile unavailable');
+        applyProfile(profile);
       } catch (error) {
-        console.error('Error initializing auth:', error);
+        if (sessionRevision.current !== revision) return;
+        console.error('Could not restore the account profile:', error);
+        setSessionUnavailable(true);
       } finally {
-        clearTimeout(timeoutId);
-        if (mounted) {
+        if (sessionRevision.current === revision) {
+          profileTask.current = undefined;
           setLoading(false);
         }
       }
-    };
+    }, 0);
+  }, [applyProfile, loadSessionProfile]);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user && mounted) {
-        try {
-          const profile = await resolveUserProfile(session.user);
-          if (profile && mounted) {
-            setUser(profile);
-            localStorage.setItem('currentUser', JSON.stringify(profile));
-            fetchNotificationsForUser(profile.id);
-            loadAdminUsers(profile);
-          }
-        } catch (error) {
-          console.error('Error fetching user profile after sign in:', error);
-        } finally {
-          if (mounted) {
-            setLoading(false);
-          }
-        }
-      } else if (event === 'SIGNED_OUT' && mounted) {
-        setUser(null);
-        setUsers([]);
-        setNotifications([]);
-        localStorage.removeItem('currentUser');
-        setLoading(false);
-      }
+  const retrySession = useCallback(async () => {
+    if (profileTask.current !== undefined) return;
+    const revision = ++sessionRevision.current;
+    setLoading(true);
+    setSessionUnavailable(false);
+    const timeout = window.setTimeout(() => {
+      if (sessionRevision.current !== revision) return;
+      sessionRevision.current++;
+      setSessionUnavailable(true);
+      setLoading(false);
+    }, 20_000);
+    try {
+      const { data, error } = await supabase.auth.getSession();
+      if (sessionRevision.current !== revision) return;
+      if (error) throw error;
+      syncSession(data.session?.user ?? null);
+    } catch (error) {
+      if (sessionRevision.current !== revision) return;
+      console.error('Could not restore the session:', error);
+      setSessionUnavailable(true);
+      setLoading(false);
+    } finally {
+      window.clearTimeout(timeout);
+    }
+  }, [syncSession]);
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') syncSession(session?.user ?? null);
     });
-
-    initializeAuth();
-
+    void retrySession();
     return () => {
-      mounted = false;
-      clearTimeout(timeoutId);
+      sessionRevision.current++;
+      window.clearTimeout(profileTask.current);
+      profileTask.current = undefined;
       subscription.unsubscribe();
     };
-  }, [fetchNotificationsForUser, loadAdminUsers, resolveUserProfile]);
+  }, [retrySession, syncSession]);
+
+  useEffect(() => {
+    if (!sessionUnavailable) return;
+    const reconnect = () => { void retrySession(); };
+    window.addEventListener('online', reconnect);
+    return () => window.removeEventListener('online', reconnect);
+  }, [sessionUnavailable, retrySession]);
 
   // Real-time subscription for profile and notifications updates
   useEffect(() => {
     if (!user?.id) return;
+    const id = user.id;
+    void fetchNotificationsForUser(id);
 
     const channel = supabase
       .channel(`user-realtime-${user.id}`)
@@ -205,8 +238,7 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
         },
         (payload) => {
           const updatedProfile = payload.new as Profile;
-          setUser(updatedProfile);
-          localStorage.setItem('currentUser', JSON.stringify(updatedProfile));
+          applyProfile(updatedProfile);
         }
       )
       .on(
@@ -226,7 +258,7 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id, fetchNotificationsForUser]);
+  }, [user?.id, applyProfile, fetchNotificationsForUser]);
 
   const refreshNotifications = useCallback(async () => {
     if (user?.id) {
@@ -247,33 +279,31 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
     await NotificationService.markAllAsRead(user.id);
   }, [user?.id]);
 
-  const refreshCurrentUser = useCallback(async () => {
-    try {
-      if (user?.id) {
-        const freshUser = await SyncService.syncUserData(user.id);
-        if (freshUser) {
-          setUser(freshUser);
-          localStorage.setItem('currentUser', JSON.stringify(freshUser));
-        }
-      }
-    } catch (error) {
-      console.error('Error refreshing current user:', error);
-    }
-  }, [user?.id]);
+  const currentRefresh = useRef<{ id: string; request: Promise<void> }>();
+  const refreshCurrentUser = useCallback(() => {
+    const id = user?.id;
+    if (!id) return Promise.resolve();
+    if (currentRefresh.current?.id === id) return currentRefresh.current.request;
+    const request = UserService.getUserById(id).then(
+      (profile) => { if (profile) applyProfile(profile); },
+      (error) => { console.error('Error refreshing current user:', error); },
+    ).finally(() => {
+      if (currentRefresh.current?.request === request) currentRefresh.current = undefined;
+    });
+    currentRefresh.current = { id, request };
+    return request;
+  }, [user?.id, applyProfile]);
 
   const refreshUserData = useCallback(async () => {
-    try {
-      if (user?.role === 'admin') {
-        const allUsers = await UserService.getUsers();
-        setUsers(allUsers);
-      }
-      if (user?.id) {
-        await refreshCurrentUser();
-        await fetchNotificationsForUser(user.id);
-      }
-    } catch (error) {
-      console.error('Error refreshing user data:', error);
-    }
+    const id = user?.id;
+    if (!id) return;
+    await Promise.allSettled([
+      refreshCurrentUser(),
+      fetchNotificationsForUser(id),
+      user.role === 'admin' && UserService.getUsers().then((profiles) => {
+        if (sessionOwner.current === id) setUsers(profiles);
+      }, (error) => console.error('Error loading admin users:', error)),
+    ]);
   }, [user?.id, user?.role, refreshCurrentUser, fetchNotificationsForUser]);
 
   // Proper Supabase Auth signIn
@@ -290,12 +320,10 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
 
       let profile: Profile | null = null;
       if (data.user) {
-        profile = await resolveUserProfile(data.user);
-        if (profile) {
-          setUser(profile);
-          localStorage.setItem('currentUser', JSON.stringify(profile));
-          fetchNotificationsForUser(profile.id);
-          loadAdminUsers(profile);
+        profile = await loadSessionProfile(data.user);
+        if (profile && sessionOwner.current === data.user.id) {
+          applyProfile(profile);
+          setLoading(false);
         }
       }
 
@@ -355,11 +383,7 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
     if (!user) throw new Error('No user logged in');
 
     const updatedUser = await UserService.updateUser(user.id, userData);
-    setUser(updatedUser);
-    localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-    if (updatedUser.role === 'admin') {
-      await loadAdminUsers(updatedUser);
-    }
+    applyProfile(updatedUser);
   };
 
   const updateUserAsAdmin = async (userId: string, userData: Partial<Profile>) => {
@@ -419,9 +443,8 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error logging out:', error);
     } finally {
-      setUser(null);
-      setUsers([]);
-      setNotifications([]);
+      syncSession(null);
+      currentRefresh.current = undefined;
       localStorage.removeItem('currentUser');
     }
   };
@@ -436,6 +459,8 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
         isAdmin,
         isAuthenticated,
         loading,
+        sessionUnavailable,
+        retrySession,
         refreshUserData,
         refreshCurrentUser,
         refreshNotifications,

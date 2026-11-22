@@ -6,7 +6,7 @@ import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext"
 import ActivityList from "./activity/ActivityList";
 
 export default function RecentActivity() {
-  const { loading } = useSupabaseContribution();
+  const { transactionsLoading } = useSupabaseContribution();
 
   return (
     <>
@@ -18,7 +18,7 @@ export default function RecentActivity() {
       </div>
       <Card className="rounded-[1.35rem]">
         <CardContent className="px-4 pb-1 sm:px-5">
-          <ActivityList isLoading={loading} />
+          <ActivityList isLoading={transactionsLoading} />
         </CardContent>
       </Card>
     </>

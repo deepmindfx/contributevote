@@ -43,41 +43,25 @@ export class ContributionService {
   }
 
   // Get user's contribution groups
-  static async getUserContributionGroups(userId: string): Promise<ContributionGroup[]> {
-    // Get groups where user is creator
-    const { data: createdGroups, error: createdError } = await supabase
+  static async getUserContributionGroups(userId: string, signal?: AbortSignal): Promise<ContributionGroup[]> {
+    const created = supabase
       .from('contribution_groups')
-      .select(`
-        *,
-        profiles!contribution_groups_creator_id_fkey(name, email),
-        contributors(*)
-      `)
+      .select('*, contributors(user_id, has_voting_rights)')
       .eq('creator_id', userId)
-      .order('created_at', { ascending: false })
-    
-    if (createdError) throw createdError
-
-    // Get groups where user is a contributor
-    const { data: contributedGroups, error: contributedError } = await supabase
+    const joined = supabase
       .from('contribution_groups')
-      .select(`
-        *,
-        profiles!contribution_groups_creator_id_fkey(name, email),
-        contributors!inner(*)
-      `)
-      .eq('contributors.user_id', userId)
-      .neq('creator_id', userId) // Exclude groups where user is already creator
-      .order('created_at', { ascending: false })
-    
-    if (contributedError) throw contributedError
-
-    // Combine and deduplicate results
-    const allGroups = [...(createdGroups || []), ...(contributedGroups || [])]
-    const uniqueGroups = allGroups.filter((group, index, self) => 
-      index === self.findIndex(g => g.id === group.id)
-    )
-    
-    return uniqueGroups
+      .select('*, contributors(user_id, has_voting_rights), membership:contributors!inner()')
+      .eq('membership.user_id', userId)
+      .neq('creator_id', userId)
+    const [owned, member] = await Promise.all([
+      signal ? created.abortSignal(signal) : created,
+      signal ? joined.abortSignal(signal) : joined,
+    ])
+    if (owned.error) throw owned.error
+    if (member.error) throw member.error
+    const unique = new Map((owned.data || []).map((group) => [group.id, group]))
+    for (const group of member.data || []) unique.set(group.id, group)
+    return [...unique.values()].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
   }
 
   // Create contribution group

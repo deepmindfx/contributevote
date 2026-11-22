@@ -3,7 +3,10 @@ import { supabase } from "@/integrations/supabase/client";
 type InstallPrompt = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
 let installPrompt: InstallPrompt | null = null;
 let registration: Promise<ServiceWorkerRegistration> | undefined;
-const key = import.meta.env.VITE_WEB_PUSH_PUBLIC_KEY as string | undefined;
+const isProductionSite = ["collectipay.com.ng", "www.collectipay.com.ng"].includes(window.location.hostname);
+// The public VAPID key can be distributed to browsers. Other sites configure their own key.
+const key = (import.meta.env.VITE_WEB_PUSH_PUBLIC_KEY as string | undefined) ||
+  (isProductionSite ? "BNB3JWv3QHRl5jMiQJlT_1aU69C7f5f8_M3v_btVbIW-8QuIQM5C-CRQ7ncmSqW2Vc2Iu05KPEVutO8aIjoOMgE" : undefined);
 
 export const pushAvailable = () => typeof window !== "undefined" && window.isSecureContext &&
   "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;

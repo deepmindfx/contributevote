@@ -1,10 +1,9 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Building2, ChevronDown, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 import { WalletService } from "@/services/supabase/walletService";
@@ -15,23 +14,12 @@ import { WalletAccountDetails } from "./WalletAccountDetails";
 export default function ReservedAccount() {
   const { user, refreshCurrentUser } = useSupabaseUser();
   const { refreshContributionData } = useSupabaseContribution();
-  const [account, setAccount] = useState<ReservedAccountData | null>();
   const [working, setWorking] = useState(false);
   const [showVerification, setShowVerification] = useState(false);
   const userId = user?.id;
+  const account = (user?.preferences as { virtualAccount?: ReservedAccountData } | null)?.virtualAccount;
   const primary = account?.accountNumber ? account : account?.accounts?.[0] ? { ...account, ...account.accounts[0] } : null;
   const additional = account?.accounts?.filter((item) => item.accountNumber !== primary?.accountNumber || item.bankName !== primary?.bankName);
-
-  useEffect(() => {
-    if (!userId) return;
-    let active = true;
-    const load = async () => {
-      const existing = await WalletService.getVirtualAccount(userId);
-      if (active) setAccount(existing);
-    };
-    void load();
-    return () => { active = false; };
-  }, [userId]);
 
   const create = async (bvn: string) => {
     if (!userId || working) return;
@@ -39,7 +27,6 @@ export default function ReservedAccount() {
     try {
       const created = await WalletService.createVirtualAccount(userId, "bvn", bvn);
       if (created) {
-        setAccount(created);
         setShowVerification(false);
         await refreshCurrentUser();
       }
@@ -52,8 +39,7 @@ export default function ReservedAccount() {
     if (!userId || working) return;
     setWorking(true);
     try {
-      const [updated] = await Promise.all([WalletService.getVirtualAccount(userId), refreshCurrentUser(), refreshContributionData(true)]);
-      if (updated) setAccount(updated);
+      await Promise.all([refreshCurrentUser(), refreshContributionData(true)]);
       toast.success("Bank account refreshed.");
     } catch {
       toast.error("Couldn’t refresh your bank account.");
@@ -65,9 +51,7 @@ export default function ReservedAccount() {
   return (
     <>
       <Card className="space-y-4 rounded-2xl p-4 sm:p-6">
-        {account === undefined ? (
-          <Skeleton className="h-32 w-full rounded-2xl" role="status" aria-label="Loading bank account" />
-        ) : primary ? (
+        {primary ? (
           <>
             <WalletAccountDetails account={primary} />
             {additional && additional.length > 0 && (

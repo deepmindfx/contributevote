@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Activity, ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { currentLagosMonth, loadGroupMonth } from "@/services/supabase/monthlyLedger";
 import type { MonthlyFlows } from "@/services/supabase/monthlyLedger";
 import { naira } from "@/services/supabase/pricingService";
+import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 
 export function MonthPicker({ month, onChange }: { month: string; onChange: (month: string) => void }) {
   return (
@@ -65,28 +67,22 @@ export function MonthlyFlowInsights({ report, group = false }: { report: Monthly
 }
 
 export function GroupTransferAnalytics({ groupId }: { groupId: string }) {
+  const { user } = useSupabaseUser();
   const [month, setMonth] = useState(currentLagosMonth);
-  const [report, setReport] = useState<MonthlyFlows>();
-  const [error, setError] = useState(false);
-  const [attempt, setAttempt] = useState(0);
-
-  useEffect(() => {
-    let active = true;
-    setReport(undefined);
-    setError(false);
-    void loadGroupMonth(groupId, month).then(
-      (result) => { if (active) setReport(result); },
-      () => { if (active) setError(true); },
-    );
-    return () => { active = false; };
-  }, [groupId, month, attempt]);
+  const analytics = useQuery({
+    queryKey: ["workspace", user?.id, "group-analytics", groupId, month],
+    queryFn: ({ signal }) => loadGroupMonth(groupId, month, signal),
+    enabled: Boolean(user?.id),
+    staleTime: 20_000,
+    retry: false,
+  });
 
   return (
     <section className="space-y-4 rounded-2xl border bg-card p-4 sm:p-5" aria-label="Group transfer analytics">
       <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">Group transfer analytics</h2><MonthPicker month={month} onChange={setMonth} /></div>
-      {error ? (
-        <div className="flex flex-wrap items-center gap-2"><p role="status" className="text-sm">Couldn’t load analytics.</p><Button variant="outline" onClick={() => setAttempt((n) => n + 1)}>Retry</Button></div>
-      ) : report ? <MonthlyFlowInsights report={report} group /> : <p role="status" className="text-sm text-muted-foreground">Loading group activity…</p>}
+      {analytics.data ? <MonthlyFlowInsights report={analytics.data} group /> : analytics.isError ? (
+        <div className="flex flex-wrap items-center gap-2"><p role="status" className="text-sm">Couldn’t load analytics.</p><Button variant="outline" onClick={() => void analytics.refetch()}>Retry</Button></div>
+      ) : <p role="status" className="text-sm text-muted-foreground">Loading group activity…</p>}
     </section>
   );
 }

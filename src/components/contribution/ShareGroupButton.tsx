@@ -1,5 +1,4 @@
 import { useRef, useState } from "react";
-import html2canvas from "html2canvas";
 import {
   Building2,
   Check,
@@ -203,8 +202,10 @@ export function ShareGroupButton({
   };
 
   const renderPosterBlob = async (): Promise<Blob | null> => {
-    if (!posterRef.current) return null;
-    const canvas = await html2canvas(posterRef.current, {
+    const poster = posterRef.current;
+    if (!poster) return null;
+    const { default: html2canvas } = await import("html2canvas");
+    const canvas = await html2canvas(poster, {
       scale: 3,
       backgroundColor: POSTER_THEMES[theme].canvasBg,
       useCORS: true,

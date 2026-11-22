@@ -1,4 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -50,19 +53,54 @@ import {
 import { useVotingRights } from '@/hooks/useVotingRights';
 import Header from '@/components/layout/Header';
 import BrandLoader from '@/components/ui/BrandLoader';
+import { Skeleton } from '@/components/ui/skeleton';
+
+type GroupRow = Database['public']['Tables']['contribution_groups']['Row'];
 
 export default function GroupDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [group, setGroup] = useState<any>(null);
-  const { user, isAdmin: isPlatformAdmin } = useSupabaseUser();
-  const { contributions, loading, refreshContributionData } = useSupabaseContribution();
-  const { hasVotingRights, canVote, isAdmin, loading: rightsLoading, refresh: refreshVotingRights } = useVotingRights(id);
+  const { user, isAdmin: isPlatformAdmin, refreshCurrentUser } = useSupabaseUser();
+  const { contributions, refreshContributionData } = useSupabaseContribution();
+  const queryClient = useQueryClient();
+  const groupFromWorkspace = contributions.find((candidate) => candidate.id === id);
+  const userId = user?.id;
+  const isWorkspaceGroup = Boolean(groupFromWorkspace);
+  const detail = useQuery({
+    queryKey: ["workspace", userId, "group", id],
+    queryFn: async ({ signal }) => {
+      const { data, error } = await supabase.from("contribution_groups")
+        .select("*, contributors(user_id, has_voting_rights)").eq("id", id!).abortSignal(signal).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: Boolean(userId && id && !isWorkspaceGroup),
+    staleTime: 20_000,
+    retry: false,
+  });
+  useEffect(() => {
+    if (!userId || !id || isWorkspaceGroup) return;
+    const channel = supabase.channel(`group-detail-${id}`)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "contribution_groups", filter: `id=eq.${id}` }, () => {
+        void queryClient.invalidateQueries({ queryKey: ["workspace", userId, "group", id] });
+      }).subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [id, userId, isWorkspaceGroup, queryClient]);
+  const group: any = groupFromWorkspace ?? detail.data;
+  const { hasVotingRights, canVote, loading: rightsLoading, refresh: refreshVotingRights } = useVotingRights(group?.id, group?.creator_id);
+  const updateCachedGroup = (changes: Partial<GroupRow>) => {
+    queryClient.setQueryData<GroupRow[]>(["workspace", userId, "groups"], (rows) =>
+      rows?.map((row) => row.id === id ? { ...row, ...changes } : row),
+    );
+    queryClient.setQueryData<GroupRow | null>(["workspace", userId, "group", id], (row) =>
+      row ? { ...row, ...changes } : row,
+    );
+  };
   const [isArchiving, setIsArchiving] = useState(false);
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
   const [isUploadingCover, setIsUploadingCover] = useState(false);
   const [showBvnDialog, setShowBvnDialog] = useState(false);
-  const [userBvn, setUserBvn] = useState<string | null>(null);
+  const userBvn = user?.bvn ?? null;
   const coverInputRef = useRef<HTMLInputElement>(null);
 
   const handleCoverPhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -74,7 +112,7 @@ export default function GroupDetail() {
     try {
       const publicUrl = await uploadGroupCoverImage(user.id, file);
       await updateGroupCoverImage(group.id, publicUrl);
-      setGroup((prev: any) => (prev ? { ...prev, cover_image_url: publicUrl } : prev));
+      updateCachedGroup({ cover_image_url: publicUrl });
       toast.success('Group cover photo updated!');
       await refreshContributionData(true);
     } catch (error: any) {
@@ -86,82 +124,8 @@ export default function GroupDetail() {
 
   const isCreator = group?.creator_id === user?.id;
 
-  useEffect(() => {
-    const fetchUserBvn = async () => {
-      if (user?.id) {
-        try {
-          const { supabase } = await import('@/integrations/supabase/client');
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('bvn')
-            .eq('id', user.id)
-            .single();
-
-          if (!error && data?.bvn) {
-            setUserBvn(data.bvn);
-          }
-        } catch (error) {
-          console.error('Error fetching user BVN:', error);
-        }
-      }
-    };
-
-    fetchUserBvn();
-  }, [user?.id]);
-
-  useEffect(() => {
-    const fetchGroup = async () => {
-      if (!id) return;
-
-      const foundGroup = contributions.find((c: any) => c.id === id);
-      if (foundGroup) {
-        setGroup(foundGroup);
-        return;
-      }
-
-      try {
-        const { supabase } = await import('@/integrations/supabase/client');
-        const { data, error } = await supabase
-          .from('contribution_groups')
-          .select('*, contributors(*)')
-          .eq('id', id)
-          .single();
-
-        if (error) throw error;
-
-        if (data) {
-          setGroup(data);
-          await refreshContributionData();
-        } else {
-          setGroup(null);
-        }
-      } catch (error) {
-        console.error('Error fetching group:', error);
-        setGroup(null);
-      }
-    };
-
-    fetchGroup();
-  }, [id, contributions]);
-
   const handleContributeSuccess = async () => {
-    await refreshContributionData(true);
-    refreshVotingRights();
-
-    try {
-      const { supabase } = await import('@/integrations/supabase/client');
-      const { data, error } = await supabase
-        .from('contribution_groups')
-        .select('*')
-        .eq('id', id)
-        .single();
-
-      if (!error && data) {
-        setGroup(data);
-      }
-    } catch (error) {
-      console.error('Error refreshing group:', error);
-    }
+    await Promise.all([refreshContributionData(true), refreshVotingRights()]);
   };
 
   const handleArchive = async () => {
@@ -191,7 +155,6 @@ export default function GroupDetail() {
       }
 
       if (!/^\d{11}$/.test(userBvn || "")) {
-        const { supabase } = await import('@/integrations/supabase/client');
         const { data: bvnRes, error: bvnErr } = await (supabase as any).rpc('save_user_bvn', {
           p_bvn: cleanBvn,
         });
@@ -199,7 +162,7 @@ export default function GroupDetail() {
           toast.error(bvnRes?.error || bvnErr?.message || 'BVN verification failed');
           return;
         }
-        setUserBvn(cleanBvn);
+        void refreshCurrentUser();
       }
 
       const accountData = await createGroupVirtualAccount({
@@ -210,7 +173,6 @@ export default function GroupDetail() {
       });
 
       if (accountData.success && accountData.responseBody) {
-        const { supabase } = await import('@/integrations/supabase/client');
         const { error: updateError } = await supabase
           .from('contribution_groups')
           .update({
@@ -229,14 +191,13 @@ export default function GroupDetail() {
           toast.success('Bank account created successfully!');
           setShowBvnDialog(false);
 
-          setGroup((prevGroup: any) => ({
-            ...prevGroup,
+          updateCachedGroup({
             account_number: accountData.responseBody.account_number,
             account_name: group.name,
             bank_name: accountData.responseBody.bank_name || null,
             account_reference: accountData.responseBody.order_ref || accountData.responseBody.flw_ref,
             account_details: accountData.responseBody,
-          }));
+          });
 
           await refreshContributionData(true);
         }
@@ -256,7 +217,7 @@ export default function GroupDetail() {
     try {
       await unarchiveGroup(group.id, user.id);
       toast.success('Group unarchived successfully');
-      setGroup((prev: any) => (prev ? { ...prev, archived: false } : prev));
+      updateCachedGroup({ archived: false });
       await refreshContributionData(true);
     } catch (error) {
       console.error('Error unarchiving group:', error);
@@ -266,22 +227,21 @@ export default function GroupDetail() {
     }
   };
 
-  if (loading || rightsLoading) {
+  if (!group && detail.isLoading) {
     return (
       <div className="min-h-screen">
         <Header />
         <div className="app-page max-w-5xl">
-          <BrandLoader
-            variant="page"
-            message="Loading group details"
-            submessage="Syncing contributions, votes, and balances…"
-          />
+          <div className="space-y-4" role="status" aria-label="Loading group details">
+            <Skeleton className="h-56 rounded-3xl" />
+            <Skeleton className="h-24 rounded-2xl" />
+          </div>
         </div>
       </div>
     );
   }
 
-  if (!group && !loading) {
+  if (!group) {
     return (
       <div className="min-h-screen">
         <Header />
@@ -290,11 +250,12 @@ export default function GroupDetail() {
             <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-muted text-muted-foreground">
               <Users className="h-7 w-7" />
             </div>
-            <h2 className="text-xl font-bold tracking-tight">Group Not Found</h2>
+            <h2 className="text-xl font-bold tracking-tight">{detail.isError ? 'Couldn’t load group' : 'Group not found'}</h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              The group you're looking for doesn't exist or may have been removed.
+              {detail.isError ? 'Try again to load the group.' : 'The group may have been removed.'}
             </p>
-            <Button asChild className="mt-6 h-11 rounded-xl">
+            {detail.isError && <Button className="mt-6 h-11 rounded-xl" onClick={() => void detail.refetch()}>Retry</Button>}
+            <Button asChild variant={detail.isError ? 'outline' : 'default'} className="mt-6 h-11 rounded-xl">
               <Link to="/all-groups">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to My Groups
@@ -312,7 +273,7 @@ export default function GroupDetail() {
   const isActive = group.status === 'active' && !group.archived;
   const isPublic = group.privacy === 'public';
   const accountNumber = group.account_number || group.bank_details?.accountNumber;
-  const canManage = isCreator || isAdmin || isPlatformAdmin;
+  const canManage = isCreator || isPlatformAdmin;
 
   return (
     <div className="min-h-screen">
@@ -516,7 +477,7 @@ export default function GroupDetail() {
                     <GroupRules group={group} showTitle={false} />
                     {group.enable_voting_rights !== false && (
                       <p className="text-sm text-muted-foreground">
-                        {hasVotingRights ? "Your voting rights are active." : "Contribute to become eligible to vote."}
+                        {rightsLoading ? "Checking voting rights…" : hasVotingRights ? "Your voting rights are active." : "Contribute to become eligible to vote."}
                       </p>
                     )}
                   </div>
@@ -555,8 +516,8 @@ export default function GroupDetail() {
 
             {canManage && (
               <TabsContent value="manage" className="mt-4 space-y-4">
-                {isAdmin && <GroupAdminPanel groupId={group.id} isAdmin={isAdmin} />}
-                {!isAdmin && isPlatformAdmin && <PendingBankTransfers groupId={group.id} isAdmin />}
+                {isCreator && <GroupAdminPanel groupId={group.id} isAdmin />}
+                {!isCreator && isPlatformAdmin && <PendingBankTransfers groupId={group.id} isAdmin />}
                 {isCreator && (
                   <Card className="space-y-3 rounded-2xl p-4">
                     <h2 className="app-section-title">Group settings</h2>

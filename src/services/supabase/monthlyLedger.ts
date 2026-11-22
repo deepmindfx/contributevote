@@ -97,9 +97,10 @@ export function analyzeWalletMonth(entries: LedgerEntry[], month: string): Month
   return { incoming, outgoing, count, pending, failed, bankTransfers, bankTotal, fees, daily, breakdown: [...kinds.values()].sort((a, b) => b.amount - a.amount) };
 }
 
-export async function loadGroupMonth(groupId: string, month: string) {
+export async function loadGroupMonth(groupId: string, month: string, signal?: AbortSignal) {
   const { start, end } = lagosMonthRange(month);
-  const { data, error } = await supabase.rpc("get_group_transfer_analytics", { p_group_id: groupId, p_start: start, p_end: end });
+  const query = supabase.rpc("get_group_transfer_analytics", { p_group_id: groupId, p_start: start, p_end: end });
+  const { data, error } = await (signal ? query.abortSignal(signal) : query);
   if (error || !data) throw new Error(error?.message || "Group analytics are unavailable.");
   return data as MonthlyFlows;
 }

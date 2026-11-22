@@ -22,16 +22,16 @@ export class TransactionService {
   }
 
   // Get user transactions
-  static async getUserTransactions(userId: string): Promise<Transaction[]> {
-    const { data, error } = await supabase
-      .from('transactions')
-      .select(`
-        *,
-        profiles!transactions_user_id_fkey(name, email),
-        contribution_groups(name)
-      `)
+  static async getUserTransactions(userId: string, options?: { limit?: number; signal?: AbortSignal }): Promise<Transaction[]> {
+    const transactions = supabase.from('transactions')
+    let query = (options
+      ? transactions.select('*')
+      : transactions.select('*, profiles!transactions_user_id_fkey(name, email), contribution_groups(name)'))
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
+    if (options?.limit) query = query.limit(options.limit)
+    if (options?.signal) query = query.abortSignal(options.signal)
+    const { data, error } = await query
     
     if (error) throw error
     return data || []

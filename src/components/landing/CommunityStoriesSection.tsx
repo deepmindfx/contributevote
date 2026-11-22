@@ -47,7 +47,7 @@ const STORY_CHAPTERS: StoryChapter[] = [
     quote:
       "Every Friday we share our CollectiPay Story card on the community WhatsApp group—members in Kano, Lagos, and London see the exact progress in real time.",
     quoteAuthor: "Alhaji Ibrahim M. · Masjid Expansion Committee",
-    image: "/images/stories/story-mosque.jpg",
+    image: "/images/stories/story-mosque.webp",
     imageAlt:
       "Nigerian mosque elders and young community members reviewing building blueprints in a sunlit courtyard",
     icon: Landmark,
@@ -76,7 +76,7 @@ const STORY_CHAPTERS: StoryChapter[] = [
     quote:
       "No more chasing bank-alert screenshots across ten WhatsApp chats. Our welfare outreach hit 100% in two weeks because everyone trusted the ledger.",
     quoteAuthor: "Pastor Grace O. · Community Outreach Lead",
-    image: "/images/stories/story-church.jpg",
+    image: "/images/stories/story-church.webp",
     imageAlt:
       "Joyful Nigerian church fellowship members organizing community charity boxes and reviewing an outreach plan together",
     icon: HeartHandshake,
@@ -105,7 +105,7 @@ const STORY_CHAPTERS: StoryChapter[] = [
     quote:
       "Backers funded our solar cold-storage battery prototype because they knew their money couldn’t be touched without a 60% milestone vote.",
     quoteAuthor: "Chidi & Zainab · Clean-Tech Hardware Founders",
-    image: "/images/stories/story-inventors.jpg",
+    image: "/images/stories/story-inventors.webp",
     imageAlt:
       "Two young Nigerian hardware inventors testing a sleek solar clean-energy battery prototype in a bright Lagos studio",
     icon: Cpu,
@@ -134,7 +134,7 @@ const STORY_CHAPTERS: StoryChapter[] = [
     quote:
       "Sixteen cousins across three continents pooled ₦6M for our family reunion and roof renovation without a single spreadsheet argument.",
     quoteAuthor: "Tunde A. · Family & Alumni Coordinator",
-    image: "/images/stories/story-community.jpg",
+    image: "/images/stories/story-community.webp",
     imageAlt:
       "Multigenerational Nigerian family and close friends smiling and celebrating around a sunlit terrace table",
     icon: Users,
@@ -209,6 +209,7 @@ export function CommunityStoriesSection({ startPath }: { startPath: string }) {
               src={active.image}
               alt={active.imageAlt}
               loading="lazy"
+              decoding="async"
               className="landing-story-img"
             />
             {/* Floating Live CollectiPay Campaign Card Overlay */}
@@ -277,7 +278,7 @@ export function CommunityStoriesSection({ startPath }: { startPath: string }) {
                 onClick={() => setActiveId(chapter.id)}
                 className={cn("landing-story-thumb", isSelected && "is-active")}
               >
-                <img src={chapter.image} alt="" loading="lazy" aria-hidden="true" />
+                <img src={chapter.image} alt="" loading="lazy" decoding="async" aria-hidden="true" />
                 <div>
                   <strong>{chapter.tabLabel}</strong>
                   <span>{chapter.poolPreview.raised} raised</span>

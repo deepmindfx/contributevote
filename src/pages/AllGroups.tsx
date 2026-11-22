@@ -26,10 +26,8 @@ import {
   Lock,
 } from "lucide-react";
 import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
-import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { format, isValid, parseISO } from "date-fns";
 import {
-  getGroupsSorted,
   CATEGORIES,
   getCategoryLabel,
 } from "@/services/supabase/groupEnhancementService";
@@ -42,39 +40,19 @@ import {
 const ITEMS_PER_PAGE = 9;
 
 const AllGroups = () => {
-  const { user } = useSupabaseUser();
-  const { contributions } = useSupabaseContribution();
+  const { contributions, loading: isLoading } = useSupabaseContribution();
   const [sortBy, setSortBy] = useState<"date" | "category" | "progress">("date");
   const [showArchived, setShowArchived] = useState(false);
   const [filterCategory, setFilterCategory] = useState<string>("all");
-  const [sortedContributions, setSortedContributions] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const userId = user?.id;
-
-  useEffect(() => {
-    if (!userId) return;
-    let active = true;
-    setIsLoading(true);
-    const useFallback = () => {
-      setSortedContributions(contributions.filter((group) =>
-        (showArchived || !group.archived) && (filterCategory === "all" || group.category === filterCategory),
-      ));
-      setIsLoading(false);
-    };
-    const timeout = window.setTimeout(useFallback, 10000);
-    void getGroupsSorted(userId, { sortBy, showArchived, category: filterCategory })
-      .then((groups) => { if (active) setSortedContributions(groups); })
-      .catch(() => { if (active) useFallback(); })
-      .finally(() => {
-        window.clearTimeout(timeout);
-        if (active) setIsLoading(false);
-      });
-    return () => {
-      active = false;
-      window.clearTimeout(timeout);
-    };
-  }, [userId, sortBy, showArchived, filterCategory, contributions]);
+  const sortedContributions = useMemo(() => {
+    const groups = contributions.filter((group) =>
+      (showArchived || !group.archived) && (filterCategory === "all" || group.category === filterCategory),
+    );
+    if (sortBy === "progress") return groups.sort((a, b) => Number(b.current_amount || 0) - Number(a.current_amount || 0));
+    if (sortBy === "category") return groups.sort((a, b) => (a.category || "").localeCompare(b.category || ""));
+    return groups;
+  }, [sortBy, showArchived, filterCategory, contributions]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -249,7 +227,7 @@ const AllGroups = () => {
                     ? Math.min(100, Math.round((currentAmount / targetAmount) * 100))
                     : 0;
                 const memberCount = Array.isArray(contribution.contributors)
-                  ? contribution.contributors[0]?.count ?? contribution.contributors.length
+                  ? contribution.contributors.length
                   : 0;
                 const isPublic = contribution.privacy === "public";
 

@@ -1,14 +1,17 @@
-import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef } from 'react';
+import { createContext, useContext, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { ContributionService } from '@/services/supabase/contributionService';
 import { TransactionService } from '@/services/supabase/transactionService';
-import { SyncService } from '@/services/supabase/syncService';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useLocation } from 'react-router-dom';
 import { voteOnWithdrawal as voteOnWithdrawalService } from '@/services/supabase/withdrawalService';
 import { WalletContributionService } from '@/services/supabase/walletContributionService';
 import { Database } from '@/integrations/supabase/types';
 import { useSupabaseUser } from './SupabaseUserContext';
 import { supabase } from '@/integrations/supabase/client';
 
-type ContributionGroup = Database['public']['Tables']['contribution_groups']['Row'];
+type ContributionGroup = Database['public']['Tables']['contribution_groups']['Row'] & {
+  contributors?: Pick<Database['public']['Tables']['contributors']['Row'], 'user_id' | 'has_voting_rights'>[];
+};
 type Transaction = Database['public']['Tables']['transactions']['Row'];
 type WithdrawalRequest = Database['public']['Tables']['withdrawal_requests']['Row'];
 
@@ -16,8 +19,8 @@ interface SupabaseContributionContextType {
   contributions: ContributionGroup[];
   transactions: Transaction[];
   withdrawalRequests: WithdrawalRequest[];
-  stats: any;
   loading: boolean;
+  transactionsLoading: boolean;
   refreshContributionData: (force?: boolean) => Promise<void>;
   createNewContribution: (contribution: any) => Promise<ContributionGroup>;
   contribute: (contributionId: string, amount: number, anonymous?: boolean) => Promise<void>;
@@ -33,165 +36,116 @@ interface SupabaseContributionContextType {
 
 const SupabaseContributionContext = createContext<SupabaseContributionContextType | undefined>(undefined);
 
+const emptyGroups: ContributionGroup[] = [];
+const emptyTransactions: Transaction[] = [];
+const emptyWithdrawals: WithdrawalRequest[] = [];
+const recentLimit = 15;
+
 export function SupabaseContributionProvider({ children }: { children: ReactNode }) {
-  const { user, isAuthenticated } = useSupabaseUser();
-  const [contributions, setContributions] = useState<ContributionGroup[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [withdrawalRequests, setWithdrawalRequests] = useState<WithdrawalRequest[]>([]);
-  const [stats, setStats] = useState({});
-  const [loading, setLoading] = useState(true);
-  const lastRefreshTime = useRef<number>(0);
-  const isRefreshing = useRef<boolean>(false);
-  const activeUserId = user?.id;
+  const { user } = useSupabaseUser();
+  const { pathname } = useLocation();
+  const queryClient = useQueryClient();
+  const userId = user?.id;
+  const previousUser = useRef(userId);
+  const route = pathname.replace(/\/$/, "");
+  const history = route === "/wallet-history" || route === "/profile";
+  const recent = route === "/dashboard";
+  const workspace = ["workspace", userId] as const;
+  const groups = useQuery({
+    queryKey: [...workspace, "groups"],
+    queryFn: ({ signal }) => ContributionService.getUserContributionGroups(userId!, signal),
+    enabled: Boolean(userId),
+    staleTime: 20_000,
+    retry: false,
+  });
+  const contributions = groups.data ?? emptyGroups;
+  const ledger = useQuery({
+    queryKey: [...workspace, "transactions", history ? "history" : "recent"],
+    queryFn: ({ signal }) => TransactionService.getUserTransactions(userId!, { signal, limit: history ? undefined : recentLimit }),
+    enabled: Boolean(userId && (recent || history)),
+    staleTime: 20_000,
+    retry: false,
+  });
+  const transactions = ledger.data ?? emptyTransactions;
+  const groupIds = contributions.map((group) => group.id).sort();
+  const withdrawals = useQuery({
+    queryKey: [...workspace, "withdrawals", groupIds],
+    queryFn: async ({ signal }) => {
+      const { data, error } = await supabase.from("withdrawal_requests").select("*")
+        .in("contribution_id", groupIds).order("created_at", { ascending: false }).abortSignal(signal);
+      if (error) throw error;
+      return data;
+    },
+    enabled: Boolean(userId && groupIds.length > 0),
+    staleTime: 20_000,
+    retry: false,
+  });
+  const withdrawalRequests = withdrawals.data ?? emptyWithdrawals;
+  const loading = groups.isLoading;
+  const transactionsLoading = ledger.isLoading;
 
   useEffect(() => {
-    if (!activeUserId) return;
-    const channel = supabase.channel(`wallet-transactions-${activeUserId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "transactions", filter: `user_id=eq.${activeUserId}` }, (event) => {
-        if (event.eventType === "DELETE") {
-          setTransactions((previous) => previous.filter((row) => row.id !== event.old.id));
-        } else {
-          const row = event.new as Transaction;
-          setTransactions((previous) => [row, ...previous.filter((item) => item.id !== row.id)]);
-        }
-      }).subscribe();
-    return () => { void supabase.removeChannel(channel); };
-  }, [activeUserId]);
-
-  const refreshContributionData = useCallback(async (force = false) => {
-    if (!user) return;
-    
-    // Rate limiting: prevent redundant rapid calls unless forced after user action
-    const now = Date.now();
-    if (!force && (now - lastRefreshTime.current < 1200 || isRefreshing.current)) {
-      return;
+    if (previousUser.current && previousUser.current !== userId) {
+      queryClient.removeQueries({ queryKey: ["workspace", previousUser.current] });
+      queryClient.removeQueries({ queryKey: ["transfer-allowance", previousUser.current] });
     }
-    
-    lastRefreshTime.current = now;
-    isRefreshing.current = true;
+    previousUser.current = userId;
+  }, [userId, queryClient]);
 
-    try {
-      // Load user's contributions
-      const userContributions = await ContributionService.getUserContributionGroups(user.id);
-      setContributions(userContributions);
-
-      // Load user's transactions
-      const userTransactions = await TransactionService.getUserTransactions(user.id);
-      setTransactions(userTransactions);
-
-      // Load transaction stats
-      const transactionStats = await TransactionService.getTransactionStats(user.id);
-      setStats(transactionStats);
-
-      // Load withdrawal requests for user's groups
-      const groupIds = userContributions.map(c => c.id);
-      if (groupIds.length === 0) {
-        setWithdrawalRequests([]);
-      } else {
-        const { data: requests, error: requestsError } = await supabase
-          .from('withdrawal_requests')
-          .select('*')
-          .in('contribution_id', groupIds)
-          .order('created_at', { ascending: false });
-
-        if (requestsError) {
-          console.error('Error loading withdrawal requests:', requestsError);
-          setWithdrawalRequests([]);
-        } else {
-          const sortedRequests = (requests || []).sort(
-            (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-          );
-          setWithdrawalRequests(sortedRequests);
-        }
-      }
-    } catch (error) {
-      console.error('Error refreshing contribution data:', error);
-    } finally {
-      isRefreshing.current = false;
-    }
-  }, [user]);
+  const refreshContributionData = useCallback(async (_force?: boolean) => {
+    if (userId) await queryClient.invalidateQueries({ queryKey: ["workspace", userId] });
+  }, [queryClient, userId]);
 
   useEffect(() => {
-    if (isAuthenticated && user) {
-      loadInitialData();
-      
-      // Set up realtime subscriptions for contribution updates
-      const channel = supabase
-        .channel('contribution-changes')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'contribution_groups'
-          },
-          () => {
-            console.log('Contribution group changed, refreshing...');
-            refreshContributionData();
-          }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'contributors'
-          },
-          () => {
-            console.log('Contributors changed, refreshing...');
-            refreshContributionData();
-          }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'withdrawal_requests'
-          },
-          () => {
-            refreshContributionData(true);
-          }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'group_refund_requests'
-          },
-          () => {
-            refreshContributionData(true);
-          }
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  }, [isAuthenticated, user, refreshContributionData]);
-
-  const loadInitialData = async () => {
-    try {
-      setLoading(true);
-      
-      // Add timeout protection
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout loading contributions')), 5000)
-      );
-      
-      await Promise.race([refreshContributionData(), timeoutPromise]);
-    } catch (error) {
-      console.error('Error loading initial contribution data:', error);
-      // Set empty arrays on error so app doesn't hang
-      setContributions([]);
-      setTransactions([]);
-      setWithdrawalRequests([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+    if (!userId) return;
+    const key = ["workspace", userId] as const;
+    const groupKey = [...key, "groups"] as const;
+    const known = (id: unknown) => queryClient.getQueryData<ContributionGroup[]>(groupKey)?.some((group) => group.id === id);
+    let groupTimer: number | undefined;
+    let withdrawalTimer: number | undefined;
+    const reloadGroups = () => {
+      window.clearTimeout(groupTimer);
+      groupTimer = window.setTimeout(() => void queryClient.invalidateQueries({ queryKey: groupKey }), 180);
+    };
+    const reloadWithdrawals = () => {
+      window.clearTimeout(withdrawalTimer);
+      withdrawalTimer = window.setTimeout(() => void queryClient.invalidateQueries({ queryKey: [...key, "withdrawals"] }), 120);
+    };
+    const channel = supabase.channel(`workspace-${userId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "contribution_groups" }, (event) => {
+        const group = (event.eventType === "DELETE" ? event.old : event.new) as Partial<ContributionGroup>;
+        if (group.creator_id === userId || known(group.id)) reloadGroups();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "contributors" }, (event) => {
+        const member = (event.eventType === "DELETE" ? event.old : event.new) as { user_id?: string; group_id?: string };
+        if (!member.group_id || member.user_id === userId || known(member.group_id)) reloadGroups();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "withdrawal_requests" }, (event) => {
+        const request = (event.eventType === "DELETE" ? event.old : event.new) as Partial<WithdrawalRequest>;
+        if (!request.contribution_id || known(request.contribution_id)) reloadWithdrawals();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "transactions", filter: `user_id=eq.${userId}` }, (event) => {
+        for (const view of ["recent", "history"]) {
+          queryClient.setQueryData<Transaction[]>([...key, "transactions", view], (previous) => {
+            if (!previous) return previous;
+            if (event.eventType === "DELETE") {
+              return previous.filter((transaction) => transaction.id !== event.old.id);
+            }
+            const transaction = event.new as Transaction;
+            if (transaction.user_id !== userId) return previous;
+            const rows = [transaction, ...previous.filter((item) => item.id !== transaction.id)]
+              .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+            return view === "recent" ? rows.slice(0, recentLimit) : rows;
+          });
+        }
+      })
+      .subscribe();
+    return () => {
+      window.clearTimeout(groupTimer);
+      window.clearTimeout(withdrawalTimer);
+      void supabase.removeChannel(channel);
+    };
+  }, [userId, queryClient]);
 
   const createNewContribution = async (contributionData: any) => {
     if (!user) throw new Error('User not authenticated');
@@ -216,8 +170,6 @@ export function SupabaseContributionProvider({ children }: { children: ReactNode
         account_details: contributionData.accountDetails || {}
       });
 
-      // Sync the new contribution data
-      await SyncService.syncContributionData(newContribution.id);
       await refreshContributionData();
       return newContribution;
     } catch (error) {
@@ -401,8 +353,8 @@ export function SupabaseContributionProvider({ children }: { children: ReactNode
       contributions,
       transactions,
       withdrawalRequests,
-      stats,
       loading,
+      transactionsLoading,
       refreshContributionData,
       createNewContribution,
       contribute,

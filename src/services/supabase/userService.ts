@@ -18,12 +18,12 @@ export class UserService {
   }
 
   // Get user by ID
-  static async getUserById(id: string): Promise<Profile | null> {
-    const { data, error } = await supabase
+  static async getUserById(id: string, signal?: AbortSignal): Promise<Profile | null> {
+    const query = supabase
       .from('profiles')
       .select('*')
       .eq('id', id)
-      .single()
+    const { data, error } = await (signal ? query.abortSignal(signal) : query).single()
     
     if (error) {
       if (error.code === 'PGRST116') return null // Not found

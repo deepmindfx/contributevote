@@ -6,24 +6,13 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-route
 import { SupabaseUserProvider } from "@/contexts/SupabaseUserContext";
 import { SupabaseContributionProvider } from "@/contexts/SupabaseContributionContext";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
-import Index from "./pages/Index";
-import Auth from "./pages/Auth";
-import AdminAuth from "./pages/AdminAuth";
-import Dashboard from "./pages/Dashboard";
-import CreateGroup from "./pages/CreateGroup";
-import ContributePage from "./pages/ContributePage";
-import ContributeSharePage from "./pages/ContributeSharePage";
-import GroupDetail from "./pages/GroupDetail";
-import UserSettings from "./pages/UserSettings";
 import NotFound from "./pages/NotFound";
-import AdminDashboard from "./pages/admin/Dashboard";
-import UserProfile from "./pages/UserProfile";
-import Discover from "./pages/Discover";
-import AcceptInvite from "./pages/AcceptInvite";
 import WorkspaceNavigation from "@/components/layout/WorkspaceNavigation";
 import { getWorkspaceLink } from "@/components/layout/navigationItems";
-import BrandLoader from "@/components/ui/BrandLoader";
-import React, { useEffect, Component, ErrorInfo, ReactNode } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { SessionRecovery } from "@/components/auth/SessionRecovery";
+import { Suspense, useEffect, Component, ErrorInfo, ReactNode, lazy } from "react";
+import { preloadLinkedScreen, preloadScreen, screens } from "./routeScreens";
 
 // Error Boundary Component
 interface ErrorBoundaryState {
@@ -73,20 +62,26 @@ class ErrorBoundary extends Component<
     return this.props.children;
   }
 }
-import WalletHistory from "./pages/WalletHistory";
-import ActivityHistory from "./pages/ActivityHistory";
-import Votes from "./pages/Votes";
-import AllGroups from "./pages/AllGroups";
-import JoinGroup from "./pages/JoinGroup";
-import TransferForm from "./components/TransferForm";
-import PaymentCallback from "./pages/PaymentCallback";
-import TestTransferAPI from "./pages/TestTransferAPI";
+const TestTransferAPI = import.meta.env.DEV ? lazy(() => import("./pages/TestTransferAPI")) : null;
+preloadScreen(window.location.pathname);
 
 const queryClient = new QueryClient();
 
+function RouteSkeleton() {
+  return (
+    <main className="app-page mx-auto max-w-3xl space-y-4" role="status" aria-label="Loading screen">
+      <Skeleton className="h-8 w-40" />
+      <Skeleton className="h-36 rounded-2xl" />
+      <Skeleton className="h-20 rounded-2xl" />
+    </main>
+  );
+}
+
 // Admin route guard
-const AdminRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAdmin, isAuthenticated } = useSupabaseUser();
+const AdminRoute = ({ children }: { children: ReactNode }) => {
+  const { isAdmin, isAuthenticated, loading, sessionUnavailable } = useSupabaseUser();
+  if (loading) return <RouteSkeleton />;
+  if (sessionUnavailable) return <SessionRecovery />;
   
   if (!isAuthenticated) {
     return <Navigate to="/admin-login" replace />;
@@ -100,10 +95,12 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 // Auth guard to keep logged out users from accessing protected routes
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated } = useSupabaseUser();
+const ProtectedRoute = ({ children }: { children: ReactNode }) => {
+  const { isAuthenticated, loading, sessionUnavailable } = useSupabaseUser();
   const { pathname, search, hash } = useLocation();
   
+  if (loading) return <RouteSkeleton />;
+  if (sessionUnavailable) return <SessionRecovery />;
   if (!isAuthenticated) {
     return <Navigate to="/auth" replace state={{ returnUrl: pathname + search + hash }} />;
   }
@@ -111,8 +108,16 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+function SignInRoute({ children }: { children: ReactNode }) {
+  const { loading, sessionUnavailable } = useSupabaseUser();
+  if (loading) return <RouteSkeleton />;
+  if (sessionUnavailable) return <SessionRecovery />;
+  return <>{children}</>;
+}
+
 const AppRoutes = () => {
-  const { user, isAuthenticated, isAdmin, loading } = useSupabaseUser();
+  const { user, isAuthenticated, isAdmin } = useSupabaseUser();
+  const darkMode = (user?.preferences as { darkMode?: boolean } | null)?.darkMode === true;
   const { pathname } = useLocation();
   const isWorkspace = isAuthenticated && Boolean(getWorkspaceLink(pathname));
 
@@ -120,113 +125,79 @@ const AppRoutes = () => {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [pathname]);
   
-  // Apply dark mode on route change if user has it enabled
-  // This MUST come before any early returns to follow Rules of Hooks
   useEffect(() => {
-    const preferences = user?.preferences as any;
-    if (preferences?.darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [user?.preferences]);
-  
-  // Show loading spinner while user context is initializing
-  // But only for a maximum of 3 seconds to prevent infinite loading
-  const [showLoading, setShowLoading] = React.useState(loading);
-  
-  React.useEffect(() => {
-    if (loading) {
-      setShowLoading(true);
-      // Force stop loading after 3 seconds
-      const timeout = setTimeout(() => {
-        setShowLoading(false);
-      }, 3000);
-      return () => clearTimeout(timeout);
-    } else {
-      setShowLoading(false);
-    }
-  }, [loading]);
-  
-  if (showLoading && pathname !== "/") {
-    return (
-      <BrandLoader
-        variant="fullscreen"
-        message="Preparing your workspace"
-        submessage="Syncing your wallet and contribution groups…"
-      />
-    );
-  }
-  
+    document.documentElement.classList.toggle("dark", darkMode);
+  }, [darkMode]);
+
   const routes = (
     <Routes>
-      <Route path="/" element={<Index />} />
-      <Route path="/auth" element={<Auth />} />
-      <Route path="/admin-login" element={<AdminAuth />} />
-      <Route path="/discover" element={<Discover />} />
+      <Route path="/" element={<screens.index />} />
+      <Route path="/auth" element={<SignInRoute><screens.auth /></SignInRoute>} />
+      <Route path="/admin-login" element={<SignInRoute><screens.adminAuth /></SignInRoute>} />
+      <Route path="/discover" element={<screens.discover />} />
       
       {/* Protected Routes */}
       <Route path="/dashboard" element={
         <ProtectedRoute>
-          <Dashboard />
+          <screens.dashboard />
         </ProtectedRoute>
       } />
       <Route path="/create-group" element={
         <ProtectedRoute>
-          <CreateGroup />
+          <screens.createGroup />
         </ProtectedRoute>
       } />
       <Route path="/groups/:id" element={
         <ProtectedRoute>
-          <GroupDetail />
+          <screens.group />
         </ProtectedRoute>
       } />
       <Route path="/contribute/:id" element={
         <ProtectedRoute>
-          <ContributePage />
+          <screens.contribute />
         </ProtectedRoute>
       } />
-      <Route path="/contribute/share/:id" element={<ContributeSharePage />} />
+      <Route path="/contribute/share/:id" element={<screens.contributeShare />} />
       <Route path="/settings" element={
         <ProtectedRoute>
-          <UserSettings />
+          <screens.settings />
         </ProtectedRoute>
       } />
       <Route path="/profile" element={
         <ProtectedRoute>
-          <UserProfile />
+          <screens.profile />
         </ProtectedRoute>
       } />
       <Route path="/wallet-history" element={
         <ProtectedRoute>
-          <WalletHistory />
+          <screens.walletHistory />
         </ProtectedRoute>
       } />
       <Route path="/activity" element={
         <ProtectedRoute>
-          <ActivityHistory />
+          <screens.activity />
         </ProtectedRoute>
       } />
       <Route path="/votes" element={
         <ProtectedRoute>
-          <Votes />
+          <screens.votes />
         </ProtectedRoute>
       } />
       <Route path="/all-groups" element={
         <ProtectedRoute>
-          <AllGroups />
+          <screens.groups />
         </ProtectedRoute>
       } />
-      <Route path="/join/:id" element={<JoinGroup />} />
-      <Route path="/invite/:token" element={<AcceptInvite />} />
+      <Route path="/join/:id" element={<screens.join />} />
+      <Route path="/invite/:token" element={<screens.invite />} />
       <Route path="/transfer" element={
         <ProtectedRoute>
-          <TransferForm />
+          <screens.transfer />
         </ProtectedRoute>
       } />
       
       {/* Test Transfer API Route - Development only */}
-      {import.meta.env.DEV && (
+      {TestTransferAPI && (
         <Route path="/test-transfer-api" element={
           <ProtectedRoute>
             <TestTransferAPI />
@@ -237,17 +208,17 @@ const AppRoutes = () => {
       {/* Migration Route - Removed for production security */}
       
       {/* Payment Callback Route */}
-      <Route path="/payment-callback" element={<PaymentCallback />} />
+      <Route path="/payment-callback" element={<screens.payment />} />
       
       {/* Admin Routes */}
       <Route path="/admin" element={
         <AdminRoute>
-          <AdminDashboard />
+          <screens.admin />
         </AdminRoute>
       } />
       <Route path="/admin/*" element={
         <AdminRoute>
-          <AdminDashboard />
+          <screens.admin />
         </AdminRoute>
       } />
       
@@ -261,12 +232,19 @@ const AppRoutes = () => {
     </Routes>
   );
 
+  const intentHandlers = {
+    onMouseOver: (event: React.MouseEvent) => preloadLinkedScreen(event.target),
+    onFocus: (event: React.FocusEvent) => preloadLinkedScreen(event.target),
+    onTouchStart: (event: React.TouchEvent) => preloadLinkedScreen(event.target),
+  };
+  const content = <Suspense fallback={<RouteSkeleton />}>{routes}</Suspense>;
+
   return isWorkspace ? (
-    <div className={["/create-group", "/transfer"].includes(pathname.replace(/\/$/, "")) ? "app-workspace app-workspace--focused" : "app-workspace"}>
+    <div {...intentHandlers} className={["/create-group", "/transfer"].includes(pathname.replace(/\/$/, "")) ? "app-workspace app-workspace--focused" : "app-workspace"}>
       <WorkspaceNavigation />
-      {routes}
+      {content}
     </div>
-  ) : <div>{routes}</div>;
+  ) : <div {...intentHandlers}>{content}</div>;
 };
 
 const App = () => {

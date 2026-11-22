@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Plus } from "lucide-react";
 import Header from "@/components/layout/Header";
@@ -9,20 +8,14 @@ import ReservedAccount from "@/components/wallet/ReservedAccount";
 import { WalletFlow } from "@/components/wallet/WalletFlow";
 import { Button } from "@/components/ui/button";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
-import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 
 export default function Dashboard() {
   const { user } = useSupabaseUser();
-  const { refreshContributionData } = useSupabaseContribution();
   const [search, setSearch] = useSearchParams();
   const showBankAccount = search.get("wallet") === "bank";
   const showAddMoney = search.get("wallet") === "add";
   const firstName = user?.name?.trim().split(/\s+/)[0];
   const greeting = firstName ? `Hi, ${firstName}` : "Welcome";
-
-  useEffect(() => {
-    void refreshContributionData();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setWalletMode = (mode: "bank" | "add" | null) => {
     setSearch((previous) => {

@@ -1,58 +1,31 @@
-import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { ContributorService } from '@/services/supabase/contributorService';
 import { useSupabaseUser } from '@/contexts/SupabaseUserContext';
 
 /**
  * Hook to check if current user has voting rights in a group
  */
-export function useVotingRights(groupId: string | undefined) {
-  const [hasVotingRights, setHasVotingRights] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
+export function useVotingRights(groupId: string | undefined, creatorId?: string) {
   const { user } = useSupabaseUser();
-
-  useEffect(() => {
-    if (!groupId || !user) {
-      setHasVotingRights(false);
-      setIsAdmin(false);
-      setLoading(false);
-      return;
-    }
-
-    checkRights();
-  }, [groupId, user]);
-
-  const checkRights = async () => {
-    if (!groupId || !user) return;
-
-    try {
-      setLoading(true);
-      
-      // Check voting rights
-      const votingRights = await ContributorService.hasVotingRights(groupId, user.id);
-      setHasVotingRights(votingRights);
-
-      // Check if user is admin
-      const adminStatus = await ContributorService.isGroupAdmin(groupId, user.id);
-      setIsAdmin(adminStatus);
-    } catch (error) {
-      console.error('Error checking voting rights:', error);
-      setHasVotingRights(false);
-      setIsAdmin(false);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const refresh = () => {
-    checkRights();
-  };
-
+  const userId = user?.id;
+  const rights = useQuery({
+    queryKey: ["voting-rights", userId, groupId],
+    queryFn: () => ContributorService.hasVotingRights(groupId!, userId!),
+    enabled: Boolean(userId && groupId),
+    retry: false,
+  });
+  const ownership = useQuery({
+    queryKey: ["group-owner", userId, groupId],
+    queryFn: () => ContributorService.isGroupAdmin(groupId!, userId!),
+    enabled: Boolean(userId && groupId && creatorId === undefined),
+    retry: false,
+  });
+  const hasVotingRights = rights.data ?? false;
   return {
     hasVotingRights,
-    isAdmin,
-    loading,
-    refresh,
+    isAdmin: creatorId === undefined ? ownership.data ?? false : creatorId === userId,
+    loading: rights.isLoading || ownership.isLoading,
+    refresh: () => rights.refetch(),
     canVote: hasVotingRights,
   };
 }

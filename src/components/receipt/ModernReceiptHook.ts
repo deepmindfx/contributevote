@@ -1,8 +1,4 @@
 
-import { useRef } from 'react';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
-
 export const useReceiptDownload = (receiptRef: React.RefObject<HTMLDivElement>) => {
   const generateCanvas = async () => {
     if (!receiptRef.current) {
@@ -20,6 +16,7 @@ export const useReceiptDownload = (receiptRef: React.RefObject<HTMLDivElement>) 
     }
 
     try {
+      const { default: html2canvas } = await import('html2canvas');
       const canvas = await html2canvas(receiptElement, {
         backgroundColor: null, // Transparent background for better PNGs
         useCORS: true,
@@ -52,7 +49,7 @@ export const useReceiptDownload = (receiptRef: React.RefObject<HTMLDivElement>) 
 
   const downloadAsPDF = async () => {
     try {
-      const canvas = await generateCanvas();
+      const [{ default: jsPDF }, canvas] = await Promise.all([import('jspdf'), generateCanvas()]);
       const imgData = canvas.toDataURL('image/jpeg', 1.0); // High quality JPEG
       const pdfWidth = 210;
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;

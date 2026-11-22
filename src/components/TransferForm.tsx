@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import type { FormEvent } from "react";
 import { v4 as uuid } from "uuid";
 import { Link, useNavigate } from "react-router-dom";
@@ -61,26 +62,20 @@ const POPULAR_BANK_KEYWORDS = [
 
 function BankPicker({ bank, onSelect }: { bank: Bank | null; onSelect: (bank: Bank) => void }) {
   const [open, setOpen] = useState(false);
-  const [banks, setBanks] = useState<Bank[]>();
   const [search, setSearch] = useState("");
-  const [error, setError] = useState(false);
-  const [retry, setRetry] = useState(0);
   const [mobileViewport, setMobileViewport] = useState<{ height: number; top: number } | null>(null);
-
-  useEffect(() => {
-    if (!open || banks) return;
-    let active = true;
-    setError(false);
-    void ApiService.getBanks().then(
-      (result) => {
-        if (!active) return;
-        if (!Array.isArray(result?.data) || result.data.length === 0) setError(true);
-        else setBanks(result.data);
-      },
-      () => { if (active) setError(true); },
-    );
-    return () => { active = false; };
-  }, [banks, open, retry]);
+  const directory = useQuery({
+    queryKey: ["nigerian-bank-directory"],
+    queryFn: async (): Promise<Bank[]> => {
+      const result = await ApiService.getBanks();
+      if (!Array.isArray(result?.data) || !result.data.length) throw new Error("Bank directory is unavailable.");
+      return result.data;
+    },
+    staleTime: 15 * 60_000,
+    retry: false,
+  });
+  const banks = directory.data;
+  const error = directory.isError && !banks && !directory.isFetching;
 
   // Track visualViewport on mobile so the bank sheet stays 100% visible above the on-screen keyboard
   useEffect(() => {
@@ -203,7 +198,7 @@ function BankPicker({ bank, onSelect }: { bank: Bank | null; onSelect: (bank: Ba
         )}
 
         {error ? (
-          <div className="flex items-center justify-between gap-2 text-sm"><p role="alert">Couldn’t load banks.</p><Button variant="outline" onClick={() => setRetry((count) => count + 1)}>Retry</Button></div>
+          <div className="flex items-center justify-between gap-2 text-sm"><p role="alert">Couldn’t load banks.</p><Button variant="outline" onClick={() => void directory.refetch()}>Retry</Button></div>
         ) : choices ? (
           <ul className="min-h-0 flex-1 divide-y overflow-y-auto overscroll-contain rounded-xl border sm:max-h-[22rem]">
             {choices.map((choice) => (
@@ -273,7 +268,7 @@ export default function TransferForm() {
         (name) => { if (active) setVerification({ key, name }); },
         () => { if (active) setVerification({ key, name: null }); },
       );
-    }, 250);
+    }, 120);
     return () => { active = false; clearTimeout(timer); };
   }, [account, bankCode, key, verificationRetry]);
 

@@ -359,7 +359,7 @@ const UserProfile = () => {
                         const target = Math.max(1, Number(group.target_amount || 1));
                         const pct = Math.min(100, Math.round((current / target) * 100));
                         const memberCount = Array.isArray(group.contributors)
-                          ? group.contributors[0]?.count ?? group.contributors.length
+                          ? group.contributors.length
                           : 0;
 
                         return (

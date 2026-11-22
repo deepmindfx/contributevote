@@ -152,8 +152,6 @@ export function ContributeButton({
             ? result.new_balance
             : Math.max(0, balanceBefore - contributionAmount);
 
-        await refreshCurrentUser();
-
         const reference =
           (result as any).transaction_id ||
           (result as any).reference ||
@@ -184,6 +182,7 @@ export function ContributeButton({
         });
 
         setAmount('');
+        void refreshCurrentUser();
         toast.success('Contribution pooled successfully!');
         onSuccess?.();
       }
