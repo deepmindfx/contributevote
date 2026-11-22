@@ -40,6 +40,7 @@ import {
   UserCheck,
 } from "lucide-react";
 import { hasTransactionPin } from "@/lib/transactionPin";
+import { compressProfileImage, formatByteSize } from "@/lib/imageCompression";
 import { cn } from "@/lib/utils";
 import { applyAppearance, usesDarkMode } from "@/lib/appearance";
 
@@ -89,6 +90,8 @@ const UserSettingsForm = () => {
   const [confirmPin, setConfirmPin] = useState("");
   const [isSavingPin, setIsSavingPin] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isCompressingPhoto, setIsCompressingPhoto] = useState(false);
+  const [photoCompressionMeta, setPhotoCompressionMeta] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   // Change password dialog state
@@ -199,21 +202,35 @@ const UserSettingsForm = () => {
     }));
   };
 
-  const handleProfileImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleProfileImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 512 * 1024) {
-      toast.error("Image must be smaller than 500KB");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const result = reader.result as string;
+
+    setIsCompressingPhoto(true);
+    try {
+      const compressed = await compressProfileImage(file, {
+        maxInputBytes: 5 * 1024 * 1024, // Up to 5 MB source photo
+        maxDimension: 640, // 640x640 Retina HD
+        targetMaxBytes: 180 * 1024,
+      });
+
       dirtyRef.current = true;
-      setPreviewImage(result);
-      setUserData((prev) => ({ ...prev, profileImage: result }));
-    };
-    reader.readAsDataURL(file);
+      setPreviewImage(compressed.dataUrl);
+      setUserData((prev) => ({ ...prev, profileImage: compressed.dataUrl }));
+
+      if (compressed.originalBytes > compressed.compressedBytes) {
+        const summary = `Optimized ${formatByteSize(compressed.originalBytes)} → ${formatByteSize(compressed.compressedBytes)} (HD)`;
+        setPhotoCompressionMeta(summary);
+        toast.success(`Photo ready (${summary})`);
+      } else {
+        setPhotoCompressionMeta(`${formatByteSize(compressed.compressedBytes)} (HD)`);
+      }
+    } catch (error: any) {
+      toast.error(error?.message || "Could not process the selected photo.");
+    } finally {
+      setIsCompressingPhoto(false);
+      e.target.value = "";
+    }
   };
 
   const handlePasswordChange = async () => {
@@ -293,6 +310,7 @@ const UserSettingsForm = () => {
 
       dirtyRef.current = false;
       setPreviewImage(null);
+      setPhotoCompressionMeta(null);
       toast.success("Settings saved");
     } catch (error: any) {
       console.error("Error updating profile:", error);
@@ -399,7 +417,11 @@ const UserSettingsForm = () => {
                       />
                     </div>
                     <p className="text-[11px] text-muted-foreground">
-                      JPG or PNG photo up to 500KB.
+                      {isCompressingPhoto
+                        ? "Optimizing photo with lossless HD compression…"
+                        : photoCompressionMeta
+                        ? `Ready to save · ${photoCompressionMeta}`
+                        : "JPG, PNG, or WebP up to 5MB (auto-compressed to lossless HD)."}
                     </p>
                   </div>
                 </div>
