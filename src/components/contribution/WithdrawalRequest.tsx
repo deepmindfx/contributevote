@@ -5,14 +5,14 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
 import { useSupabaseUser } from '@/contexts/SupabaseUserContext';
 import { useSupabaseContribution } from '@/contexts/SupabaseContributionContext';
-import { Wallet, AlertCircle } from 'lucide-react';
+import { Wallet, AlertCircle, Vote, ShieldCheck } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-  createWithdrawalRequest, 
-  processInstantWithdrawal 
+import BrandLoader from '@/components/ui/BrandLoader';
+import {
+  createWithdrawalRequest,
+  processInstantWithdrawal,
 } from '@/services/supabase/withdrawalService';
 
 interface WithdrawalRequestProps {
@@ -26,8 +26,16 @@ export function WithdrawalRequest({ groupId }: WithdrawalRequestProps) {
   const [purpose, setPurpose] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const group = contributions.find(c => c.id === groupId);
-  const availableBalance = group?.current_amount || 0;
+  const group: any = contributions.find((c) => c.id === groupId);
+  const availableBalance = Number(group?.current_amount || 0);
+  const groupHasVotingRights = group?.enable_voting_rights !== false;
+  const approvalThreshold =
+    group?.voting_threshold && group.voting_threshold >= 50 && group.voting_threshold <= 100
+      ? Math.round(group.voting_threshold)
+      : 60;
+  const eligibleVoterCount = Array.isArray(group?.contributors)
+    ? group.contributors.filter((c: any) => c.has_voting_rights === true && c.user_id).length
+    : 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,162 +65,155 @@ export function WithdrawalRequest({ groupId }: WithdrawalRequestProps) {
     setIsSubmitting(true);
 
     try {
-      // Check if group has voting rights enabled
-      const groupHasVotingRights = group?.enable_voting_rights !== false;
-
       if (!groupHasVotingRights) {
-        // For non-voting groups, process withdrawal immediately using service
         const result = await processInstantWithdrawal(groupId, withdrawalAmount, purpose.trim());
-
         if (!result.success) {
           throw new Error(result.error || 'Failed to process withdrawal');
         }
 
-        toast.success(`₦${withdrawalAmount.toLocaleString()} withdrawn successfully and added to your wallet!`);
-        
-        // Reset form
+        toast.success(`₦${withdrawalAmount.toLocaleString()} withdrawn to your wallet`);
         setAmount('');
         setPurpose('');
-        
-        // Refresh data (wallet balance + group balance)
-        await Promise.all([refreshCurrentUser(), refreshContributionData()]);
+        await Promise.all([refreshCurrentUser(), refreshContributionData(true)]);
         return;
       }
 
-      // For voting groups, create withdrawal request using service
+      // Atomic server-side RPC creates the withdrawal request and notifies all verified voters
       const result = await createWithdrawalRequest(groupId, withdrawalAmount, purpose.trim());
-
       if (!result.success) {
         throw new Error(result.error || 'Failed to create withdrawal request');
       }
 
-      const data = result.data;
-
-      // Get all contributors for this group to notify them
-      // @ts-ignore - Supabase type inference issue with deep queries
-      const { data: contributors } = await supabase
-        .from('contributors')
-        .select('user_id')
-        .eq('group_id', groupId)
-        .eq('has_voting_rights', true);
-
-      // Create notifications for all contributors with voting rights
-      if (contributors && contributors.length > 0) {
-        const notifications = contributors
-          .filter(c => c.user_id !== user.id) // Don't notify the requester
-          .map(c => ({
-            user_id: c.user_id,
-            type: 'withdrawal_request',
-            title: 'New Withdrawal Request',
-            message: `${user.name} requested ₦${withdrawalAmount.toLocaleString()} withdrawal from ${group?.name}. Vote now!`,
-            related_id: data.id,
-            is_read: false,
-            created_at: new Date().toISOString()
-          }));
-
-        if (notifications.length > 0) {
-          await supabase
-            .from('notifications')
-            .insert(notifications);
-        }
-      }
-
-      toast.success('Withdrawal request submitted! All contributors have been notified.');
-      
-      // Reset form
+      toast.success(
+        `Withdrawal vote opened! ${result.data?.eligible_voters || eligibleVoterCount} eligible voter(s) can now vote.`
+      );
       setAmount('');
       setPurpose('');
-      
-      // Refresh data
-      await refreshContributionData();
+      await refreshContributionData(true);
     } catch (error: any) {
       console.error('Error creating withdrawal request:', error);
-      toast.error(error.message || 'Failed to create withdrawal request');
+      toast.error(error?.message || 'Failed to create withdrawal request');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="space-y-6">
-      <Alert>
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription>
-          {group?.enable_voting_rights !== false ? (
-            <>
-              Withdrawal requests require approval from contributors with voting rights (70% participation and 60% approval).
-              The voting period is 7 days. Once approved, funds will be transferred to your wallet.
-            </>
+    <>
+      {isSubmitting && (
+        <BrandLoader
+          variant="overlay"
+          badge={groupHasVotingRights ? 'Opening Vote' : 'Direct Payout'}
+          message={groupHasVotingRights ? 'Opening withdrawal vote' : 'Processing direct withdrawal'}
+          submessage={
+            groupHasVotingRights
+              ? 'Notifying all eligible group voters…'
+              : 'Transferring funds from pool to your wallet…'
+          }
+        />
+      )}
+
+      <div className="space-y-4">
+        <Alert className="rounded-2xl">
+          {groupHasVotingRights ? (
+            <Vote className="h-4 w-4 text-primary" />
           ) : (
-            <>
-              This group has no voting rights. As admin, you can withdraw funds instantly without approval.
-              Funds will be transferred directly to your wallet.
-            </>
+            <ShieldCheck className="h-4 w-4 text-primary" />
           )}
-        </AlertDescription>
-      </Alert>
-
-      <Card className="p-6">
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 mb-4">
-            <Wallet className="h-5 w-5 text-primary" />
-            <div>
-              <h3 className="font-semibold">Request Withdrawal</h3>
-              <p className="text-sm text-muted-foreground">
-                Available Balance: ₦{availableBalance.toLocaleString()}
-              </p>
-            </div>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="amount">Amount (₦)</Label>
-              <Input
-                id="amount"
-                type="number"
-                placeholder="0.00"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                max={availableBalance}
-                step="0.01"
-                required
-              />
-              <p className="text-xs text-muted-foreground">
-                Maximum: ₦{availableBalance.toLocaleString()}
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="purpose">Purpose</Label>
-              <Textarea
-                id="purpose"
-                placeholder="Explain why you need to withdraw these funds..."
-                value={purpose}
-                onChange={(e) => setPurpose(e.target.value)}
-                rows={4}
-                required
-              />
-              <p className="text-xs text-muted-foreground">
-                Be clear about how the funds will be used. This helps contributors make informed voting decisions.
-              </p>
-            </div>
-
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={isSubmitting || availableBalance <= 0}
-            >
-              {isSubmitting ? 'Submitting...' : 'Submit Withdrawal Request'}
-            </Button>
-
-            {availableBalance <= 0 && (
-              <p className="text-sm text-amber-600 text-center">
-                No funds available for withdrawal
-              </p>
+          <AlertDescription className="text-xs leading-relaxed">
+            {groupHasVotingRights ? (
+              <>
+                <strong>Vote-governed pool:</strong> Payouts require at least{' '}
+                <strong>70% participation</strong> and{' '}
+                <strong>{approvalThreshold}% approval</strong> from verified contributors within 7 days.
+                {eligibleVoterCount > 0 ? (
+                  <span> Currently <strong>{eligibleVoterCount}</strong> eligible voter{eligibleVoterCount === 1 ? '' : 's'}.</span>
+                ) : (
+                  <span className="mt-1 block font-semibold text-amber-700 dark:text-amber-300">
+                    No verified contributors with voting rights yet — contribute from wallet or verify a bank transfer first.
+                  </span>
+                )}
+              </>
+            ) : (
+              <>
+                <strong>Admin-managed pool:</strong> Voting is disabled for this group. Withdrawals credit your wallet immediately.
+              </>
             )}
-          </form>
-        </div>
-      </Card>
-    </div>
+          </AlertDescription>
+        </Alert>
+
+        <Card className="rounded-2xl p-5">
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <span className="grid h-10 w-10 place-items-center rounded-xl bg-accent text-primary">
+                <Wallet className="h-5 w-5" />
+              </span>
+              <div>
+                <h3 className="font-bold text-foreground">
+                  {groupHasVotingRights ? 'Propose Withdrawal Vote' : 'Withdraw Pool Funds'}
+                </h3>
+                <p className="text-xs text-muted-foreground tabular-nums">
+                  Available balance: <strong className="text-foreground">₦{availableBalance.toLocaleString()}</strong>
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="withdrawal-amount">Amount (₦)</Label>
+                <Input
+                  id="withdrawal-amount"
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  max={availableBalance}
+                  step="any"
+                  className="h-11 rounded-xl font-semibold tabular-nums"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="withdrawal-purpose">Purpose</Label>
+                <Textarea
+                  id="withdrawal-purpose"
+                  placeholder="Explain clearly how these funds will be used so members can vote with confidence…"
+                  value={purpose}
+                  onChange={(e) => setPurpose(e.target.value)}
+                  rows={3}
+                  className="rounded-xl"
+                  required
+                />
+              </div>
+
+              <Button
+                type="submit"
+                className="h-11 w-full rounded-xl font-bold"
+                disabled={
+                  isSubmitting ||
+                  availableBalance <= 0 ||
+                  (groupHasVotingRights && eligibleVoterCount === 0)
+                }
+              >
+                {isSubmitting
+                  ? 'Processing…'
+                  : groupHasVotingRights
+                  ? 'Submit for Member Vote'
+                  : 'Withdraw to Wallet'}
+              </Button>
+
+              {availableBalance <= 0 && (
+                <p className="flex items-center justify-center gap-1.5 text-xs text-amber-600">
+                  <AlertCircle className="h-3.5 w-3.5" />
+                  No funds available in this pool yet
+                </p>
+              )}
+            </form>
+          </div>
+        </Card>
+      </div>
+    </>
   );
 }

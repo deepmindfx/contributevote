@@ -66,8 +66,6 @@ export const WalletContributionService = {
     anonymous: boolean = false
   ): Promise<WalletContributionResult> {
     try {
-      console.log('🔵 Contributing from wallet:', { userId, groupId, amount, anonymous });
-      
       const { data, error } = await supabase.rpc('contribute_from_wallet', {
         p_user_id: userId,
         p_group_id: groupId,
@@ -76,12 +74,11 @@ export const WalletContributionService = {
       });
 
       if (error) {
-        console.error('❌ Contribution error:', error);
+        console.error('Contribution error:', error);
         throw error;
       }
 
       const result = data as unknown as WalletContributionResult;
-      console.log('✅ Contribution result:', result);
 
       if (result.success) {
         toast.success('Contribution successful!', {
@@ -338,96 +335,42 @@ export const WalletContributionService = {
   },
 
   /**
-   * Vote on a refund request
-   * Rules: 60% approval + 70% participation required
+   * Vote on a refund request atomically via server-side RPC
+   * Enforces verified voting rights, 70% participation quorum, and group's voting_threshold%
    */
   async voteOnRefund(
     refundRequestId: string,
-    userId: string,
+    _userId: string,
     vote: 'for' | 'against'
   ): Promise<boolean> {
     try {
-      // Get current request
-      const { data: request, error: fetchError } = await supabase
-        .from('group_refund_requests')
-        .select('*')
-        .eq('id', refundRequestId)
-        .single();
+      const { data, error } = await (supabase as any).rpc('cast_refund_vote', {
+        p_refund_request_id: refundRequestId,
+        p_vote: vote,
+      });
 
-      if (fetchError) throw fetchError;
+      if (error) throw error;
 
-      // Ensure voter has rights within this group
-      const { data: contributor, error: contributorError } = await supabase
-        .from('contributors')
-        .select('has_voting_rights')
-        .eq('group_id', (request as any).group_id)
-        .eq('user_id', userId)
-        .single();
-
-      if (contributorError || !contributor) {
-        toast.error('Only verified contributors can vote on refunds');
+      if (!data?.success) {
+        toast.error(data?.error || 'Could not record your vote');
         return false;
       }
 
-      if (!contributor.has_voting_rights) {
-        toast.error('You do not have voting rights in this group');
-        return false;
-      }
+      const participation = Number(data.participation_rate || 0).toFixed(0);
+      const approval = Number(data.approval_rate || 0).toFixed(0);
+      const threshold = Number(data.voting_threshold || 60);
 
-      // Check if user already voted
-      const votes = (request as any).votes || [];
-      const existingVote = votes.find((v: any) => v.user_id === userId);
-
-      if (existingVote) {
-        toast.error('You have already voted on this request');
-        return false;
-      }
-
-      // Add vote
-      const newVotes = [...votes, { user_id: userId, vote, voted_at: new Date().toISOString() }];
-      const votesFor = newVotes.filter((v: any) => v.vote === 'for').length;
-      const votesAgainst = newVotes.filter((v: any) => v.vote === 'against').length;
-      const totalVotes = newVotes.length;
-
-      // Governance Rules
-      const totalEligibleVoters = (request as any).total_eligible_voters || 0;
-      const APPROVAL_THRESHOLD = 60; // 60% of voters must approve
-      const PARTICIPATION_THRESHOLD = 70; // 70% of contributors must vote
-
-      // Calculate percentages safely
-      const participationRate = totalEligibleVoters > 0 ? (totalVotes / totalEligibleVoters) * 100 : 0;
-      const approvalRate = totalVotes > 0 ? (votesFor / totalVotes) * 100 : 0;
-
-      // Check if thresholds met (early approval)
-      let newStatus = 'pending';
-      if (participationRate >= PARTICIPATION_THRESHOLD && approvalRate >= APPROVAL_THRESHOLD) {
-        newStatus = 'approved';
-      }
-
-      const { error: updateError } = await supabase
-        .from('group_refund_requests')
-        .update({
-          votes: newVotes,
-          total_votes_for: votesFor,
-          total_votes_against: votesAgainst,
-          status: newStatus
-        })
-        .eq('id', refundRequestId);
-
-      if (updateError) {
-        console.error('Update error details:', updateError);
-        throw updateError;
-      }
-
-      if (newStatus === 'approved') {
-        toast.success('Refund request approved', {
-          description: `${participationRate.toFixed(0)}% participated, ${approvalRate.toFixed(0)}% approved. Processing refunds...`
+      if (data.status === 'executed' || data.status === 'approved') {
+        toast.success('Refund approved & executed', {
+          description: `${participation}% participated · ${approval}% approved (needed ${threshold}%). Refunds credited to wallets.`,
         });
-        // Trigger refund processing
-        await this.processRefund(refundRequestId);
+      } else if (data.status === 'rejected') {
+        toast.error('Refund proposal rejected', {
+          description: `Did not reach the ${threshold}% approval threshold.`,
+        });
       } else {
         toast.success('Vote recorded', {
-          description: `${participationRate.toFixed(0)}% participated, ${approvalRate.toFixed(0)}% approval`
+          description: `${participation}% participation · ${approval}% approval (needs 70% quorum & ${threshold}% approval)`,
         });
       }
 
@@ -436,7 +379,7 @@ export const WalletContributionService = {
       console.error('Error voting on refund:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       toast.error('Failed to record vote', {
-        description: errorMessage
+        description: errorMessage,
       });
       return false;
     }

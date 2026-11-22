@@ -18,7 +18,7 @@ interface SupabaseContributionContextType {
   withdrawalRequests: WithdrawalRequest[];
   stats: any;
   loading: boolean;
-  refreshContributionData: () => Promise<void>;
+  refreshContributionData: (force?: boolean) => Promise<void>;
   createNewContribution: (contribution: any) => Promise<ContributionGroup>;
   contribute: (contributionId: string, amount: number, anonymous?: boolean) => Promise<void>;
   contributeViaAccountNumber: (accountNumber: string, amount: number, contributorInfo: any, anonymous?: boolean) => Promise<void>;
@@ -43,13 +43,12 @@ export function SupabaseContributionProvider({ children }: { children: ReactNode
   const lastRefreshTime = useRef<number>(0);
   const isRefreshing = useRef<boolean>(false);
 
-  const refreshContributionData = useCallback(async () => {
+  const refreshContributionData = useCallback(async (force = false) => {
     if (!user) return;
     
-    // Rate limiting: prevent calls within 2 seconds of each other
+    // Rate limiting: prevent redundant rapid calls unless forced after user action
     const now = Date.now();
-    if (now - lastRefreshTime.current < 2000 || isRefreshing.current) {
-      console.log('Rate limiting: Skipping refresh call');
+    if (!force && (now - lastRefreshTime.current < 1200 || isRefreshing.current)) {
       return;
     }
     
@@ -70,20 +69,25 @@ export function SupabaseContributionProvider({ children }: { children: ReactNode
       setStats(transactionStats);
 
       // Load withdrawal requests for user's groups
-      const { data: requests, error: requestsError } = await supabase
-        .from('withdrawal_requests')
-        .select('*')
-        .in('contribution_id', userContributions.map(c => c.id))
-        .order('created_at', { ascending: false });
-
-      if (requestsError) {
-        console.error('Error loading withdrawal requests:', requestsError);
+      const groupIds = userContributions.map(c => c.id);
+      if (groupIds.length === 0) {
         setWithdrawalRequests([]);
       } else {
-        const sortedRequests = (requests || []).sort(
-          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        );
-        setWithdrawalRequests(sortedRequests);
+        const { data: requests, error: requestsError } = await supabase
+          .from('withdrawal_requests')
+          .select('*')
+          .in('contribution_id', groupIds)
+          .order('created_at', { ascending: false });
+
+        if (requestsError) {
+          console.error('Error loading withdrawal requests:', requestsError);
+          setWithdrawalRequests([]);
+        } else {
+          const sortedRequests = (requests || []).sort(
+            (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
+          setWithdrawalRequests(sortedRequests);
+        }
       }
     } catch (error) {
       console.error('Error refreshing contribution data:', error);
@@ -131,7 +135,18 @@ export function SupabaseContributionProvider({ children }: { children: ReactNode
             table: 'withdrawal_requests'
           },
           () => {
-            refreshContributionData();
+            refreshContributionData(true);
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'group_refund_requests'
+          },
+          () => {
+            refreshContributionData(true);
           }
         )
         .subscribe();
@@ -317,7 +332,7 @@ export function SupabaseContributionProvider({ children }: { children: ReactNode
         }
       }
 
-      await refreshContributionData();
+      await refreshContributionData(true);
     } catch (error) {
       console.error('Error creating withdrawal request:', error);
       throw error;
@@ -334,7 +349,7 @@ export function SupabaseContributionProvider({ children }: { children: ReactNode
         throw new Error(result.error || 'Failed to submit vote');
       }
 
-      await refreshContributionData();
+      await refreshContributionData(true);
     } catch (error) {
       console.error('Error voting:', error);
       throw error;

@@ -4,9 +4,10 @@ export type GroupRuleDetails = {
   contribution_amount?: number | null;
   end_date?: string | null;
   enable_voting_rights?: boolean | null;
+  voting_threshold?: number | null;
 };
 
-export const groupRuleColumns = "description, frequency, contribution_amount, end_date, enable_voting_rights";
+export const groupRuleColumns = "description, frequency, contribution_amount, end_date, enable_voting_rights, voting_threshold";
 
 export function GroupRules({ group, showTitle = true }: { group: GroupRuleDetails; showTitle?: boolean }) {
   const amount = Number(group.contribution_amount || 0);
@@ -14,6 +15,10 @@ export function GroupRules({ group, showTitle = true }: { group: GroupRuleDetail
   const deadline = group.end_date
     ? new Date(group.end_date).toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" })
     : null;
+  const threshold =
+    group.voting_threshold && group.voting_threshold >= 50 && group.voting_threshold <= 100
+      ? Math.round(group.voting_threshold)
+      : 60;
 
   return (
     <section className="space-y-2 text-sm" aria-label="Group rules">
@@ -28,17 +33,17 @@ export function GroupRules({ group, showTitle = true }: { group: GroupRuleDetail
         </div>
         <div>
           <dt className="font-medium text-foreground">Refunds</dt>
-          <dd>The creator can propose a refund. If eligible contributors approve it, funds are returned in proportion to each person’s contribution.</dd>
+          <dd>The creator can propose a refund. If at least 70% of eligible contributors vote and {threshold}% approve, funds are returned proportionally.</dd>
         </div>
         <div>
           <dt className="font-medium text-foreground">Withdrawals and voting</dt>
           <dd>
             {group.enable_voting_rights === false
               ? "The group creator can withdraw funds directly."
-              : "Eligible contributors vote on withdrawals. At least 70% must participate and 60% of votes cast must approve within seven days."}
+              : `Eligible contributors vote on withdrawals. At least 70% must participate and ${threshold}% of votes cast must approve within seven days.`}
           </dd>
-          {group.enable_voting_rights === true && (
-            <dd className="mt-1">Wallet contributions unlock voting rights. Direct bank transfers need verification by the creator.</dd>
+          {group.enable_voting_rights !== false && (
+            <dd className="mt-1">Wallet contributions unlock voting rights instantly. Direct bank transfers require verification by the creator.</dd>
           )}
         </div>
       </dl>

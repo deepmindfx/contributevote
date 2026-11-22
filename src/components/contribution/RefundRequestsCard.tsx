@@ -12,9 +12,19 @@ import BrandLoader from '@/components/ui/BrandLoader';
 
 interface RefundRequestsCardProps {
   groupId: string;
+  votingThreshold?: number | null;
+  hasVotingRights?: boolean;
 }
 
-export function RefundRequestsCard({ groupId }: RefundRequestsCardProps) {
+export function RefundRequestsCard({
+  groupId,
+  votingThreshold,
+  hasVotingRights = true,
+}: RefundRequestsCardProps) {
+  const approvalThreshold =
+    votingThreshold && votingThreshold >= 50 && votingThreshold <= 100
+      ? Math.round(votingThreshold)
+      : 60;
   const [requests, setRequests] = useState<GroupRefundRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [votingOn, setVotingOn] = useState<string | null>(null);
@@ -183,9 +193,9 @@ export function RefundRequestsCard({ groupId }: RefundRequestsCardProps) {
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
             <div className="bg-white dark:bg-gray-900 p-3 rounded border">
-              <div className="font-medium text-blue-600 dark:text-blue-400">60% Approval</div>
+              <div className="font-medium text-blue-600 dark:text-blue-400">{approvalThreshold}% Approval</div>
               <div className="text-xs text-muted-foreground mt-1">
-                60% of voters must vote "For"
+                {approvalThreshold}% of voters must vote "For"
               </div>
             </div>
             <div className="bg-white dark:bg-gray-900 p-3 rounded border">
@@ -202,12 +212,8 @@ export function RefundRequestsCard({ groupId }: RefundRequestsCardProps) {
             </div>
           </div>
           <p className="text-xs text-muted-foreground mt-3 flex items-start gap-2">
-            <svg className="h-4 w-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
             <span>
-              <strong>How it works:</strong> If 70% of contributors vote AND 60% vote "For", the refund is approved immediately. 
-              Otherwise, voting continues for 7 days. If thresholds aren't met by deadline, request is rejected.
+              <strong>How it works:</strong> If 70% of eligible contributors vote AND {approvalThreshold}% vote "For", the refund is approved and executed automatically.
             </span>
           </p>
         </div>
@@ -286,7 +292,7 @@ export function RefundRequestsCard({ groupId }: RefundRequestsCardProps) {
                         Approval: {request.total_votes_for || 0} of {request.votes?.length || 0} voted "For"
                       </span>
                       <span className={`font-bold ${
-                        votePercentage >= 60 
+                        votePercentage >= approvalThreshold 
                           ? 'text-green-600' 
                           : 'text-orange-600'
                       }`}>
@@ -297,22 +303,22 @@ export function RefundRequestsCard({ groupId }: RefundRequestsCardProps) {
                     </div>
                     <Progress value={votePercentage} className="h-2" />
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>Need 60% approval</span>
-                      {votePercentage >= 60 ? (
+                      <span>Need {approvalThreshold}% approval</span>
+                      {votePercentage >= approvalThreshold ? (
                         <span className="inline-flex items-center gap-1 font-medium text-green-600">
                           <CheckCircle2 className="h-3.5 w-3.5" />
                           Threshold met
                         </span>
                       ) : (
                         <span className="text-orange-600">
-                          {Math.ceil((request.votes?.length || 0) * 0.6) - (request.total_votes_for || 0)} more "For" votes needed
+                          {Math.max(1, Math.ceil((request.votes?.length || 0) * (approvalThreshold / 100)) - (request.total_votes_for || 0))} more "For" votes needed
                         </span>
                       )}
                     </div>
                   </div>
 
                   {/* Status Summary */}
-                  {getParticipationPercentage(request) >= 70 && votePercentage >= 60 && (
+                  {getParticipationPercentage(request) >= 70 && votePercentage >= approvalThreshold && (
                     <div className="bg-green-50 dark:bg-green-950 p-3 rounded-lg border border-green-200 dark:border-green-800">
                       <p className="text-sm text-green-800 dark:text-green-200 font-medium flex items-center gap-2">
                         <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -340,7 +346,11 @@ export function RefundRequestsCard({ groupId }: RefundRequestsCardProps) {
                   </div>
 
                   {/* Voting Buttons */}
-                  {!userVoted ? (
+                  {!hasVotingRights ? (
+                    <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2.5 text-center text-xs font-medium text-amber-800 dark:text-amber-300">
+                      Contribute to this group to unlock refund voting rights.
+                    </div>
+                  ) : !userVoted ? (
                     <div className="flex gap-2">
                       <Button
                         onClick={() => handleVote(request.id, 'for')}

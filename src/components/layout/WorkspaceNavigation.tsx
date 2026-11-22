@@ -18,7 +18,7 @@ const moneyLinks = [
 export default function WorkspaceNavigation() {
   const { pathname } = useLocation();
   const { user, isAdmin } = useSupabaseUser();
-  const { withdrawalRequests } = useSupabaseContribution();
+  const { contributions, withdrawalRequests } = useSupabaseContribution();
   const active = getWorkspaceLink(pathname);
   const mobileActive =
     active?.to === "/discover"
@@ -28,10 +28,18 @@ export default function WorkspaceNavigation() {
       : "mobileLabel" in (active || {}) && (active as any)?.mobileLabel
       ? active!.to
       : "/dashboard";
-  const pendingVotes = user ? withdrawalRequests.filter((request) => {
-    const votes = Array.isArray(request.votes) ? request.votes as { user_id?: string }[] : [];
-    return request.status === "pending" && !votes.some((vote) => vote?.user_id === user.id);
-  }).length : 0;
+  const pendingVotes = user
+    ? withdrawalRequests.filter((request) => {
+        if (request.status !== "pending") return false;
+        const group: any = contributions.find((c) => c.id === request.contribution_id);
+        const canVoteInGroup = Array.isArray(group?.contributors)
+          ? group.contributors.some((c: any) => c.user_id === user.id && c.has_voting_rights === true)
+          : false;
+        if (!canVoteInGroup) return false;
+        const votes = Array.isArray(request.votes) ? (request.votes as { user_id?: string }[]) : [];
+        return !votes.some((vote) => vote?.user_id === user.id);
+      }).length
+    : 0;
 
   const votesLabel = pendingVotes ? `Votes, ${pendingVotes} pending` : undefined;
   const votesBadge = pendingVotes > 9 ? "9+" : pendingVotes;

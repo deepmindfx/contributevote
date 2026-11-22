@@ -22,12 +22,17 @@ export interface VotingStatus {
   status: string;
   participation_rate: number;
   approval_rate: number;
+  voting_threshold?: number;
   votes_cast: number;
+  yes_votes?: number;
+  no_votes?: number;
   total_voters: number;
+  error?: string;
 }
 
 /**
- * Create a withdrawal request
+ * Create a withdrawal request atomically via server-side RPC
+ * Enforces creator ownership, active status, available pool balance, eligible voters > 0, and notifies voters.
  */
 export async function createWithdrawalRequest(
   groupId: string,
@@ -35,117 +40,75 @@ export async function createWithdrawalRequest(
   purpose: string
 ): Promise<{ success: boolean; data?: any; error?: string }> {
   try {
-    const deadline = new Date();
-    deadline.setDate(deadline.getDate() + 7); // 7 days from now
-
-    const { data, error } = await supabase
-      .from('withdrawal_requests')
-      .insert({
-        contribution_id: groupId,
-        requester_id: (await supabase.auth.getUser()).data.user?.id,
-        amount,
-        purpose,
-        deadline: deadline.toISOString(),
-        status: 'pending',
-        votes: []
-      })
-      .select()
-      .single();
+    const { data, error } = await (supabase as any).rpc('create_withdrawal_request_safe', {
+      p_group_id: groupId,
+      p_amount: amount,
+      p_purpose: purpose.trim(),
+    });
 
     if (error) throw error;
+
+    if (!data?.success) {
+      return {
+        success: false,
+        error: data?.error || 'Failed to create withdrawal request',
+      };
+    }
 
     return { success: true, data };
   } catch (error) {
     console.error('Error creating withdrawal request:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to create withdrawal request'
+      error: error instanceof Error ? error.message : 'Failed to create withdrawal request',
     };
   }
 }
 
 /**
- * Vote on a withdrawal request
+ * Cast a vote on a withdrawal request atomically via server-side RPC.
+ * Locks row, verifies has_voting_rights = true, records audit transaction,
+ * and evaluates 70% participation + group's configured voting_threshold%.
  */
 export async function voteOnWithdrawal(
   withdrawalId: string,
   vote: boolean
 ): Promise<{ success: boolean; votingStatus?: VotingStatus; error?: string }> {
   try {
-    const userId = (await supabase.auth.getUser()).data.user?.id;
-    if (!userId) throw new Error('User not authenticated');
-
-    // Get current withdrawal
-    const { data: withdrawal, error: fetchError } = await supabase
-      .from('withdrawal_requests')
-      .select('*')
-      .eq('id', withdrawalId)
-      .single();
-
-    if (fetchError) throw fetchError;
-
-    // Check if user already voted
-    const votes: any[] = Array.isArray(withdrawal.votes) ? [...(withdrawal.votes as any[])] : [];
-    const existingVoteIndex = votes.findIndex((v: any) => v.user_id === userId);
-
-    if (existingVoteIndex >= 0) {
-      // Update existing vote
-      votes[existingVoteIndex] = {
-        user_id: userId,
-        vote,
-        voted_at: new Date().toISOString()
-      };
-    } else {
-      // Add new vote
-      votes.push({
-        user_id: userId,
-        vote,
-        voted_at: new Date().toISOString()
-      });
-    }
-
-    // Update withdrawal with new votes
-    const { error: updateError } = await supabase
-      .from('withdrawal_requests')
-      .update({ votes, updated_at: new Date().toISOString() })
-      .eq('id', withdrawalId);
-
-    if (updateError) throw updateError;
-
-    // Record the vote as a transaction for activity history
-    const { error: recordError } = await supabase.rpc('record_withdrawal_vote', {
+    const { data, error } = await (supabase as any).rpc('cast_withdrawal_vote', {
       p_withdrawal_id: withdrawalId,
-      p_user_id: userId,
-      p_vote: vote
+      p_vote: vote,
     });
 
-    if (recordError) {
-      console.error('Error recording vote transaction:', recordError);
-      // Don't fail the vote operation if transaction recording fails
+    if (error) throw error;
+
+    const status = data as VotingStatus;
+    if (!status?.success) {
+      return {
+        success: false,
+        error: status?.error || 'Failed to record vote',
+      };
     }
 
-    // Check voting status and auto-approve/reject if thresholds met
-    const votingStatus = await checkWithdrawalVoting(withdrawalId);
-
-    return { success: true, votingStatus };
+    return { success: true, votingStatus: status };
   } catch (error) {
     console.error('Error voting on withdrawal:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to vote'
+      error: error instanceof Error ? error.message : 'Failed to vote',
     };
   }
 }
 
 /**
- * Check withdrawal voting status and auto-approve/reject
+ * Check withdrawal voting status and auto-approve/reject if thresholds met
  */
 export async function checkWithdrawalVoting(
   withdrawalId: string
 ): Promise<VotingStatus> {
   try {
     const { data, error } = await supabase.rpc('check_withdrawal_voting', {
-      p_withdrawal_id: withdrawalId
+      p_withdrawal_id: withdrawalId,
     });
 
     if (error) throw error;
@@ -159,7 +122,7 @@ export async function checkWithdrawalVoting(
       participation_rate: 0,
       approval_rate: 0,
       votes_cast: 0,
-      total_voters: 0
+      total_voters: 0,
     };
   }
 }
@@ -224,11 +187,11 @@ export async function processInstantWithdrawal(
     const userId = (await supabase.auth.getUser()).data.user?.id;
     if (!userId) throw new Error('User not authenticated');
 
-    const { data, error } = await supabase.rpc('process_instant_withdrawal', {
+    const { error } = await supabase.rpc('process_instant_withdrawal', {
       p_group_id: groupId,
       p_admin_id: userId,
       p_amount: amount,
-      p_purpose: purpose
+      p_purpose: purpose,
     });
 
     if (error) throw error;
@@ -238,7 +201,7 @@ export async function processInstantWithdrawal(
     console.error('Error processing instant withdrawal:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to process withdrawal'
+      error: error instanceof Error ? error.message : 'Failed to process withdrawal',
     };
   }
 }

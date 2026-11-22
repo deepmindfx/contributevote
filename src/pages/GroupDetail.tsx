@@ -27,6 +27,7 @@ import { RecurringContributionDialog } from '@/components/contribution/Recurring
 import { ScheduledContributionDialog } from '@/components/contribution/ScheduledContributionDialog';
 import { GroupRefundDialog } from '@/components/contribution/GroupRefundDialog';
 import { RefundRequestsCard } from '@/components/contribution/RefundRequestsCard';
+import { GroupWithdrawalVotesCard } from '@/components/contribution/GroupWithdrawalVotesCard';
 import { GroupActivityTimeline } from '@/components/contribution/GroupActivityTimeline';
 import { ContributorsList } from '@/components/contribution/ContributorsList';
 import { GroupAdminPanel } from '@/components/contribution/GroupAdminPanel';
@@ -45,7 +46,7 @@ export default function GroupDetail() {
   const [group, setGroup] = useState<any>(null);
   const { user } = useSupabaseUser();
   const { contributions, loading, refreshContributionData } = useSupabaseContribution();
-  const { canVote, isAdmin, loading: rightsLoading } = useVotingRights(id);
+  const { hasVotingRights, canVote, isAdmin, loading: rightsLoading, refresh: refreshVotingRights } = useVotingRights(id);
   const [isArchiving, setIsArchiving] = useState(false);
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
   const [showBvnDialog, setShowBvnDialog] = useState(false);
@@ -90,7 +91,7 @@ export default function GroupDetail() {
         const { supabase } = await import('@/integrations/supabase/client');
         const { data, error } = await supabase
           .from('contribution_groups')
-          .select('*')
+          .select('*, contributors(*)')
           .eq('id', id)
           .single();
 
@@ -112,7 +113,8 @@ export default function GroupDetail() {
   }, [id, contributions]);
 
   const handleContributeSuccess = async () => {
-    await refreshContributionData();
+    await refreshContributionData(true);
+    refreshVotingRights();
 
     try {
       const { supabase } = await import('@/integrations/supabase/client');
@@ -319,10 +321,20 @@ export default function GroupDetail() {
             </div>
           </div>
           <p className="panel-kicker text-sm">
-            {isPublic ? "Public" : "Private"} · {getCategoryLabel(group.category)}
+            {isPublic ? "Public" : "Private"} · {getCategoryLabel(group.category)} ·{" "}
+            {group.enable_voting_rights !== false
+              ? `Member Vote (${group.voting_threshold && group.voting_threshold >= 50 ? Math.round(group.voting_threshold) : 60}%)`
+              : "Admin Managed"}
             {!isActive && ` · ${group.archived ? "Archived" : group.status}`}
           </p>
           <h1 id="group-title" className="app-page-title mt-1">{group.name}</h1>
+          {group.enable_voting_rights !== false && (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-0.5 text-[11px] font-semibold text-[#dbf5b4]">
+                {hasVotingRights ? "Your voting rights: Active" : "Contribute to unlock voting rights"}
+              </span>
+            </div>
+          )}
 
           <div className="mt-3 sm:mt-5">
             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
@@ -366,7 +378,20 @@ export default function GroupDetail() {
             </div>
           )}
 
-          <RefundRequestsCard groupId={group.id} />
+          {group.enable_voting_rights !== false && (
+            <GroupWithdrawalVotesCard
+              groupId={group.id}
+              votingThreshold={group.voting_threshold}
+              hasVotingRights={hasVotingRights}
+              onVoteComplete={handleContributeSuccess}
+            />
+          )}
+
+          <RefundRequestsCard
+            groupId={group.id}
+            votingThreshold={group.voting_threshold}
+            hasVotingRights={hasVotingRights}
+          />
 
           <Tabs key={group.id} defaultValue="overview">
             <TabsList className="app-segmented group-detail-tabs grid w-full grid-flow-col auto-cols-fr" aria-label="Group sections">
@@ -385,9 +410,9 @@ export default function GroupDetail() {
                   </summary>
                   <div className="pb-4"><GroupRules group={group} showTitle={false} /></div>
                 </details>
-                {group.enable_voting_rights && (
+                {group.enable_voting_rights !== false && (
                   <Link className="group-detail-link" to="/votes">
-                    <span className="font-semibold">View votes</span>
+                    <span className="font-semibold">View all votes</span>
                     <ChevronRight size={16} aria-hidden="true" />
                   </Link>
                 )}

@@ -40,17 +40,16 @@ export function GroupAdminPanel({ groupId, isAdmin }: GroupAdminPanelProps) {
         </Alert>
 
         {/* Tabs */}
-        <Tabs defaultValue="pending" className="w-full">
+        <Tabs defaultValue="withdrawal" className="w-full">
           <TabsList className="grid w-full grid-cols-3 h-auto">
-            <TabsTrigger value="pending" className="text-xs md:text-sm px-2 py-2 md:px-3 md:py-2.5">
-              <AlertCircle className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
-              <span className="hidden sm:inline">Pending</span>
-              <span className="sm:hidden">Pending</span>
-            </TabsTrigger>
             <TabsTrigger value="withdrawal" className="text-xs md:text-sm px-2 py-2 md:px-3 md:py-2.5">
               <Wallet className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
-              <span className="hidden sm:inline">Withdrawal</span>
+              <span className="hidden sm:inline">Withdrawals</span>
               <span className="sm:hidden">Withdraw</span>
+            </TabsTrigger>
+            <TabsTrigger value="pending" className="text-xs md:text-sm px-2 py-2 md:px-3 md:py-2.5">
+              <AlertCircle className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+              <span>Pending</span>
             </TabsTrigger>
             <TabsTrigger value="contributors" className="text-xs md:text-sm px-2 py-2 md:px-3 md:py-2.5">
               <Users className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />

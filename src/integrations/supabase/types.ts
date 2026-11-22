@@ -1146,6 +1146,14 @@ export type Database = {
         Args: { p_group_id: string; p_user_id: string }
         Returns: Json
       }
+      cast_refund_vote: {
+        Args: { p_refund_request_id: string; p_vote: string }
+        Returns: Json
+      }
+      cast_withdrawal_vote: {
+        Args: { p_vote: boolean; p_withdrawal_id: string }
+        Returns: Json
+      }
       check_group_creation_eligibility: {
         Args: { p_user_id: string }
         Returns: Json
@@ -1182,6 +1190,10 @@ export type Database = {
           p_user_id: string
           p_voting_threshold?: number
         }
+        Returns: Json
+      }
+      create_withdrawal_request_safe: {
+        Args: { p_amount: number; p_group_id: string; p_purpose: string }
         Returns: Json
       }
       expire_withdrawal_requests: { Args: never; Returns: undefined }

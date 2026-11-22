@@ -34,7 +34,7 @@ const ITEMS_PER_PAGE = 6;
 
 const VotesPage = () => {
   const navigate = useNavigate();
-  const { user } = useSupabaseUser();
+  const { user, refreshCurrentUser } = useSupabaseUser();
   const { contributions, withdrawalRequests, refreshContributionData } = useSupabaseContribution();
   const [voteRequests, setVoteRequests] = useState<any[]>([]);
   const [pendingVoteId, setPendingVoteId] = useState<string | null>(null);
@@ -43,8 +43,20 @@ const VotesPage = () => {
 
   const buildVoteList = () => {
     const formatted = withdrawalRequests.map((request) => {
-      const contribution = contributions.find((c) => c.id === request.contribution_id);
-      const hasContributed = Boolean(contribution);
+      const contribution: any = contributions.find((c) => c.id === request.contribution_id);
+      const groupContributors = Array.isArray(contribution?.contributors)
+        ? contribution.contributors
+        : [];
+      const userContributor = groupContributors.find((c: any) => c.user_id === user?.id);
+      const hasVotingRights = Boolean(userContributor?.has_voting_rights === true);
+      const eligibleVoters = groupContributors.filter(
+        (c: any) => c.has_voting_rights === true && c.user_id
+      ).length;
+
+      const rawThreshold = Number(contribution?.voting_threshold || 60);
+      const threshold =
+        rawThreshold >= 50 && rawThreshold <= 100 ? Math.round(rawThreshold) : 60;
+
       const votesArray = Array.isArray(request.votes) ? (request.votes as any[]) : [];
       const userVoteData = votesArray.find((v: any) => v.user_id === user?.id);
       const hasVoted = Boolean(userVoteData);
@@ -59,18 +71,21 @@ const VotesPage = () => {
       const rejectVotes = votesArray.filter((v: any) => v.vote === false).length;
       const approvalRate = totalVotes > 0 ? (approveVotes / totalVotes) * 100 : 0;
       const rejectionRate = totalVotes > 0 ? (rejectVotes / totalVotes) * 100 : 0;
+      const participationRate =
+        eligibleVoters > 0 ? Math.min(100, (totalVotes / eligibleVoters) * 100) : 0;
 
       return {
         requestId: request.id,
         contributionId: request.contribution_id,
         contributionName: contribution ? contribution.name : "Group Pool",
-        category: (contribution as any)?.category || "community",
-        threshold: Number((contribution as any)?.voting_threshold || 60),
+        category: contribution?.category || "community",
+        threshold,
+        eligibleVoters,
         amount: Number(request.amount || 0),
         purpose: request.purpose || "No purpose specified",
         createdAt: request.created_at,
         deadline: request.deadline,
-        hasContributed,
+        hasContributed: hasVotingRights,
         hasVoted,
         userVote,
         votes: votesArray,
@@ -81,6 +96,7 @@ const VotesPage = () => {
           rejectVotes,
           approvalRate,
           rejectionRate,
+          participationRate,
         },
       };
     });
@@ -193,7 +209,7 @@ const VotesPage = () => {
         toast.success("Vote recorded");
       }
 
-      await refreshContributionData();
+      await Promise.allSettled([refreshContributionData(true), refreshCurrentUser()]);
     } catch (error) {
       setVoteRequests(previous);
       toast.error(error instanceof Error ? error.message : "Failed to vote");
@@ -434,14 +450,20 @@ const VotesPage = () => {
                       </div>
 
                       {/* Clean Consensus Meter */}
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-xs">
+                      <div className="space-y-2.5">
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                           <span className="inline-flex items-center gap-1.5 font-medium text-muted-foreground">
                             <Users className="h-3.5 w-3.5" />
-                            {req.stats.totalVotes} {req.stats.totalVotes === 1 ? "vote" : "votes"} cast
+                            {req.stats.totalVotes}
+                            {req.eligibleVoters > 0 ? ` of ${req.eligibleVoters}` : ""} voted
+                            {req.eligibleVoters > 0 && (
+                              <span className="font-semibold text-foreground tabular-nums">
+                                ({Math.round(req.stats.participationRate)}% / 70% quorum)
+                              </span>
+                            )}
                           </span>
                           <span className="font-bold text-foreground tabular-nums">
-                            {Math.round(req.stats.approvalRate)}% approved
+                            {Math.round(req.stats.approvalRate)}% / {req.threshold}% needed
                           </span>
                         </div>
 
