@@ -108,6 +108,20 @@ export interface ExternalPaymentTrackRecord {
   group?: { name: string | null } | null;
 }
 
+export interface PaymentGatewaySettings {
+  provider: string;
+  flutterwave_mode: "live" | "test";
+  flutterwave_public_key: string;
+  webhook_url: string;
+  has_secret_key: boolean;
+  secret_key_masked: string | null;
+  has_encryption_key: boolean;
+  encryption_key_masked: string | null;
+  has_webhook_hash: boolean;
+  webhook_hash_masked: string | null;
+  updated_at: string | null;
+}
+
 export const PENALTY_TYPE_OPTIONS: { value: PenaltyType; label: string; description: string }[] = [
   {
     value: "late_contribution",
@@ -353,5 +367,75 @@ export const AdminComplianceService = {
     });
     if (error) throw error;
     return data;
+  },
+
+  async getPaymentSettings(): Promise<{
+    success: boolean;
+    data?: PaymentGatewaySettings;
+    error?: string;
+  }> {
+    const { data, error } = await (supabase as any).rpc("admin_get_payment_settings");
+    if (error) throw error;
+    return data;
+  },
+
+  async savePaymentSettings(payload: {
+    mode: "live" | "test";
+    publicKey?: string;
+    secretKey?: string;
+    encryptionKey?: string;
+    webhookHash?: string;
+    webhookUrl?: string;
+  }): Promise<{
+    success: boolean;
+    data?: PaymentGatewaySettings;
+    error?: string;
+  }> {
+    const { data, error } = await (supabase as any).rpc("admin_save_payment_settings", {
+      p_mode: payload.mode,
+      p_public_key: payload.publicKey ?? null,
+      p_secret_key: payload.secretKey?.trim() ? payload.secretKey.trim() : null,
+      p_encryption_key: payload.encryptionKey?.trim() ? payload.encryptionKey.trim() : null,
+      p_webhook_hash: payload.webhookHash?.trim() ? payload.webhookHash.trim() : null,
+      p_webhook_url: payload.webhookUrl?.trim() ? payload.webhookUrl.trim() : null,
+    });
+    if (error) throw error;
+    return data;
+  },
+
+  async testFlutterwaveConnection(): Promise<{
+    success: boolean;
+    bankCount?: number;
+    mode?: string;
+    source?: string;
+    latencyMs: number;
+    error?: string;
+  }> {
+    const started = performance.now();
+    try {
+      const { data, error } = await supabase.functions.invoke("flutterwave-banks", {
+        body: { fresh: true },
+      });
+      const latencyMs = Math.round(performance.now() - started);
+      if (error) {
+        return { success: false, latencyMs, error: error.message || "Edge function request failed" };
+      }
+      if (!data?.success) {
+        return { success: false, latencyMs, error: data?.error || "Flutterwave API rejected credentials" };
+      }
+      return {
+        success: true,
+        bankCount: Array.isArray(data.data) ? data.data.length : data.meta?.count || 0,
+        mode: data.meta?.mode,
+        source: data.meta?.source,
+        latencyMs,
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        latencyMs: Math.round(performance.now() - started),
+        error: err?.message || "Connection test failed",
+      };
+    }
   },
 };

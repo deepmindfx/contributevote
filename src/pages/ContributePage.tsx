@@ -75,6 +75,16 @@ const ContributePage = () => {
       return;
     }
 
+    if (user.status && user.status !== "active") {
+      toast.error(`Your account is currently ${user.status}. Contributions are temporarily disabled.`);
+      return;
+    }
+
+    if (!contribution || contribution.archived || (contribution.status && contribution.status !== "active")) {
+      toast.error("This contribution group is not currently accepting contributions.");
+      return;
+    }
+
     if (amount < 100) {
       toast.error("Minimum contribution amount is ₦100");
       return;
@@ -102,7 +112,7 @@ const ContributePage = () => {
       );
 
       if (result.success) {
-        await Promise.all([refreshCurrentUser(), refreshContributionData()]);
+        await Promise.all([refreshCurrentUser(), refreshContributionData(true)]);
         navigate(`/groups/${contribution.id}`);
       }
     } catch (error: any) {

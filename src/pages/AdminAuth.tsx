@@ -1,16 +1,19 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Key, Mail, Lock } from "lucide-react";
+import { Eye, EyeOff, KeyRound, Lock, ShieldCheck, UserCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/layout/Header";
+import BrandLoader, { CollectiPayMark } from "@/components/ui/BrandLoader";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
+import { supabase } from "@/integrations/supabase/client";
 
 const AdminAuth = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const [loginData, setLoginData] = useState({ email: "", password: "" });
+  const [showPassword, setShowPassword] = useState(false);
+  const [loginData, setLoginData] = useState({ identifier: "", password: "" });
   const navigate = useNavigate();
   const { signIn, logout, isAuthenticated, isAdmin } = useSupabaseUser();
 
@@ -20,25 +23,45 @@ const AdminAuth = () => {
     }
   }, [isAuthenticated, isAdmin, navigate]);
 
-  const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setLoginData((prev) => ({ ...prev, [name]: value }));
-  };
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    const rawIdentifier = loginData.identifier.trim();
+    const password = loginData.password;
 
+    if (!rawIdentifier || !password) {
+      toast.error("Enter your admin username (or email) and password");
+      return;
+    }
+
+    setIsLoading(true);
     try {
-      if (!loginData.email || !loginData.password) {
-        toast.error("Please fill in all fields");
-        return;
+      let resolvedEmail = rawIdentifier;
+
+      // Support admin username (e.g., "admin") or email via safe SECURITY DEFINER resolver
+      if (!rawIdentifier.includes("@")) {
+        const { data: emailFromRpc, error: rpcError } = await (supabase as any).rpc(
+          "resolve_admin_login_email",
+          { p_identifier: rawIdentifier }
+        );
+
+        if (rpcError) {
+          console.error("Admin username lookup error:", rpcError);
+          toast.error("Could not verify admin username. Try signing in with your admin email.");
+          return;
+        }
+
+        if (!emailFromRpc || typeof emailFromRpc !== "string") {
+          toast.error("Invalid administrator credentials");
+          return;
+        }
+
+        resolvedEmail = emailFromRpc;
       }
 
-      const { error, profile } = await signIn(loginData.email, loginData.password);
+      const { error, profile } = await signIn(resolvedEmail, password);
 
       if (error) {
-        toast.error(error.message || "Invalid admin credentials");
+        toast.error(error.message || "Invalid administrator credentials");
         return;
       }
 
@@ -48,7 +71,7 @@ const AdminAuth = () => {
         return;
       }
 
-      toast.success("Admin login successful");
+      toast.success("Welcome to Super Admin Command Center");
       navigate("/admin", { replace: true });
     } catch (error: any) {
       console.error("Admin login error:", error);
@@ -59,82 +82,126 @@ const AdminAuth = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header />
-      <div className="flex-1 flex flex-col items-center justify-center px-4 pt-16 pb-32">
-        <div className="w-full max-w-md space-y-8">
-          <div className="text-center">
-            <h2 className="text-3xl font-bold tracking-tight">Admin Access</h2>
-            <p className="text-muted-foreground mt-2">
-              Secure login for CollectiPay administrators
-            </p>
-          </div>
+    <div className="min-h-dvh flex flex-col bg-background">
+      {isLoading && (
+        <BrandLoader
+          variant="overlay"
+          badge="Super Admin"
+          message="Verifying administrator access"
+          submessage="Authenticating session & loading command center…"
+        />
+      )}
 
-          <Card className="w-full max-w-md mx-auto animate-scale glass-card">
-            <CardHeader>
-              <CardTitle className="text-2xl text-center">Admin Login</CardTitle>
-              <CardDescription className="text-center">
-                Sign in with your authorized administrator account
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+      <Header />
+
+      <main className="flex-1 flex items-center justify-center px-4 py-12 sm:py-16">
+        <div className="w-full max-w-md space-y-5">
+          {/* Deep-Emerald Brand Header Card */}
+          <div className="overflow-hidden rounded-[1.5rem] border bg-card shadow-lg">
+            <div className="bg-gradient-to-br from-[#075847] via-[#06483b] to-[#043229] px-6 py-7 text-white">
+              <div className="flex items-center gap-3">
+                <div className="rounded-2xl bg-white/10 p-1.5 backdrop-blur-sm">
+                  <CollectiPayMark size={36} />
+                </div>
+                <div>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#dbf5b4] px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-[#0c3027]">
+                    <ShieldCheck className="h-3 w-3" />
+                    Restricted Portal
+                  </span>
+                  <h1 className="mt-1 text-xl font-bold tracking-tight">
+                    Super Admin Access
+                  </h1>
+                </div>
+              </div>
+              <p className="mt-3 text-xs leading-relaxed text-[#cce9db]">
+                Sign in with your administrator username or email to manage AML compliance, users, pools, and Flutterwave gateway credentials.
+              </p>
+            </div>
+
+            <div className="p-6">
               <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="admin-identifier" className="text-xs font-semibold">
+                    Admin Username or Email
+                  </Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <UserCheck className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                      placeholder="Admin Email"
-                      type="email"
-                      name="email"
-                      className="pl-10"
-                      value={loginData.email}
-                      onChange={handleLoginChange}
-                      required
-                    />
-                  </div>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Admin Password"
-                      type="password"
-                      name="password"
-                      className="pl-10"
-                      value={loginData.password}
-                      onChange={handleLoginChange}
+                      id="admin-identifier"
+                      name="identifier"
+                      type="text"
+                      autoComplete="username"
+                      placeholder="admin or admin@collectipay.com.ng"
+                      className="h-12 rounded-xl pl-10"
+                      value={loginData.identifier}
+                      onChange={(e) =>
+                        setLoginData((prev) => ({ ...prev, identifier: e.target.value }))
+                      }
+                      disabled={isLoading}
                       required
                     />
                   </div>
                 </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? (
-                    <div className="flex items-center">
-                      <div className="animate-spin mr-2 h-4 w-4 border-t-2 border-b-2 border-current rounded-full"></div>
-                      Logging in...
-                    </div>
-                  ) : (
-                    <div className="flex items-center">
-                      <Key className="mr-2 h-4 w-4" />
-                      Admin Login
-                    </div>
-                  )}
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="admin-password" className="text-xs font-semibold">
+                    Password
+                  </Label>
+                  <div className="relative">
+                    <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="admin-password"
+                      name="password"
+                      type={showPassword ? "text" : "password"}
+                      autoComplete="current-password"
+                      placeholder="Enter admin password"
+                      className="h-12 rounded-xl pl-10 pr-12"
+                      value={loginData.password}
+                      onChange={(e) =>
+                        setLoginData((prev) => ({ ...prev, password: e.target.value }))
+                      }
+                      disabled={isLoading}
+                      required
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setShowPassword((v) => !v)}
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      className="absolute inset-y-0 right-0 h-12 w-12 text-muted-foreground"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+
+                <Button
+                  type="submit"
+                  className="h-12 w-full rounded-xl font-bold shadow-sm"
+                  disabled={isLoading}
+                >
+                  <KeyRound className="mr-2 h-4 w-4" />
+                  {isLoading ? "Signing in…" : "Sign in to Command Center"}
                 </Button>
               </form>
-            </CardContent>
-            <CardFooter className="flex justify-center">
-              <p className="text-sm text-muted-foreground">
-                Regular user?
-                <Button
-                  variant="link"
-                  onClick={() => navigate("/auth")}
-                  className="p-0 h-auto font-normal ml-1"
-                >
-                  Sign in here
-                </Button>
-              </p>
-            </CardFooter>
-          </Card>
+
+              <div className="mt-5 border-t pt-4 text-center">
+                <p className="text-xs text-muted-foreground">
+                  Looking for your personal wallet?{" "}
+                  <button
+                    type="button"
+                    onClick={() => navigate("/auth")}
+                    className="font-semibold text-primary hover:underline"
+                  >
+                    Member sign in
+                  </button>
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 };

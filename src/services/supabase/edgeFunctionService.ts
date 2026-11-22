@@ -67,8 +67,9 @@ export class EdgeFunctionService {
     paymentReference: string
     paymentDescription: string
     currencyCode: string
-    contractCode: string
+    contractCode?: string
     redirectUrl: string
+    groupId?: string
   }) {
     const { data, error } = await supabase.functions.invoke('flutterwave-invoice', {
       body: invoiceData

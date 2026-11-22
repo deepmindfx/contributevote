@@ -75,6 +75,11 @@ const ContributeSharePage = () => {
       return;
     }
 
+    if (user.status && user.status !== "active") {
+      toast.error(`Your account is currently ${user.status}. Contributions are temporarily disabled.`);
+      return;
+    }
+
     if (amount < 100) {
       toast.error("Minimum contribution amount is ₦100");
       return;
@@ -101,7 +106,7 @@ const ContributeSharePage = () => {
       );
 
       if (result.success) {
-        await Promise.all([refreshCurrentUser(), refreshContributionData()]);
+        await Promise.all([refreshCurrentUser(), refreshContributionData(true)]);
         navigate(`/groups/${contribution.id}`);
       }
     } catch (error: any) {

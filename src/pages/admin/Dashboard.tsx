@@ -15,6 +15,7 @@ import {
   Gavel,
   Globe,
   Globe2,
+  KeyRound,
   Layers,
   Lock,
   Play,
@@ -65,6 +66,7 @@ import {
   WalletAdjustDialog,
 } from "@/components/admin/AdminActionDialogs";
 import { FlipCounterHero } from "@/components/admin/FlipCounterHero";
+import { AdminPaymentSettings } from "@/components/admin/AdminPaymentSettings";
 import { cn } from "@/lib/utils";
 
 const HIGH_VALUE_THRESHOLD = 500000;
@@ -787,7 +789,7 @@ const AdminDashboard = () => {
           ) : (
             <Tabs defaultValue="aml" className="w-full space-y-6">
               <div className="overflow-x-auto pb-1">
-                <TabsList className="app-segmented inline-flex w-max min-w-full justify-start gap-1 bg-muted/60 p-1 lg:grid lg:w-full lg:grid-cols-7">
+                <TabsList className="app-segmented inline-flex w-max min-w-full justify-start gap-1 bg-muted/60 p-1 lg:grid lg:w-full lg:grid-cols-8">
                   <TabsTrigger value="aml" className="gap-1.5 px-3">
                     <ShieldAlert className="h-4 w-4" />
                     <span>AML Alerts</span>
@@ -830,6 +832,10 @@ const AdminDashboard = () => {
                   <TabsTrigger value="audit" className="gap-1.5 px-3">
                     <ClipboardList className="h-4 w-4" />
                     <span>Audit Log</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="gateway" className="gap-1.5 px-3">
+                    <KeyRound className="h-4 w-4" />
+                    <span>Settings</span>
                   </TabsTrigger>
                 </TabsList>
               </div>
@@ -1897,6 +1903,13 @@ const AdminDashboard = () => {
                     </div>
                   )}
                 </div>
+              </TabsContent>
+
+              {/* ================================================================
+                  TAB 7: FLUTTERWAVE GATEWAY & WEBHOOK SETTINGS
+                 ================================================================ */}
+              <TabsContent value="gateway" className="space-y-4">
+                <AdminPaymentSettings onSettingsSaved={() => void loadPlatformData()} />
               </TabsContent>
             </Tabs>
           )}

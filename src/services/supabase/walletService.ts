@@ -65,6 +65,21 @@ export class WalletService {
         return null;
       }
 
+      // Enforce anti-sybil unique 11-digit BVN check via hardened RPC before issuing virtual account
+      const cleanBvn = idNumber.replace(/\D/g, "");
+      if (cleanBvn.length !== 11) {
+        toast.error("Please enter a valid 11-digit BVN");
+        return null;
+      }
+
+      const { data: bvnRes, error: bvnErr } = await (supabase as any).rpc("save_user_bvn", {
+        p_bvn: cleanBvn,
+      });
+      if (bvnErr || !bvnRes?.success) {
+        toast.error(bvnRes?.error || bvnErr?.message || "BVN verification failed");
+        return null;
+      }
+
       // Create a unique transaction reference with additional randomness
       const txRef = `COLL_${userId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
@@ -72,7 +87,7 @@ export class WalletService {
       const result = await EdgeFunctionService.createVirtualAccount({
         email: user.email || '',
         tx_ref: txRef,
-        bvn: idNumber,
+        bvn: cleanBvn,
         narration: `Virtual account for ${user.name || 'User'}`
       });
 
@@ -94,11 +109,10 @@ export class WalletService {
         createdAt: new Date().toISOString()
       };
 
-      // Store virtual account details in user profile AND save BVN for future use
+      // Store virtual account details in user profile while preserving all existing preferences
       await UserService.updateUser(userId, {
-        bvn: idNumber, // Save BVN to profile for reuse in group creation
         preferences: {
-          ...user.preferences as any,
+          ...(user.preferences as any),
           virtualAccount: reservedAccount
         }
       });
@@ -209,52 +223,6 @@ export class WalletService {
     }
   }
 
-  // Manual function to add a transaction (for testing)
-  static async addManualTransaction(userId: string, amount: number, description: string) {
-    try {
-      console.log('Adding manual transaction:', { userId, amount, description });
-      
-      // Create transaction record
-      const transaction = await TransactionService.createTransaction({
-        user_id: userId,
-        type: 'deposit',
-        amount: amount,
-        description: description,
-        reference_id: `MANUAL_${Date.now()}`,
-        payment_method: 'bank_transfer',
-        status: 'completed',
-        metadata: {
-          manual: true,
-          timestamp: new Date().toISOString()
-        }
-      });
-
-      // Update user's wallet balance
-      const user = await UserService.getUserById(userId);
-      if (user) {
-        const newBalance = (user.wallet_balance || 0) + amount;
-        await UserService.updateWalletBalance(userId, newBalance);
-        
-        // Update localStorage
-        const currentUserData = localStorage.getItem('currentUser');
-        if (currentUserData) {
-          const currentUser = JSON.parse(currentUserData);
-          if (currentUser.id === userId) {
-            currentUser.wallet_balance = newBalance;
-            localStorage.setItem('currentUser', JSON.stringify(currentUser));
-          }
-        }
-        
-        toast.success(`Added ₦${amount.toLocaleString()} to your wallet`);
-        return { transaction, newBalance };
-      }
-    } catch (error) {
-      console.error("Error adding manual transaction:", error);
-      toast.error("Failed to add transaction");
-      return null;
-    }
-  }
-
   // Create payment invoice using Edge Function
   static async createPaymentInvoice(params: {
     amount: number;
@@ -272,16 +240,27 @@ export class WalletService {
         return null;
       }
 
+      const paymentReference = contributionId
+        ? `GROUP_${contributionId}_${Date.now()}`
+        : `INV_${userId}_${Date.now()}`;
+
       const invoiceData = {
         amount,
         customerName,
         customerEmail,
-        paymentReference: `INV_${userId}_${Date.now()}`,
+        paymentReference,
         paymentDescription: description || "Payment via card",
         currencyCode: "NGN",
-        contractCode: "465595618981",
-        redirectUrl: window.location.origin + "/dashboard"
+        redirectUrl: `${window.location.origin}/payment-callback`,
+        groupId: contributionId || undefined,
       };
+
+      if (contributionId) {
+        localStorage.setItem(
+          `flw_transaction_${paymentReference}`,
+          JSON.stringify({ contribution_id: contributionId, anonymous: false })
+        );
+      }
 
       const result = await EdgeFunctionService.createPaymentInvoice(invoiceData);
 

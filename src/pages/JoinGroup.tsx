@@ -40,7 +40,7 @@ export default function JoinGroup() {
     try {
       const result = await GroupJoinService.joinGroup(user.id, id);
       if (result.success) {
-        void refreshContributionData();
+        await refreshContributionData(true);
         navigate(`/groups/${id}`, { replace: true });
       } else {
         setError(result.error || "Couldn’t join this group. Try again.");

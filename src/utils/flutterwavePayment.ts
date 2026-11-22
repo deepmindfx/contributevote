@@ -1,4 +1,5 @@
 import { loadScript } from './loadScript';
+import { getDynamicFlutterwavePublicKey } from '@/services/flutterwave/config';
 
 declare global {
   interface Window {
@@ -49,10 +50,10 @@ export const payWithFlutterwave = async (
     // Load Flutterwave script
     await loadScript('https://checkout.flutterwave.com/v3.js');
 
-    // Get the public key from environment variables
-    const publicKey = import.meta.env.VITE_FLW_PUBLIC_KEY_PROD;
+    // Resolve public key dynamically from Super Admin -> Settings (with env fallback)
+    const publicKey = await getDynamicFlutterwavePublicKey();
     if (!publicKey) {
-      throw new Error('Flutterwave public key not found in environment variables');
+      throw new Error('Flutterwave public key is not configured. Add it in Super Admin -> Settings.');
     }
 
     const config: FlutterwaveConfig = {
@@ -68,7 +69,7 @@ export const payWithFlutterwave = async (
       customizations: {
         title: 'CollectiPay',
         description: `Contribution to ${groupName}`,
-        logo: '/lovable-uploads/85c09632-4fd3-46fb-b70a-45daac74abfc.png',
+        logo: `${window.location.origin}/collectipay-mark.svg`,
       },
       meta: {
         source: 'web',

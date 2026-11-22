@@ -690,6 +690,53 @@ export type Database = {
           },
         ]
       }
+      platform_payment_settings: {
+        Row: {
+          flutterwave_encryption_key: string | null
+          flutterwave_mode: string
+          flutterwave_public_key: string | null
+          flutterwave_secret_key: string | null
+          flutterwave_webhook_hash: string | null
+          id: string
+          provider: string
+          updated_at: string
+          updated_by: string | null
+          webhook_url: string
+        }
+        Insert: {
+          flutterwave_encryption_key?: string | null
+          flutterwave_mode?: string
+          flutterwave_public_key?: string | null
+          flutterwave_secret_key?: string | null
+          flutterwave_webhook_hash?: string | null
+          id?: string
+          provider?: string
+          updated_at?: string
+          updated_by?: string | null
+          webhook_url?: string
+        }
+        Update: {
+          flutterwave_encryption_key?: string | null
+          flutterwave_mode?: string
+          flutterwave_public_key?: string | null
+          flutterwave_secret_key?: string | null
+          flutterwave_webhook_hash?: string | null
+          id?: string
+          provider?: string
+          updated_at?: string
+          updated_by?: string | null
+          webhook_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_payment_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           bvn: string | null
@@ -1066,6 +1113,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _mask_secret: { Args: { p_val: string }; Returns: string }
       accept_group_invitation: { Args: { p_token: string }; Returns: Json }
       admin_adjust_user_wallet: {
         Args: {
@@ -1096,6 +1144,7 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_get_payment_settings: { Args: never; Returns: Json }
       admin_issue_penalty: {
         Args: {
           p_aml_alert_id?: string
@@ -1110,6 +1159,17 @@ export type Database = {
       }
       admin_review_external_payment: {
         Args: { p_note?: string; p_status: string; p_track_id: string }
+        Returns: Json
+      }
+      admin_save_payment_settings: {
+        Args: {
+          p_encryption_key?: string
+          p_mode?: string
+          p_public_key?: string
+          p_secret_key?: string
+          p_webhook_hash?: string
+          p_webhook_url?: string
+        }
         Returns: Json
       }
       admin_scan_aml_alerts: { Args: never; Returns: Json }
@@ -1224,6 +1284,7 @@ export type Database = {
         }[]
       }
       get_invitation_by_token: { Args: { p_token: string }; Returns: Json }
+      get_public_payment_config: { Args: never; Returns: Json }
       is_admin: { Args: never; Returns: boolean }
       lookup_user_id_by_email: { Args: { p_email: string }; Returns: string }
       process_approved_withdrawal: {
@@ -1247,11 +1308,19 @@ export type Database = {
         Args: { p_user_id: string; p_vote: boolean; p_withdrawal_id: string }
         Returns: undefined
       }
+      resolve_admin_login_email: {
+        Args: { p_identifier: string }
+        Returns: string
+      }
       revoke_group_invitation: {
         Args: { p_invitation_id: string }
         Returns: boolean
       }
       save_user_bvn: { Args: { p_bvn: string }; Returns: Json }
+      service_adjust_wallet_balance: {
+        Args: { p_delta: number; p_user_id: string }
+        Returns: Json
+      }
       unarchive_group: {
         Args: { p_group_id: string; p_user_id: string }
         Returns: Json

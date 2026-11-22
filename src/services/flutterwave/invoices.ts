@@ -37,13 +37,9 @@ export const createInvoice = async (data: InvoiceRequest) => {
       return null;
     }
 
-    if (!response?.success || !response?.data?.link) {
+    const checkoutUrl = response?.data?.checkoutUrl || response?.data?.link;
+    if (!response?.success || !checkoutUrl) {
       console.error('Invalid response from flutterwave-invoice:', response);
-      console.error('Response structure check:', {
-        hasSuccess: !!response?.success,
-        hasData: !!response?.data,
-        hasLink: !!response?.data?.link
-      });
       return null;
     }
 
@@ -59,7 +55,7 @@ export const createInvoice = async (data: InvoiceRequest) => {
         customerName: data.customerName,
         expiryDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
         redirectUrl: data.redirectUrl,
-        checkoutUrl: response.data.link,
+        checkoutUrl,
         createdOn: new Date().toISOString()
       }
     };

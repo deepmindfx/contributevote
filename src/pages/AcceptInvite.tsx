@@ -36,7 +36,7 @@ export default function AcceptInvite() {
     setError("");
     try {
       const groupId = await InvitationService.acceptInvitation(token);
-      void refreshContributionData();
+      await refreshContributionData(true);
       navigate(`/groups/${groupId}`, { replace: true });
     } catch (error) {
       setError(error instanceof Error ? error.message : "Couldn’t accept this invitation. Try again.");

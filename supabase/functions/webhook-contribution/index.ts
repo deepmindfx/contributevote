@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { getFlutterwaveConfig } from "../_shared/flutterwaveConfig.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -139,13 +140,28 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Strictly verify Flutterwave webhook signature whenever configured
-    const signature = req.headers.get('verif-hash');
-    const expectedHash =
-      Deno.env.get('FLW_SECRET_HASH') ||
-      Deno.env.get('FLUTTERWAVE_WEBHOOK_HASH');
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
 
-    if (expectedHash && (!signature || signature !== expectedHash)) {
+    // Strictly verify Flutterwave webhook signature using Super Admin Gateway Settings (DB first, env fallback)
+    const signature = req.headers.get('verif-hash');
+    const flwConfig = await getFlutterwaveConfig({ supabaseAdmin: supabase });
+    const expectedHash = flwConfig.webhookHash;
+
+    if (!expectedHash) {
+      console.error('Webhook secret hash is not configured in Gateway Settings or environment secrets');
+      return new Response(JSON.stringify({
+        success: false,
+        message: 'Webhook secret hash not configured'
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 503
+      });
+    }
+
+    if (!signature || signature !== expectedHash) {
       console.error('Invalid or missing webhook signature');
       return new Response(JSON.stringify({
         success: false,
@@ -155,11 +171,6 @@ Deno.serve(async (req) => {
         status: 401
       });
     }
-
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
 
     const webhookData = await req.json();
     console.log('Received webhook event:', webhookData.event || webhookData.type);
@@ -253,44 +264,55 @@ async function handleOutboundTransferCallback(supabase: any, transferData: any) 
       .maybeSingle();
 
     if (existingTx) {
-      await supabase
-        .from('transactions')
-        .update({
-          status: newStatus,
-          metadata: {
-            ...(existingTx.metadata || {}),
-            flutterwave_callback_status: flwStatus,
-            complete_message: transferData.complete_message
-          },
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', existingTx.id);
+      if (newStatus === 'failed') {
+        // Atomic status transition: only one concurrent webhook can transition non-failed -> failed and trigger refund
+        const { data: transitioned } = await supabase
+          .from('transactions')
+          .update({
+            status: 'failed',
+            metadata: {
+              ...(existingTx.metadata || {}),
+              flutterwave_callback_status: flwStatus,
+              complete_message: transferData.complete_message
+            },
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingTx.id)
+          .neq('status', 'failed')
+          .select('id')
+          .maybeSingle();
 
-      // Refund wallet automatically if an outbound transfer transitions from pending -> failed
-      if (newStatus === 'failed' && existingTx.status !== 'failed' && existingTx.user_id) {
-        const fee = Number(existingTx.metadata?.fee || 0);
-        const refundTotal = Number(existingTx.amount || 0) + fee;
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('wallet_balance')
-          .eq('id', existingTx.user_id)
-          .single();
+        if (transitioned && existingTx.user_id) {
+          const fee = Number(existingTx.metadata?.fee || 0);
+          const refundTotal = Math.round((Number(existingTx.amount || 0) + fee) * 100) / 100;
+          if (refundTotal > 0) {
+            await supabase.rpc('service_adjust_wallet_balance', {
+              p_user_id: existingTx.user_id,
+              p_delta: refundTotal,
+            });
 
-        if (profile && refundTotal > 0) {
-          const newBalance = Number(profile.wallet_balance || 0) + refundTotal;
-          await supabase
-            .from('profiles')
-            .update({ wallet_balance: newBalance, updated_at: new Date().toISOString() })
-            .eq('id', existingTx.user_id);
-
-          await supabase.from('notifications').insert({
-            user_id: existingTx.user_id,
-            type: 'transfer_failed',
-            title: 'Transfer Failed & Refunded',
-            message: `Your transfer of ₦${Number(existingTx.amount).toLocaleString()} failed and ₦${refundTotal.toLocaleString()} was refunded to your wallet.`,
-            is_read: false
-          });
+            await supabase.from('notifications').insert({
+              user_id: existingTx.user_id,
+              type: 'transfer_failed',
+              title: 'Transfer Failed & Refunded',
+              message: `Your transfer of ₦${Number(existingTx.amount).toLocaleString()} failed and ₦${refundTotal.toLocaleString()} was refunded to your wallet.`,
+              is_read: false
+            });
+          }
         }
+      } else {
+        await supabase
+          .from('transactions')
+          .update({
+            status: newStatus,
+            metadata: {
+              ...(existingTx.metadata || {}),
+              flutterwave_callback_status: flwStatus,
+              complete_message: transferData.complete_message
+            },
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingTx.id);
       }
     }
   }
@@ -442,12 +464,14 @@ async function handleSuccessfulPayment(supabase: any, paymentData: any) {
       await addContributorWithVotingRights(supabase, groupId, user.id, amount);
     }
   } else {
-    const { error: balanceError } = await supabase
-      .from('profiles')
-      .update({ wallet_balance: balanceAfter, updated_at: new Date().toISOString() })
-      .eq('id', user.id);
+    const { data: creditRes, error: balanceError } = await supabase.rpc(
+      'service_adjust_wallet_balance',
+      { p_user_id: user.id, p_delta: amount }
+    );
 
-    if (balanceError) throw balanceError;
+    if (balanceError || !creditRes?.success) {
+      throw balanceError || new Error(creditRes?.error || 'Failed to credit wallet');
+    }
 
     await supabase.from('notifications').insert({
       user_id: user.id,
@@ -713,14 +737,12 @@ async function handleVirtualAccountCredit(supabase: any, creditData: any) {
     return await handleGroupAccountCredit(supabase, group, creditData);
   }
 
-  // Otherwise find user profile matching this virtual account number
-  const { data: users } = await supabase
+  // Otherwise find user profile matching this virtual account number via indexed JSONB lookup (no full table scan)
+  const { data: user } = await supabase
     .from('profiles')
-    .select('*');
-
-  const user = users?.find((u: any) =>
-    u.preferences?.virtualAccount?.accountNumber === accountNumber
-  );
+    .select('*')
+    .filter('preferences->virtualAccount->>accountNumber', 'eq', String(accountNumber))
+    .maybeSingle();
 
   if (!user) {
     return new Response(JSON.stringify({ success: true, message: 'Account not found' }), {
@@ -819,12 +841,14 @@ async function handleVirtualAccountCredit(supabase: any, creditData: any) {
       accountNumber
     });
   } else {
-    const { error: balanceError } = await supabase
-      .from('profiles')
-      .update({ wallet_balance: balanceAfter, updated_at: new Date().toISOString() })
-      .eq('id', user.id);
+    const { data: creditRes, error: balanceError } = await supabase.rpc(
+      'service_adjust_wallet_balance',
+      { p_user_id: user.id, p_delta: amount }
+    );
 
-    if (balanceError) throw balanceError;
+    if (balanceError || !creditRes?.success) {
+      throw balanceError || new Error(creditRes?.error || 'Failed to credit wallet');
+    }
 
     await supabase.from('notifications').insert({
       user_id: user.id,

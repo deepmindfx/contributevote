@@ -209,11 +209,29 @@ serve(async (req) => {
             .eq('group_id', refund.group_id)
             .eq('has_voting_rights', true);
 
+          const { data: groupMeta } = await supabaseClient
+            .from('contribution_groups')
+            .select('voting_threshold, status')
+            .eq('id', refund.group_id)
+            .maybeSingle();
+
+          // Skip frozen groups until compliance unfreezes them
+          if (groupMeta?.status === 'frozen') {
+            continue;
+          }
+
+          const groupThreshold =
+            typeof groupMeta?.voting_threshold === 'number' &&
+            groupMeta.voting_threshold >= 50 &&
+            groupMeta.voting_threshold <= 100
+              ? groupMeta.voting_threshold
+              : 60;
+
           const voterPool = eligibleVoters || refund.total_eligible_voters || 0;
           const participationRate = voterPool > 0 ? (totalVotes / voterPool) * 100 : 0;
           const approvalRate = totalVotes > 0 ? (votesFor / totalVotes) * 100 : 0;
 
-          const approved = approvalRate >= 60 && participationRate >= 70;
+          const approved = approvalRate >= groupThreshold && participationRate >= 70;
 
           if (approved) {
             // Set status to approved BEFORE calling process_group_refund

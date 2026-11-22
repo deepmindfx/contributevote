@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { getFlutterwaveConfig } from "../_shared/flutterwaveConfig.ts";
 
-const FLUTTERWAVE_SECRET_KEY = Deno.env.get('FLUTTERWAVE_SECRET_KEY');
 const FLUTTERWAVE_BASE_URL = 'https://api.flutterwave.com/v3';
 
 const corsHeaders = {
@@ -29,10 +29,6 @@ Deno.serve(async (req: Request) => {
       throw new Error('Method not allowed');
     }
 
-    if (!FLUTTERWAVE_SECRET_KEY) {
-      throw new Error('Flutterwave secret key not configured');
-    }
-
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       throw new Error('Missing authorization header');
@@ -41,18 +37,10 @@ Deno.serve(async (req: Request) => {
     const supabaseUserClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: authHeader },
-        },
-      }
+      { global: { headers: { Authorization: authHeader } } }
     );
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabaseUserClient.auth.getUser();
-
+    const { data: { user }, error: userError } = await supabaseUserClient.auth.getUser();
     if (userError || !user) {
       throw new Error('Unauthorized');
     }
@@ -61,6 +49,11 @@ Deno.serve(async (req: Request) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
+
+    const config = await getFlutterwaveConfig({ supabaseAdmin });
+    if (!config.secretKey) {
+      throw new Error('Flutterwave secret key is not configured');
+    }
 
     const body: TransferRequest = await req.json();
     const { account_bank, account_number, amount, narration, currency, beneficiary_name } = body;
@@ -78,9 +71,10 @@ Deno.serve(async (req: Request) => {
       throw new Error('Maximum transfer amount is ₦500,000');
     }
 
+    // Fetch status + balance and enforce account compliance state
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('wallet_balance')
+      .select('wallet_balance, status')
       .eq('id', user.id)
       .single();
 
@@ -88,34 +82,35 @@ Deno.serve(async (req: Request) => {
       throw new Error('Failed to fetch user profile');
     }
 
-    const balanceBefore = Number(profile.wallet_balance || 0);
+    if (profile.status && profile.status !== 'active') {
+      throw new Error(`Your account is currently ${profile.status}. Outgoing transfers are disabled.`);
+    }
+
     const fee = numericAmount > 5000 ? 26.5 : 10.75;
-    const totalAmount = numericAmount + fee;
+    const totalAmount = Math.round((numericAmount + fee) * 100) / 100;
 
-    if (balanceBefore < totalAmount) {
-      throw new Error(`Insufficient balance. You need ₦${totalAmount.toFixed(2)} (₦${numericAmount} + ₦${fee} fee)`);
+    // Atomically debit wallet via locked SQL RPC to eliminate race conditions / double-spend
+    const { data: debitRes, error: debitError } = await supabaseAdmin.rpc(
+      'service_adjust_wallet_balance',
+      { p_user_id: user.id, p_delta: -totalAmount }
+    );
+
+    if (debitError || !debitRes?.success) {
+      throw new Error(
+        debitRes?.error === 'Insufficient wallet balance'
+          ? `Insufficient balance. You need ₦${totalAmount.toFixed(2)} (₦${numericAmount} + ₦${fee} fee)`
+          : debitRes?.error || 'Could not debit wallet for transfer'
+      );
     }
 
+    const balanceBefore = Number(debitRes.balance_before);
+    const balanceAfter = Number(debitRes.balance_after);
     const reference = `TRF_${Date.now()}_${user.id.substring(0, 8)}`;
-
-    // Deduct balance first with optimistic concurrency check to prevent double-spend
-    const balanceAfter = balanceBefore - totalAmount;
-    const { data: debitedProfile, error: debitError } = await supabaseAdmin
-      .from('profiles')
-      .update({ wallet_balance: balanceAfter, updated_at: new Date().toISOString() })
-      .eq('id', user.id)
-      .eq('wallet_balance', balanceBefore)
-      .select('wallet_balance')
-      .maybeSingle();
-
-    if (debitError || !debitedProfile) {
-      throw new Error('Wallet balance changed during transfer. Please try again.');
-    }
 
     const transferResponse = await fetch(`${FLUTTERWAVE_BASE_URL}/transfers`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${FLUTTERWAVE_SECRET_KEY}`,
+        'Authorization': `Bearer ${config.secretKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -125,35 +120,32 @@ Deno.serve(async (req: Request) => {
         narration: narration || 'Transfer from CollectiPay',
         currency,
         reference,
-        callback_url: `${Deno.env.get('SUPABASE_URL')}/functions/v1/webhook-contribution`,
+        callback_url: config.webhookUrl,
         debit_currency: currency,
-        beneficiary_name
+        beneficiary_name,
       }),
     });
 
     if (!transferResponse.ok) {
       const errorData = await transferResponse.text();
       console.error('Flutterwave transfer error:', errorData);
-      // Roll back wallet debit
-      await supabaseAdmin
-        .from('profiles')
-        .update({ wallet_balance: balanceBefore, updated_at: new Date().toISOString() })
-        .eq('id', user.id);
-      throw new Error('Transfer failed. Please try again.');
+      // Atomic credit rollback — preserves any concurrent deposits!
+      await supabaseAdmin.rpc('service_adjust_wallet_balance', {
+        p_user_id: user.id,
+        p_delta: totalAmount,
+      });
+      throw new Error('Transfer failed at payment provider. Your wallet was not charged.');
     }
 
     const transferData = await transferResponse.json();
-
     if (transferData.status !== 'success') {
-      // Roll back wallet debit
-      await supabaseAdmin
-        .from('profiles')
-        .update({ wallet_balance: balanceBefore, updated_at: new Date().toISOString() })
-        .eq('id', user.id);
+      await supabaseAdmin.rpc('service_adjust_wallet_balance', {
+        p_user_id: user.id,
+        p_delta: totalAmount,
+      });
       throw new Error(transferData.message || 'Transfer failed');
     }
 
-    // Record transaction using the actual `metadata` column
     const { error: transactionError } = await supabaseAdmin
       .from('transactions')
       .insert({
@@ -175,8 +167,8 @@ Deno.serve(async (req: Request) => {
           fee,
           total_debited: totalAmount,
           flutterwave_id: transferData.data.id,
-          flutterwave_reference: transferData.data.reference
-        }
+          flutterwave_reference: transferData.data.reference,
+        },
       });
 
     if (transactionError) {
@@ -196,19 +188,18 @@ Deno.serve(async (req: Request) => {
         full_name: beneficiary_name,
         account_number,
         bank_name: transferData.data.bank_name || account_bank,
-        narration
-      }
+        narration,
+      },
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
-
   } catch (error) {
     console.error('Error processing transfer:', error);
 
     return new Response(JSON.stringify({
       status: 'error',
-      message: error instanceof Error ? error.message : String(error)
+      message: error instanceof Error ? error.message : String(error),
     }), {
       status: 400,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },

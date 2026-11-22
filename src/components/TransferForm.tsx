@@ -144,6 +144,10 @@ export default function TransferForm() {
 
   const continueToReview = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (user?.status && user.status !== "active") {
+      setError(`Your account is currently ${user.status}. Outgoing bank transfers are temporarily disabled.`);
+      return;
+    }
     if (!bank || !verified?.name) {
       setError("Choose a bank and verify the recipient’s account number.");
       return;
@@ -197,14 +201,19 @@ export default function TransferForm() {
         accountNumber: review.account, bankCode: review.bank.code, beneficiaryName: recipient,
         amount: review.amount, currency: "NGN", narration: review.note || undefined,
       });
-      if (result.status !== "success" || !result.data) throw new Error("Transfer couldn’t be confirmed.");
+      if (result.status !== "success" || !result.data) throw new Error(result?.message || "Transfer couldn’t be confirmed.");
       setReceipt(result.data);
-      void Promise.allSettled([refreshCurrentUser(), refreshContributionData()]);
-    } catch {
-      if (submitted) void Promise.allSettled([refreshCurrentUser(), refreshContributionData()]);
-      setError(submitted
-        ? "We couldn’t confirm the transfer. Check Wallet history before trying again."
-        : "Couldn’t verify the recipient. Check the bank and account number and try again.");
+      void Promise.allSettled([refreshCurrentUser(), refreshContributionData(true)]);
+    } catch (err) {
+      if (submitted) void Promise.allSettled([refreshCurrentUser(), refreshContributionData(true)]);
+      const serverMsg = err instanceof Error && err.message ? err.message : "";
+      setError(
+        submitted
+          ? serverMsg && !serverMsg.includes("Edge Function returned a non-2xx")
+            ? serverMsg
+            : "We couldn’t confirm the transfer. Check Wallet history before trying again."
+          : "Couldn’t verify the recipient. Check the bank and account number and try again."
+      );
     } finally {
       sendInFlight.current = false;
       setSending(false);

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { EdgeFunctionService } from '@/services/supabase/edgeFunctionService';
 import { useSupabaseUser } from '@/contexts/SupabaseUserContext';
@@ -12,8 +12,12 @@ const PaymentCallback = () => {
   const { refreshCurrentUser } = useSupabaseUser();
   const { refreshContributionData } = useSupabaseContribution();
   const [isVerifying, setIsVerifying] = useState(true);
+  const hasVerifiedRef = useRef(false);
 
   useEffect(() => {
+    if (hasVerifiedRef.current) return;
+    hasVerifiedRef.current = true;
+
     const verifyPayment = async () => {
       const status = searchParams.get('status');
       const tx_ref = searchParams.get('tx_ref') || undefined;
@@ -43,7 +47,7 @@ const PaymentCallback = () => {
           if (tx_ref) {
             localStorage.removeItem(`flw_transaction_${tx_ref}`);
           }
-          await Promise.all([refreshCurrentUser(), refreshContributionData()]);
+          await Promise.all([refreshCurrentUser(), refreshContributionData(true)]);
           toast.success(
             targetGroupId
               ? 'Contribution verified and credited!'
@@ -65,7 +69,7 @@ const PaymentCallback = () => {
       }
     };
 
-    verifyPayment();
+    void verifyPayment();
   }, [searchParams, navigate, refreshCurrentUser, refreshContributionData]);
 
   return (

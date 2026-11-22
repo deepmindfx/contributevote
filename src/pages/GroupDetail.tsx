@@ -139,7 +139,7 @@ export default function GroupDetail() {
     try {
       await archiveGroup(group.id, user.id);
       toast.success('Group archived successfully');
-      await refreshContributionData();
+      await refreshContributionData(true);
       navigate('/dashboard');
     } catch (error) {
       console.error('Error archiving group:', error);
@@ -152,18 +152,27 @@ export default function GroupDetail() {
   const handleSetupBankAccount = async (bvn: string) => {
     setIsCreatingAccount(true);
     try {
+      const cleanBvn = bvn.replace(/\D/g, "");
+      if (cleanBvn.length !== 11) {
+        toast.error("Please enter a valid 11-digit BVN");
+        return;
+      }
+
       if (!/^\d{11}$/.test(userBvn || "")) {
         const { supabase } = await import('@/integrations/supabase/client');
-        await supabase
-          .from('profiles')
-          .update({ bvn: bvn })
-          .eq('id', user.id);
-        setUserBvn(bvn);
+        const { data: bvnRes, error: bvnErr } = await (supabase as any).rpc('save_user_bvn', {
+          p_bvn: cleanBvn,
+        });
+        if (bvnErr || !bvnRes?.success) {
+          toast.error(bvnRes?.error || bvnErr?.message || 'BVN verification failed');
+          return;
+        }
+        setUserBvn(cleanBvn);
       }
 
       const accountData = await createGroupVirtualAccount({
         email: user.email,
-        bvn: bvn,
+        bvn: cleanBvn,
         groupName: group.name,
         groupId: group.id,
       });
@@ -197,7 +206,7 @@ export default function GroupDetail() {
             account_details: accountData.responseBody,
           }));
 
-          refreshContributionData();
+          await refreshContributionData(true);
         }
       } else {
         toast.error(accountData.message || 'Failed to create bank account');
@@ -215,8 +224,8 @@ export default function GroupDetail() {
     try {
       await unarchiveGroup(group.id, user.id);
       toast.success('Group unarchived successfully');
-      await refreshContributionData();
-      window.location.reload();
+      setGroup((prev: any) => (prev ? { ...prev, archived: false } : prev));
+      await refreshContributionData(true);
     } catch (error) {
       console.error('Error unarchiving group:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to unarchive group');

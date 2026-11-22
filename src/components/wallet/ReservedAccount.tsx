@@ -52,7 +52,7 @@ export default function ReservedAccount() {
     if (!userId || working) return;
     setWorking(true);
     try {
-      const [updated] = await Promise.all([WalletService.getVirtualAccount(userId), refreshCurrentUser(), refreshContributionData()]);
+      const [updated] = await Promise.all([WalletService.getVirtualAccount(userId), refreshCurrentUser(), refreshContributionData(true)]);
       if (updated) setAccount(updated);
       toast.success("Bank account refreshed.");
     } catch {
