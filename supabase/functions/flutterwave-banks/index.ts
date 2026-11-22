@@ -1,7 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { getFlutterwaveConfig } from "../_shared/flutterwaveConfig.ts";
-
-const FLUTTERWAVE_BASE_URL = 'https://api.flutterwave.com/v3';
+import { flutterwaveFetch, getFlutterwaveConfig } from "../_shared/flutterwaveConfig.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -21,26 +19,50 @@ Deno.serve(async (req: Request) => {
 
     const url = new URL(req.url);
     let forceRefresh = url.searchParams.get('fresh') === '1';
+    let checkRelayOnly = url.searchParams.get('check_relay') === '1';
 
     if (req.method === 'POST') {
       const body = await req.json().catch(() => ({}));
-      if (body?.fresh === true) {
-        forceRefresh = true;
-      }
+      if (body?.fresh === true) forceRefresh = true;
+      if (body?.checkRelayOnly === true) checkRelayOnly = true;
     }
 
     const config = await getFlutterwaveConfig({ forceRefresh });
-    if (!config.secretKey) {
-      throw new Error('Flutterwave secret key is not configured. Add it in Super Admin -> Gateway Settings.');
+
+    // Dedicated health probe for the Static-IP VPS Relay
+    if (checkRelayOnly) {
+      if (!config.staticIpProxyUrl) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'Static-IP Relay URL is not configured yet.',
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        });
+      }
+
+      const healthRes = await fetch(`${config.staticIpProxyUrl}/health`, { method: 'GET' });
+      const healthData = await healthRes.json().catch(() => ({}));
+      return new Response(JSON.stringify({
+        success: healthRes.ok && healthData?.ok === true,
+        relay: {
+          url: config.staticIpProxyUrl,
+          staticIp: healthData?.staticIp || config.staticIpAddress,
+          uptimeSec: healthData?.uptimeSec ?? null,
+          hasSecret: Boolean(config.staticIpProxySecret),
+        },
+        error: healthRes.ok ? undefined : `Relay healthcheck returned HTTP ${healthRes.status}`,
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      });
     }
 
-    const response = await fetch(`${FLUTTERWAVE_BASE_URL}/banks/NG`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${config.secretKey}`,
-        'Content-Type': 'application/json',
-      },
-    });
+    if (!config.secretKey) {
+      throw new Error('Flutterwave secret key is not configured. Add it in Super Admin -> Settings.');
+    }
+
+    const { response, routedViaStaticIp } = await flutterwaveFetch('/banks/NG', { method: 'GET' }, config);
 
     if (!response.ok) {
       const errorData = await response.text();
@@ -56,6 +78,8 @@ Deno.serve(async (req: Request) => {
       meta: {
         mode: config.mode,
         source: config.source,
+        routedViaStaticIp,
+        staticIpAddress: routedViaStaticIp ? config.staticIpAddress : null,
         count: Array.isArray(data.data) ? data.data.length : 0,
       },
     }), {

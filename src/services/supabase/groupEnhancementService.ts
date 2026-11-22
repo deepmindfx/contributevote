@@ -66,6 +66,7 @@ export async function createGroupWithFee(
     start_date?: string | null;
     end_date?: string | null;
     voting_threshold?: number | null;
+    cover_image_url?: string | null;
   }
 ): Promise<any> {
   try {
@@ -82,6 +83,7 @@ export async function createGroupWithFee(
       p_start_date: groupData.start_date || null,
       p_end_date: groupData.end_date || null,
       p_voting_threshold: groupData.voting_threshold ?? 60,
+      p_cover_image_url: groupData.cover_image_url || null,
     } as any);
 
     if (error) throw error;

@@ -259,8 +259,20 @@ const AllGroups = () => {
                     to={`/groups/${contribution.id}`}
                     className="group block rounded-[1.35rem] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    <Card className="flex h-full flex-col justify-between rounded-[1.35rem] border bg-card p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
+                    <Card className="flex h-full flex-col justify-between overflow-hidden rounded-[1.35rem] border bg-card shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
                       <div>
+                        {contribution.cover_image_url && (
+                          <div className="relative aspect-[16/9] w-full overflow-hidden bg-muted">
+                            <img
+                              src={contribution.cover_image_url}
+                              alt={contribution.name || "Group cover"}
+                              loading="lazy"
+                              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent" />
+                          </div>
+                        )}
+                        <div className="p-5 pb-0">
                         {/* Card Top Strip */}
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-2.5">
@@ -319,10 +331,11 @@ const AllGroups = () => {
                             {contribution.description}
                           </p>
                         )}
+                        </div>
                       </div>
 
                       {/* Financial Progress & Meta */}
-                      <div className="mt-5 space-y-3">
+                      <div className="mt-5 space-y-3 p-5 pt-0">
                         <div>
                           <div className="flex items-baseline justify-between gap-2">
                             <span className="text-xl font-extrabold tracking-[-0.035em] text-foreground tabular-nums">

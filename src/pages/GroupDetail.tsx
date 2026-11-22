@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -10,6 +10,7 @@ import {
   Archive,
   ArchiveRestore,
   Building2,
+  Camera,
   ChevronDown,
   ChevronRight,
 } from 'lucide-react';
@@ -21,6 +22,10 @@ import {
   unarchiveGroup,
   getCategoryLabel,
 } from '@/services/supabase/groupEnhancementService';
+import {
+  updateGroupCoverImage,
+  uploadGroupCoverImage,
+} from '@/services/supabase/groupImageService';
 import { createGroupVirtualAccount } from '@/services/flutterwave/virtualAccounts';
 import { ContributeButton } from '@/components/contribution/ContributeButton';
 import { RecurringContributionDialog } from '@/components/contribution/RecurringContributionDialog';
@@ -53,8 +58,29 @@ export default function GroupDetail() {
   const { hasVotingRights, canVote, isAdmin, loading: rightsLoading, refresh: refreshVotingRights } = useVotingRights(id);
   const [isArchiving, setIsArchiving] = useState(false);
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
   const [showBvnDialog, setShowBvnDialog] = useState(false);
   const [userBvn, setUserBvn] = useState<string | null>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
+
+  const handleCoverPhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !user?.id || !group?.id) return;
+
+    setIsUploadingCover(true);
+    try {
+      const publicUrl = await uploadGroupCoverImage(user.id, file);
+      await updateGroupCoverImage(group.id, publicUrl);
+      setGroup((prev: any) => (prev ? { ...prev, cover_image_url: publicUrl } : prev));
+      toast.success('Group cover photo updated!');
+      await refreshContributionData(true);
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to update cover photo');
+    } finally {
+      setIsUploadingCover(false);
+    }
+  };
 
   const isCreator = group?.creator_id === user?.id;
 
@@ -304,11 +330,41 @@ export default function GroupDetail() {
           submessage="Updating your group workspace…"
         />
       )}
+      {isUploadingCover && (
+        <BrandLoader
+          variant="overlay"
+          badge="Cover Photo"
+          message="Updating cover photo"
+          submessage="Optimizing and publishing your group picture…"
+        />
+      )}
+      <input
+        ref={coverInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        className="hidden"
+        onChange={handleCoverPhotoChange}
+      />
 
       <Header mobilePanel />
 
       <main className="app-page app-panel-page max-w-4xl">
-        <section className="app-panel-hero group-detail-hero" aria-labelledby="group-title">
+        <section
+          className="app-panel-hero group-detail-hero relative overflow-hidden"
+          aria-labelledby="group-title"
+        >
+          {group.cover_image_url && (
+            <>
+              <img
+                src={group.cover_image_url}
+                alt=""
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-35"
+              />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#052d25] via-[#064538]/80 to-[#063a30]/75" />
+            </>
+          )}
+          <div className="relative z-10">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-1.5 sm:mb-4">
             <Button asChild variant="ghost" className="group-detail-back gap-1.5 px-0">
               <Link to="/all-groups"><ArrowLeft size={16} aria-hidden="true" /> My groups</Link>
@@ -369,9 +425,33 @@ export default function GroupDetail() {
               <div className="h-full rounded-full bg-[#dcf6b8]" style={{ width: progress + "%" }} />
             </div>
           </div>
+          </div>
         </section>
 
         <div className="app-panel-body space-y-4">
+          {/* Crisp Group Detail Picture Card when Cover Photo is Set */}
+          {group.cover_image_url && (
+            <div className="relative overflow-hidden rounded-2xl border bg-card shadow-sm">
+              <img
+                src={group.cover_image_url}
+                alt={group.name}
+                className="max-h-[22rem] w-full object-cover"
+              />
+              {isCreator && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={isUploadingCover}
+                  onClick={() => coverInputRef.current?.click()}
+                  className="absolute bottom-3 right-3 h-9 gap-1.5 rounded-xl bg-black/65 text-xs font-semibold text-white backdrop-blur-sm hover:bg-black/80"
+                >
+                  <Camera className="h-3.5 w-3.5" />
+                  Change photo
+                </Button>
+              )}
+            </div>
+          )}
           {(isActive || accountNumber || isCreator) && (
             <div className="group-detail-actions">
               {isActive && <ContributeButton groupId={group.id} groupName={group.name} rules={group} onSuccess={handleContributeSuccess} className="h-11 w-full sm:w-auto" />}
@@ -473,6 +553,16 @@ export default function GroupDetail() {
                   <Card className="space-y-3 rounded-2xl p-4">
                     <h2 className="app-section-title">Group settings</h2>
                     <div className="grid gap-2 sm:grid-cols-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => coverInputRef.current?.click()}
+                        disabled={isUploadingCover}
+                        className="h-11 justify-start gap-2 rounded-xl"
+                      >
+                        <Camera size={16} aria-hidden="true" />
+                        {group.cover_image_url ? "Change cover photo" : "Add cover photo"}
+                      </Button>
                       {isActive && <GroupRefundDialog groupId={group.id} groupName={group.name} onSuccess={handleContributeSuccess} />}
                       <Button variant="outline" onClick={group.archived ? handleUnarchive : handleArchive} disabled={isArchiving} className="h-11 justify-start gap-2 rounded-xl">
                         {group.archived ? <ArchiveRestore size={16} aria-hidden="true" /> : <Archive size={16} aria-hidden="true" />}

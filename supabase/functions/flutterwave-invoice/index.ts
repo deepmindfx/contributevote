@@ -1,8 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { getFlutterwaveConfig } from "../_shared/flutterwaveConfig.ts";
-
-const FLUTTERWAVE_BASE_URL = 'https://api.flutterwave.com/v3';
+import { flutterwaveFetch, getFlutterwaveConfig } from "../_shared/flutterwaveConfig.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -78,14 +76,11 @@ Deno.serve(async (req: Request) => {
       },
     };
 
-    const response = await fetch(`${FLUTTERWAVE_BASE_URL}/payments`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${config.secretKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(flutterwavePayload),
-    });
+    const { response } = await flutterwaveFetch(
+      '/payments',
+      { method: 'POST', body: flutterwavePayload },
+      config
+    );
 
     const responseText = await response.text();
     if (!response.ok) {

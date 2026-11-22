@@ -1,8 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { getFlutterwaveConfig } from "../_shared/flutterwaveConfig.ts";
-
-const FLUTTERWAVE_BASE_URL = 'https://api.flutterwave.com/v3';
+import { flutterwaveFetch, getFlutterwaveConfig } from "../_shared/flutterwaveConfig.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -68,20 +66,20 @@ Deno.serve(async (req: Request) => {
       throw new Error('Missing required fields: email, tx_ref, 11-digit bvn, narration');
     }
 
-    const response = await fetch(`${FLUTTERWAVE_BASE_URL}/virtual-account-numbers`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${config.secretKey}`,
-        'Content-Type': 'application/json',
+    const { response } = await flutterwaveFetch(
+      '/virtual-account-numbers',
+      {
+        method: 'POST',
+        body: {
+          email: body.email,
+          tx_ref: body.tx_ref,
+          bvn: cleanBvn,
+          narration: body.narration,
+          is_permanent: true,
+        },
       },
-      body: JSON.stringify({
-        email: body.email,
-        tx_ref: body.tx_ref,
-        bvn: cleanBvn,
-        narration: body.narration,
-        is_permanent: true,
-      }),
-    });
+      config
+    );
 
     if (!response.ok) {
       const errorData = await response.text();

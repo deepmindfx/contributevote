@@ -8,7 +8,15 @@ import BrandLoader from "@/components/ui/BrandLoader";
 import { GroupRules } from "./GroupRules";
 import type { GroupRuleDetails } from "./GroupRules";
 
-type PreviewGroup = GroupRuleDetails & { name: string; target_amount: number; privacy?: string | null };
+type PreviewGroup = GroupRuleDetails & {
+  name: string;
+  target_amount: number;
+  privacy?: string | null;
+  cover_image_url?: string | null;
+  is_verified?: boolean | null;
+  is_pinned?: boolean | null;
+  spotlight_label?: string | null;
+};
 
 export function GroupJoinPreview({ group, loading, error, inviter, children }: {
   group?: PreviewGroup | null;
@@ -38,9 +46,20 @@ export function GroupJoinPreview({ group, loading, error, inviter, children }: {
           {loading ? (
             <BrandLoader variant="page" message="Loading group details" />
           ) : group ? (
-            <Card className="space-y-5 rounded-2xl p-4 sm:p-6">
-              <GroupRules group={group} />
-              {children}
+            <Card className="overflow-hidden rounded-2xl">
+              {group.cover_image_url && (
+                <div className="aspect-[16/9] w-full overflow-hidden bg-muted">
+                  <img
+                    src={group.cover_image_url}
+                    alt={group.name}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+              )}
+              <div className="space-y-5 p-4 sm:p-6">
+                <GroupRules group={group} />
+                {children}
+              </div>
             </Card>
           ) : (
             <Card className="rounded-2xl p-5 text-sm text-muted-foreground">{error}</Card>

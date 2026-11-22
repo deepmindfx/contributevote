@@ -67,6 +67,7 @@ import {
   GroupSpotlightDialog,
   IssuePenaltyDialog,
   ManualAmlFlagDialog,
+  RemoveBvnDialog,
   VerifyOrganizerDialog,
   WalletAdjustDialog,
 } from "@/components/admin/AdminActionDialogs";
@@ -162,6 +163,7 @@ const AdminDashboard = () => {
   const [groupControlTarget, setGroupControlTarget] = useState<any | null>(null);
   const [spotlightGroupTarget, setSpotlightGroupTarget] = useState<any | null>(null);
   const [verifyOrganizerTarget, setVerifyOrganizerTarget] = useState<any | null>(null);
+  const [removeBvnTarget, setRemoveBvnTarget] = useState<any | null>(null);
   const [reviewingAlert, setReviewingAlert] = useState<AmlAlertRecord | null>(null);
   const [manualFlagState, setManualFlagState] = useState<{ open: boolean; user: any | null }>({
     open: false,
@@ -626,6 +628,29 @@ const AdminDashboard = () => {
       await loadPlatformData();
     } catch (error: any) {
       toast.error(error?.message || "Failed to update organizer badge");
+    } finally {
+      setActionPending(false);
+      setOverlayState(null);
+    }
+  };
+
+  const handleRemoveUserBvn = async (payload: { userId: string; reason: string }) => {
+    setActionPending(true);
+    setOverlayState({
+      message: "Unlinking BVN from user profile",
+      submessage: "Clearing KYC record, notifying user, and recording audit trail…",
+    });
+    try {
+      const res = await AdminComplianceService.removeUserBvn(payload.userId, payload.reason);
+      if (!res?.success) {
+        toast.error(res?.error || "Failed to unlink BVN");
+        return;
+      }
+      toast.success(res.message || "BVN unlinked from user account");
+      setRemoveBvnTarget(null);
+      await loadPlatformData();
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to unlink BVN");
     } finally {
       setActionPending(false);
       setOverlayState(null);
@@ -1435,6 +1460,17 @@ const AdminDashboard = () => {
                               <BadgeCheck className="h-3.5 w-3.5 text-primary" />
                               {(u as any).is_verified_organizer ? "Verified" : "Verify Badge"}
                             </Button>
+                            {hasBvn && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setRemoveBvnTarget(u)}
+                                className="h-9 gap-1 rounded-xl border-amber-500/40 text-xs text-amber-700 hover:bg-amber-500/10 dark:text-amber-300"
+                              >
+                                <Ban className="h-3.5 w-3.5" />
+                                Unlink BVN
+                              </Button>
+                            )}
                             <Button
                               size="sm"
                               variant="outline"
@@ -2078,6 +2114,14 @@ const AdminDashboard = () => {
         user={verifyOrganizerTarget}
         pending={actionPending}
         onConfirm={handleToggleVerifiedOrganizer}
+      />
+
+      <RemoveBvnDialog
+        open={Boolean(removeBvnTarget)}
+        onOpenChange={(open) => !open && setRemoveBvnTarget(null)}
+        user={removeBvnTarget}
+        pending={actionPending}
+        onConfirm={handleRemoveUserBvn}
       />
 
       <AmlReviewDialog

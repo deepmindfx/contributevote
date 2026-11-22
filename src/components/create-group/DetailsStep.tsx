@@ -5,12 +5,15 @@ import {
   CalendarCheck2,
   CalendarDays,
   CalendarRange,
+  Camera,
   Check,
   ChevronDown,
   Clock,
   Grid2x2,
+  ImagePlus,
   Search,
   Sun,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CardContent, CardFooter, CardHeader, CardDescription } from "@/components/ui/card";
@@ -111,14 +114,23 @@ export function getDetailsError(data: GroupDetails) {
 interface DetailsStepProps {
   formData: GroupDetails;
   handleChange: (field: keyof GroupDetails, value: string) => void;
+  coverPreviewUrl?: string | null;
+  onCoverSelect?: (file: File | null) => void;
   onContinue: () => void;
 }
 
-export default function DetailsStep({ formData, handleChange, onContinue }: DetailsStepProps) {
+export default function DetailsStep({
+  formData,
+  handleChange,
+  coverPreviewUrl,
+  onCoverSelect,
+  onContinue,
+}: DetailsStepProps) {
   const [error, setError] = useState<ReturnType<typeof getDetailsError>>(null);
   const [categorySheetOpen, setCategorySheetOpen] = useState(false);
   const [categoryQuery, setCategoryQuery] = useState("");
   const advanced = useRef<HTMLDetailsElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const visibleCategories = useMemo(() => {
     const featured = CATEGORIES.filter((c) => FEATURED_CATEGORY_VALUES.includes(c.value));
@@ -172,6 +184,86 @@ export default function DetailsStep({ formData, handleChange, onContinue }: Deta
         </CardHeader>
 
         <CardContent className="group-form-fields space-y-6 pb-6">
+          {/* Group Cover Photo Uploader */}
+          {onCoverSelect && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <Label className="text-sm font-semibold">
+                  Cover photo <span className="font-normal text-muted-foreground">· Optional</span>
+                </Label>
+                <span className="text-[11px] font-medium text-primary">
+                  Shown on Discover &amp; Group Card
+                </span>
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null;
+                  if (file) onCoverSelect(file);
+                  e.target.value = "";
+                }}
+              />
+              {coverPreviewUrl ? (
+                <div className="group relative overflow-hidden rounded-2xl border bg-muted">
+                  <img
+                    src={coverPreviewUrl}
+                    alt="Selected group cover preview"
+                    className="aspect-[16/9] w-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-black/15" />
+                  <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2">
+                    <span className="rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">
+                      Cover ready · 16:9 card preview
+                    </span>
+                    <div className="flex gap-1.5">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="h-8 gap-1 rounded-lg bg-white/90 px-2.5 text-xs font-bold text-[#0b2e24] hover:bg-white"
+                      >
+                        <Camera className="h-3.5 w-3.5" />
+                        Change
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => onCoverSelect(null)}
+                        className="h-8 gap-1 rounded-lg px-2.5 text-xs font-bold"
+                        aria-label="Remove cover photo"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex w-full items-center gap-3.5 rounded-2xl border-2 border-dashed border-primary/25 bg-accent/25 px-4 py-4 text-left transition-all hover:border-primary/50 hover:bg-accent/45"
+                >
+                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-primary/12 text-primary">
+                    <ImagePlus className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <span className="block text-sm font-bold text-foreground">
+                      Add a group cover picture
+                    </span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground">
+                      Upload a photo of your mosque, church, invention, event, or community cause (JPG/PNG/WebP).
+                    </span>
+                  </div>
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Group Name */}
           <div className="space-y-2">
             <Label htmlFor="group-name" className="text-sm font-semibold">

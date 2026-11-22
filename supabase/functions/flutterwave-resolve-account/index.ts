@@ -1,7 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { getFlutterwaveConfig } from "../_shared/flutterwaveConfig.ts";
-
-const FLUTTERWAVE_BASE_URL = 'https://api.flutterwave.com/v3';
+import { flutterwaveFetch, getFlutterwaveConfig } from "../_shared/flutterwaveConfig.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -32,17 +30,11 @@ Deno.serve(async (req: Request) => {
       throw new Error('Missing required fields: account_number, account_bank');
     }
 
-    const response = await fetch(`${FLUTTERWAVE_BASE_URL}/accounts/resolve`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${config.secretKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        account_number,
-        account_bank,
-      }),
-    });
+    const { response } = await flutterwaveFetch(
+      '/accounts/resolve',
+      { method: 'POST', body: { account_number, account_bank } },
+      config
+    );
 
     if (!response.ok) {
       const errorData = await response.text();

@@ -1,8 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { getFlutterwaveConfig } from "../_shared/flutterwaveConfig.ts";
-
-const FLUTTERWAVE_BASE_URL = 'https://api.flutterwave.com/v3';
+import { flutterwaveFetch, getFlutterwaveConfig } from "../_shared/flutterwaveConfig.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -67,15 +65,10 @@ Deno.serve(async (req: Request) => {
     }
 
     // Verify transaction server-side with Flutterwave
-    const verifyRes = await fetch(
-      `${FLUTTERWAVE_BASE_URL}/transactions/${encodeURIComponent(String(transaction_id))}/verify`,
-      {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${config.secretKey}`,
-          'Content-Type': 'application/json',
-        },
-      }
+    const { response: verifyRes } = await flutterwaveFetch(
+      `/transactions/${encodeURIComponent(String(transaction_id))}/verify`,
+      { method: 'GET' },
+      config
     );
 
     if (!verifyRes.ok) {

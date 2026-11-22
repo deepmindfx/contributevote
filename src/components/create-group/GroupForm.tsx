@@ -14,6 +14,7 @@ import {
   createGroupWithFee,
   saveUserBvn,
 } from "@/services/supabase/groupEnhancementService";
+import { uploadGroupCoverImage } from "@/services/supabase/groupImageService";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -74,6 +75,33 @@ export default function GroupForm() {
   const [showFeeConfirmation, setShowFeeConfirmation] = useState(false);
   const [bvnInput, setBvnInput] = useState("");
   const [verifyingBvn, setVerifyingBvn] = useState(false);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (coverPreviewUrl) URL.revokeObjectURL(coverPreviewUrl);
+    };
+  }, [coverPreviewUrl]);
+
+  const handleCoverSelect = (file: File | null) => {
+    if (coverPreviewUrl) URL.revokeObjectURL(coverPreviewUrl);
+    if (!file) {
+      setCoverFile(null);
+      setCoverPreviewUrl(null);
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file (JPG, PNG, or WebP).");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Image must be smaller than 10 MB.");
+      return;
+    }
+    setCoverFile(file);
+    setCoverPreviewUrl(URL.createObjectURL(file));
+  };
 
   const stepNumber = step === "goal" ? 1 : 2;
   const hasVerifiedBvn = /^\d{11}$/.test(String(user?.bvn || "").trim());
@@ -134,6 +162,11 @@ export default function GroupForm() {
     setCreating(true);
     setShowFeeConfirmation(false);
     try {
+      let uploadedCoverUrl: string | null = null;
+      if (coverFile) {
+        uploadedCoverUrl = await uploadGroupCoverImage(user.id, coverFile);
+      }
+
       const result = await createGroupWithFee(user.id, {
         name: formData.name.trim(),
         description: formData.description.trim(),
@@ -146,6 +179,7 @@ export default function GroupForm() {
         start_date: formData.startDate ? new Date(formData.startDate).toISOString() : null,
         end_date: formData.endDate ? new Date(formData.endDate + "T23:59:59").toISOString() : null,
         voting_threshold: formData.votingThreshold,
+        cover_image_url: uploadedCoverUrl,
       });
 
       if (!result?.success) {
@@ -156,11 +190,11 @@ export default function GroupForm() {
       localStorage.removeItem(FORM_STORAGE_KEY);
       localStorage.removeItem(STEP_STORAGE_KEY);
       toast.success(result.message || "Group pool created.");
-      await Promise.allSettled([refreshCurrentUser(), refreshContributionData()]);
+      await Promise.allSettled([refreshCurrentUser(), refreshContributionData(true)]);
       navigate(result.group_id ? "/groups/" + result.group_id : "/all-groups", { replace: true });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating group:", error);
-      toast.error("Couldn’t create the group. Try again.");
+      toast.error(error?.message || "Couldn’t create the group. Try again.");
     } finally {
       setCreating(false);
     }
@@ -334,11 +368,14 @@ export default function GroupForm() {
           <DetailsStep
             formData={formData}
             handleChange={update}
+            coverPreviewUrl={coverPreviewUrl}
+            onCoverSelect={handleCoverSelect}
             onContinue={() => moveToStep("settings")}
           />
         ) : (
           <SettingsStep
             formData={formData}
+            coverPreviewUrl={coverPreviewUrl}
             freeRemaining={freeRemaining}
             onPrivacyChange={(privacy) => update("privacy", privacy)}
             onVotingChange={(enabled) => update("enableVotingRights", enabled)}

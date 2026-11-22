@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import {
+  AlertTriangle,
   Check,
   CheckCircle2,
   Copy,
@@ -10,10 +11,11 @@ import {
   Loader2,
   Lock,
   RefreshCw,
+  SendHorizontal,
+  Server,
   ShieldCheck,
   Sparkles,
   Wifi,
-  AlertTriangle,
 } from "lucide-react";
 import { format, isValid } from "date-fns";
 import { toast } from "sonner";
@@ -21,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import BrandLoader from "@/components/ui/BrandLoader";
 import {
   AdminComplianceService,
@@ -41,7 +44,9 @@ export const AdminPaymentSettings: React.FC<AdminPaymentSettingsProps> = ({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [testingRelay, setTestingRelay] = useState(false);
   const [copiedWebhook, setCopiedWebhook] = useState(false);
+  const [copiedIp, setCopiedIp] = useState(false);
 
   const [savedMeta, setSavedMeta] = useState<PaymentGatewaySettings | null>(null);
   const [mode, setMode] = useState<"live" | "test">("live");
@@ -50,12 +55,23 @@ export const AdminPaymentSettings: React.FC<AdminPaymentSettingsProps> = ({
   const [encryptionKey, setEncryptionKey] = useState("");
   const [webhookHash, setWebhookHash] = useState("");
   const [webhookUrl, setWebhookUrl] = useState(DEFAULT_WEBHOOK_URL);
+  const [staticIpProxyUrl, setStaticIpProxyUrl] = useState("");
+  const [staticIpProxySecret, setStaticIpProxySecret] = useState("");
+  const [staticIpAddress, setStaticIpAddress] = useState("2.25.15.1");
+  const [transfersEnabled, setTransfersEnabled] = useState(true);
 
   const [showSecret, setShowSecret] = useState(false);
   const [showEncryption, setShowEncryption] = useState(false);
   const [showHash, setShowHash] = useState(false);
+  const [showProxySecret, setShowProxySecret] = useState(false);
 
   const [testResult, setTestResult] = useState<{
+    success: boolean;
+    message: string;
+    meta?: string;
+  } | null>(null);
+
+  const [relayTestResult, setRelayTestResult] = useState<{
     success: boolean;
     message: string;
     meta?: string;
@@ -70,10 +86,13 @@ export const AdminPaymentSettings: React.FC<AdminPaymentSettingsProps> = ({
         setMode(res.data.flutterwave_mode === "test" ? "test" : "live");
         setPublicKey(res.data.flutterwave_public_key || "");
         setWebhookUrl(res.data.webhook_url || DEFAULT_WEBHOOK_URL);
-        // Secret inputs stay blank unless admin wants to replace them
+        setStaticIpProxyUrl(res.data.static_ip_proxy_url || "");
+        setStaticIpAddress(res.data.static_ip_address || "2.25.15.1");
+        setTransfersEnabled(res.data.transfers_enabled !== false);
         setSecretKey("");
         setEncryptionKey("");
         setWebhookHash("");
+        setStaticIpProxySecret("");
       } else if (res?.error) {
         toast.error(res.error);
       }
@@ -100,6 +119,17 @@ export const AdminPaymentSettings: React.FC<AdminPaymentSettingsProps> = ({
     }
   };
 
+  const handleCopyStaticIp = async () => {
+    try {
+      await navigator.clipboard.writeText(staticIpAddress || "2.25.15.1");
+      setCopiedIp(true);
+      toast.success(`Static IP ${staticIpAddress || "2.25.15.1"} copied!`);
+      setTimeout(() => setCopiedIp(false), 2000);
+    } catch {
+      toast.error("Could not copy Static IP");
+    }
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -112,6 +142,10 @@ export const AdminPaymentSettings: React.FC<AdminPaymentSettingsProps> = ({
         encryptionKey: encryptionKey.trim() || undefined,
         webhookHash: webhookHash.trim() || undefined,
         webhookUrl: webhookUrl.trim() || DEFAULT_WEBHOOK_URL,
+        staticIpProxyUrl: staticIpProxyUrl.trim(),
+        staticIpProxySecret: staticIpProxySecret.trim() || undefined,
+        staticIpAddress: staticIpAddress.trim() || "2.25.15.1",
+        transfersEnabled,
       });
 
       if (!res?.success || !res.data) {
@@ -123,12 +157,38 @@ export const AdminPaymentSettings: React.FC<AdminPaymentSettingsProps> = ({
       setSecretKey("");
       setEncryptionKey("");
       setWebhookHash("");
-      toast.success("Flutterwave gateway credentials saved & activated immediately");
+      setStaticIpProxySecret("");
+      toast.success("Flutterwave gateway & Static-IP Relay settings saved!");
       onSettingsSaved?.();
     } catch (err: any) {
       toast.error(err?.message || "Failed to save payment settings");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleTestRelay = async () => {
+    setTestingRelay(true);
+    setRelayTestResult(null);
+    try {
+      const res = await AdminComplianceService.testStaticIpRelay();
+      if (res.success) {
+        setRelayTestResult({
+          success: true,
+          message: `Static-IP Relay Online · Egress IP ${res.staticIp || staticIpAddress} (${res.latencyMs}ms)`,
+          meta: `Endpoint: ${res.url || staticIpProxyUrl}`,
+        });
+        toast.success("Static-IP Relay is online and ready!");
+      } else {
+        setRelayTestResult({
+          success: false,
+          message: res.error || "Static-IP Relay did not respond",
+          meta: `Checked in ${res.latencyMs}ms`,
+        });
+        toast.error(res.error || "Static-IP Relay check failed");
+      }
+    } finally {
+      setTestingRelay(false);
     }
   };
 
@@ -141,8 +201,10 @@ export const AdminPaymentSettings: React.FC<AdminPaymentSettingsProps> = ({
         setTestResult({
           success: true,
           message: `Connected to Flutterwave (${res.bankCount ?? 0} Nigerian banks loaded in ${res.latencyMs}ms)`,
-          meta: `Mode: ${(res.mode || mode).toUpperCase()} · Credential source: ${
-            res.source === "database" ? "Admin Settings" : "Server Environment Secret"
+          meta: `Mode: ${(res.mode || mode).toUpperCase()} · Routing: ${
+            res.routedViaStaticIp
+              ? `Static-IP Relay (${res.staticIpAddress || staticIpAddress})`
+              : "Direct Edge Function"
           }`,
         });
         toast.success("Flutterwave API connection verified!");
@@ -165,7 +227,7 @@ export const AdminPaymentSettings: React.FC<AdminPaymentSettingsProps> = ({
         <BrandLoader
           variant="page"
           message="Loading Flutterwave Settings"
-          submessage="Fetching encrypted gateway status…"
+          submessage="Fetching encrypted gateway & Static-IP Relay status…"
         />
       </div>
     );
@@ -182,8 +244,8 @@ export const AdminPaymentSettings: React.FC<AdminPaymentSettingsProps> = ({
         <BrandLoader
           variant="overlay"
           badge="Payment Gateway"
-          message="Saving Flutterwave credentials"
-          submessage="Applying live credentials across all Edge Functions & webhooks…"
+          message="Saving Flutterwave & Static-IP settings"
+          submessage="Applying live credentials across all Edge Functions & payout relay…"
         />
       )}
 
@@ -196,7 +258,7 @@ export const AdminPaymentSettings: React.FC<AdminPaymentSettingsProps> = ({
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-base font-bold text-foreground">
-                Flutterwave Payment Gateway
+                Flutterwave Gateway &amp; Static-IP Payout Relay
               </h2>
               <Badge
                 variant={mode === "live" ? "default" : "secondary"}
@@ -204,19 +266,15 @@ export const AdminPaymentSettings: React.FC<AdminPaymentSettingsProps> = ({
               >
                 {mode === "live" ? "Live Mode" : "Test Sandbox"}
               </Badge>
-              {savedMeta?.has_secret_key ? (
+              {savedMeta?.static_ip_proxy_url && savedMeta?.has_proxy_secret && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/12 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
-                  <CheckCircle2 className="h-3 w-3" />
-                  DB Credentials Active
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700 dark:text-amber-300">
-                  Server Env Fallback
+                  <Server className="h-3 w-3" />
+                  Static IP {savedMeta.static_ip_address || "2.25.15.1"} Active
                 </span>
               )}
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              Configure your Flutterwave API keys and Webhook Secret Hash directly here. Changes take effect immediately across bank transfers, virtual accounts, card checkout, and webhook verification.
+              Manage Flutterwave API keys, Webhook Secret Hash, and your Ubuntu Static-IP Payout Relay so live Send Money bank transfers pass Flutterwave IP whitelisting.
             </p>
             <p className="mt-1 text-[11px] text-muted-foreground">
               Last updated: <span className="font-medium text-foreground">{updatedLabel}</span>
@@ -225,6 +283,20 @@ export const AdminPaymentSettings: React.FC<AdminPaymentSettingsProps> = ({
         </div>
 
         <div className="flex shrink-0 flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleTestRelay}
+            disabled={testingRelay || saving}
+            className="h-10 gap-2 rounded-xl font-semibold"
+          >
+            {testingRelay ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Server className="h-4 w-4 text-primary" />
+            )}
+            Test Relay
+          </Button>
           <Button
             type="button"
             variant="outline"
@@ -237,7 +309,7 @@ export const AdminPaymentSettings: React.FC<AdminPaymentSettingsProps> = ({
             ) : (
               <Wifi className="h-4 w-4 text-primary" />
             )}
-            Test Connection
+            Test Flutterwave
           </Button>
           <Button
             type="button"
@@ -253,7 +325,30 @@ export const AdminPaymentSettings: React.FC<AdminPaymentSettingsProps> = ({
         </div>
       </div>
 
-      {/* Connection Test Result Banner */}
+      {/* Test Result Banners */}
+      {relayTestResult && (
+        <div
+          className={cn(
+            "flex items-start gap-3 rounded-2xl border p-4 text-sm",
+            relayTestResult.success
+              ? "border-emerald-500/35 bg-emerald-500/10 text-emerald-900 dark:text-emerald-200"
+              : "border-destructive/35 bg-destructive/10 text-destructive"
+          )}
+        >
+          {relayTestResult.success ? (
+            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+          ) : (
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+          )}
+          <div>
+            <p className="font-bold">{relayTestResult.message}</p>
+            {relayTestResult.meta && (
+              <p className="mt-0.5 text-xs opacity-85">{relayTestResult.meta}</p>
+            )}
+          </div>
+        </div>
+      )}
+
       {testResult && (
         <div
           className={cn(
@@ -284,7 +379,7 @@ export const AdminPaymentSettings: React.FC<AdminPaymentSettingsProps> = ({
           {/* Environment Mode Selector */}
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              1. Gateway Environment
+              1. Gateway Environment &amp; Payouts
             </Label>
             <div className="grid grid-cols-2 gap-2.5">
               {(
@@ -323,6 +418,21 @@ export const AdminPaymentSettings: React.FC<AdminPaymentSettingsProps> = ({
                   <span className="mt-0.5 text-[11px] text-muted-foreground">{opt.desc}</span>
                 </button>
               ))}
+            </div>
+
+            <div className="flex items-center justify-between gap-3 rounded-2xl border bg-muted/25 px-4 py-3">
+              <div className="flex items-center gap-2.5">
+                <SendHorizontal className="h-4 w-4 text-primary" />
+                <div>
+                  <p className="text-xs font-bold text-foreground">
+                    Enable Outbound Bank Transfers (Send Money)
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Routes user payouts through your whitelisted Static-IP VPS Relay.
+                  </p>
+                </div>
+              </div>
+              <Switch checked={transfersEnabled} onCheckedChange={setTransfersEnabled} />
             </div>
           </div>
 
@@ -477,6 +587,64 @@ export const AdminPaymentSettings: React.FC<AdminPaymentSettingsProps> = ({
             </div>
           </div>
 
+          {/* Static-IP Relay Advanced Override */}
+          <div className="space-y-3 border-t pt-4">
+            <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              2. Static-IP Payout Relay (Ubuntu VPS)
+            </Label>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="flw-relay-url" className="text-xs font-semibold">
+                  Relay Endpoint URL
+                </Label>
+                <Input
+                  id="flw-relay-url"
+                  type="text"
+                  placeholder="https://2-25-15-1.sslip.io"
+                  value={staticIpProxyUrl}
+                  onChange={(e) => setStaticIpProxyUrl(e.target.value)}
+                  className="h-11 rounded-xl font-mono text-xs"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between gap-1">
+                  <Label htmlFor="flw-relay-secret" className="text-xs font-semibold">
+                    Relay Auth Secret
+                  </Label>
+                  {savedMeta?.has_proxy_secret && (
+                    <span className="font-mono text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
+                      Saved
+                    </span>
+                  )}
+                </div>
+                <div className="relative">
+                  <Input
+                    id="flw-relay-secret"
+                    type={showProxySecret ? "text" : "password"}
+                    placeholder={
+                      savedMeta?.has_proxy_secret
+                        ? "Leave blank to keep relay secret…"
+                        : "Relay X-Relay-Secret token"
+                    }
+                    value={staticIpProxySecret}
+                    onChange={(e) => setStaticIpProxySecret(e.target.value)}
+                    className="h-11 rounded-xl pr-11 font-mono text-xs"
+                    autoComplete="new-password"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShowProxySecret((v) => !v)}
+                    className="absolute inset-y-0 right-0 h-11 w-11 text-muted-foreground"
+                  >
+                    {showProxySecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
             <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
               <ShieldCheck className="h-4 w-4 text-primary" />
@@ -493,8 +661,47 @@ export const AdminPaymentSettings: React.FC<AdminPaymentSettingsProps> = ({
           </div>
         </form>
 
-        {/* Webhook URL & Quick Flutterwave Dashboard Setup Guide */}
+        {/* Right Column: Static IP Whitelist Card + Webhook URL + Checklist */}
         <div className="space-y-4 lg:col-span-2">
+          {/* Static IP Card for Flutterwave Whitelist */}
+          <div className="cp-card-native space-y-3 border-primary/30 bg-gradient-to-br from-emerald-500/[0.06] to-card p-5">
+            <div className="flex items-center gap-2.5">
+              <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-primary-foreground">
+                <Server className="h-4 w-4" />
+              </span>
+              <div>
+                <h3 className="text-sm font-bold text-foreground">
+                  Static IP for Flutterwave Whitelist
+                </h3>
+                <p className="text-[11px] text-muted-foreground">
+                  Add this IP in Flutterwave → Settings → Whitelisted IP Addresses
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Input
+                value={staticIpAddress}
+                onChange={(e) => setStaticIpAddress(e.target.value)}
+                className="h-11 rounded-xl bg-card font-mono text-base font-extrabold tracking-wider"
+                aria-label="Static IP Address"
+              />
+              <Button
+                type="button"
+                onClick={handleCopyStaticIp}
+                className="h-11 shrink-0 gap-1.5 rounded-xl px-4 font-bold"
+              >
+                {copiedIp ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                {copiedIp ? "Copied" : "Copy IP"}
+              </Button>
+            </div>
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              All outbound <strong>Send Money</strong> bank transfers are routed through your Ubuntu VPS at{" "}
+              <strong className="font-mono text-foreground">{staticIpAddress || "2.25.15.1"}</strong>{" "}
+              so Flutterwave approves live payouts reliably.
+            </p>
+          </div>
+
           <div className="cp-card-native space-y-3 p-5">
             <div className="flex items-center gap-2">
               <span className="grid h-9 w-9 place-items-center rounded-xl bg-accent text-primary">
@@ -538,15 +745,15 @@ export const AdminPaymentSettings: React.FC<AdminPaymentSettingsProps> = ({
 
           <div className="cp-card-native space-y-3 p-5">
             <h3 className="text-sm font-bold text-foreground">
-              3-Step Flutterwave Setup Checklist
+              Flutterwave Go-Live Checklist
             </h3>
-            <ol className="space-y-2.5 text-xs text-muted-foreground">
+            <ol className="space-y-2 text-xs text-muted-foreground">
               <li className="flex gap-2.5">
                 <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-primary/15 text-[11px] font-bold text-primary">
                   1
                 </span>
                 <span>
-                  Open <strong className="text-foreground">Flutterwave Dashboard → Settings → API Keys</strong> and copy your Public Key, Secret Key, and Encryption Key into the form on the left.
+                  Paste your Flutterwave <strong className="text-foreground">Public, Secret &amp; Encryption Keys</strong> on the left and click Save.
                 </span>
               </li>
               <li className="flex gap-2.5">
@@ -554,7 +761,8 @@ export const AdminPaymentSettings: React.FC<AdminPaymentSettingsProps> = ({
                   2
                 </span>
                 <span>
-                  Open <strong className="text-foreground">Settings → Webhooks</strong> in Flutterwave, paste the <strong className="text-foreground">Live Webhook URL</strong> above, set a strong <strong className="text-foreground">Secret Hash</strong>, and paste that same hash here.
+                  In Flutterwave → <strong className="text-foreground">Settings → Whitelisted IP Addresses</strong>, add{" "}
+                  <strong className="font-mono text-foreground">{staticIpAddress || "2.25.15.1"}</strong> to unlock live Send Money transfers.
                 </span>
               </li>
               <li className="flex gap-2.5">
@@ -562,7 +770,7 @@ export const AdminPaymentSettings: React.FC<AdminPaymentSettingsProps> = ({
                   3
                 </span>
                 <span>
-                  Click <strong className="text-foreground">Save Gateway Settings</strong>, then press <strong className="text-foreground">Test Connection</strong> to confirm live bank &amp; payout connectivity instantly.
+                  In Flutterwave → <strong className="text-foreground">Settings → Webhooks</strong>, paste the Webhook URL &amp; Secret Hash above, then press <strong className="text-foreground">Test Flutterwave</strong>.
                 </span>
               </li>
             </ol>

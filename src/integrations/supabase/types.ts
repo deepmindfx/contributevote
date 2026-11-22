@@ -256,6 +256,7 @@ export type Database = {
           bank_name: string | null
           category: string
           contribution_amount: number | null
+          cover_image_url: string | null
           created_at: string | null
           creator_id: string | null
           current_amount: number | null
@@ -290,6 +291,7 @@ export type Database = {
           bank_name?: string | null
           category: string
           contribution_amount?: number | null
+          cover_image_url?: string | null
           created_at?: string | null
           creator_id?: string | null
           current_amount?: number | null
@@ -324,6 +326,7 @@ export type Database = {
           bank_name?: string | null
           category?: string
           contribution_amount?: number | null
+          cover_image_url?: string | null
           created_at?: string | null
           creator_id?: string | null
           current_amount?: number | null
@@ -727,6 +730,10 @@ export type Database = {
           flutterwave_webhook_hash: string | null
           id: string
           provider: string
+          static_ip_address: string | null
+          static_ip_proxy_secret: string | null
+          static_ip_proxy_url: string | null
+          transfers_enabled: boolean
           updated_at: string
           updated_by: string | null
           webhook_url: string
@@ -739,6 +746,10 @@ export type Database = {
           flutterwave_webhook_hash?: string | null
           id?: string
           provider?: string
+          static_ip_address?: string | null
+          static_ip_proxy_secret?: string | null
+          static_ip_proxy_url?: string | null
+          transfers_enabled?: boolean
           updated_at?: string
           updated_by?: string | null
           webhook_url?: string
@@ -751,6 +762,10 @@ export type Database = {
           flutterwave_webhook_hash?: string | null
           id?: string
           provider?: string
+          static_ip_address?: string | null
+          static_ip_proxy_secret?: string | null
+          static_ip_proxy_url?: string | null
+          transfers_enabled?: boolean
           updated_at?: string
           updated_by?: string | null
           webhook_url?: string
@@ -1191,6 +1206,10 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_remove_user_bvn: {
+        Args: { p_reason?: string; p_user_id: string }
+        Returns: Json
+      }
       admin_review_external_payment: {
         Args: { p_note?: string; p_status: string; p_track_id: string }
         Returns: Json
@@ -1201,6 +1220,10 @@ export type Database = {
           p_mode?: string
           p_public_key?: string
           p_secret_key?: string
+          p_static_ip_address?: string
+          p_static_ip_proxy_secret?: string
+          p_static_ip_proxy_url?: string
+          p_transfers_enabled?: boolean
           p_webhook_hash?: string
           p_webhook_url?: string
         }
@@ -1294,6 +1317,7 @@ export type Database = {
         Args: {
           p_category: string
           p_contribution_amount?: number
+          p_cover_image_url?: string
           p_description: string
           p_enable_voting_rights?: boolean
           p_end_date?: string

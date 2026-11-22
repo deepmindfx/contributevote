@@ -119,6 +119,11 @@ export interface PaymentGatewaySettings {
   encryption_key_masked: string | null;
   has_webhook_hash: boolean;
   webhook_hash_masked: string | null;
+  static_ip_proxy_url: string;
+  static_ip_address: string;
+  has_proxy_secret: boolean;
+  proxy_secret_masked: string | null;
+  transfers_enabled: boolean;
   updated_at: string | null;
 }
 
@@ -436,6 +441,18 @@ export const AdminComplianceService = {
     return data;
   },
 
+  async removeUserBvn(
+    userId: string,
+    reason?: string
+  ): Promise<{ success: boolean; removed_bvn_last4?: string; message?: string; error?: string }> {
+    const { data, error } = await (supabase as any).rpc("admin_remove_user_bvn", {
+      p_user_id: userId,
+      p_reason: reason?.trim() || null,
+    });
+    if (error) throw error;
+    return data;
+  },
+
   async getPaymentSettings(): Promise<{
     success: boolean;
     data?: PaymentGatewaySettings;
@@ -453,6 +470,10 @@ export const AdminComplianceService = {
     encryptionKey?: string;
     webhookHash?: string;
     webhookUrl?: string;
+    staticIpProxyUrl?: string;
+    staticIpProxySecret?: string;
+    staticIpAddress?: string;
+    transfersEnabled?: boolean;
   }): Promise<{
     success: boolean;
     data?: PaymentGatewaySettings;
@@ -465,9 +486,52 @@ export const AdminComplianceService = {
       p_encryption_key: payload.encryptionKey?.trim() ? payload.encryptionKey.trim() : null,
       p_webhook_hash: payload.webhookHash?.trim() ? payload.webhookHash.trim() : null,
       p_webhook_url: payload.webhookUrl?.trim() ? payload.webhookUrl.trim() : null,
+      p_static_ip_proxy_url: payload.staticIpProxyUrl ?? null,
+      p_static_ip_proxy_secret: payload.staticIpProxySecret?.trim()
+        ? payload.staticIpProxySecret.trim()
+        : null,
+      p_static_ip_address: payload.staticIpAddress?.trim() || null,
+      p_transfers_enabled:
+        typeof payload.transfersEnabled === "boolean" ? payload.transfersEnabled : null,
     });
     if (error) throw error;
     return data;
+  },
+
+  async testStaticIpRelay(): Promise<{
+    success: boolean;
+    staticIp?: string;
+    url?: string;
+    uptimeSec?: number | null;
+    latencyMs: number;
+    error?: string;
+  }> {
+    const started = performance.now();
+    try {
+      const { data, error } = await supabase.functions.invoke("flutterwave-banks", {
+        body: { fresh: true, checkRelayOnly: true },
+      });
+      const latencyMs = Math.round(performance.now() - started);
+      if (error) {
+        return { success: false, latencyMs, error: error.message || "Relay probe failed" };
+      }
+      if (!data?.success) {
+        return { success: false, latencyMs, error: data?.error || "Static-IP Relay unreachable" };
+      }
+      return {
+        success: true,
+        staticIp: data.relay?.staticIp,
+        url: data.relay?.url,
+        uptimeSec: data.relay?.uptimeSec,
+        latencyMs,
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        latencyMs: Math.round(performance.now() - started),
+        error: err?.message || "Static-IP Relay probe failed",
+      };
+    }
   },
 
   async testFlutterwaveConnection(): Promise<{
@@ -475,6 +539,8 @@ export const AdminComplianceService = {
     bankCount?: number;
     mode?: string;
     source?: string;
+    routedViaStaticIp?: boolean;
+    staticIpAddress?: string | null;
     latencyMs: number;
     error?: string;
   }> {
@@ -495,6 +561,8 @@ export const AdminComplianceService = {
         bankCount: Array.isArray(data.data) ? data.data.length : data.meta?.count || 0,
         mode: data.meta?.mode,
         source: data.meta?.source,
+        routedViaStaticIp: Boolean(data.meta?.routedViaStaticIp),
+        staticIpAddress: data.meta?.staticIpAddress || null,
         latencyMs,
       };
     } catch (err: any) {

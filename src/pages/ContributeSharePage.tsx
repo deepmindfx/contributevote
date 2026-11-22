@@ -185,7 +185,16 @@ const ContributeSharePage = () => {
       )}
       <Header />
       <div className="flex flex-col items-center justify-center p-4 pt-24 bg-background">
-        <Card className="w-full max-w-md rounded-[1.35rem]">
+        <Card className="w-full max-w-md overflow-hidden rounded-[1.35rem]">
+          {contribution.cover_image_url && (
+            <div className="aspect-[16/9] w-full overflow-hidden bg-muted">
+              <img
+                src={contribution.cover_image_url}
+                alt={contribution.name}
+                className="h-full w-full object-cover"
+              />
+            </div>
+          )}
           <CardHeader className="text-center">
             <div className="flex justify-center mb-4">
               <div className="rounded-full bg-primary p-2 text-primary-foreground">

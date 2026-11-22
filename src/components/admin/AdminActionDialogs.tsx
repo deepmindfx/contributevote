@@ -1306,3 +1306,87 @@ export const VerifyOrganizerDialog: React.FC<VerifyOrganizerDialogProps> = ({
     </Dialog>
   );
 };
+
+/* ============================================================================
+ * 8. UNLINK / REMOVE USER BVN DIALOG
+ * ========================================================================== */
+interface RemoveBvnDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  user: any | null;
+  pending: boolean;
+  onConfirm: (payload: { userId: string; reason: string }) => Promise<void>;
+}
+
+export const RemoveBvnDialog: React.FC<RemoveBvnDialogProps> = ({
+  open,
+  onOpenChange,
+  user,
+  pending,
+  onConfirm,
+}) => {
+  const [reason, setReason] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      setReason("");
+    }
+  }, [open, user?.id]);
+
+  if (!user) return null;
+
+  const last4 = String(user.bvn || "").trim().slice(-4);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="w-[calc(100%-1.5rem)] max-w-md rounded-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-destructive">
+            <ShieldAlert className="h-5 w-5" />
+            Unlink User BVN
+          </DialogTitle>
+          <DialogDescription>
+            Remove the linked BVN ending in{" "}
+            <strong className="font-mono text-foreground">***{last4}</strong> from{" "}
+            <strong className="text-foreground">{user.name || user.email}</strong>. They will need to re-verify a valid 11-digit BVN before creating new groups.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3 py-1">
+          <div className="space-y-1.5">
+            <Label htmlFor="remove-bvn-reason" className="text-xs font-semibold">
+              Reason (logged to audit trail &amp; sent to user)
+            </Label>
+            <Textarea
+              id="remove-bvn-reason"
+              rows={2}
+              placeholder="e.g. User submitted wrong BVN digits and requested KYC reset"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="rounded-xl"
+            />
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl">
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            disabled={pending}
+            onClick={() =>
+              onConfirm({
+                userId: user.id,
+                reason: reason.trim() || "BVN unlinked by Super Admin for KYC reset",
+              })
+            }
+            className="rounded-xl font-bold"
+          >
+            {pending ? "Unlinking…" : "Unlink BVN"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};

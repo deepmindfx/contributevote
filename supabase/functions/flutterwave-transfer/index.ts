@@ -1,8 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { getFlutterwaveConfig } from "../_shared/flutterwaveConfig.ts";
-
-const FLUTTERWAVE_BASE_URL = 'https://api.flutterwave.com/v3';
+import { flutterwaveFetch, getFlutterwaveConfig } from "../_shared/flutterwaveConfig.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -52,6 +50,9 @@ Deno.serve(async (req: Request) => {
     );
 
     const config = await getFlutterwaveConfig({ supabaseAdmin });
+    if (!config.transfersEnabled) {
+      throw new Error('Bank transfers are temporarily paused by platform administrators.');
+    }
     if (!config.secretKey) {
       throw new Error('Flutterwave secret key is not configured');
     }
@@ -118,24 +119,24 @@ Deno.serve(async (req: Request) => {
     const balanceAfter = Number(debitRes.balance_after);
     const reference = `TRF_${Date.now()}_${user.id.substring(0, 8)}`;
 
-    const transferResponse = await fetch(`${FLUTTERWAVE_BASE_URL}/transfers`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${config.secretKey}`,
-        'Content-Type': 'application/json',
+    const { response: transferResponse, routedViaStaticIp } = await flutterwaveFetch(
+      '/transfers',
+      {
+        method: 'POST',
+        body: {
+          account_bank,
+          account_number,
+          amount: numericAmount,
+          narration: narration || 'Transfer from CollectiPay',
+          currency,
+          reference,
+          callback_url: config.webhookUrl,
+          debit_currency: currency,
+          beneficiary_name,
+        },
       },
-      body: JSON.stringify({
-        account_bank,
-        account_number,
-        amount: numericAmount,
-        narration: narration || 'Transfer from CollectiPay',
-        currency,
-        reference,
-        callback_url: config.webhookUrl,
-        debit_currency: currency,
-        beneficiary_name,
-      }),
-    });
+      config
+    );
 
     if (!transferResponse.ok) {
       const errorData = await transferResponse.text();
@@ -145,7 +146,14 @@ Deno.serve(async (req: Request) => {
         p_user_id: user.id,
         p_delta: totalAmount,
       });
-      throw new Error('Transfer failed at payment provider. Your wallet was not charged.');
+      let parsedMsg = 'Transfer failed at payment provider. Your wallet was not charged.';
+      try {
+        const parsed = JSON.parse(errorData);
+        if (parsed?.message) parsedMsg = String(parsed.message);
+      } catch {
+        // Keep generic safe message
+      }
+      throw new Error(parsedMsg);
     }
 
     const transferData = await transferResponse.json();
@@ -177,6 +185,8 @@ Deno.serve(async (req: Request) => {
           narration: narration || '',
           fee,
           total_debited: totalAmount,
+          routed_via_static_ip: routedViaStaticIp,
+          static_ip: routedViaStaticIp ? config.staticIpAddress : null,
           flutterwave_id: transferData.data.id,
           flutterwave_reference: transferData.data.reference,
         },

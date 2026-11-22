@@ -30,6 +30,7 @@ const VOTING_THRESHOLDS = [
 
 interface SettingsStepProps {
   formData: GroupDetails & GroupSettings;
+  coverPreviewUrl?: string | null;
   freeRemaining?: number | null;
   onPrivacyChange: (privacy: GroupSettings["privacy"]) => void;
   onVotingChange: (enabled: boolean) => void;
@@ -41,6 +42,7 @@ interface SettingsStepProps {
 
 export default function SettingsStep({
   formData,
+  coverPreviewUrl,
   freeRemaining,
   onPrivacyChange,
   onVotingChange,
@@ -244,7 +246,18 @@ export default function SettingsStep({
         )}
 
         {/* Live Group Blueprint Summary Card */}
-        <div className="overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-[#0c3027] to-[#084c3d] p-4 text-white">
+        <div className="overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-[#0c3027] to-[#084c3d] text-white">
+          {coverPreviewUrl && (
+            <div className="relative h-32 w-full overflow-hidden">
+              <img
+                src={coverPreviewUrl}
+                alt="Pool cover preview"
+                className="h-full w-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0c3027] via-[#0c3027]/35 to-transparent" />
+            </div>
+          )}
+          <div className="p-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
               <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#dbf5b4] text-[#0c3027]">
@@ -285,6 +298,7 @@ export default function SettingsStep({
                 {feeDisplay}
               </span>
             </div>
+          </div>
           </div>
         </div>
       </CardContent>
