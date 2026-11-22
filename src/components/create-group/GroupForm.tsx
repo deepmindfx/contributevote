@@ -35,11 +35,25 @@ const FORM_STORAGE_KEY = "group_creation_form_data";
 const STEP_STORAGE_KEY = "group_creation_step";
 type GroupDraft = GroupDetails & GroupSettings;
 type Step = "goal" | "settings";
+type CreationAttempt = {
+  owner: string;
+  group: Parameters<typeof createGroupWithFee>[1];
+  authorization: Parameters<typeof createGroupWithFee>[2];
+};
 
-function readDraft(): GroupDraft {
+function readCreationAttempt(owner: string): CreationAttempt | null {
+  try {
+    const attempt: CreationAttempt | null = JSON.parse(localStorage.getItem(`group-creation-request:${owner}`) || "null");
+    return attempt?.owner === owner && attempt.group?.name && attempt.authorization?.requestId ? attempt : null;
+  } catch {
+    return null;
+  }
+}
+
+function readDraft(storageKey: string): GroupDraft {
   let saved: Partial<GroupDraft> = {};
   try {
-    saved = JSON.parse(localStorage.getItem(FORM_STORAGE_KEY) || "{}") ?? {};
+    saved = JSON.parse(localStorage.getItem(storageKey) || "{}") ?? {};
   } catch {
     // Start a fresh draft if saved data cannot be read.
   }
@@ -60,27 +74,44 @@ function readDraft(): GroupDraft {
 }
 
 export default function GroupForm() {
+  const { user } = useSupabaseUser();
+  return user ? <AccountGroupForm key={user.id} owner={user.id} /> : null;
+}
+
+function AccountGroupForm({ owner }: { owner: string }) {
   const navigate = useNavigate();
   const { user, refreshCurrentUser } = useSupabaseUser();
   const { refreshContributionData } = useSupabaseContribution();
   const progressHeading = useRef<HTMLDivElement>(null);
   const submitPending = useRef(false);
-  const [formData, setFormData] = useState(readDraft);
+  const mounted = useRef(false);
+  const quoteRevision = useRef(0);
+  const draftKey = `${FORM_STORAGE_KEY}:${owner}`;
+  const stepKey = `${STEP_STORAGE_KEY}:${owner}`;
+  const attemptKey = `group-creation-request:${owner}`;
+  const [pendingAttempt, setPendingAttempt] = useState(() => readCreationAttempt(owner));
+  const [formData, setFormData] = useState(() => readDraft(draftKey));
   const [step, setStep] = useState<Step>(() => {
     try {
-      const savedStep = localStorage.getItem(STEP_STORAGE_KEY);
+      const savedStep = localStorage.getItem(stepKey);
       return (savedStep === "settings" || savedStep === "3") && !getDetailsError(formData) ? "settings" : "goal";
     } catch {
       return "goal";
     }
   });
   const [checkingFee, setCheckingFee] = useState(false);
+  const [freeRemaining, setFreeRemaining] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
   const [showFeeConfirmation, setShowFeeConfirmation] = useState(false);
   const [bvnInput, setBvnInput] = useState("");
   const [verifyingBvn, setVerifyingBvn] = useState(false);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -110,26 +141,35 @@ export default function GroupForm() {
   const stepNumber = step === "goal" ? 1 : 2;
   const hasVerifiedBvn = /^\d{11}$/.test(String(user?.bvn || "").trim());
   const accountRestricted = Boolean(user?.status && user.status !== "active");
-  const freeRemaining =
-    typeof (user as any)?.groups_created_free_remaining === "number"
-      ? (user as any).groups_created_free_remaining
-      : null;
+
+  useEffect(() => {
+    if (step !== "settings" || !hasVerifiedBvn || accountRestricted) return;
+    const revision = ++quoteRevision.current;
+    void checkGroupCreationEligibility(owner).then((eligibility) => {
+      if (mounted.current && quoteRevision.current === revision && typeof eligibility?.free_remaining === "number") {
+        setFreeRemaining(eligibility.free_remaining);
+      }
+    }).catch(() => {
+      if (mounted.current && quoteRevision.current === revision) setFreeRemaining(null);
+    });
+    return () => { quoteRevision.current++; };
+  }, [accountRestricted, hasVerifiedBvn, owner, step]);
 
   useEffect(() => {
     try {
-      localStorage.setItem(FORM_STORAGE_KEY, JSON.stringify(formData));
+      localStorage.setItem(draftKey, JSON.stringify(formData));
     } catch {
       // Ignore storage quota or restricted-mode errors
     }
-  }, [formData]);
+  }, [draftKey, formData]);
 
   useEffect(() => {
     try {
-      localStorage.setItem(STEP_STORAGE_KEY, step);
+      localStorage.setItem(stepKey, step);
     } catch {
       // Ignore storage quota or restricted-mode errors
     }
-  }, [step]);
+  }, [stepKey, step]);
 
   const update = <K extends keyof GroupDraft>(field: K, value: GroupDraft[K]) => {
     setFormData((previous) => ({ ...previous, [field]: value }));
@@ -168,59 +208,92 @@ export default function GroupForm() {
     }
   };
 
-  const createGroup = async () => {
-    if (!user) return;
+  const createGroup = async (expectedFee: number, retry?: CreationAttempt) => {
+    if (user?.id !== owner) return;
+    const unresolved = retry ? null : readCreationAttempt(owner) ?? pendingAttempt;
+    if (unresolved) {
+      setPendingAttempt(unresolved);
+      return;
+    }
 
     setCreating(true);
     setShowFeeConfirmation(false);
     let committed = false;
     try {
-      let uploadedCoverUrl: string | null = null;
-      if (coverFile) {
-        uploadedCoverUrl = await uploadGroupCoverImage(user.id, coverFile);
+      let attempt = retry;
+
+      if (!attempt) {
+        const toSafeIso = (raw: string, suffix: string) => {
+          if (!raw) return null;
+          const parsed = new Date(`${raw}${suffix}`);
+          return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : null;
+        };
+        attempt = {
+          owner,
+          authorization: { expectedFee, requestId: crypto.randomUUID() },
+          group: {
+            name: formData.name.trim(),
+            description: formData.description.trim(),
+            target_amount: Number(formData.targetAmount),
+            category: formData.category,
+            frequency: formData.frequency,
+            privacy: formData.privacy,
+            enable_voting_rights: formData.enableVotingRights,
+            contribution_amount: Number(formData.contributionAmount) || null,
+            start_date: toSafeIso(formData.startDate, "T00:00:00"),
+            end_date: toSafeIso(formData.endDate, "T23:59:59"),
+            voting_threshold: formData.votingThreshold,
+            cover_image_url: coverFile ? await uploadGroupCoverImage(owner, coverFile) : null,
+          },
+        };
+        if (!mounted.current) return;
+        setPendingAttempt(attempt);
+        try {
+          localStorage.setItem(attemptKey, JSON.stringify(attempt));
+        } catch {
+          // Keep the in-memory request when browser storage is unavailable.
+        }
       }
-
-      const toSafeIso = (raw: string, suffix: string) => {
-        if (!raw) return null;
-        const parsed = new Date(`${raw}${suffix}`);
-        return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : null;
-      };
-
-      const result = await createGroupWithFee(user.id, {
-        name: formData.name.trim(),
-        description: formData.description.trim(),
-        target_amount: Number(formData.targetAmount),
-        category: formData.category,
-        frequency: formData.frequency,
-        privacy: formData.privacy,
-        enable_voting_rights: formData.enableVotingRights,
-        contribution_amount: Number(formData.contributionAmount) || null,
-        start_date: toSafeIso(formData.startDate, "T00:00:00"),
-        end_date: toSafeIso(formData.endDate, "T23:59:59"),
-        voting_threshold: formData.votingThreshold,
-        cover_image_url: uploadedCoverUrl,
-      });
+      const result = await createGroupWithFee(owner, attempt.group, attempt.authorization);
+      if (result?.success && !mounted.current) return;
+      try {
+        if (readCreationAttempt(owner)?.authorization.requestId === attempt.authorization.requestId) {
+          localStorage.removeItem(attemptKey);
+        }
+      } catch { /* Storage unavailable. */ }
+      if (mounted.current) setPendingAttempt(null);
 
       if (!result?.success) {
+        if (!mounted.current) return;
+        if (result?.code === "GROUP_CREATION_FEE_CHANGED") {
+          setFreeRemaining(result.free_remaining ?? null);
+          if (result.required_amount === 500) {
+            setShowFeeConfirmation(true);
+            return;
+          }
+        }
         toast.error(result?.message || result?.error || "Couldn’t create the group. Try again.");
         return;
       }
 
       try {
-        localStorage.removeItem(FORM_STORAGE_KEY);
-        localStorage.removeItem(STEP_STORAGE_KEY);
+        if (mounted.current) {
+          localStorage.removeItem(draftKey);
+          localStorage.removeItem(stepKey);
+        }
       } catch {
         // Ignore storage errors
       }
       committed = true;
+      if (!mounted.current) return;
       toast.success(result.message || "Group pool created.");
       void Promise.allSettled([refreshCurrentUser(), refreshContributionData(true)]);
       navigate(result.group_id ? "/groups/" + result.group_id : "/all-groups", { replace: true });
     } catch (error: any) {
       console.error("Error creating group:", error);
-      toast.error(error?.message || "Couldn’t create the group. Try again.");
+      if (mounted.current) toast.error(error?.message || "Couldn’t confirm group creation. Try again.");
     } finally {
-      if (!committed) setCreating(false);
+      if (!committed && mounted.current) setCreating(false);
     }
   };
 
@@ -230,12 +303,20 @@ export default function GroupForm() {
     submitPending.current = true;
     setCheckingFee(true);
     try {
+      const attempt = readCreationAttempt(owner) ?? pendingAttempt;
+      if (attempt) {
+        setPendingAttempt(attempt);
+        return;
+      }
+      quoteRevision.current++;
       const eligibility = await checkGroupCreationEligibility(user.id);
+      if (!mounted.current) return;
+      setFreeRemaining(typeof eligibility?.free_remaining === "number" ? eligibility.free_remaining : null);
       if (eligibility?.can_create_group === false) {
         toast.error(eligibility.message || "You are not currently eligible to create a group.");
         return;
       }
-      if (eligibility?.can_create_free === true) await createGroup();
+      if (eligibility?.can_create_free === true) await createGroup(0);
       else if (eligibility?.can_create_free === false) setShowFeeConfirmation(true);
       else throw new Error("Group creation eligibility unavailable");
     } catch (error) {
@@ -251,7 +332,17 @@ export default function GroupForm() {
     if (submitPending.current) return;
     submitPending.current = true;
     try {
-      await createGroup();
+      await createGroup(500);
+    } finally {
+      submitPending.current = false;
+    }
+  };
+
+  const retryCreation = async () => {
+    if (!pendingAttempt || submitPending.current) return;
+    submitPending.current = true;
+    try {
+      await createGroup(pendingAttempt.authorization.expectedFee, pendingAttempt);
     } finally {
       submitPending.current = false;
     }
@@ -353,6 +444,23 @@ export default function GroupForm() {
           </form>
         </Card>
       </>
+    );
+  }
+
+  if (pendingAttempt) {
+    return (
+      <Card className="cp-card-native space-y-3 p-5">
+        <h2 className="text-lg font-semibold">Group creation pending</h2>
+        <p className="break-words text-sm text-muted-foreground">
+          {pendingAttempt.group.name} · {pendingAttempt.authorization.expectedFee === 0 ? "Free" : "₦500 confirmed"}
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Retry this submission to confirm the result. If it already succeeded, you’ll open the existing group.
+        </p>
+        <Button onClick={() => void retryCreation()} disabled={creating}>
+          {creating ? "Checking group creation…" : "Retry group creation"}
+        </Button>
+      </Card>
     );
   }
 

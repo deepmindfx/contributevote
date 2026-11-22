@@ -25,7 +25,8 @@ export type TransferAllowance = {
 
 export type PricingReport = {
   pricing: PlatformPricing;
-  revenue: { bank_transfer: number; group_withdrawal: number; last_30_days: number; total: number };
+  revenue: { bank_transfer: number; group_withdrawal: number; group_creation: number; group_creation_count: number; last_30_days: number; total: number };
+  recent_group_creation_fees: { transaction_id: string; group_name: string; amount: number; earned_at: string }[];
 };
 
 export const naira = new Intl.NumberFormat("en-NG", {

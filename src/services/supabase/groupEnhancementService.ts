@@ -67,7 +67,8 @@ export async function createGroupWithFee(
     end_date?: string | null;
     voting_threshold?: number | null;
     cover_image_url?: string | null;
-  }
+  },
+  authorization: { expectedFee: number; requestId: string },
 ): Promise<any> {
   try {
     const { data, error } = await supabase.rpc('create_group_with_fee_check', {
@@ -84,6 +85,8 @@ export async function createGroupWithFee(
       p_end_date: groupData.end_date || null,
       p_voting_threshold: groupData.voting_threshold ?? 60,
       p_cover_image_url: groupData.cover_image_url || null,
+      p_expected_fee: authorization.expectedFee,
+      p_request_id: authorization.requestId,
     } as any);
 
     if (error) throw error;

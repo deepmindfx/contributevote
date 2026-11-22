@@ -10,6 +10,8 @@ import { Switch } from "@/components/ui/switch";
 import { getPricingReport, naira, savePlatformPricing } from "@/services/supabase/pricingService";
 import type { PricingReport } from "@/services/supabase/pricingService";
 
+const feeDate = new Intl.DateTimeFormat("en-NG", { dateStyle: "medium", timeZone: "Africa/Lagos" });
+
 export function AdminPricingRevenue() {
   const [report, setReport] = useState<PricingReport>();
   const [dailyFree, setDailyFree] = useState("");
@@ -74,14 +76,16 @@ export function AdminPricingRevenue() {
     ["Last 30 days", report.revenue.last_30_days],
     ["Bank transfer fees", report.revenue.bank_transfer],
     ["Group withdrawal fees", report.revenue.group_withdrawal],
+    ["Group creation fees", report.revenue.group_creation ?? 0],
   ] as const;
+  const recentCreationFees = report.recent_group_creation_fees ?? [];
 
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
       <Card className="space-y-4 rounded-2xl p-4 sm:p-6">
         <div>
           <h2 className="flex items-center gap-2 text-lg font-semibold"><BarChart3 size={20} className="text-primary" aria-hidden="true" /> Fee revenue</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Settled transfer and group withdrawal fees since this pricing policy began, before provider costs.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Collected fees from bank transfers, group withdrawals, and paid group creation, before provider costs.</p>
         </div>
         <dl className="grid gap-2 sm:grid-cols-2">
           {revenueCards.map(([label, amount]) => (
@@ -91,6 +95,21 @@ export function AdminPricingRevenue() {
             </div>
           ))}
         </dl>
+        <section className="space-y-2">
+          <h3 className="text-sm font-semibold">Recent group creation fees</h3>
+          <p className="text-sm text-muted-foreground">{report.revenue.group_creation_count ?? 0} recorded group creation fees with a verified wallet debit</p>
+          {recentCreationFees.length > 0 && <ul className="divide-y rounded-xl border px-3">
+            {recentCreationFees.map((fee) => (
+              <li key={fee.transaction_id} className="flex items-start justify-between gap-3 py-2.5 text-sm">
+                <div className="min-w-0">
+                  <p className="break-words font-medium">{fee.group_name || "Group creation"}</p>
+                  <time dateTime={fee.earned_at} className="text-xs text-muted-foreground">{feeDate.format(new Date(fee.earned_at))}</time>
+                </div>
+                <span className="shrink-0 font-medium tabular-nums">{naira.format(fee.amount)}</span>
+              </li>
+            ))}
+          </ul>}
+        </section>
       </Card>
       <Card className="rounded-2xl p-4 sm:p-6">
         <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold"><Tag size={19} className="text-primary" aria-hidden="true" /> Pricing settings</h2>

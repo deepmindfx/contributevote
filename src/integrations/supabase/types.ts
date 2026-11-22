@@ -1327,9 +1327,11 @@ export type Database = {
           p_description: string
           p_enable_voting_rights?: boolean
           p_end_date?: string
+          p_expected_fee?: number
           p_frequency: string
           p_name: string
           p_privacy?: string
+          p_request_id?: string
           p_start_date?: string
           p_target_amount: number
           p_user_id: string
