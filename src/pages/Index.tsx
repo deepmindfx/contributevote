@@ -5,6 +5,7 @@ import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { CollectiPayMark } from "@/components/ui/BrandLoader";
 import { CommunityStoriesSection } from "@/components/landing/CommunityStoriesSection";
 import { FaqSection } from "@/components/landing/FaqSection";
+import { SmartShowcaseSection } from "@/components/landing/SmartShowcaseSection";
 import "@/styles/landing.css";
 
 const steps = [
@@ -131,6 +132,8 @@ export default function Index() {
             </div>
           </div>
         </section>
+
+        <SmartShowcaseSection />
 
         <section id="why-collectipay" className="landing-why landing-width" aria-labelledby="why-title">
           <div className="landing-section-heading" data-scroll-reveal>

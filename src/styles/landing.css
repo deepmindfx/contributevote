@@ -851,3 +851,1084 @@
     transition: none;
   }
 }
+
+/* ============================================================================
+ * PayPal-Inspired Scroll-Expanding Portal & iPhone 18 Pro Max App Showcase
+ * ========================================================================== */
+.cp-smart-showcase {
+  position: relative;
+  color: #07231a;
+}
+
+.cp-portal-track {
+  position: relative;
+  height: 205svh;
+  background: linear-gradient(180deg, #b5efc9 0%, #cef6b7 62%, #f6fbf5 100%);
+}
+
+.cp-portal-sticky {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  width: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.cp-portal-headline {
+  position: relative;
+  z-index: 2;
+  max-width: 18ch;
+  margin-top: clamp(2rem, 5.5svh, 3.6rem);
+  padding-inline: 1.25rem;
+  text-align: center;
+  color: #062118;
+  font-size: clamp(2.15rem, 5.6vw, 4.25rem);
+  font-weight: 790;
+  letter-spacing: -0.064em;
+  line-height: 0.98;
+  text-wrap: balance;
+  will-change: transform, opacity;
+}
+
+.cp-portal-card {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: #ffffff;
+  clip-path: inset(132px 11.5% 28px 11.5% round 36px);
+  box-shadow: 0 30px 80px -24px rgba(6, 33, 24, 0.35);
+  will-change: clip-path;
+}
+
+@media (max-width: 47.99rem) {
+  .cp-portal-card {
+    clip-path: inset(104px 4.5% 18px 4.5% round 28px);
+  }
+}
+
+.cp-portal-topbar {
+  position: absolute;
+  inset: 0 0 auto 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  height: clamp(3.3rem, 6.5svh, 4.3rem);
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(8px);
+  color: #07251b;
+  font-size: clamp(1.2rem, 2.2vw, 1.55rem);
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  will-change: transform, opacity;
+}
+
+.cp-portal-media {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #231712;
+}
+
+.cp-portal-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 48%;
+  will-change: transform;
+}
+
+.cp-portal-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 14% 18%, rgba(7, 25, 19, 0.54) 0%, transparent 46%),
+    radial-gradient(circle at 86% 84%, rgba(7, 25, 19, 0.62) 0%, transparent 48%),
+    linear-gradient(180deg, rgba(6, 20, 15, 0.18) 0%, transparent 40%, rgba(6, 20, 15, 0.35) 100%);
+}
+
+.cp-portal-word {
+  position: absolute;
+  z-index: 3;
+  color: #ffffff;
+  font-size: clamp(3.2rem, 10.5vw, 7.6rem);
+  font-weight: 800;
+  letter-spacing: -0.068em;
+  line-height: 0.92;
+  text-shadow: 0 12px 34px rgba(0, 0, 0, 0.36);
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+.cp-portal-word--left {
+  top: clamp(1.5rem, 6svh, 4rem);
+  left: clamp(1.25rem, 5vw, 4.5rem);
+}
+
+.cp-portal-word--right {
+  right: clamp(1.25rem, 5vw, 4.5rem);
+  bottom: clamp(1.5rem, 6svh, 4rem);
+}
+
+/* ACT 2: Crisp White Editorial Showcase Band */
+.cp-iphone-showcase {
+  background: #ffffff;
+  color: #072219;
+  padding-block: clamp(3.25rem, 7vw, 6.25rem);
+}
+
+.cp-iphone-header {
+  max-width: 44rem;
+  margin-inline: auto;
+  text-align: center;
+}
+
+.cp-iphone-tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.35rem;
+  border-radius: 999px;
+  border: 1px solid #d7e5dc;
+  background: #f2f7f4;
+}
+
+.cp-iphone-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 1.05rem;
+  border-radius: 999px;
+  color: #365347;
+  font-size: 0.84rem;
+  font-weight: 700;
+  transition: background-color 200ms ease, color 200ms ease, box-shadow 200ms ease, transform 150ms ease;
+}
+
+.cp-iphone-tab:hover {
+  color: #072219;
+}
+
+.cp-iphone-tab[data-active="true"] {
+  background: #075847;
+  color: #f6fff9;
+  box-shadow: 0 6px 18px -8px rgba(7, 88, 71, 0.55);
+}
+
+.cp-iphone-copy {
+  margin-top: 1.5rem;
+  animation: cp-copy-swap 280ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.cp-iphone-copy h3 {
+  font-size: clamp(2rem, 4.8vw, 3.5rem);
+  font-weight: 785;
+  letter-spacing: -0.06em;
+  line-height: 1.02;
+  color: #061f17;
+  text-wrap: balance;
+}
+
+.cp-iphone-copy p {
+  max-width: 48ch;
+  margin: 0.85rem auto 0;
+  color: #3d574c;
+  font-size: clamp(0.96rem, 1.5vw, 1.12rem);
+  line-height: 1.58;
+}
+
+@keyframes cp-copy-swap {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* Warm Studio Stage Framing the Tilted iPhone 18 Pro Max */
+.cp-iphone-stage {
+  position: relative;
+  overflow: hidden;
+  margin-top: clamp(1.75rem, 4vw, 2.75rem);
+  padding: clamp(1.35rem, 3.5vw, 2.5rem) clamp(1.1rem, 3.5vw, 2.75rem) clamp(1.6rem, 3.8vw, 2.6rem);
+  border-radius: clamp(1.6rem, 3.2vw, 2.5rem);
+  border: 1px solid #d9e6dd;
+  background:
+    radial-gradient(circle at 22% 20%, rgba(219, 245, 180, 0.55) 0%, transparent 48%),
+    radial-gradient(circle at 82% 76%, rgba(190, 108, 66, 0.22) 0%, transparent 52%),
+    linear-gradient(155deg, #eef6f0 0%, #e1efe6 52%, #efe8df 100%);
+  box-shadow: 0 28px 64px -32px rgba(7, 38, 28, 0.18);
+}
+
+.cp-iphone-stage-glow {
+  position: absolute;
+  left: 50%;
+  top: 52%;
+  width: min(36rem, 90%);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(7, 88, 71, 0.16) 0%, transparent 68%);
+  pointer-events: none;
+}
+
+.cp-iphone-stage-meta {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.cp-iphone-live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  background: rgba(7, 35, 26, 0.08);
+  color: #07382b;
+  font-size: 0.74rem;
+  font-weight: 750;
+  letter-spacing: 0.01em;
+}
+
+.cp-iphone-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #059669;
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.22);
+}
+
+.cp-iphone-hint {
+  color: #39574a;
+  font-size: 0.78rem;
+  font-weight: 640;
+}
+
+.cp-iphone-stage-center {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+  padding-block: clamp(1.5rem, 4vw, 2.8rem) clamp(1.1rem, 3vw, 2rem);
+}
+
+.cp-iphone-tilt-wrap {
+  transform: rotate(-7deg);
+  transition: transform 360ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cp-iphone-tilt-wrap:hover {
+    transform: rotate(-2.5deg) translateY(-4px) !important;
+  }
+}
+
+.cp-iphone-stage-footer {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem 1.4rem;
+  margin-top: 0.4rem;
+}
+
+.cp-iphone-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.8rem 1.45rem;
+  border-radius: 999px;
+  background: #075847;
+  color: #ffffff;
+  font-size: 0.92rem;
+  font-weight: 740;
+  box-shadow: 0 12px 26px -12px rgba(7, 88, 71, 0.65);
+  transition: background-color 180ms ease, transform 160ms ease;
+}
+
+.cp-iphone-cta:hover {
+  background: #054436;
+  transform: translateY(-1px);
+}
+
+.cp-iphone-secondary-link {
+  color: #074737;
+  font-size: 0.9rem;
+  font-weight: 720;
+}
+
+.cp-iphone-secondary-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+/* ============================================================================
+ * iPhone 18 Pro Max Titanium Hardware Chassis & Live App Screen UI
+ * ========================================================================== */
+.cp-iphone18 {
+  position: relative;
+  width: min(100%, 20.5rem);
+  user-select: none;
+}
+
+.cp-iphone18-bezel {
+  position: relative;
+  padding: 10px;
+  border-radius: 3.25rem;
+  background: linear-gradient(
+    145deg,
+    #52565c 0%,
+    #25282c 22%,
+    #141619 52%,
+    #3d4147 82%,
+    #1c1e22 100%
+  );
+  box-shadow:
+    inset 0 0 0 1.5px rgba(255, 255, 255, 0.24),
+    inset 0 0 0 3.5px #0b0d0e,
+    0 34px 68px -18px rgba(7, 25, 19, 0.46),
+    0 12px 28px -10px rgba(7, 25, 19, 0.26);
+}
+
+/* Titanium hardware buttons */
+.cp-iphone18-btn {
+  position: absolute;
+  background: linear-gradient(180deg, #4b4f55, #1f2226);
+  border-radius: 3px;
+}
+
+.cp-iphone18-btn--action {
+  left: -2.5px;
+  top: 5.8rem;
+  width: 3px;
+  height: 1.35rem;
+}
+
+.cp-iphone18-btn--vol-up {
+  left: -2.5px;
+  top: 8.1rem;
+  width: 3px;
+  height: 2.35rem;
+}
+
+.cp-iphone18-btn--vol-down {
+  left: -2.5px;
+  top: 11rem;
+  width: 3px;
+  height: 2.35rem;
+}
+
+.cp-iphone18-btn--power {
+  right: -2.5px;
+  top: 8.9rem;
+  width: 3px;
+  height: 3.1rem;
+}
+
+.cp-iphone18-btn--camera {
+  right: -2px;
+  bottom: 7.2rem;
+  width: 2.5px;
+  height: 1.9rem;
+  opacity: 0.8;
+}
+
+.cp-iphone18-screen {
+  position: relative;
+  overflow: hidden;
+  border-radius: 2.7rem;
+  background: #f5f8f6;
+  color: #092119;
+  min-height: 37.5rem;
+  display: flex;
+  flex-direction: column;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+.cp-iphone18-statusbar {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.7rem 1.35rem 0.45rem;
+  font-size: 0.74rem;
+  font-weight: 760;
+  color: #0b2019;
+}
+
+.cp-iphone18-time {
+  letter-spacing: -0.02em;
+}
+
+.cp-iphone18-island {
+  position: absolute;
+  left: 50%;
+  top: 0.55rem;
+  transform: translateX(-50%);
+  width: 5.1rem;
+  height: 1.32rem;
+  border-radius: 999px;
+  background: #070909;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 0.42rem;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.cp-iphone18-camera-lens {
+  width: 0.46rem;
+  height: 0.46rem;
+  border-radius: 999px;
+  background: radial-gradient(circle at 35% 35%, #2b4c6f 0%, #0d131a 65%, #050708 100%);
+}
+
+.cp-iphone18-signals {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.cp-iphone18-bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 1.5px;
+  height: 9px;
+}
+
+.cp-iphone18-bars i {
+  display: block;
+  width: 2px;
+  border-radius: 1px;
+  background: currentColor;
+}
+
+.cp-iphone18-bars i:nth-child(1) { height: 3px; }
+.cp-iphone18-bars i:nth-child(2) { height: 5px; }
+.cp-iphone18-bars i:nth-child(3) { height: 7px; }
+.cp-iphone18-bars i:nth-child(4) { height: 9px; }
+
+.cp-iphone18-battery {
+  display: inline-flex;
+  align-items: center;
+  width: 18px;
+  height: 9px;
+  padding: 1.5px;
+  border-radius: 3px;
+  border: 1px solid currentColor;
+}
+
+.cp-iphone18-battery > span {
+  display: block;
+  width: 82%;
+  height: 100%;
+  border-radius: 1px;
+  background: #059669;
+}
+
+.cp-iphone18-content {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 0.35rem 0.95rem 1.25rem;
+}
+
+.cp-iphone18-homebar {
+  position: absolute;
+  left: 50%;
+  bottom: 0.42rem;
+  transform: translateX(-50%);
+  width: 6.8rem;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(9, 33, 25, 0.24);
+  z-index: 3;
+}
+
+.cp-iphone18-sheen {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  background: linear-gradient(
+    125deg,
+    rgba(255, 255, 255, 0.24) 0%,
+    rgba(255, 255, 255, 0.04) 34%,
+    transparent 52%
+  );
+}
+
+/* Inner App Screen Layout */
+.cp-demo-app {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  text-align: left;
+  animation: cp-copy-swap 240ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.cp-demo-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.2rem 0.15rem 0.3rem;
+}
+
+.cp-demo-back {
+  display: grid;
+  place-items: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 999px;
+  background: #e6efe9;
+  color: #09261d;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.cp-demo-nav-title {
+  font-size: 0.84rem;
+  font-weight: 760;
+  color: #08231a;
+}
+
+.cp-demo-nav-badge,
+.cp-demo-nav-link {
+  font-size: 0.68rem;
+  font-weight: 760;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  background: #e1f1e7;
+  color: #075847;
+}
+
+/* Deep-Emerald CollectiPay Wallet Card inside iPhone */
+.cp-demo-wallet-card {
+  position: relative;
+  overflow: hidden;
+  padding: 0.95rem 1rem;
+  border-radius: 1.35rem;
+  background:
+    repeating-radial-gradient(ellipse at 105% 105%, transparent 0 0.9rem, rgba(219, 245, 180, 0.09) 0.94rem 0.98rem),
+    linear-gradient(155deg, #075847 0%, #06382e 100%);
+  color: #ffffff;
+  box-shadow: 0 14px 28px -14px rgba(6, 56, 46, 0.65);
+}
+
+.cp-demo-wallet-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.cp-demo-wallet-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 760;
+  letter-spacing: -0.03em;
+}
+
+.cp-demo-wallet-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  padding: 0.16rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(219, 245, 180, 0.18);
+  color: #dbf5b4;
+  font-size: 0.62rem;
+  font-weight: 740;
+}
+
+.cp-demo-wallet-label {
+  margin-top: 0.7rem;
+  font-size: 0.66rem;
+  color: #bfe0d0;
+}
+
+.cp-demo-wallet-balance {
+  margin-top: 0.1rem;
+  font-size: 1.55rem;
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  font-variant-numeric: tabular-nums;
+}
+
+.cp-demo-wallet-meta {
+  margin-top: 0.65rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  font-size: 0.63rem;
+  color: #cae7d9;
+}
+
+.cp-demo-wallet-free {
+  padding: 0.14rem 0.45rem;
+  border-radius: 999px;
+  background: #dbf5b4;
+  color: #082b20;
+  font-weight: 760;
+}
+
+.cp-demo-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.35rem;
+  padding: 0.5rem 0.35rem;
+  border-radius: 1rem;
+  background: #ffffff;
+  border: 1px solid #e2ece6;
+}
+
+.cp-demo-quick-grid > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.22rem;
+  text-align: center;
+}
+
+.cp-demo-quick-grid > div > span {
+  display: grid;
+  place-items: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 0.65rem;
+  background: #e7f4ec;
+  color: #075847;
+}
+
+.cp-demo-quick-grid > div:first-child > span {
+  background: #dbf5b4;
+  color: #082b20;
+}
+
+.cp-demo-quick-grid small {
+  font-size: 0.62rem;
+  font-weight: 680;
+  color: #1c382d;
+}
+
+/* PayPal-Style Crisp Control List inside iPhone */
+.cp-demo-rows {
+  display: flex;
+  flex-direction: column;
+  border-radius: 1.15rem;
+  background: #ffffff;
+  border: 1px solid #e2ece6;
+  overflow: hidden;
+}
+
+.cp-demo-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.62rem 0.75rem;
+  border-bottom: 1px solid #edf3ef;
+}
+
+.cp-demo-row:last-child {
+  border-bottom: 0;
+}
+
+.cp-demo-row-icon {
+  display: grid;
+  place-items: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 0.6rem;
+  background: #ecf6f0;
+  color: #075847;
+  flex-shrink: 0;
+}
+
+.cp-demo-row-text {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.cp-demo-row-text strong {
+  font-size: 0.72rem;
+  font-weight: 720;
+  color: #0a241b;
+  line-height: 1.25;
+}
+
+.cp-demo-row-text small {
+  font-size: 0.62rem;
+  color: #557064;
+  line-height: 1.25;
+}
+
+.cp-demo-switch {
+  position: relative;
+  width: 2.15rem;
+  height: 1.25rem;
+  border-radius: 999px;
+  background: #cbd8d0;
+  padding: 2px;
+  transition: background-color 180ms ease;
+  flex-shrink: 0;
+}
+
+.cp-demo-switch.is-on {
+  background: #075847;
+}
+
+.cp-demo-switch > span {
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.cp-demo-switch.is-on > span {
+  transform: translateX(0.9rem);
+}
+
+.cp-demo-pill {
+  padding: 0.15rem 0.48rem;
+  border-radius: 999px;
+  background: #e3f5eb;
+  color: #066048;
+  font-size: 0.62rem;
+  font-weight: 750;
+}
+
+/* Screen 2: Transfer + Recents Demo */
+.cp-demo-sent-card {
+  padding: 0.9rem;
+  border-radius: 1.25rem;
+  background: linear-gradient(160deg, #09483a 0%, #062820 100%);
+  color: #ffffff;
+  text-align: center;
+}
+
+.cp-demo-sent-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.16rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(219, 245, 180, 0.15);
+  color: #dbf5b4;
+  font-size: 0.6rem;
+  font-weight: 740;
+  text-transform: uppercase;
+}
+
+.cp-demo-sent-arc {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  margin-block: 0.65rem 0.45rem;
+}
+
+.cp-demo-sent-node {
+  display: grid;
+  place-items: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 0.55rem;
+  background: rgba(255, 255, 255, 0.12);
+  color: #dbf5b4;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.cp-demo-sent-node--bank {
+  background: #00b876;
+  color: #ffffff;
+}
+
+.cp-demo-sent-line {
+  flex: 1;
+  max-width: 2.2rem;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(219, 245, 180, 0.3), #dbf5b4);
+}
+
+.cp-demo-sent-seal {
+  display: grid;
+  place-items: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 999px;
+  background: #dbf5b4;
+  color: #06362b;
+  box-shadow: 0 0 0 4px rgba(219, 245, 180, 0.2);
+}
+
+.cp-demo-sent-amount {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+.cp-demo-sent-to {
+  font-size: 0.68rem;
+  color: #c2e3d4;
+}
+
+.cp-demo-beneficiaries {
+  border-radius: 1.15rem;
+  background: #ffffff;
+  border: 1px solid #e2ece6;
+  padding: 0.65rem 0.75rem;
+}
+
+.cp-demo-ben-head {
+  display: flex;
+  gap: 0.9rem;
+  border-bottom: 1px solid #ebf2ee;
+  padding-bottom: 0.4rem;
+  margin-bottom: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 740;
+  color: #637d71;
+}
+
+.cp-demo-ben-head .is-active {
+  color: #075847;
+  position: relative;
+}
+
+.cp-demo-ben-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding-block: 0.45rem;
+  border-bottom: 1px solid #f1f6f3;
+}
+
+.cp-demo-ben-row:last-child {
+  border-bottom: 0;
+}
+
+.cp-demo-monogram {
+  display: grid;
+  place-items: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 0.6rem;
+  font-size: 0.65rem;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.cp-demo-ben-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.cp-demo-ben-title {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.cp-demo-ben-title strong {
+  font-size: 0.72rem;
+  font-weight: 740;
+  color: #09231a;
+}
+
+.cp-demo-own-pill {
+  padding: 0.08rem 0.35rem;
+  border-radius: 4px;
+  background: #e1f5ea;
+  color: #066048;
+  font-size: 0.56rem;
+  font-weight: 760;
+}
+
+.cp-demo-ben-info small {
+  display: block;
+  font-size: 0.62rem;
+  color: #5b7469;
+}
+
+.cp-demo-chevron {
+  color: #8aa196;
+  font-weight: 700;
+}
+
+/* Screen 3: Governance Vote Demo */
+.cp-demo-vote-hero {
+  padding: 0.95rem;
+  border-radius: 1.25rem;
+  background: linear-gradient(155deg, #075847 0%, #05352b 100%);
+  color: #ffffff;
+}
+
+.cp-demo-vote-rule {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.16rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(219, 245, 180, 0.16);
+  color: #dbf5b4;
+  font-size: 0.58rem;
+  font-weight: 740;
+}
+
+.cp-demo-vote-group {
+  margin-top: 0.55rem;
+  font-size: 0.72rem;
+  color: #c5e5d6;
+  font-weight: 650;
+}
+
+.cp-demo-vote-amount {
+  margin-top: 0.1rem;
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+.cp-demo-vote-purpose {
+  margin-top: 0.35rem;
+  font-size: 0.66rem;
+  color: #e4f5ec;
+}
+
+.cp-demo-vote-meters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.8rem;
+  border-radius: 1.15rem;
+  background: #ffffff;
+  border: 1px solid #e2ece6;
+}
+
+.cp-demo-meter-top {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.68rem;
+  color: #395549;
+  margin-bottom: 0.28rem;
+}
+
+.cp-demo-meter-top strong {
+  color: #075847;
+  font-weight: 780;
+}
+
+.cp-demo-meter-bar {
+  height: 0.42rem;
+  border-radius: 999px;
+  background: #e6efe9;
+  overflow: hidden;
+}
+
+.cp-demo-meter-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #075847;
+  transition: width 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.cp-demo-vote-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.cp-demo-btn-approve,
+.cp-demo-btn-reject {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  height: 2.35rem;
+  border-radius: 0.8rem;
+  font-size: 0.74rem;
+  font-weight: 760;
+}
+
+.cp-demo-btn-approve {
+  background: #075847;
+  color: #ffffff;
+}
+
+.cp-demo-btn-reject {
+  border: 1px solid #f2c6c6;
+  background: #fff5f5;
+  color: #b91c1c;
+}
+
+.cp-demo-voted-pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  height: 2.35rem;
+  border-radius: 0.8rem;
+  background: #e3f6ec;
+  color: #065f46;
+  font-size: 0.74rem;
+  font-weight: 760;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cp-portal-track {
+    height: auto;
+    padding-block: 2.5rem;
+  }
+  .cp-portal-sticky {
+    position: relative;
+    height: auto;
+    gap: 1.5rem;
+  }
+  .cp-portal-card {
+    position: relative;
+    width: min(100% - 2rem, 72rem);
+    height: 24rem;
+    border-radius: 1.75rem;
+    clip-path: none !important;
+  }
+  .cp-portal-word {
+    opacity: 1;
+  }
+  .cp-iphone-tilt-wrap {
+    transform: none !important;
+  }
+}
