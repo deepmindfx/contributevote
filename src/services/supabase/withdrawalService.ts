@@ -37,13 +37,15 @@ export interface VotingStatus {
 export async function createWithdrawalRequest(
   groupId: string,
   amount: number,
-  purpose: string
+  purpose: string,
+  pin?: string
 ): Promise<{ success: boolean; data?: any; error?: string }> {
   try {
     const { data, error } = await (supabase as any).rpc('create_withdrawal_request_safe', {
       p_group_id: groupId,
       p_amount: amount,
       p_purpose: purpose.trim(),
+      p_pin: pin || null,
     });
 
     if (error) throw error;
@@ -181,17 +183,19 @@ export async function getUserVote(
 export async function processInstantWithdrawal(
   groupId: string,
   amount: number,
-  purpose: string
+  purpose: string,
+  pin?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const userId = (await supabase.auth.getUser()).data.user?.id;
     if (!userId) throw new Error('User not authenticated');
 
-    const { error } = await supabase.rpc('process_instant_withdrawal', {
+    const { error } = await (supabase as any).rpc('process_instant_withdrawal', {
       p_group_id: groupId,
       p_admin_id: userId,
       p_amount: amount,
       p_purpose: purpose,
+      p_pin: pin || null,
     });
 
     if (error) throw error;

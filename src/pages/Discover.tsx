@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Compass, Plus, Search, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Compass, Flame, Plus, Search, X } from "lucide-react";
 import Header from "@/components/layout/Header";
 import GroupCard from "@/components/discover/GroupCard";
 import SearchFilters from "@/components/discover/SearchFilters";
@@ -220,11 +220,60 @@ export default function Discover() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {groups.map((group) => (
-                  <GroupCard key={group.id} group={group} />
-                ))}
-              </div>
+              {(() => {
+                const pinnedSpotlight =
+                  currentPage === 1 && !filters.spotlightOnly && !filters.verifiedOnly && !filters.search
+                    ? groups.filter((g) => g.is_pinned || Boolean(g.spotlight_label))
+                    : [];
+                const regularGroups =
+                  pinnedSpotlight.length > 0
+                    ? groups.filter((g) => !g.is_pinned && !g.spotlight_label)
+                    : groups;
+
+                return (
+                  <div className="space-y-6">
+                    {pinnedSpotlight.length > 0 && (
+                      <section className="space-y-3" aria-label="Spotlight and Most Needed pools">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="grid h-8 w-8 place-items-center rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-300">
+                              <Flame className="h-4 w-4" />
+                            </span>
+                            <div>
+                              <h2 className="text-sm font-extrabold tracking-tight text-foreground">
+                                Most Needed &amp; Verified Spotlight
+                              </h2>
+                              <p className="text-[11px] text-muted-foreground">
+                                Priority community causes highlighted by CollectiPay
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                          {pinnedSpotlight.map((group) => (
+                            <GroupCard key={group.id} group={group} />
+                          ))}
+                        </div>
+                      </section>
+                    )}
+
+                    {regularGroups.length > 0 && (
+                      <section className="space-y-3" aria-label="All community pools">
+                        {pinnedSpotlight.length > 0 && (
+                          <h2 className="text-sm font-bold tracking-tight text-muted-foreground">
+                            More public pools
+                          </h2>
+                        )}
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                          {regularGroups.map((group) => (
+                            <GroupCard key={group.id} group={group} />
+                          ))}
+                        </div>
+                      </section>
+                    )}
+                  </div>
+                );
+              })()}
 
               {totalPages > 1 && (
                 <div className="flex flex-wrap items-center justify-center gap-1.5 pt-4">

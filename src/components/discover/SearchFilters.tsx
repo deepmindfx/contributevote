@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { SlidersHorizontal, X } from "lucide-react";
+import { BadgeCheck, Flame, SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -92,7 +92,11 @@ export default function SearchFilters({
     filters.maxAmount,
   ].filter(Boolean).length;
 
-  const totalActiveFilters = secondaryFilterCount + (filters.category ? 1 : 0);
+  const totalActiveFilters =
+    secondaryFilterCount +
+    (filters.category ? 1 : 0) +
+    (filters.verifiedOnly ? 1 : 0) +
+    (filters.spotlightOnly ? 1 : 0);
 
   const railCategories = CATEGORIES.filter(
     (c) => QUICK_CATEGORIES.includes(c.value) || c.value === filters.category
@@ -109,16 +113,55 @@ export default function SearchFilters({
         <button
           type="button"
           role="tab"
-          aria-selected={!filters.category}
-          onClick={() => setFilter("category", undefined)}
+          aria-selected={!filters.category && !filters.spotlightOnly && !filters.verifiedOnly}
+          onClick={() =>
+            onFiltersChange({
+              ...filters,
+              category: undefined,
+              spotlightOnly: undefined,
+              verifiedOnly: undefined,
+            })
+          }
           className={cn(
             "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-semibold transition-all",
-            !filters.category
+            !filters.category && !filters.spotlightOnly && !filters.verifiedOnly
               ? "border-primary bg-primary text-primary-foreground shadow-sm"
               : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:bg-accent hover:text-foreground"
           )}
         >
           All pools
+        </button>
+
+        <button
+          type="button"
+          role="tab"
+          aria-selected={Boolean(filters.spotlightOnly)}
+          onClick={() => setFilter("spotlightOnly", !filters.spotlightOnly)}
+          className={cn(
+            "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-bold transition-all",
+            filters.spotlightOnly
+              ? "border-amber-500 bg-amber-500 text-white shadow-sm"
+              : "border-amber-500/35 bg-amber-500/10 text-amber-800 hover:bg-amber-500/20 dark:text-amber-200"
+          )}
+        >
+          <Flame className="h-3.5 w-3.5" />
+          Most Needed
+        </button>
+
+        <button
+          type="button"
+          role="tab"
+          aria-selected={Boolean(filters.verifiedOnly)}
+          onClick={() => setFilter("verifiedOnly", !filters.verifiedOnly)}
+          className={cn(
+            "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-bold transition-all",
+            filters.verifiedOnly
+              ? "border-emerald-600 bg-emerald-600 text-white shadow-sm"
+              : "border-emerald-500/35 bg-emerald-500/10 text-emerald-800 hover:bg-emerald-500/20 dark:text-emerald-200"
+          )}
+        >
+          <BadgeCheck className="h-3.5 w-3.5" />
+          Verified
         </button>
 
         {railCategories.map((cat) => {

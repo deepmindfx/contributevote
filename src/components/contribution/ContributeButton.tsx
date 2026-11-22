@@ -17,6 +17,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import BrandLoader from '@/components/ui/BrandLoader';
 import CollectiPayReceipt, { type CollectiPayReceiptData } from '@/components/receipt/CollectiPayReceipt';
+import { TransactionPinDialog } from '@/components/security/TransactionPinDialog';
 import { cn } from '@/lib/utils';
 import { GroupRules, groupRuleColumns } from './GroupRules';
 import type { GroupRuleDetails } from './GroupRules';
@@ -43,6 +44,7 @@ export function ContributeButton({
 }: ContributeButtonProps) {
   const [amount, setAmount] = useState('');
   const [isOpen, setIsOpen] = useState(false);
+  const [pinDialogOpen, setPinDialogOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [receipt, setReceipt] = useState<CollectiPayReceiptData | null>(null);
   const { user, refreshCurrentUser } = useSupabaseUser();
@@ -73,7 +75,7 @@ export function ContributeButton({
     }
   };
 
-  const handleWalletContribution = async () => {
+  const handleStartContribution = () => {
     if (!groupRules) return;
     const contributionAmount = parseFloat(amount);
 
@@ -92,6 +94,11 @@ export function ContributeButton({
       return;
     }
 
+    if (user.status && user.status !== 'active') {
+      toast.error(`Your account is currently ${user.status}. Contributions are disabled.`);
+      return;
+    }
+
     if (walletBalance < contributionAmount) {
       toast.error('Insufficient wallet balance', {
         description: `You need ₦${(contributionAmount - walletBalance).toLocaleString()} more`,
@@ -99,6 +106,13 @@ export function ContributeButton({
       return;
     }
 
+    setPinDialogOpen(true);
+  };
+
+  const executeWalletContribution = async (verifiedPin: string) => {
+    if (!groupRules || !user) return;
+    const contributionAmount = parseFloat(amount);
+    setPinDialogOpen(false);
     setIsProcessing(true);
 
     try {
@@ -106,7 +120,8 @@ export function ContributeButton({
         user.id,
         groupId,
         contributionAmount,
-        false
+        false,
+        verifiedPin
       );
 
       if (result.success) {
@@ -282,7 +297,7 @@ export function ContributeButton({
                 )}
 
                 <Button
-                  onClick={handleWalletContribution}
+                  onClick={handleStartContribution}
                   disabled={isProcessing || !groupRules || !amount || parsedAmount < 100 || !hasBalance}
                   className="h-12 w-full rounded-xl font-semibold"
                   size="lg"
@@ -295,6 +310,17 @@ export function ContributeButton({
           )}
         </DialogContent>
       </Dialog>
+
+      <TransactionPinDialog
+        open={pinDialogOpen}
+        onOpenChange={setPinDialogOpen}
+        title="Authorize Contribution"
+        description={`Enter your 4-digit PIN to contribute to ${groupName}.`}
+        amount={parsedAmount}
+        confirmLabel="Contribute Now"
+        pending={isProcessing}
+        onVerified={executeWalletContribution}
+      />
     </>
   );
 }

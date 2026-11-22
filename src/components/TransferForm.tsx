@@ -1,15 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight, Building2, Check, ChevronRight, Clock3, Lock, Search, X } from "lucide-react";
+import { ArrowRight, Building2, Check, ChevronRight, Clock3, Eye, EyeOff, Lock, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Label } from "@/components/ui/label";
 import BrandLoader from "@/components/ui/BrandLoader";
 import CollectiPayReceipt from "@/components/receipt/CollectiPayReceipt";
+import { TransactionPinDialog } from "@/components/security/TransactionPinDialog";
 import { WalletFlow } from "@/components/wallet/WalletFlow";
+import { cn } from "@/lib/utils";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 import { ApiService } from "@/services/supabase/apiService";
@@ -113,6 +116,8 @@ export default function TransferForm() {
   const [receipt, setReceipt] = useState<TransferReceipt | null>(null);
   const [sending, setSending] = useState(false);
   const [pin, setPin] = useState("");
+  const [showPin, setShowPin] = useState(false);
+  const [setupPinOpen, setSetupPinOpen] = useState(false);
   const [error, setError] = useState("");
   const sendInFlight = useRef(false);
   const stage = receipt ? "receipt" : review ? "review" : "details";
@@ -170,14 +175,8 @@ export default function TransferForm() {
     setReview(null);
   };
 
-  const confirmTransfer = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!review || sendInFlight.current || !userPin) return;
-    if (pin !== userPin) {
-      setError("That transaction PIN is incorrect.");
-      setPin("");
-      return;
-    }
+  const executeTransfer = async (verifiedPin: string) => {
+    if (!review || sendInFlight.current) return;
     if (Math.round((review.amount + feeFor(review.amount)) * 100) / 100 > balance) {
       setError("Your wallet balance changed. Go back to review the amount.");
       return;
@@ -198,8 +197,13 @@ export default function TransferForm() {
       }
       submitted = true;
       const result = await ApiService.processTransfer({
-        accountNumber: review.account, bankCode: review.bank.code, beneficiaryName: recipient,
-        amount: review.amount, currency: "NGN", narration: review.note || undefined,
+        accountNumber: review.account,
+        bankCode: review.bank.code,
+        beneficiaryName: recipient,
+        amount: review.amount,
+        currency: "NGN",
+        narration: review.note || undefined,
+        transactionPin: verifiedPin,
       });
       if (result.status !== "success" || !result.data) throw new Error(result?.message || "Transfer couldn’t be confirmed.");
       setReceipt(result.data);
@@ -218,6 +222,17 @@ export default function TransferForm() {
       sendInFlight.current = false;
       setSending(false);
     }
+  };
+
+  const confirmTransfer = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!review || sendInFlight.current || !userPin) return;
+    if (pin !== userPin) {
+      setError("That transaction PIN is incorrect.");
+      setPin("");
+      return;
+    }
+    await executeTransfer(pin);
   };
 
   if (receipt && review) {
@@ -273,16 +288,87 @@ export default function TransferForm() {
           </dl>
           {error && <p role="alert" className="text-sm text-destructive">{error} {error.includes("Wallet history") && <Link className="underline" to="/wallet-history">Open history</Link>}</p>}
           {userPin ? (
-            <form onSubmit={confirmTransfer} className="space-y-3">
-              <div className="space-y-2">
-                <Label htmlFor="transfer-pin" className="flex items-center gap-2"><Lock size={15} aria-hidden="true" /> Transaction PIN</Label>
-                <Input id="transfer-pin" type="password" inputMode="numeric" autoComplete="off" maxLength={4} placeholder="4 digits" value={pin}
-                  disabled={sending} onChange={(event) => { setPin(event.target.value.replace(/\D/g, "")); setError(""); }} />
+            <form onSubmit={confirmTransfer} className="space-y-4">
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <Label className="flex items-center gap-2 text-sm font-semibold">
+                    <Lock size={15} className="text-primary" aria-hidden="true" />
+                    4-Digit Transaction PIN
+                  </Label>
+                  <button
+                    type="button"
+                    onClick={() => setShowPin((v) => !v)}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+                  >
+                    {showPin ? <EyeOff size={14} /> : <Eye size={14} />}
+                    {showPin ? "Hide" : "Show"}
+                  </button>
+                </div>
+                <div className="flex justify-center">
+                  <InputOTP
+                    maxLength={4}
+                    value={pin}
+                    disabled={sending}
+                    inputMode="numeric"
+                    onChange={(val) => {
+                      setPin(val.replace(/\D/g, "").slice(0, 4));
+                      setError("");
+                    }}
+                  >
+                    <InputOTPGroup className="gap-2.5">
+                      {[0, 1, 2, 3].map((idx) => (
+                        <InputOTPSlot
+                          key={idx}
+                          index={idx}
+                          className={cn(
+                            "h-12 w-12 rounded-xl border text-lg font-bold",
+                            !showPin &&
+                              pin[idx] &&
+                              "text-transparent after:absolute after:h-2.5 after:w-2.5 after:rounded-full after:bg-foreground"
+                          )}
+                        />
+                      ))}
+                    </InputOTPGroup>
+                  </InputOTP>
+                </div>
               </div>
-              <Button type="submit" disabled={sending || pin.length !== 4} className="h-12 w-full">Send {money(review.amount)}</Button>
+              <Button type="submit" disabled={sending || pin.length !== 4} className="h-12 w-full rounded-xl font-bold">
+                Send {money(review.amount)}
+              </Button>
             </form>
-          ) : <Button className="h-11 w-full" onClick={() => navigate("/settings?tab=security")}>Set a transaction PIN</Button>}
+          ) : (
+            <div className="space-y-2.5">
+              <Button
+                type="button"
+                className="h-12 w-full rounded-xl font-bold"
+                onClick={() => setSetupPinOpen(true)}
+              >
+                Create 4-digit PIN &amp; Send {money(review.amount)}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-10 w-full text-xs text-muted-foreground"
+                onClick={() => navigate("/settings?tab=security")}
+              >
+                Or open Security Settings
+              </Button>
+            </div>
+          )}
         </Card>
+        <TransactionPinDialog
+          open={setupPinOpen}
+          onOpenChange={setSetupPinOpen}
+          title="Authorize Bank Transfer"
+          description={`Confirm sending ${money(review.amount)} to ${review.recipient}.`}
+          amount={review.amount}
+          confirmLabel={`Send ${money(review.amount)}`}
+          pending={sending}
+          onVerified={async (verifiedPin) => {
+            setSetupPinOpen(false);
+            await executeTransfer(verifiedPin);
+          }}
+        />
       </WalletFlow>
     );
   }

@@ -8,6 +8,8 @@ export interface DiscoverFilters {
   status?: string;
   progress?: 'low' | 'medium' | 'high' | 'complete';
   search?: string;
+  verifiedOnly?: boolean;
+  spotlightOnly?: boolean;
 }
 
 export type SortOption = 'newest' | 'most_funded' | 'most_contributors' | 'ending_soon' | 'alphabetical';
@@ -52,10 +54,24 @@ export const DiscoverService = {
       }
 
       if (filters.search) {
-        query = query.or(`name.ilike.%${filters.search}%,description.ilike.%${filters.search}%`);
+        query = query.or(`name.ilike.%${filters.search}%,description.ilike.%${filters.search}%,spotlight_label.ilike.%${filters.search}%`);
       }
 
-      // Apply sorting
+      if (filters.verifiedOnly) {
+        query = query.eq('is_verified', true);
+      }
+
+      if (filters.spotlightOnly) {
+        query = query.or('is_pinned.eq.true,spotlight_label.not.is.null');
+      }
+
+      // Always keep Admin Pinned ("Most Needed" / Spotlight) & Verified groups elevated at the top!
+      query = query
+        .order('is_pinned', { ascending: false })
+        .order('featured_priority', { ascending: false })
+        .order('is_verified', { ascending: false });
+
+      // Apply user-chosen secondary sorting
       switch (sortBy) {
         case 'newest':
           query = query.order('created_at', { ascending: false });

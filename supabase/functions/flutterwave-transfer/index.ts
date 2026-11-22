@@ -17,6 +17,7 @@ interface TransferRequest {
   narration?: string;
   currency: string;
   beneficiary_name: string;
+  transaction_pin?: string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -56,7 +57,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const body: TransferRequest = await req.json();
-    const { account_bank, account_number, amount, narration, currency, beneficiary_name } = body;
+    const { account_bank, account_number, amount, narration, currency, beneficiary_name, transaction_pin } = body;
 
     if (!account_bank || !account_number || !amount || !currency || !beneficiary_name) {
       throw new Error('Missing required fields');
@@ -71,10 +72,10 @@ Deno.serve(async (req: Request) => {
       throw new Error('Maximum transfer amount is ₦500,000');
     }
 
-    // Fetch status + balance and enforce account compliance state
+    // Fetch status, balance & transaction PIN and enforce account compliance + server-side PIN verification
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('wallet_balance, status')
+      .select('wallet_balance, status, preferences')
       .eq('id', user.id)
       .single();
 
@@ -84,6 +85,16 @@ Deno.serve(async (req: Request) => {
 
     if (profile.status && profile.status !== 'active') {
       throw new Error(`Your account is currently ${profile.status}. Outgoing transfers are disabled.`);
+    }
+
+    const storedPin = String((profile.preferences as Record<string, unknown> | null)?.transactionPin || '').trim();
+    if (!/^\d{4}$/.test(storedPin)) {
+      throw new Error('Please set up your 4-digit Transaction PIN in Security Settings before sending money.');
+    }
+
+    const suppliedPin = String(transaction_pin || '').trim();
+    if (!/^\d{4}$/.test(suppliedPin) || suppliedPin !== storedPin) {
+      throw new Error('Incorrect 4-digit Transaction PIN.');
     }
 
     const fee = numericAmount > 5000 ? 26.5 : 10.75;

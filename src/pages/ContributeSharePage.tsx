@@ -17,6 +17,11 @@ import Header from "@/components/layout/Header";
 import BrandLoader from "@/components/ui/BrandLoader";
 import AccountNumberDisplay from "@/components/contributions/AccountNumberDisplay";
 import { GroupRules } from "@/components/contribution/GroupRules";
+import { TransactionPinDialog } from "@/components/security/TransactionPinDialog";
+import {
+  SpotlightBadge,
+  VerifiedCrowdfunderBadge,
+} from "@/components/contribution/VerifiedCrowdfunderBadge";
 
 const ContributeSharePage = () => {
   const { id } = useParams<{ id: string }>();
@@ -27,6 +32,7 @@ const ContributeSharePage = () => {
   const [fetching, setFetching] = useState(true);
   const [amount, setAmount] = useState<number>(0);
   const [isAnonymous, setIsAnonymous] = useState(false);
+  const [pinDialogOpen, setPinDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -96,13 +102,20 @@ const ContributeSharePage = () => {
       return;
     }
 
+    setPinDialogOpen(true);
+  };
+
+  const executeContribution = async (verifiedPin: string) => {
+    if (!user || !contribution) return;
+    setPinDialogOpen(false);
     setIsLoading(true);
     try {
       const result = await WalletContributionService.contributeFromWallet(
         user.id,
         contribution.id,
         amount,
-        isAnonymous
+        isAnonymous,
+        verifiedPin
       );
 
       if (result.success) {
@@ -180,6 +193,14 @@ const ContributeSharePage = () => {
               </div>
             </div>
             <CardTitle>Contribute to {contribution.name}</CardTitle>
+            {(contribution.is_verified || contribution.is_pinned || contribution.spotlight_label) && (
+              <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
+                {(contribution.is_pinned || contribution.spotlight_label) && (
+                  <SpotlightBadge label={contribution.spotlight_label} isPinned={Boolean(contribution.is_pinned)} />
+                )}
+                {contribution.is_verified && <VerifiedCrowdfunderBadge />}
+              </div>
+            )}
             <CardDescription>Join others in this contribution group</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -301,6 +322,17 @@ const ContributeSharePage = () => {
           </CardFooter>
         </Card>
       </div>
+
+      <TransactionPinDialog
+        open={pinDialogOpen}
+        onOpenChange={setPinDialogOpen}
+        title="Authorize Contribution"
+        description={`Enter your 4-digit Transaction PIN to contribute to ${contribution.name}.`}
+        amount={amount}
+        confirmLabel="Contribute Now"
+        pending={isLoading}
+        onVerified={executeContribution}
+      />
     </div>
   );
 };

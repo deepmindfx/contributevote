@@ -36,6 +36,10 @@ import { ShareGroupButton } from '@/components/contribution/ShareGroupButton';
 import { InviteMembersDialog } from '@/components/contribution/InviteMembersDialog';
 import { BvnInputDialog } from '@/components/contribution/BvnInputDialog';
 import { GroupRules } from '@/components/contribution/GroupRules';
+import {
+  SpotlightBadge,
+  VerifiedCrowdfunderBadge,
+} from '@/components/contribution/VerifiedCrowdfunderBadge';
 import { useVotingRights } from '@/hooks/useVotingRights';
 import Header from '@/components/layout/Header';
 import BrandLoader from '@/components/ui/BrandLoader';
@@ -337,11 +341,22 @@ export default function GroupDetail() {
             {!isActive && ` · ${group.archived ? "Archived" : group.status}`}
           </p>
           <h1 id="group-title" className="app-page-title mt-1">{group.name}</h1>
-          {group.enable_voting_rights !== false && (
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-0.5 text-[11px] font-semibold text-[#dbf5b4]">
-                {hasVotingRights ? "Your voting rights: Active" : "Contribute to unlock voting rights"}
-              </span>
+          {(group.is_verified || group.is_pinned || group.spotlight_label || group.enable_voting_rights !== false) && (
+            <div className="mt-2.5 flex flex-wrap items-center gap-2">
+              {(group.is_pinned || group.spotlight_label) && (
+                <SpotlightBadge
+                  label={group.spotlight_label}
+                  isPinned={Boolean(group.is_pinned)}
+                  onDark
+                  size="md"
+                />
+              )}
+              {group.is_verified && <VerifiedCrowdfunderBadge onDark size="md" />}
+              {group.enable_voting_rights !== false && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-0.5 text-[11px] font-semibold text-[#dbf5b4]">
+                  {hasVotingRights ? "Your voting rights: Active" : "Contribute to unlock voting rights"}
+                </span>
+              )}
             </div>
           )}
 

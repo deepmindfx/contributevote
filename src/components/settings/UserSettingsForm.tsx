@@ -441,12 +441,12 @@ const UserSettingsForm = () => {
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-bold text-foreground">
-                  {hasSavedPin ? "Wallet PIN protection is active" : "Set up your 4-digit transfer PIN"}
+                  {hasSavedPin ? "Wallet PIN protection is active" : "Set up your 4-digit Transaction PIN"}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {hasSavedPin
-                    ? "Bank transfers from your wallet require your 4-digit PIN before execution."
-                    : "Protect your wallet balance by adding a 4-digit PIN below and tapping Save Changes."}
+                    ? "Your 4-digit PIN protects bank transfers, group contributions, withdrawals, and refund proposals."
+                    : "Protect your wallet by adding a 4-digit PIN below — required for transfers, contributions, and withdrawals."}
                 </p>
               </div>
             </div>
@@ -457,7 +457,7 @@ const UserSettingsForm = () => {
                 <div>
                   <h2 className="text-base font-bold text-foreground">4-Digit Transaction PIN</h2>
                   <p className="text-xs text-muted-foreground">
-                    Used to authorize outbound wallet bank transfers.
+                    Required to authorize bank transfers, wallet contributions, withdrawals &amp; refund proposals.
                   </p>
                 </div>
                 <Button

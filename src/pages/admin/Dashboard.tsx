@@ -6,18 +6,21 @@ import {
   Archive,
   ArrowDownLeft,
   ArrowUpRight,
+  BadgeCheck,
   Ban,
   Building2,
   CheckCircle2,
   ClipboardList,
   ExternalLink,
   Flag,
+  Flame,
   Gavel,
   Globe,
   Globe2,
   KeyRound,
   Layers,
   Lock,
+  Pin,
   Play,
   ReceiptText,
   RefreshCw,
@@ -61,12 +64,18 @@ import {
 import {
   AmlReviewDialog,
   GroupControlDialog,
+  GroupSpotlightDialog,
   IssuePenaltyDialog,
   ManualAmlFlagDialog,
+  VerifyOrganizerDialog,
   WalletAdjustDialog,
 } from "@/components/admin/AdminActionDialogs";
 import { FlipCounterHero } from "@/components/admin/FlipCounterHero";
 import { AdminPaymentSettings } from "@/components/admin/AdminPaymentSettings";
+import {
+  SpotlightBadge,
+  VerifiedCrowdfunderBadge,
+} from "@/components/contribution/VerifiedCrowdfunderBadge";
 import { cn } from "@/lib/utils";
 
 const HIGH_VALUE_THRESHOLD = 500000;
@@ -134,7 +143,7 @@ const AdminDashboard = () => {
   const [userQuery, setUserQuery] = useState("");
   const [userStatusFilter, setUserStatusFilter] = useState<"all" | "active" | "paused" | "frozen" | "no_bvn">("all");
   const [groupQuery, setGroupQuery] = useState("");
-  const [groupFilter, setGroupFilter] = useState<"all" | "active" | "restricted" | "archived">("all");
+  const [groupFilter, setGroupFilter] = useState<"all" | "active" | "verified" | "pinned" | "restricted" | "archived">("all");
   const [amlStatusFilter, setAmlStatusFilter] = useState<"active" | "all" | AmlAlertStatus>("active");
   const [amlSeverityFilter, setAmlSeverityFilter] = useState<"all" | AmlAlertSeverity>("all");
   const [penaltyFilter, setPenaltyFilter] = useState<"all" | "applied" | "pending" | "waived">("all");
@@ -151,6 +160,8 @@ const AdminDashboard = () => {
     amlAlertId?: string | null;
   }>({ open: false, user: null, amlAlertId: null });
   const [groupControlTarget, setGroupControlTarget] = useState<any | null>(null);
+  const [spotlightGroupTarget, setSpotlightGroupTarget] = useState<any | null>(null);
+  const [verifyOrganizerTarget, setVerifyOrganizerTarget] = useState<any | null>(null);
   const [reviewingAlert, setReviewingAlert] = useState<AmlAlertRecord | null>(null);
   const [manualFlagState, setManualFlagState] = useState<{ open: boolean; user: any | null }>({
     open: false,
@@ -275,6 +286,8 @@ const AdminDashboard = () => {
         g.profiles?.name?.toLowerCase().includes(q);
       if (!matchesQ) return false;
       if (groupFilter === "active") return !g.archived && (!g.status || g.status === "active");
+      if (groupFilter === "verified") return Boolean(g.is_verified);
+      if (groupFilter === "pinned") return Boolean(g.is_pinned || g.spotlight_label);
       if (groupFilter === "restricted") return g.status === "paused" || g.status === "frozen";
       if (groupFilter === "archived") return Boolean(g.archived);
       return true;
@@ -545,6 +558,74 @@ const AdminDashboard = () => {
       await loadPlatformData();
     } catch (error: any) {
       toast.error(error?.message || "Failed to update group");
+    } finally {
+      setActionPending(false);
+      setOverlayState(null);
+    }
+  };
+
+  const handleUpdateGroupSpotlight = async (payload: {
+    groupId: string;
+    isVerified: boolean;
+    isPinned: boolean;
+    spotlightLabel: string;
+    featuredPriority: number;
+    note: string;
+  }) => {
+    setActionPending(true);
+    setOverlayState({
+      message: payload.isPinned ? "Pushing group to top of Discover" : "Updating verification badge",
+      submessage: "Applying Verified Crowdfunder status & spotlight ranking…",
+    });
+    try {
+      const res = await AdminComplianceService.updateGroupSpotlight(payload);
+      if (!res?.success) {
+        toast.error(res?.error || "Failed to update group spotlight");
+        return;
+      }
+      toast.success(
+        payload.isPinned
+          ? `Group pinned to top${payload.spotlightLabel ? ` as "${payload.spotlightLabel}"` : ""}!`
+          : payload.isVerified
+          ? "Verified Crowdfunder badge granted!"
+          : "Group spotlight & badge updated"
+      );
+      setSpotlightGroupTarget(null);
+      await loadPlatformData();
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to update spotlight");
+    } finally {
+      setActionPending(false);
+      setOverlayState(null);
+    }
+  };
+
+  const handleToggleVerifiedOrganizer = async (payload: {
+    userId: string;
+    isVerified: boolean;
+    badgeLabel: string;
+    applyToGroups: boolean;
+  }) => {
+    setActionPending(true);
+    setOverlayState({
+      message: payload.isVerified ? "Granting Verified Crowdfunder badge" : "Updating organizer badge",
+      submessage: "Syncing badge status and notifying organizer…",
+    });
+    try {
+      const res = await AdminComplianceService.toggleVerifiedOrganizer(payload);
+      if (!res?.success) {
+        toast.error(res?.error || "Failed to update organizer verification");
+        return;
+      }
+      toast.success(
+        payload.isVerified
+          ? `Verified Crowdfunder badge granted (${res.groups_updated || 0} pools synced)`
+          : "Verified Crowdfunder badge removed"
+      );
+      setVerifyOrganizerTarget(null);
+      await loadPlatformData();
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to update organizer badge");
     } finally {
       setActionPending(false);
       setOverlayState(null);
@@ -1307,6 +1388,11 @@ const AdminDashboard = () => {
                               {u.role === "admin" && (
                                 <Badge className="text-[10px]">Admin</Badge>
                               )}
+                              {(u as any).is_verified_organizer && (
+                                <VerifiedCrowdfunderBadge
+                                  label={(u as any).organizer_badge_label || "Verified Crowdfunder"}
+                                />
+                              )}
                               <span
                                 className={cn(
                                   "rounded-full px-2 py-0.5 text-[10px] font-semibold",
@@ -1340,6 +1426,15 @@ const AdminDashboard = () => {
                           </div>
 
                           <div className="flex flex-wrap gap-1.5">
+                            <Button
+                              size="sm"
+                              variant={(u as any).is_verified_organizer ? "secondary" : "outline"}
+                              onClick={() => setVerifyOrganizerTarget(u)}
+                              className="h-9 gap-1 rounded-xl text-xs"
+                            >
+                              <BadgeCheck className="h-3.5 w-3.5 text-primary" />
+                              {(u as any).is_verified_organizer ? "Verified" : "Verify Badge"}
+                            </Button>
                             <Button
                               size="sm"
                               variant="outline"
@@ -1478,6 +1573,8 @@ const AdminDashboard = () => {
                       {(
                         [
                           { id: "all", label: `All (${allGroups.length})` },
+                          { id: "pinned", label: "Pinned / Top" },
+                          { id: "verified", label: "Verified" },
                           { id: "active", label: "Active" },
                           { id: "restricted", label: "Paused / Frozen" },
                           { id: "archived", label: "Archived" },
@@ -1530,6 +1627,13 @@ const AdminDashboard = () => {
                               </div>
                             </div>
                             <div className="flex shrink-0 flex-wrap items-center gap-1">
+                              {(group.is_pinned || group.spotlight_label) && (
+                                <SpotlightBadge
+                                  label={group.spotlight_label}
+                                  isPinned={Boolean(group.is_pinned)}
+                                />
+                              )}
+                              {group.is_verified && <VerifiedCrowdfunderBadge />}
                               <Badge
                                 variant={
                                   status === "frozen" || status === "paused" || status === "cancelled"
@@ -1593,18 +1697,32 @@ const AdminDashboard = () => {
                             size="sm"
                             variant="outline"
                             onClick={() => navigate(`/groups/${group.id}`)}
-                            className="h-9 flex-1 gap-1.5 rounded-xl text-xs"
+                            className="h-9 gap-1.5 rounded-xl text-xs"
                           >
                             <ExternalLink className="h-3.5 w-3.5" />
-                            Inspect Pool
+                            Inspect
                           </Button>
                           <Button
                             size="sm"
+                            variant={group.is_pinned || group.is_verified ? "secondary" : "default"}
+                            onClick={() => setSpotlightGroupTarget(group)}
+                            className="h-9 flex-1 gap-1.5 rounded-xl text-xs font-bold"
+                          >
+                            {group.is_pinned ? (
+                              <Pin className="h-3.5 w-3.5 text-amber-600" />
+                            ) : (
+                              <Flame className="h-3.5 w-3.5" />
+                            )}
+                            {group.is_pinned || group.is_verified ? "Edit Spotlight" : "Verify / Push Top"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
                             onClick={() => setGroupControlTarget(group)}
-                            className="h-9 flex-1 gap-1.5 rounded-xl text-xs"
+                            className="h-9 gap-1.5 rounded-xl text-xs"
                           >
                             <SlidersHorizontal className="h-3.5 w-3.5" />
-                            Manage / Freeze
+                            Manage
                           </Button>
                         </div>
                       </div>
@@ -1944,6 +2062,22 @@ const AdminDashboard = () => {
         group={groupControlTarget}
         pending={actionPending}
         onConfirm={handleGroupControl}
+      />
+
+      <GroupSpotlightDialog
+        open={Boolean(spotlightGroupTarget)}
+        onOpenChange={(open) => !open && setSpotlightGroupTarget(null)}
+        group={spotlightGroupTarget}
+        pending={actionPending}
+        onConfirm={handleUpdateGroupSpotlight}
+      />
+
+      <VerifyOrganizerDialog
+        open={Boolean(verifyOrganizerTarget)}
+        onOpenChange={(open) => !open && setVerifyOrganizerTarget(null)}
+        user={verifyOrganizerTarget}
+        pending={actionPending}
+        onConfirm={handleToggleVerifiedOrganizer}
       />
 
       <AmlReviewDialog

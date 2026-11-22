@@ -11,6 +11,7 @@ import { RefreshCw, Loader2, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import BrandLoader from '@/components/ui/BrandLoader';
+import { TransactionPinDialog } from '@/components/security/TransactionPinDialog';
 
 interface GroupRefundDialogProps {
   groupId: string;
@@ -23,6 +24,7 @@ export function GroupRefundDialog({ groupId, groupName, onSuccess }: GroupRefund
   const [reason, setReason] = useState('');
   const [refundType, setRefundType] = useState<'full' | 'partial'>('full');
   const [percentage, setPercentage] = useState('100');
+  const [pinDialogOpen, setPinDialogOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const { user } = useSupabaseUser();
 
@@ -52,6 +54,12 @@ export function GroupRefundDialog({ groupId, groupName, onSuccess }: GroupRefund
       return;
     }
 
+    setPinDialogOpen(true);
+  };
+
+  const executeRefundRequest = async () => {
+    if (!user) return;
+    setPinDialogOpen(false);
     setIsProcessing(true);
 
     try {
@@ -241,6 +249,16 @@ export function GroupRefundDialog({ groupId, groupName, onSuccess }: GroupRefund
         </div>
       </DialogContent>
     </Dialog>
+
+    <TransactionPinDialog
+      open={pinDialogOpen}
+      onOpenChange={setPinDialogOpen}
+      title="Authorize Refund Proposal"
+      description={`Enter your 4-digit Transaction PIN to launch a group refund vote for ${groupName}.`}
+      confirmLabel="Launch Refund Vote"
+      pending={isProcessing}
+      onVerified={executeRefundRequest}
+    />
     </>
   );
 }

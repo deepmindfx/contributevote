@@ -10,6 +10,7 @@ import { useSupabaseContribution } from '@/contexts/SupabaseContributionContext'
 import { Wallet, AlertCircle, Vote, ShieldCheck } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import BrandLoader from '@/components/ui/BrandLoader';
+import { TransactionPinDialog } from '@/components/security/TransactionPinDialog';
 import {
   createWithdrawalRequest,
   processInstantWithdrawal,
@@ -24,6 +25,7 @@ export function WithdrawalRequest({ groupId }: WithdrawalRequestProps) {
   const { contributions, refreshContributionData } = useSupabaseContribution();
   const [amount, setAmount] = useState('');
   const [purpose, setPurpose] = useState('');
+  const [pinDialogOpen, setPinDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const group: any = contributions.find((c) => c.id === groupId);
@@ -62,11 +64,17 @@ export function WithdrawalRequest({ groupId }: WithdrawalRequestProps) {
       return;
     }
 
+    setPinDialogOpen(true);
+  };
+
+  const executeWithdrawal = async (verifiedPin: string) => {
+    const withdrawalAmount = parseFloat(amount);
+    setPinDialogOpen(false);
     setIsSubmitting(true);
 
     try {
       if (!groupHasVotingRights) {
-        const result = await processInstantWithdrawal(groupId, withdrawalAmount, purpose.trim());
+        const result = await processInstantWithdrawal(groupId, withdrawalAmount, purpose.trim(), verifiedPin);
         if (!result.success) {
           throw new Error(result.error || 'Failed to process withdrawal');
         }
@@ -78,8 +86,8 @@ export function WithdrawalRequest({ groupId }: WithdrawalRequestProps) {
         return;
       }
 
-      // Atomic server-side RPC creates the withdrawal request and notifies all verified voters
-      const result = await createWithdrawalRequest(groupId, withdrawalAmount, purpose.trim());
+      // Atomic server-side RPC verifies PIN, creates the withdrawal request, and notifies all verified voters
+      const result = await createWithdrawalRequest(groupId, withdrawalAmount, purpose.trim(), verifiedPin);
       if (!result.success) {
         throw new Error(result.error || 'Failed to create withdrawal request');
       }
@@ -214,6 +222,21 @@ export function WithdrawalRequest({ groupId }: WithdrawalRequestProps) {
           </div>
         </Card>
       </div>
+
+      <TransactionPinDialog
+        open={pinDialogOpen}
+        onOpenChange={setPinDialogOpen}
+        title={groupHasVotingRights ? 'Authorize Withdrawal Vote' : 'Authorize Pool Withdrawal'}
+        description={
+          groupHasVotingRights
+            ? 'Enter your 4-digit PIN to open this withdrawal vote for contributors.'
+            : 'Enter your 4-digit PIN to withdraw these pool funds to your wallet.'
+        }
+        amount={parseFloat(amount) || 0}
+        confirmLabel={groupHasVotingRights ? 'Open Vote' : 'Withdraw Now'}
+        pending={isSubmitting}
+        onVerified={executeWithdrawal}
+      />
     </>
   );
 }

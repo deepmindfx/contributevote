@@ -55,6 +55,7 @@ export class SupabaseApiService {
     beneficiaryName: string;
     currency: string;
     narration?: string;
+    transactionPin?: string;
   }) {
     try {
       const { data, error } = await supabase.functions.invoke('flutterwave-transfer', {
@@ -64,7 +65,8 @@ export class SupabaseApiService {
           amount: transferData.amount,
           currency: transferData.currency,
           beneficiary_name: transferData.beneficiaryName,
-          narration: transferData.narration
+          narration: transferData.narration,
+          transaction_pin: transferData.transactionPin,
         }
       });
 

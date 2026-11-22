@@ -63,14 +63,16 @@ export const WalletContributionService = {
     userId: string,
     groupId: string,
     amount: number,
-    anonymous: boolean = false
+    anonymous: boolean = false,
+    pin?: string
   ): Promise<WalletContributionResult> {
     try {
-      const { data, error } = await supabase.rpc('contribute_from_wallet', {
+      const { data, error } = await (supabase as any).rpc('contribute_from_wallet', {
         p_user_id: userId,
         p_group_id: groupId,
         p_amount: amount,
-        p_anonymous: anonymous
+        p_anonymous: anonymous,
+        p_pin: pin || null,
       });
 
       if (error) {

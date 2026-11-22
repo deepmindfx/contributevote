@@ -34,6 +34,10 @@ import {
   getCategoryLabel,
 } from "@/services/supabase/groupEnhancementService";
 import CategoryIcon from "@/components/ui/CategoryIcon";
+import {
+  SpotlightBadge,
+  VerifiedCrowdfunderBadge,
+} from "@/components/contribution/VerifiedCrowdfunderBadge";
 
 const ITEMS_PER_PAGE = 9;
 
@@ -296,7 +300,18 @@ const AllGroups = () => {
                         </div>
 
                         {/* Title & Description */}
-                        <h3 className="mt-4 line-clamp-1 text-base font-bold tracking-tight text-foreground group-hover:text-primary transition-colors">
+                        {(contribution.is_verified || contribution.is_pinned || contribution.spotlight_label) && (
+                          <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                            {(contribution.is_pinned || contribution.spotlight_label) && (
+                              <SpotlightBadge
+                                label={contribution.spotlight_label}
+                                isPinned={Boolean(contribution.is_pinned)}
+                              />
+                            )}
+                            {contribution.is_verified && <VerifiedCrowdfunderBadge />}
+                          </div>
+                        )}
+                        <h3 className="mt-3 line-clamp-1 text-base font-bold tracking-tight text-foreground group-hover:text-primary transition-colors">
                           {contribution.name || "Unnamed Group"}
                         </h3>
                         {contribution.description && (

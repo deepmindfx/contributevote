@@ -262,14 +262,21 @@ export type Database = {
           description: string | null
           enable_voting_rights: boolean | null
           end_date: string | null
+          featured_priority: number
           frequency: string
           id: string
+          is_pinned: boolean
+          is_verified: boolean
           name: string
           privacy: string | null
+          spotlight_label: string | null
           start_date: string | null
           status: string | null
           target_amount: number
           updated_at: string | null
+          verification_note: string | null
+          verified_at: string | null
+          verified_by: string | null
           voting_threshold: number | null
         }
         Insert: {
@@ -289,14 +296,21 @@ export type Database = {
           description?: string | null
           enable_voting_rights?: boolean | null
           end_date?: string | null
+          featured_priority?: number
           frequency: string
           id?: string
+          is_pinned?: boolean
+          is_verified?: boolean
           name: string
           privacy?: string | null
+          spotlight_label?: string | null
           start_date?: string | null
           status?: string | null
           target_amount: number
           updated_at?: string | null
+          verification_note?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
           voting_threshold?: number | null
         }
         Update: {
@@ -316,14 +330,21 @@ export type Database = {
           description?: string | null
           enable_voting_rights?: boolean | null
           end_date?: string | null
+          featured_priority?: number
           frequency?: string
           id?: string
+          is_pinned?: boolean
+          is_verified?: boolean
           name?: string
           privacy?: string | null
+          spotlight_label?: string | null
           start_date?: string | null
           status?: string | null
           target_amount?: number
           updated_at?: string | null
+          verification_note?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
           voting_threshold?: number | null
         }
         Relationships: [
@@ -337,6 +358,13 @@ export type Database = {
           {
             foreignKeyName: "contribution_groups_creator_id_fkey"
             columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contribution_groups_verified_by_fkey"
+            columns: ["verified_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -745,7 +773,9 @@ export type Database = {
           groups_created_count: number | null
           groups_created_free_remaining: number | null
           id: string
+          is_verified_organizer: boolean
           name: string | null
+          organizer_badge_label: string | null
           phone: string | null
           preferences: Json | null
           role: string | null
@@ -760,7 +790,9 @@ export type Database = {
           groups_created_count?: number | null
           groups_created_free_remaining?: number | null
           id: string
+          is_verified_organizer?: boolean
           name?: string | null
+          organizer_badge_label?: string | null
           phone?: string | null
           preferences?: Json | null
           role?: string | null
@@ -775,7 +807,9 @@ export type Database = {
           groups_created_count?: number | null
           groups_created_free_remaining?: number | null
           id?: string
+          is_verified_organizer?: boolean
           name?: string | null
+          organizer_badge_label?: string | null
           phone?: string | null
           preferences?: Json | null
           role?: string | null
@@ -1173,11 +1207,31 @@ export type Database = {
         Returns: Json
       }
       admin_scan_aml_alerts: { Args: never; Returns: Json }
+      admin_toggle_verified_organizer: {
+        Args: {
+          p_apply_to_groups?: boolean
+          p_badge_label?: string
+          p_is_verified: boolean
+          p_user_id: string
+        }
+        Returns: Json
+      }
       admin_update_aml_alert: {
         Args: {
           p_alert_id: string
           p_resolution_note?: string
           p_status: string
+        }
+        Returns: Json
+      }
+      admin_update_group_spotlight: {
+        Args: {
+          p_featured_priority?: number
+          p_group_id: string
+          p_is_pinned?: boolean
+          p_is_verified?: boolean
+          p_note?: string
+          p_spotlight_label?: string
         }
         Returns: Json
       }
@@ -1227,6 +1281,7 @@ export type Database = {
           p_amount: number
           p_anonymous?: boolean
           p_group_id: string
+          p_pin?: string
           p_user_id: string
         }
         Returns: Json
@@ -1253,7 +1308,12 @@ export type Database = {
         Returns: Json
       }
       create_withdrawal_request_safe: {
-        Args: { p_amount: number; p_group_id: string; p_purpose: string }
+        Args: {
+          p_amount: number
+          p_group_id: string
+          p_pin?: string
+          p_purpose: string
+        }
         Returns: Json
       }
       expire_withdrawal_requests: { Args: never; Returns: undefined }
@@ -1300,6 +1360,7 @@ export type Database = {
           p_admin_id: string
           p_amount: number
           p_group_id: string
+          p_pin?: string
           p_purpose: string
         }
         Returns: undefined
@@ -1321,10 +1382,15 @@ export type Database = {
         Args: { p_delta: number; p_user_id: string }
         Returns: Json
       }
+      set_user_transaction_pin: {
+        Args: { p_current_pin?: string; p_new_pin: string }
+        Returns: Json
+      }
       unarchive_group: {
         Args: { p_group_id: string; p_user_id: string }
         Returns: Json
       }
+      verify_user_transaction_pin: { Args: { p_pin: string }; Returns: Json }
     }
     Enums: {
       [_ in never]: never

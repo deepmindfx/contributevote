@@ -122,6 +122,24 @@ export interface PaymentGatewaySettings {
   updated_at: string | null;
 }
 
+export const SPOTLIGHT_LABEL_PRESETS = [
+  "Most Needed",
+  "Urgent Cause",
+  "Verified Cause",
+  "Featured",
+  "Community Pick",
+  "High Impact",
+] as const;
+
+export const ORGANIZER_BADGE_PRESETS = [
+  "Verified Crowdfunder",
+  "Verified Mosque / Waqf",
+  "Verified Church",
+  "Verified NGO / Charity",
+  "Verified Innovator",
+  "Verified Community",
+] as const;
+
 export const PENALTY_TYPE_OPTIONS: { value: PenaltyType; label: string; description: string }[] = [
   {
     value: "late_contribution",
@@ -364,6 +382,55 @@ export const AdminComplianceService = {
       p_status: payload.status || null,
       p_archived: typeof payload.archived === "boolean" ? payload.archived : null,
       p_reason: payload.reason || null,
+    });
+    if (error) throw error;
+    return data;
+  },
+
+  async updateGroupSpotlight(payload: {
+    groupId: string;
+    isVerified: boolean;
+    isPinned: boolean;
+    spotlightLabel?: string | null;
+    featuredPriority?: number;
+    note?: string;
+  }): Promise<{
+    success: boolean;
+    is_verified?: boolean;
+    is_pinned?: boolean;
+    spotlight_label?: string | null;
+    featured_priority?: number;
+    error?: string;
+  }> {
+    const { data, error } = await (supabase as any).rpc("admin_update_group_spotlight", {
+      p_group_id: payload.groupId,
+      p_is_verified: payload.isVerified,
+      p_is_pinned: payload.isPinned,
+      p_spotlight_label: payload.spotlightLabel ?? "",
+      p_featured_priority: payload.featuredPriority ?? (payload.isPinned ? 50 : 0),
+      p_note: payload.note || null,
+    });
+    if (error) throw error;
+    return data;
+  },
+
+  async toggleVerifiedOrganizer(payload: {
+    userId: string;
+    isVerified: boolean;
+    badgeLabel?: string;
+    applyToGroups?: boolean;
+  }): Promise<{
+    success: boolean;
+    is_verified_organizer?: boolean;
+    badge_label?: string | null;
+    groups_updated?: number;
+    error?: string;
+  }> {
+    const { data, error } = await (supabase as any).rpc("admin_toggle_verified_organizer", {
+      p_user_id: payload.userId,
+      p_is_verified: payload.isVerified,
+      p_badge_label: payload.badgeLabel || "Verified Crowdfunder",
+      p_apply_to_groups: payload.applyToGroups !== false,
     });
     if (error) throw error;
     return data;

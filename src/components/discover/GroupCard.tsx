@@ -4,8 +4,13 @@ import { ArrowUpRight, Calendar, CheckCircle2, ShieldCheck, Users } from "lucide
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import CategoryIcon from "@/components/ui/CategoryIcon";
+import {
+  SpotlightBadge,
+  VerifiedCrowdfunderBadge,
+} from "@/components/contribution/VerifiedCrowdfunderBadge";
 import { getCategoryLabel } from "@/services/supabase/groupEnhancementService";
 import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
 
 interface GroupCardProps {
   group: any;
@@ -25,6 +30,10 @@ export default function GroupCard({ group }: GroupCardProps) {
     ? group.contributors[0]?.count ?? group.contributors.length
     : 0;
   const isFunded = progress >= 100;
+  const isVerified = Boolean(group.is_verified);
+  const isPinned = Boolean(group.is_pinned);
+  const spotlightLabel = group.spotlight_label as string | null | undefined;
+  const hasSpotlight = isPinned || Boolean(spotlightLabel);
 
   useEffect(() => {
     let active = true;
@@ -76,9 +85,22 @@ export default function GroupCard({ group }: GroupCardProps) {
           handlePrimaryAction();
         }
       }}
-      className="cp-card-native cp-pressable group flex h-full min-w-0 cursor-pointer flex-col justify-between p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/45 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className={cn(
+        "cp-card-native cp-pressable group flex h-full min-w-0 cursor-pointer flex-col justify-between p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/45 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        hasSpotlight &&
+          "border-amber-500/40 bg-gradient-to-b from-amber-500/[0.045] via-card to-card ring-1 ring-amber-500/15",
+        !hasSpotlight && isVerified && "border-emerald-500/35"
+      )}
     >
       <div>
+        {/* Admin Spotlight & Verified Crowdfunder Ribbon */}
+        {(hasSpotlight || isVerified) && (
+          <div className="mb-3 flex flex-wrap items-center gap-1.5">
+            {hasSpotlight && <SpotlightBadge label={spotlightLabel} isPinned={isPinned} />}
+            {isVerified && <VerifiedCrowdfunderBadge />}
+          </div>
+        )}
+
         {/* Top Row: Category Icon + Status Pill */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
@@ -90,7 +112,7 @@ export default function GroupCard({ group }: GroupCardProps) {
                 {getCategoryLabel(group.category)}
               </span>
               <p className="truncate text-xs text-muted-foreground">
-                {group.creator?.name || group.creator?.email || "Verified organizer"}
+                {group.creator?.name || group.creator?.email || "Community organizer"}
               </p>
             </div>
           </div>
