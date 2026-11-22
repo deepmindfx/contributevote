@@ -42,6 +42,21 @@ export function SupabaseContributionProvider({ children }: { children: ReactNode
   const [loading, setLoading] = useState(true);
   const lastRefreshTime = useRef<number>(0);
   const isRefreshing = useRef<boolean>(false);
+  const activeUserId = user?.id;
+
+  useEffect(() => {
+    if (!activeUserId) return;
+    const channel = supabase.channel(`wallet-transactions-${activeUserId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "transactions", filter: `user_id=eq.${activeUserId}` }, (event) => {
+        if (event.eventType === "DELETE") {
+          setTransactions((previous) => previous.filter((row) => row.id !== event.old.id));
+        } else {
+          const row = event.new as Transaction;
+          setTransactions((previous) => [row, ...previous.filter((item) => item.id !== row.id)]);
+        }
+      }).subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [activeUserId]);
 
   const refreshContributionData = useCallback(async (force = false) => {
     if (!user) return;

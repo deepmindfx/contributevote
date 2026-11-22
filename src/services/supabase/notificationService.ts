@@ -1,5 +1,18 @@
 import { supabase } from '@/integrations/supabase/client';
 
+export function notificationCategory(type: string) {
+  if (["wallet_deposit", "transfer_completed", "transfer_failed", "wallet_debit", "wallet_credit", "refund_completed"].includes(type)) return "wallet";
+  if (["bank_transfer_received", "group_payment_received", "contribution_verified"].includes(type)) return "group";
+  return "activity";
+}
+
+export function notificationAllowed(type: string, preferences: unknown) {
+  const category = notificationCategory(type);
+  const prefs = (preferences || {}) as Record<string, unknown>;
+  const key = category === "wallet" ? "walletNotifications" : category === "group" ? "groupNotifications" : "notificationsEnabled";
+  return prefs[key] !== false && prefs[key] !== "false";
+}
+
 export interface NotificationRecord {
   id: string;
   user_id: string;
@@ -12,7 +25,7 @@ export interface NotificationRecord {
 }
 
 export const NotificationService = {
-  async getUserNotifications(userId: string, limit = 30): Promise<NotificationRecord[]> {
+  async getUserNotifications(userId: string, limit = 100): Promise<NotificationRecord[]> {
     const { data, error } = await supabase
       .from('notifications')
       .select('*')

@@ -44,6 +44,8 @@
 - **Group invitations** (`InviteMembersDialog` & `/invite/:token`): Creators can enter an email or pick one from device contacts on supported browsers. Seven-day links can be copied, shared, or opened in the email app. Invitees see the group rules before joining, and `accept_group_invitation` checks the verified email and records membership atomically.
 - **Receipts & Reports**: Individual PNG/PDF receipts (`ModernReceipt`) and full contributor PDF statements (`PDFGenerator`) via `ContributionHistoryDialog`.
 - **Notifications**: Real-time Supabase `notifications` feed rendered in both `Header` and `Dashboard` with unread badges and one-click mark-read / navigation.
+- **Monthly activity** — Activity shows settled wallet flows for the selected month in Africa/Lagos time and exports a PDF statement. Group owners have a separate Insights tab for contributions, outside transfers, withdrawals, refunds, and fees.
+- **Device notifications** — Preferences control wallet, group, and governance alerts independently. Users can enable device notifications after browser permission. System alerts show an amount and payment category. Full sender details are available inside CollectiPay.
 
 ## 8. Super Admin Fintech Operations, Penalties & AML Compliance
 - **Live Mechanical Split-Flap User Counter** (`FlipCounterHero`): Real-time 3D split-flap growth board on `/admin` subscribed to `profiles` `INSERT` events via Supabase Realtime, with a **Big Screen Display** fullscreen mode and live KPI tickers (BVN verified, active pools, liquidity, outside payments).

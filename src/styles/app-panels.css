@@ -236,9 +236,10 @@ details[open] > .app-disclosure > svg {
 }
 
 .group-detail-tabs [role="tab"] {
-  min-width: 0;
-  padding-inline: .2rem;
-  font-size: clamp(.75rem, 3.5vw, .875rem);
+  flex: 1 0 auto;
+  min-height: 2.5rem;
+  padding-inline: clamp(.3rem, 1.4vw, .75rem);
+  font-size: clamp(.72rem, 3.25vw, .875rem);
 }
 
 .group-detail-link {

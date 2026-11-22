@@ -70,6 +70,7 @@ export class EdgeFunctionService {
     contractCode?: string
     redirectUrl: string
     groupId?: string
+    anonymous?: boolean
   }) {
     const { data, error } = await supabase.functions.invoke('flutterwave-invoice', {
       body: invoiceData

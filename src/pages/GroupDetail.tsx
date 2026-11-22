@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { GroupTransferAnalytics } from '@/components/wallet/MonthlyFlowInsights';
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import {
   ArrowLeft,
@@ -491,13 +492,19 @@ export default function GroupDetail() {
           />
 
           <Tabs key={group.id} defaultValue="overview">
-            <TabsList className="app-segmented group-detail-tabs grid w-full grid-flow-col auto-cols-fr" aria-label="Group sections">
+            <TabsList className="app-segmented group-detail-tabs flex w-full justify-start overflow-x-auto" aria-label="Group sections">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="members">Members</TabsTrigger>
               <TabsTrigger value="activity">Activity</TabsTrigger>
+              {isCreator && <TabsTrigger value="insights">Insights</TabsTrigger>}
               {canManage && <TabsTrigger value="manage">Manage</TabsTrigger>}
             </TabsList>
 
+            {isCreator && (
+              <TabsContent value="insights" className="mt-4">
+                <GroupTransferAnalytics groupId={group.id} />
+              </TabsContent>
+            )}
             <TabsContent value="overview" className="mt-3">
               <Card className="rounded-2xl px-4 sm:px-5">
                 <details>

@@ -231,9 +231,10 @@ export class WalletService {
     customerName: string;
     userId: string;
     contributionId?: string;
+    anonymous?: boolean;
   }) {
     try {
-      const { amount, description, customerEmail, customerName, userId, contributionId } = params;
+      const { amount, description, customerEmail, customerName, userId, contributionId, anonymous } = params;
 
       if (!amount || amount <= 0 || !customerEmail || !customerName) {
         toast.error("Invalid payment parameters");
@@ -253,6 +254,7 @@ export class WalletService {
         currencyCode: "NGN",
         redirectUrl: `${window.location.origin}/payment-callback`,
         groupId: contributionId || undefined,
+        anonymous,
       };
 
       const result = await EdgeFunctionService.createPaymentInvoice(invoiceData);

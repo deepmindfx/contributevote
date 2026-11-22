@@ -42,7 +42,7 @@ https://sivvjwffekhfabgxhbcd.supabase.co/functions/v1/webhook-contribution
 - **Events to Enable**: `charge.completed`, `transfer.completed`.
 - **Redirect URL**: `https://<your-production-domain>/payment-callback`
 
-## 4. Supabase Edge Functions Inventory (9 Active)
+## 4. Supabase Edge Functions Inventory
 | Function | `verify_jwt` | Purpose |
 | :--- | :---: | :--- |
 | `webhook-contribution` | **`false`** | Receives Flutterwave webhooks (verifies `verif-hash` header strictly) |
@@ -54,6 +54,16 @@ https://sivvjwffekhfabgxhbcd.supabase.co/functions/v1/webhook-contribution
 | `flutterwave-invoice` | `true` | Creates Flutterwave Standard payment link |
 | `flutterwave-transactions` | `true` | Queries virtual account transactions |
 | `flutterwave-verify-transaction` | `true` | Server-side verification of payment callbacks (idempotent with webhook) |
+| `deliver-web-push` | `true` | Sends queued device notifications using the service role and Web Push VAPID keys |
+
+### Activity, payment status, and Web Push rollout
+
+Apply migrations `20261122040000_activity_and_push.sql` and `20261122040100_payment_followups.sql` before deploying the updated `flutterwave-transfer`, `flutterwave-invoice`, and `deliver-web-push` functions. The worker also requires:
+
+- A VAPID key pair in the Edge secrets `WEB_PUSH_PUBLIC_KEY` and `WEB_PUSH_PRIVATE_KEY`, plus `WEB_PUSH_SUBJECT` as a contact URL or `mailto:` address.
+- The same public key as `VITE_WEB_PUSH_PUBLIC_KEY` in the frontend build. Keep the private key in Supabase only.
+- `pg_cron`, `pg_net`, Supabase Vault, and the `collectipay_cron_bearer` Vault entry containing the service-role JWT. The migration schedules `deliver-collectipay-web-push` every minute when those extensions are available.
+- HTTPS on the app domain and individual device permission in Settings → Preferences. On iOS, add CollectiPay to the Home Screen before enabling device alerts.
 
 ## 5. Hosting Configuration (Vercel & Netlify)
 - **Vercel** (`vercel.json`): Includes SPA fallback rewrites (`/(.*) -> /index.html`) plus CSP, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, and `Permissions-Policy`.

@@ -52,6 +52,37 @@ Deno.serve(async (req: Request) => {
     );
 
     const config = await getFlutterwaveConfig({ supabaseAdmin });
+    const body: TransferRequest & { action?: string; reference?: string } = await req.json();
+    if (body.action === 'status') {
+      const reference = String(body.reference || '');
+      if (!/^TRF_[a-z0-9_]{8,90}$/i.test(reference)) throw new Error('Invalid transfer reference');
+      const { data: row, error } = await supabaseAdmin.from('transactions').select('status,metadata,created_at,updated_at')
+        .eq('type', 'transfer').eq('user_id', user.id).eq('reference_id', reference).maybeSingle();
+      if (error || !row) throw new Error('Transfer is unavailable');
+      let status = row.status;
+      if (status === 'pending' && row.metadata?.dispatch_guard && !row.metadata?.dispatched_at) {
+        if (Date.now() - Date.parse(row.created_at) >= 120_000) {
+          const { data: released } = await supabaseAdmin.rpc('service_release_unsent_transfer', {
+            p_reference: reference, p_user_id: user.id,
+          });
+          status = released || status;
+        }
+      } else if (status === 'pending' && config.secretKey && Date.now() - Date.parse(row.updated_at || row.created_at) > 20_000) {
+        const providerId = row.metadata?.flutterwave_id;
+        const path = providerId ? '/transfers/' + encodeURIComponent(String(providerId)) : '/transfers?reference=' + encodeURIComponent(reference);
+        const { response } = await flutterwaveFetch(path, { method: 'GET' }, config);
+        const result = response.ok ? await response.json().catch(() => null) : null;
+        const transfers = Array.isArray(result?.data) ? result.data : [result?.data];
+        const match = transfers.find((transfer) => transfer?.reference === reference);
+        const providerStatus = String(match?.status || '').toUpperCase();
+        const next = providerStatus === 'SUCCESSFUL' ? 'completed' : providerStatus === 'FAILED' ? 'failed' : 'pending';
+        const { data: settled, error: settleError } = await supabaseAdmin.rpc('service_settle_priced_transfer', {
+          p_reference: reference, p_status: next, p_details: { provider_checked: true },
+        });
+        if (!settleError && settled?.status) status = settled.status;
+      }
+      return new Response(JSON.stringify({ status }), { headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+    }
     if (!config.transfersEnabled) {
       throw new Error('Bank transfers are temporarily paused by platform administrators.');
     }
@@ -59,7 +90,6 @@ Deno.serve(async (req: Request) => {
       throw new Error('Flutterwave secret key is not configured');
     }
 
-    const body: TransferRequest = await req.json();
     const { account_bank, account_number, amount, narration, currency, beneficiary_name, transaction_pin } = body;
 
     if (!account_bank || !account_number || !amount || !currency || !beneficiary_name) {
@@ -106,19 +136,26 @@ Deno.serve(async (req: Request) => {
     const reference = 'TRF_' + Array.from(new Uint8Array(digest, 0, 16), (byte) => byte.toString(16).padStart(2, '0')).join('');
     const { data: reserved, error: reserveError } = await supabaseAdmin.rpc('service_reserve_priced_transfer', {
       p_user_id: user.id, p_reference: reference, p_amount: numericAmount, p_expected_fee: body.expected_fee,
-      p_metadata: { account_number, account_bank, beneficiary_name, narration: narration || '' },
+      p_metadata: { account_number, account_bank, beneficiary_name, narration: narration || '', dispatch_guard: true },
     });
     if (reserveError || !reserved?.success) throw new Error(reserveError?.message || reserved?.error || 'Could not reserve the transfer');
     const fee = Number(reserved.fee);
-    if (reserved.replayed) {
-      return new Response(JSON.stringify({
+    const transferReceipt = (status: string, remote: { id?: number | string; bank_name?: string } = {}) =>
+      new Response(JSON.stringify({
         status: 'success',
         data: {
-          reference, amount: numericAmount, fee, fee_reason: reserved.fee_reason, status: reserved.status,
-          created_at: reserved.created_at, full_name: beneficiary_name, account_number,
-          bank_name: reserved.bank_name || account_bank, narration,
+          id: remote.id, reference, amount: numericAmount, fee, fee_reason: reserved.fee_reason, status,
+          created_at: reserved.created_at || new Date().toISOString(), full_name: beneficiary_name, account_number,
+          bank_name: remote.bank_name || reserved.bank_name || account_bank, narration,
         },
       }), { headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+
+    if (reserved.replayed && reserved.status !== 'pending') return transferReceipt(reserved.status);
+    const { data: claimed } = await supabaseAdmin.rpc('service_claim_transfer_dispatch', {
+      p_reference: reference, p_user_id: user.id,
+    });
+    if (!claimed) {
+      return transferReceipt('pending');
     }
 
     const settle = async (status: 'pending' | 'completed' | 'failed', details: Record<string, unknown>) => {
@@ -135,11 +172,11 @@ Deno.serve(async (req: Request) => {
         account_bank, account_number, amount: numericAmount, beneficiary_name, reference, currency,
         debit_currency: currency, narration: narration || 'Transfer from CollectiPay', callback_url: config.webhookUrl,
       },
-    }, config);
+    }, config).catch(() => ({ response: new Response(null, { status: 503 }), routedViaStaticIp: false }));
 
     // A timeout or provider server error can occur after acceptance. Keep the reserved payment pending.
-    if (transferResponse.status >= 500 || transferResponse.status === 408) {
-      throw new Error('The bank hasn’t confirmed this transfer yet. Check Wallet history before trying again.');
+    if (transferResponse.status >= 500 || [408, 409, 429].includes(transferResponse.status)) {
+      return transferReceipt('pending');
     }
     const transferData = await transferResponse.json().catch(() => null);
     if (!transferResponse.ok || transferData?.status === 'error') {
@@ -147,7 +184,7 @@ Deno.serve(async (req: Request) => {
       throw new Error(transferData?.message || 'The transfer failed and the wallet debit was refunded.');
     }
     if (!transferData?.data || transferData.status !== 'success') {
-      throw new Error('The bank hasn’t confirmed this transfer yet. Check Wallet history before trying again.');
+      return transferReceipt('pending');
     }
     const providerStatus = String(transferData.data.status || '').toUpperCase();
     const settledStatus = await settle(providerStatus === 'SUCCESSFUL' ? 'completed' : providerStatus === 'FAILED' ? 'failed' : 'pending', {
@@ -155,26 +192,7 @@ Deno.serve(async (req: Request) => {
       flutterwave_id: transferData.data.id, flutterwave_reference: transferData.data.reference,
       routed_via_static_ip: routedViaStaticIp, static_ip: routedViaStaticIp ? config.staticIpAddress : null,
     });
-    return new Response(JSON.stringify({
-      status: 'success',
-      message: 'Transfer initiated successfully',
-      data: {
-        id: transferData.data.id,
-        reference,
-        amount: numericAmount,
-        fee,
-        status: settledStatus,
-        fee_reason: reserved.fee_reason,
-        created_at: new Date().toISOString(),
-        full_name: beneficiary_name,
-        account_number,
-        bank_name: transferData.data.bank_name || account_bank,
-        narration,
-      },
-    }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders },
-    });
+    return transferReceipt(settledStatus, transferData.data);
   } catch (error) {
     console.error('Error processing transfer:', error);
 

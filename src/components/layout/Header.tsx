@@ -31,6 +31,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { InvitationService } from "@/services/supabase/invitationService";
+import { notificationCategory } from "@/services/supabase/notificationService";
 import { CollectiPayMark } from "@/components/ui/BrandLoader";
 import { getWorkspaceLink, workspaceLinks } from "./navigationItems";
 import { cn } from "@/lib/utils";
@@ -43,9 +44,13 @@ function getNotificationIcon(type: string) {
     case "group_invitation":
       return { icon: Mail, tone: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300" };
     case "deposit":
+    case "wallet_deposit":
+    case "bank_transfer_received":
+    case "group_payment_received":
     case "contribution":
       return { icon: ArrowDownLeft, tone: "bg-accent text-primary" };
     case "transfer":
+    case "transfer_completed":
     case "withdrawal":
       return { icon: ArrowUpRight, tone: "bg-muted text-foreground" };
     case "refund":
@@ -98,6 +103,8 @@ export default function Header({ mobileGreeting, mobilePanel }: { mobileGreeting
       else toast.error("This invitation is unavailable. Open the link shared by the group creator.");
     } else if (relatedId) {
       navigate(`/groups/${relatedId}`);
+    } else if (notificationCategory(type) === "wallet") {
+      navigate("/wallet-history");
     }
   };
 
@@ -185,6 +192,8 @@ export default function Header({ mobileGreeting, mobilePanel }: { mobileGreeting
                         {notifications.map((notification, index) => {
                           const { icon: NotifIcon, tone } = getNotificationIcon(notification.type);
                           const isUnread = !notification.is_read;
+                          const category = notificationCategory(notification.type);
+                          const amount = category === "activity" ? undefined : notification.message.match(/₦[\d,]+(?:\.\d{1,2})?/)?.[0];
 
                           return (
                             <button
@@ -202,13 +211,19 @@ export default function Header({ mobileGreeting, mobilePanel }: { mobileGreeting
                               </span>
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2">
-                                  <span className="truncate text-sm font-semibold text-foreground">
+                                  <span className="break-words text-sm font-semibold text-foreground">
                                     {notification.title}
                                   </span>
                                   {isUnread && (
                                     <span className="h-2 w-2 shrink-0 rounded-full bg-primary" aria-label="Unread" />
                                   )}
                                 </div>
+                                {amount && (
+                                  <span className="mt-1.5 inline-flex flex-wrap items-baseline gap-2 rounded-lg bg-accent/65 px-2.5 py-1">
+                                    <span className="text-xs font-medium text-muted-foreground">{category === "group" ? "Group payment" : "Wallet activity"}</span>
+                                    <strong className="text-sm tabular-nums text-primary">{amount}</strong>
+                                  </span>
+                                )}
                                 <span className="mt-0.5 line-clamp-2 block text-xs leading-relaxed text-muted-foreground">
                                   {notification.message}
                                 </span>

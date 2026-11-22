@@ -31,7 +31,8 @@ const ContributeSharePage = () => {
   const [contribution, setContribution] = useState<any>(null);
   const [fetching, setFetching] = useState(true);
   const [amount, setAmount] = useState<number>(0);
-  const [isAnonymous, setIsAnonymous] = useState(false);
+  const [anonymousOverride, setIsAnonymous] = useState<boolean>();
+  const isAnonymous = anonymousOverride ?? (user?.preferences as { anonymousContributions?: boolean } | null)?.anonymousContributions === true;
   const [pinDialogOpen, setPinDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { v4 as uuid } from "uuid";
 import { Link, useNavigate } from "react-router-dom";
@@ -15,6 +15,7 @@ import { TransactionPinDialog } from "@/components/security/TransactionPinDialog
 import { WalletFlow } from "@/components/wallet/WalletFlow";
 import { TransferAllowanceNotice } from "@/components/wallet/TransferAllowanceNotice";
 import { useTransferAllowance } from "@/hooks/useTransferAllowance";
+import { useTransferStatus } from "@/hooks/useTransferStatus";
 import { pricedTransferFee } from "@/services/supabase/pricingService";
 import { cn } from "@/lib/utils";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
@@ -238,6 +239,10 @@ export default function TransferForm() {
   const [verificationRetry, retryVerification] = useState(0);
   const [review, setReview] = useState<Transfer | null>(null);
   const [receipt, setReceipt] = useState<TransferReceipt | null>(null);
+  const updateTransferStatus = useCallback((status: string) => {
+    setReceipt((previous) => previous ? { ...previous, status } : previous);
+  }, []);
+  useTransferStatus(receipt?.reference, receipt?.status, user?.id, updateTransferStatus);
   const [sending, setSending] = useState(false);
   const [pin, setPin] = useState("");
   const [showPin, setShowPin] = useState(false);
@@ -382,7 +387,7 @@ export default function TransferForm() {
       <WalletFlow title="Transfer receipt">
         <Card className="mb-3 space-y-2 rounded-2xl p-5 text-center">
           <div className={`transfer-result-icon ${complete ? "transfer-result-icon--sent" : ""} mx-auto grid h-16 w-16 place-items-center rounded-full bg-accent text-primary`}><Icon size={30} aria-hidden="true" /></div>
-          <h2 className="text-lg font-semibold">{complete ? "Money sent" : failed ? "Transfer failed" : "Transfer processing"}</h2>
+          <h2 aria-live="polite" className="text-lg font-semibold">{complete ? "Money sent" : failed ? "Transfer failed" : "Transfer processing"}</h2>
           <p className="break-words text-3xl font-semibold tracking-tight tabular-nums">{money(Number(receipt.amount ?? review.amount))}</p>
           <p className="break-words text-sm text-muted-foreground">{receipt.full_name || review.recipient}{!complete && !failed ? " · Follow its status in Wallet history" : ""}</p>
         </Card>

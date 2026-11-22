@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   ArrowDownLeft,
@@ -20,6 +20,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { completedLedgerEntry, walletMovement } from "@/services/supabase/monthlyLedger";
+import { useTransferStatus } from "@/hooks/useTransferStatus";
 import { CurrencySelector } from "@/components/wallet/CurrencySelector";
 import CollectiPayReceipt from "@/components/receipt/CollectiPayReceipt";
 import type { CollectiPayReceiptData } from "@/components/receipt/CollectiPayReceipt";
@@ -92,6 +94,10 @@ export default function WalletHistory() {
   const [query, setQuery] = useState("");
   const [groupNames, setGroupNames] = useState<Record<string, string>>({});
   const [selected, setSelected] = useState<CollectiPayReceiptData | null>(null);
+  const updateReceiptStatus = useCallback((status: string) => {
+    setSelected((receipt) => receipt ? { ...receipt, status } : receipt);
+  }, []);
+  useTransferStatus(selected?.reference, selected?.status, user?.id, updateReceiptStatus);
 
   const virtualAccount = (user?.preferences as { virtualAccount?: unknown } | null)?.virtualAccount;
   const userId = user?.id;
@@ -144,10 +150,10 @@ export default function WalletHistory() {
   const { totalInflow, totalOutflow } = useMemo(() => {
     return userLedger.reduce(
       (acc, tx) => {
-        if (tx.type === "vote" || tx.status === "failed") return acc;
-        const amt = Number(tx.amount || 0);
-        if (tx.type === "deposit" || tx.type === "refund") acc.totalInflow += amt;
-        else acc.totalOutflow += amt;
+        if (!completedLedgerEntry(tx)) return acc;
+        const movement = walletMovement(tx);
+        if (movement > 0) acc.totalInflow += movement;
+        if (movement < 0) acc.totalOutflow -= movement;
         return acc;
       },
       { totalInflow: 0, totalOutflow: 0 }
@@ -327,6 +333,9 @@ export default function WalletHistory() {
               </Button>
             </div>
           </div>
+          <Link to="/activity?view=analytics" className="mt-2 inline-flex min-h-10 items-center gap-2 rounded-lg text-sm font-semibold text-[#d9f7b6] underline-offset-4 hover:underline">
+            Analytics and bank statements
+          </Link>
 
           <h1 id="wallet-history-title" className="app-page-title mt-3">
             Wallet history

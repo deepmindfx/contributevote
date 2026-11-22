@@ -13,7 +13,7 @@ import {
   Wallet,
   FileText,
 } from "lucide-react";
-import html2canvas from "html2canvas";
+import { renderReceiptImage } from "./receiptImage";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { CollectiPayMark } from "@/components/ui/BrandLoader";
@@ -90,6 +90,7 @@ const formatNaira = (value: number, showDecimals = true) => {
 const formatDateTime = (raw?: string) => {
   if (!raw) {
     return new Date().toLocaleString("en-NG", {
+      timeZone: "Africa/Lagos",
       day: "2-digit",
       month: "short",
       year: "numeric",
@@ -101,7 +102,8 @@ const formatDateTime = (raw?: string) => {
   const d = new Date(raw);
   if (Number.isNaN(d.getTime())) return raw;
   return d.toLocaleString("en-NG", {
-    day: "2-digit",
+    timeZone: "Africa/Lagos",
+      day: "2-digit",
     month: "short",
     year: "numeric",
     hour: "2-digit",
@@ -207,52 +209,22 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
     }
   };
 
-  const renderCanvas = async () => {
-    if (!captureRef.current) return null;
-    if (document.fonts && "ready" in document.fonts) {
-      try {
-        await document.fonts.ready;
-      } catch {
-        // Proceed even if fonts readiness throws
-      }
+  const renderCanvas = () => {
+    const rows: ReceiptMetaRow[] = [];
+    for (const party of [data.sender, data.recipient]) {
+      if (party) rows.push({ label: party.label, value: [party.name, party.bankName, party.subtitle].filter(Boolean).join(" · ") });
     }
-    return html2canvas(captureRef.current, {
-      scale: 3,
-      backgroundColor: "#ffffff",
-      useCORS: true,
-      logging: false,
-      onclone: (clonedDoc) => {
-        const sheet = clonedDoc.querySelector<HTMLElement>("[data-cp-receipt-sheet]");
-        if (!sheet) return;
-        sheet.style.width = "416px";
-        sheet.style.maxWidth = "416px";
-        sheet.style.boxShadow = "none";
-
-        // Ensure html2canvas never clips text descenders or baselines
-        sheet.querySelectorAll<HTMLElement>("p, span, dt, dd, div").forEach((el) => {
-          const style = clonedDoc.defaultView?.getComputedStyle(el);
-          if (style?.textOverflow === "ellipsis" || el.classList.contains("truncate")) {
-            el.style.overflow = "visible";
-            el.style.whiteSpace = "normal";
-            el.style.textOverflow = "clip";
-          }
-          el.style.animation = "none";
-          el.style.transition = "none";
-        });
-
-        // Align status badge text crisply in html2canvas rasterizer
-        const statusPill = sheet.querySelector<HTMLElement>("[data-cp-receipt-status]");
-        if (statusPill) {
-          statusPill.style.display = "inline-flex";
-          statusPill.style.alignItems = "center";
-          statusPill.style.lineHeight = "1.2";
-          statusPill.style.paddingTop = "6px";
-          statusPill.style.paddingBottom = "6px";
-        }
-      },
+    if (data.groupName && data.recipient) rows.push({ label: "Group", value: data.groupName });
+    if (poolPercent !== null) rows.push({ label: "Pool progress", value: poolPercent + "% funded" });
+    if (data.balanceBefore !== undefined && data.balanceAfter !== undefined) {
+      rows.push({ label: "Wallet balance", value: formatNaira(data.balanceBefore) + " → " + formatNaira(data.balanceAfter) });
+    }
+    if (data.votingRightsGranted === true) rows.push({ label: "Voting rights", value: "Granted" });
+    return renderReceiptImage({
+      title: displayTitle, amount: (data.kind === "deposit" || data.kind === "refund" ? "+" : "") + formatNaira(data.amount),
+      status: statusMeta.label, tone: statusMeta.tone, rows: [...rows, ...detailRows],
     });
   };
-
   const handleDownload = async () => {
     setIsExporting(true);
     try {
@@ -384,7 +356,7 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
               )}
             >
               <StatusIcon className="h-3.5 w-3.5 shrink-0" />
-              <span className="leading-none">{statusMeta.label}</span>
+              <span className="leading-normal">{statusMeta.label}</span>
             </span>
           </div>
 
@@ -392,7 +364,7 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
             <p className="text-[11px] font-semibold uppercase leading-snug tracking-[0.13em] text-[#b9decb]">
               {displayTitle}
             </p>
-            <p className="mt-1.5 text-[2.35rem] font-extrabold leading-[1.1] tracking-[-0.045em] text-white tabular-nums">
+            <p className="mt-1.5 break-words text-[clamp(1.6rem,8vw,2.35rem)] font-extrabold leading-[1.2] tracking-[-0.045em] text-white tabular-nums">
               {data.kind === "deposit" || data.kind === "refund" ? "+" : ""}
               {formatNaira(data.amount)}
             </p>

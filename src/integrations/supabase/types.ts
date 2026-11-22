@@ -1375,6 +1375,9 @@ export type Database = {
       }
       get_invitation_by_token: { Args: { p_token: string }; Returns: Json }
       get_platform_pricing: { Args: Record<never, never>; Returns: Json }
+      get_group_transfer_analytics: { Args: { p_group_id: string; p_start: string; p_end: string }; Returns: Json }
+      set_push_device: { Args: { p_endpoint: string; p_key: string; p_auth: string }; Returns: undefined }
+      remove_push_device: { Args: { p_endpoint: string }; Returns: undefined }
       get_wallet_transfer_allowance: { Args: Record<never, never>; Returns: Json }
       admin_platform_pricing_report: { Args: Record<never, never>; Returns: Json }
       admin_update_platform_pricing: { Args: { p_daily_free: number; p_friday_free: boolean; p_withdrawal_percent: number }; Returns: Json }

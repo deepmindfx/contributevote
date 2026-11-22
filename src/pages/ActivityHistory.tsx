@@ -1,5 +1,11 @@
-import { useState, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { useCallback, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
+import { useMonthlyLedger } from "@/hooks/useMonthlyLedger";
+import { useTransferStatus } from "@/hooks/useTransferStatus";
+import { analyzeWalletMonth, completedLedgerEntry, currentLagosMonth, walletMovement } from "@/services/supabase/monthlyLedger";
+import { MonthPicker, MonthlyFlowInsights } from "@/components/wallet/MonthlyFlowInsights";
+import { saveBankStatement } from "@/utils/bankStatement";
 import Header from "@/components/layout/Header";
 import {
   ArrowDownLeft,
@@ -50,57 +56,34 @@ const titleMap: Record<string, string> = {
 
 const ActivityHistory = () => {
   const { user } = useSupabaseUser();
-  const { transactions, contributions } = useSupabaseContribution();
+  const { contributions } = useSupabaseContribution();
+  const [search] = useSearchParams();
+  const [month, setMonth] = useState(currentLagosMonth);
+  const [exporting, setExporting] = useState(false);
+  const ledger = useMonthlyLedger(user?.id, month);
   const [activeTab, setActiveTab] = useState<ActivityFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedReceipt, setSelectedReceipt] = useState<CollectiPayReceiptData | null>(null);
+  const updateReceiptStatus = useCallback((status: string) => {
+    setSelectedReceipt((receipt) => receipt ? { ...receipt, status } : receipt);
+  }, []);
+  useTransferStatus(selectedReceipt?.reference, selectedReceipt?.status, user?.id, updateReceiptStatus);
 
-  const userTransactions = useMemo(() => {
-    return transactions
-      .filter((t) => t.user_id === user?.id && t.created_at)
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  }, [transactions, user?.id]);
-
-  // Summary metrics across all user activity
-  const summary = useMemo(() => {
-    let totalIn = 0;
-    let totalOut = 0;
-    let groupCount = 0;
-
-    for (const tx of userTransactions) {
-      if (String(tx.status || "").toLowerCase() === "failed") continue;
-      const amt = Number(tx.amount || 0);
-      if (tx.type === "deposit" || tx.type === "refund") {
-        totalIn += amt;
-      } else if (tx.type === "withdrawal" || tx.type === "transfer" || tx.type === "contribution") {
-        totalOut += amt;
-      }
-      if (tx.contribution_id || tx.type === "contribution" || tx.type === "refund") {
-        groupCount += 1;
-      }
-    }
-
-    return {
-      totalIn,
-      totalOut,
-      count: userTransactions.length,
-      groupCount,
-    };
-  }, [userTransactions]);
-
+  const userTransactions = useMemo(() => ledger.entries || [], [ledger.entries]);
+  const summary = useMemo(() => analyzeWalletMonth(userTransactions, month), [userTransactions, month]);
+  const exportStatement = async () => {
+    if (!ledger.entries || exporting) return;
+    setExporting(true);
+    try { await saveBankStatement(month, user?.name || "CollectiPay account", ledger.entries); }
+    catch { toast.error("Couldn’t export the statement."); }
+    finally { setExporting(false); }
+  };
   const filteredTransactions = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
 
     return userTransactions.filter((tx) => {
-      if (activeTab === "in" && tx.type !== "deposit" && tx.type !== "refund") return false;
-      if (
-        activeTab === "out" &&
-        tx.type !== "withdrawal" &&
-        tx.type !== "transfer" &&
-        tx.type !== "contribution"
-      ) {
-        return false;
-      }
+      if (activeTab === "in" && (!completedLedgerEntry(tx) || walletMovement(tx) <= 0)) return false;
+      if (activeTab === "out" && (!completedLedgerEntry(tx) || walletMovement(tx) >= 0)) return false;
       if (
         activeTab === "groups" &&
         !tx.contribution_id &&
@@ -319,20 +302,20 @@ const ActivityHistory = () => {
             Activity
           </h1>
           <p className="panel-kicker mt-1 text-sm">
-            Every transfer, group contribution, and refund — tap any entry for a verified receipt.
+            Wallet movements for the selected month, with receipts and statements.
           </p>
 
           <div className="mt-5 grid grid-cols-3 gap-2.5 rounded-2xl border border-white/12 bg-white/[0.07] p-3.5 sm:gap-4 sm:p-4">
             <div className="min-w-0">
               <p className="text-[11px] font-medium text-[#b9decb]">Money in</p>
-              <p className="mt-0.5 truncate text-base font-bold text-[#dbf5b4] tabular-nums sm:text-xl">
-                +₦{summary.totalIn.toLocaleString()}
+              <p className="mt-0.5 break-words text-base font-bold text-[#dbf5b4] tabular-nums sm:text-xl">
+                +₦{summary.incoming.toLocaleString()}
               </p>
             </div>
             <div className="min-w-0 border-x border-white/12 px-2.5 sm:px-4">
               <p className="text-[11px] font-medium text-[#b9decb]">Money out</p>
               <p className="mt-0.5 truncate text-base font-bold text-white tabular-nums sm:text-xl">
-                ₦{summary.totalOut.toLocaleString()}
+                ₦{summary.outgoing.toLocaleString()}
               </p>
             </div>
             <div className="min-w-0 pl-1 sm:pl-2">
@@ -345,6 +328,20 @@ const ActivityHistory = () => {
         </section>
 
         <div className="app-panel-body space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <MonthPicker month={month} onChange={setMonth} />
+            <Button type="button" variant="outline" onClick={exportStatement} disabled={exporting || !ledger.entries}>
+              {exporting ? "Exporting…" : "Export bank statement"}
+            </Button>
+          </div>
+          {ledger.error && <div className="flex flex-wrap items-center gap-2 text-sm"><p role="alert">Couldn’t load this month.</p><Button variant="outline" onClick={ledger.reload}>Retry</Button></div>}
+          {!ledger.entries && !ledger.error && <p role="status" className="text-sm text-muted-foreground">Loading activity…</p>}
+          {ledger.entries && (
+            <details className="rounded-2xl border bg-card p-4" open={search.get("view") === "analytics" || undefined}>
+              <summary className="cursor-pointer font-semibold">Transfer analytics</summary>
+              <div className="mt-4"><MonthlyFlowInsights report={summary} /></div>
+            </details>
+          )}
           {/* Search + Segmented Filter */}
           <div className="space-y-3">
             <div className="relative">
@@ -377,7 +374,7 @@ const ActivityHistory = () => {
           </div>
 
           {/* Grouped Timeline List */}
-          {groupedByDate.length === 0 ? (
+          {groupedByDate.length === 0 && ledger.entries ? (
             <Card className="rounded-[1.35rem] p-10 text-center shadow-sm">
               <div className="mx-auto mb-3.5 grid h-12 w-12 place-items-center rounded-2xl bg-accent text-primary">
                 <Sparkles className="h-6 w-6" />
@@ -411,7 +408,9 @@ const ActivityHistory = () => {
                       {bucket.items.map((tx) => {
                         const group = contributions.find((c) => c.id === tx.contribution_id);
                         const meta = (tx.metadata || {}) as Record<string, any>;
-                        const { icon: RowIcon, tileClass, isCredit } = getActivityVisual(tx.type);
+                        const movement = walletMovement(tx);
+                        const { icon: RowIcon, tileClass, isCredit: defaultCredit } = getActivityVisual(tx.type);
+                        const isCredit = movement === 0 ? defaultCredit : movement > 0;
                         const d = new Date(tx.created_at);
                         const timeLabel = isValid(d) ? format(d, "h:mm a") : "";
                         const statusKey = String(tx.status || "completed").toLowerCase();
@@ -487,7 +486,7 @@ const ActivityHistory = () => {
                                 >
                                   {tx.type === "vote"
                                     ? `₦${Number(tx.amount || 0).toLocaleString()}`
-                                    : `${isCredit ? "+" : "-"}₦${Number(tx.amount || 0).toLocaleString()}`}
+                                    : `${isCredit ? "+" : "−"}₦${(Math.abs(movement) || Number(tx.amount || 0)).toLocaleString()}`}
                                 </p>
                                 {canOpenReceipt && (
                                   <span className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground group-hover:text-primary">

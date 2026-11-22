@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { DeviceNotificationSettings } from "./DeviceNotificationSettings";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -68,6 +69,8 @@ const UserSettingsForm = () => {
       darkMode: Boolean(existingPrefs.darkMode),
       anonymousContributions: Boolean(existingPrefs.anonymousContributions),
       notificationsEnabled: existingPrefs.notificationsEnabled !== false,
+      walletNotifications: existingPrefs.walletNotifications !== false,
+      groupNotifications: existingPrefs.groupNotifications !== false,
     },
   });
 
@@ -102,10 +105,12 @@ const UserSettingsForm = () => {
         darkMode: Boolean(prefs.darkMode),
         anonymousContributions: Boolean(prefs.anonymousContributions),
         notificationsEnabled: prefs.notificationsEnabled !== false,
+        walletNotifications: prefs.walletNotifications !== false,
+        groupNotifications: prefs.groupNotifications !== false,
       },
     });
     setConfirmPin(prefs.transactionPin || "");
-  }, [user]);
+  }, [user?.id, user?.name, user?.email, user?.phone, JSON.stringify(user?.preferences)]);
 
   if (!user) return null;
 
@@ -223,6 +228,8 @@ const UserSettingsForm = () => {
         darkMode: userData.preferences.darkMode,
         anonymousContributions: userData.preferences.anonymousContributions,
         notificationsEnabled: userData.preferences.notificationsEnabled,
+        walletNotifications: userData.preferences.walletNotifications,
+        groupNotifications: userData.preferences.groupNotifications,
         username: userData.username.trim(),
         profileImage: userData.profileImage,
         ...(userData.pin ? { transactionPin: userData.pin } : {}),
@@ -709,13 +716,14 @@ const UserSettingsForm = () => {
                     <UserCheck className="h-4.5 w-4.5" />
                   </span>
                   <div>
-                    <Label className="text-sm font-bold">Anonymous Contributions</Label>
+                    <Label htmlFor="anonymous-contributions" className="text-sm font-bold">Anonymous Contributions</Label>
                     <p className="text-xs text-muted-foreground">
                       Mask your name by default on public group contributor feeds.
                     </p>
                   </div>
                 </div>
                 <Switch
+                  id="anonymous-contributions"
                   checked={userData.preferences.anonymousContributions}
                   onCheckedChange={(checked) =>
                     handlePreferenceChange("anonymousContributions", checked)
@@ -731,18 +739,29 @@ const UserSettingsForm = () => {
                   <div>
                     <Label className="text-sm font-bold">Activity &amp; Governance Alerts</Label>
                     <p className="text-xs text-muted-foreground">
-                      Receive alerts for deposits, votes, invitations, and account updates.
+                      Receive alerts for votes, invitations, and account activity.
                     </p>
                   </div>
                 </div>
                 <Switch
+                  aria-label="Activity and governance alerts"
                   checked={userData.preferences.notificationsEnabled}
                   onCheckedChange={(checked) =>
                     handlePreferenceChange("notificationsEnabled", checked)
                   }
                 />
               </div>
+              {([
+                ["walletNotifications", "Wallet payment alerts", "Deposits, outgoing transfers, and refunds to your wallet."],
+                ["groupNotifications", "Group payment alerts", "Money received by your groups and verified bank contributions."],
+              ] as const).map(([key, label, description]) => (
+                <div key={key} className="flex items-center justify-between gap-4 p-5">
+                  <div><Label htmlFor={key} className="text-sm font-bold">{label}</Label><p className="text-xs text-muted-foreground">{description}</p></div>
+                  <Switch id={key} checked={userData.preferences[key]} onCheckedChange={(value) => handlePreferenceChange(key, value)} />
+                </div>
+              ))}
             </div>
+            <DeviceNotificationSettings />
           </TabsContent>
         </Tabs>
 

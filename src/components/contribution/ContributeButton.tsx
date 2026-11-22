@@ -23,6 +23,7 @@ import { GroupRules, groupRuleColumns } from './GroupRules';
 import type { GroupRuleDetails } from './GroupRules';
 import { supabase } from '@/integrations/supabase/client';
 import { WalletService } from '@/services/supabase/walletService';
+import { Switch } from '@/components/ui/switch';
 
 interface ContributeButtonProps {
   groupId: string;
@@ -49,6 +50,8 @@ export function ContributeButton({
   const [isProcessing, setIsProcessing] = useState(false);
   const [receipt, setReceipt] = useState<CollectiPayReceiptData | null>(null);
   const { user, refreshCurrentUser } = useSupabaseUser();
+  const [anonymousOverride, setAnonymousOverride] = useState<boolean>();
+  const isAnonymous = anonymousOverride ?? (user?.preferences as { anonymousContributions?: boolean } | null)?.anonymousContributions === true;
   const [preview, setPreview] = useState<{ id: string; rules: GroupRuleDetails | null }>();
   const [rulesRetry, retryRules] = useState(0);
   const groupRules = rules ?? (preview?.id === groupId ? preview.rules : undefined);
@@ -75,7 +78,7 @@ export function ContributeButton({
       const checkout = await WalletService.createPaymentInvoice({
         amount: parsedAmount, description: `Contribution to ${groupName}`,
         customerEmail: user.email, customerName: user.name || user.email,
-        userId: user.id, contributionId: groupId,
+        userId: user.id, contributionId: groupId, anonymous: isAnonymous,
       });
       if (checkout?.checkoutUrl) window.location.assign(checkout.checkoutUrl);
     } finally {
@@ -89,6 +92,7 @@ export function ContributeButton({
     if (!open) {
       setReceipt(null);
       setPreview(undefined);
+      setAnonymousOverride(undefined);
     }
   };
 
@@ -137,7 +141,7 @@ export function ContributeButton({
         user.id,
         groupId,
         contributionAmount,
-        false,
+        isAnonymous,
         verifiedPin
       );
 
@@ -222,7 +226,7 @@ export function ContributeButton({
           className={cn(
             receipt
               ? 'max-h-[92dvh] max-w-md overflow-y-auto border-none bg-transparent p-2 shadow-none sm:p-4'
-              : 'max-w-md rounded-2xl'
+              : 'max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-md overflow-y-auto rounded-2xl'
           )}
         >
           {receipt ? (
@@ -313,6 +317,10 @@ export function ContributeButton({
                   </Alert>
                 )}
 
+                <label className="flex min-h-11 items-center justify-between gap-3 rounded-xl border px-3 text-sm font-medium">
+                  Hide my name from the group
+                  <Switch checked={isAnonymous} onCheckedChange={setAnonymousOverride} disabled={isProcessing} />
+                </label>
                 <Button
                   onClick={handleStartContribution}
                   disabled={isProcessing || !groupRules || !validAmount || !hasBalance}

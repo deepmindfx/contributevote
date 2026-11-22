@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
 import { UserService } from '@/services/supabase/userService';
 import { SyncService } from '@/services/supabase/syncService';
-import { NotificationService, NotificationRecord } from '@/services/supabase/notificationService';
+import { notificationAllowed, NotificationService, NotificationRecord } from '@/services/supabase/notificationService';
+import { disablePush } from '@/services/pwa';
 import { Database } from '@/integrations/supabase/types';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -45,7 +46,8 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
 
   const isAuthenticated = !!user;
   const isAdmin = user?.role === 'admin';
-  const unreadNotificationCount = notifications.filter((n) => !n.is_read).length;
+  const visibleNotifications = notifications.filter((n) => n.user_id === user?.id && notificationAllowed(n.type, user?.preferences));
+  const unreadNotificationCount = visibleNotifications.filter((n) => !n.is_read).length;
 
   const fetchNotificationsForUser = useCallback(async (userId: string) => {
     const data = await NotificationService.getUserNotifications(userId);
@@ -411,6 +413,7 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
+    await Promise.race([disablePush().catch(() => undefined), new Promise<void>((resolve) => window.setTimeout(resolve, 1500))]);
     try {
       await supabase.auth.signOut();
     } catch (error) {
@@ -428,7 +431,7 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         users,
-        notifications,
+        notifications: visibleNotifications,
         unreadNotificationCount,
         isAdmin,
         isAuthenticated,

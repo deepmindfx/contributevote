@@ -18,6 +18,7 @@ interface InvoiceRequest {
   contractCode?: string;
   redirectUrl: string;
   groupId?: string;
+  anonymous?: boolean;
 }
 
 Deno.serve(async (req: Request) => {
@@ -46,7 +47,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const supabaseAdmin = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
-    const { data: profile } = await supabaseAdmin.from('profiles').select('status').eq('id', user.id).maybeSingle();
+    const { data: profile } = await supabaseAdmin.from('profiles').select('status,preferences').eq('id', user.id).maybeSingle();
     if (!profile || (profile.status && profile.status !== 'active')) throw new Error('This account cannot start checkout.');
     const config = await getFlutterwaveConfig({ supabaseAdmin });
     if (!config.secretKey) {
@@ -73,6 +74,8 @@ Deno.serve(async (req: Request) => {
     const paymentReference = 'CP_CHECKOUT_' + crypto.randomUUID();
     const { error: intentError } = await supabaseAdmin.from('checkout_intents').insert({
       reference: paymentReference, user_id: user.id, group_id: body.groupId || null, amount,
+      anonymous: Boolean(body.groupId) && (typeof body.anonymous === 'boolean'
+        ? body.anonymous : profile.preferences?.anonymousContributions === true),
     });
     if (intentError) throw new Error('Could not start checkout.');
 
