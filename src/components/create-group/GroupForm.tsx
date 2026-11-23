@@ -14,7 +14,7 @@ import {
   createGroupWithFee,
   saveUserBvn,
 } from "@/services/supabase/groupEnhancementService";
-import { compressBannerImage, formatByteSize } from "@/lib/imageCompression";
+import { compressBannerImage, formatByteSize, readFileAsDataUrl } from "@/lib/imageCompression";
 import { uploadGroupCoverImage } from "@/services/supabase/groupImageService";
 import {
   AlertDialog,
@@ -108,20 +108,15 @@ function AccountGroupForm({ owner }: { owner: string }) {
   const [verifyingBvn, setVerifyingBvn] = useState(false);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
+  const coverSelection = useRef(0);
 
   useEffect(() => {
     mounted.current = true;
     return () => { mounted.current = false; };
   }, []);
 
-  useEffect(() => {
-    return () => {
-      if (coverPreviewUrl) URL.revokeObjectURL(coverPreviewUrl);
-    };
-  }, [coverPreviewUrl]);
-
   const handleCoverSelect = async (file: File | null) => {
-    if (coverPreviewUrl) URL.revokeObjectURL(coverPreviewUrl);
+    const selection = ++coverSelection.current;
     if (!file) {
       setCoverFile(null);
       setCoverPreviewUrl(null);
@@ -146,15 +141,19 @@ function AccountGroupForm({ owner }: { owner: string }) {
       const optimizedFile = new File([compressed.blob], `${baseName}.${compressed.ext}`, {
         type: compressed.mimeType,
       });
+      const preview = await readFileAsDataUrl(compressed.blob);
+      if (!mounted.current || coverSelection.current !== selection) return;
       setCoverFile(optimizedFile);
-      setCoverPreviewUrl(URL.createObjectURL(compressed.blob));
+      setCoverPreviewUrl(preview);
       if (compressed.originalBytes > compressed.compressedBytes) {
         toast.success(
           `Cover photo optimized (${formatByteSize(compressed.originalBytes)} → ${formatByteSize(compressed.compressedBytes)} HD)`
         );
       }
-    } catch (err: any) {
-      toast.error(err?.message || "Could not process the selected cover photo.");
+    } catch (error) {
+      if (mounted.current && coverSelection.current === selection) {
+        toast.error(error instanceof Error ? error.message : "Could not process the selected cover photo.");
+      }
     }
   };
 

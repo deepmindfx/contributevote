@@ -47,7 +47,7 @@ export function formatByteSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function readFileAsDataUrl(blob: Blob): Promise<string> {
+export function readFileAsDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onloadend = () => {
@@ -62,22 +62,18 @@ function readFileAsDataUrl(blob: Blob): Promise<string> {
   });
 }
 
-function loadImageElement(file: File): Promise<HTMLImageElement> {
+async function loadImageElement(file: File): Promise<HTMLImageElement> {
+  // The hosted image policy permits data URLs for local photos.
+  const dataUrl = await readFileAsDataUrl(file);
   return new Promise((resolve, reject) => {
     const img = new Image();
-    const objectUrl = URL.createObjectURL(file);
-
-    img.onload = () => {
-      URL.revokeObjectURL(objectUrl);
-      resolve(img);
-    };
+    img.onload = () => resolve(img);
 
     img.onerror = () => {
-      URL.revokeObjectURL(objectUrl);
       reject(new Error("The selected file could not be decoded as an image."));
     };
 
-    img.src = objectUrl;
+    img.src = dataUrl;
   });
 }
 
