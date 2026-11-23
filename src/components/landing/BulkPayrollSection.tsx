@@ -15,7 +15,7 @@ export function BulkPayrollSection({ isAuthenticated }: { isAuthenticated: boole
         <div className="landing-section-heading" data-scroll-reveal>
           <p className="landing-payroll-category">Bulk transfers</p>
           <h2 id="payroll-title">Pay your team in one batch.</h2>
-          <p>Upload a payroll CSV, verify each bank account, and authorize the whole batch with one PIN. See fees and VAT before sending, then track each payment.</p>
+          <p>Choose each bank by name or upload a payroll CSV. Check verified recipients, fees, and VAT, then authorize the whole batch with one PIN.</p>
           <div className="landing-actions">
             <Link to={isAuthenticated ? "/transfer/bulk" : "/auth?mode=signup&redirect=%2Ftransfer%2Fbulk"} className="landing-button landing-button-primary">
               Open bulk transfers <ArrowUpRight size={18} aria-hidden="true" />

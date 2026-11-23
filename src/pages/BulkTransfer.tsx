@@ -18,7 +18,7 @@ import { getBulkTransferBatch, getBulkTransferHistory, getBulkTransferSettings, 
 const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const batchDate = new Intl.DateTimeFormat("en-NG", { timeZone: "Africa/Lagos", month: "short", day: "numeric" });
 const steps = [
-  { label: "Upload", icon: UploadCloud },
+  { label: "Recipients", icon: UploadCloud },
   { label: "Review", icon: ListChecks },
   { label: "Track", icon: Activity },
 ];

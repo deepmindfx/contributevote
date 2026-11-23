@@ -1,4 +1,4 @@
-bank_code,account_number,amount,narration
-044,XXXXXXXXXX,125000.00,Monthly salary
-058,XXXXXXXXXX,95000.00,Monthly salary
-011,XXXXXXXXXX,80000.00,Monthly salary
+bank_name,account_number,amount,narration
+Access Bank,XXXXXXXXXX,125000.00,Monthly salary
+Guaranty Trust Bank,XXXXXXXXXX,95000.00,Monthly salary
+First Bank PLC,XXXXXXXXXX,80000.00,Monthly salary

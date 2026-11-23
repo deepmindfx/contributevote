@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { ArrowDownLeft, BadgeCheck, FileSpreadsheet } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { useBankDirectory } from "@/hooks/useBankDirectory";
 import { cn } from "@/lib/utils";
 import type { BulkTransferBatch } from "@/services/supabase/bulkTransferService";
 
@@ -18,6 +19,8 @@ export function BulkTransferDetails({ batch, showReferences = false, actions }: 
   showReferences?: boolean;
   actions?: ReactNode;
 }) {
+  const { data: banks } = useBankDirectory(Boolean(batch.recipients?.length));
+  const bankNames = new Map(banks?.map((bank) => [bank.code, bank.name]));
   const costRows = [
     { label: "Recipient amounts", amount: batch.principal },
     { label: "Transfer fees", amount: batch.fee },
@@ -72,7 +75,7 @@ export function BulkTransferDetails({ batch, showReferences = false, actions }: 
               <li key={row.reference} className="grid gap-2 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-4">
                 <div className="min-w-0 break-words [overflow-wrap:anywhere]">
                   <p className="text-sm font-semibold leading-snug">{row.beneficiary_name}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{row.account_number} · Bank {row.account_bank}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{row.account_number} · {bankNames.get(row.account_bank) ?? `Bank ${row.account_bank}`}</p>
                   {row.narration && <p className="text-xs text-muted-foreground">{row.narration}</p>}
                   {row.message && <p className="text-xs text-muted-foreground">{row.message}</p>}
                   {showReferences && <p className="break-all font-mono text-xs text-muted-foreground">{row.reference}</p>}

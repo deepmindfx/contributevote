@@ -1,10 +1,21 @@
+import type { BankOption } from "@/services/supabase/beneficiaryService";
+
 export type BulkRecipientInput = { account_bank: string; account_number: string; amount: number; narration: string };
 
 export const PAYROLL_CSV_NAME = "collectipay-payroll-example.csv";
 export const PAYROLL_CSV_URL = `/templates/${PAYROLL_CSV_NAME}`;
 export const BULK_CSV_MAX_BYTES = 100_000;
 
-export function parseBulkTransferCsv(source: string): BulkRecipientInput[] {
+export function parseBulkAmount(value: string) {
+  const amount = Number(value.replace(/,/g, ""));
+  return /^(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d{1,2})?$/.test(value) && amount >= 100 && amount <= 500000 ? amount : null;
+}
+
+function bankNameKey(name: string) {
+  return name.normalize("NFKC").toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+export function parseBulkTransferCsv(source: string, banks: readonly BankOption[]): BulkRecipientInput[] {
   const csv = source.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
   const rows: string[][] = [];
   let row: string[] = [];
@@ -33,24 +44,32 @@ export function parseBulkTransferCsv(source: string): BulkRecipientInput[] {
   }
   if (quoted) throw new Error("A quoted CSV field is incomplete.");
   const header = rows.shift()?.map((key) => key.toLowerCase()) ?? [];
-  if (!["bank_code", "account_number", "amount"].every((key) => header.includes(key)) || new Set(header).size !== header.length) {
-    throw new Error("Use the CSV template with bank_code, account_number and amount columns.");
+  if (!["account_number", "amount"].every((key) => header.includes(key)) ||
+    !header.some((key) => key === "bank_name" || key === "bank_code") || new Set(header).size !== header.length) {
+    throw new Error("Use the CSV template with bank_name, account_number and amount columns. Existing files with bank_code also work.");
   }
   if (rows.length < 2 || rows.length > 50) throw new Error("Enter between 2 and 50 recipients.");
   const column = (cells: string[], key: string) => cells[header.indexOf(key)] ?? "";
   return rows.map((cells, index) => {
-    const account_bank = column(cells, "bank_code");
+    const rowNumber = index + 2;
+    const code = column(cells, "bank_code");
+    const name = column(cells, "bank_name");
     const account_number = column(cells, "account_number");
     if (account_number === "XXXXXXXXXX") {
-      throw new Error(`Replace the example account number in row ${index + 2} with the recipient’s 10-digit account number.`);
+      throw new Error(`Replace the example account number in row ${rowNumber} with the recipient’s 10-digit account number.`);
     }
-    const amountText = column(cells, "amount");
-    const amount = Number(amountText.replace(/,/g, ""));
+    const amount = parseBulkAmount(column(cells, "amount"));
     const narration = column(cells, "narration").replace(/\s+/g, " ");
-    if (cells.length !== header.length || !/^[0-9a-z]{2,12}$/i.test(account_bank) || !/^\d{10}$/.test(account_number) ||
-      !/^(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d{1,2})?$/.test(amountText) || amount < 100 || amount > 500000 || narration.length > 120) {
-      throw new Error(`Review CSV row ${index + 2}. Use a bank code, a 10-digit account number and an amount between ₦100 and ₦500,000.`);
+    if (cells.length !== header.length || !/^\d{10}$/.test(account_number) || amount === null || narration.length > 120) {
+      throw new Error(`Review CSV row ${rowNumber}. Use a 10-digit account number, an amount between ₦100 and ₦500,000, and a narration of up to 120 characters.`);
     }
-    return { account_bank, account_number, amount, narration };
+    const nameKey = bankNameKey(name);
+    const matches = banks.filter((bank) => (!code || bank.code === code) && (!name || (
+      nameKey !== "" && (bankNameKey(bank.name) === nameKey || Array.from(bank.name.matchAll(/\(([^()]+)\)/g)).some((alias) => bankNameKey(alias[1]) === nameKey))
+    )));
+    if ((!code && !name) || matches.length !== 1) {
+      throw new Error(`Check the bank in CSV row ${rowNumber}. Copy its name from the bank directory or choose the bank in Add recipients.`);
+    }
+    return { account_bank: matches[0].code, account_number, amount, narration };
   });
 }

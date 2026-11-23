@@ -1,17 +1,18 @@
 import { useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, ChevronDown, Download, FileSpreadsheet, LoaderCircle, UploadCloud } from "lucide-react";
+import { ArrowRight, ChevronDown, Copy, Download, FileSpreadsheet, LoaderCircle, UploadCloud, UsersRound } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { bulkMoney } from "@/components/wallet/BulkTransferDetails";
+import { BulkTransferRecipientsForm } from "@/components/wallet/BulkTransferRecipientsForm";
+import { useBankDirectory } from "@/hooks/useBankDirectory";
 import { BULK_CSV_MAX_BYTES, PAYROLL_CSV_NAME, PAYROLL_CSV_URL, parseBulkTransferCsv } from "@/lib/bulkTransfers";
 import type { BulkRecipientInput } from "@/lib/bulkTransfers";
 import { cn } from "@/lib/utils";
-import { SupabaseApiService } from "@/services/supabase/apiService";
-import type { BankOption } from "@/services/supabase/beneficiaryService";
 import type { BulkTransferSettings } from "@/services/supabase/bulkTransferService";
 
 type CsvUpload =
@@ -19,26 +20,48 @@ type CsvUpload =
   | { status: "invalid"; name: string; error: string }
   | { status: "ready"; name: string; recipients: BulkRecipientInput[]; principal: number };
 
-export function BulkTransferUpload({ settings, busy, error, onEdit, onReview }: {
+type UploadProps = {
   settings: BulkTransferSettings;
   busy: boolean;
   error: string;
   onEdit: () => void;
   onReview: (title: string, recipients: BulkRecipientInput[]) => Promise<void>;
-}) {
+};
+
+export function BulkTransferUpload(props: UploadProps) {
+  const [mode, setMode] = useState("manual");
+  return (
+    <Tabs value={mode} onValueChange={(next) => { setMode(next); props.onEdit(); }}>
+      <TabsList className="mb-2 grid h-11 w-full grid-cols-2 rounded-xl" aria-label="Choose how to add recipients">
+        <TabsTrigger value="manual" className="gap-1.5 rounded-lg" disabled={props.busy}><UsersRound size={16} aria-hidden="true" /> Add recipients</TabsTrigger>
+        <TabsTrigger value="csv" className="gap-1.5 rounded-lg" disabled={props.busy}><FileSpreadsheet size={16} aria-hidden="true" /> Import CSV</TabsTrigger>
+      </TabsList>
+      <TabsContent value="manual" forceMount className="data-[state=inactive]:hidden">
+        <BulkTransferRecipientsForm {...props} active={mode === "manual"} />
+      </TabsContent>
+      <TabsContent value="csv" forceMount className="data-[state=inactive]:hidden">
+        <BulkTransferCsvUpload {...props} active={mode === "csv"} />
+      </TabsContent>
+    </Tabs>
+  );
+}
+
+function BulkTransferCsvUpload({ settings, active, busy, error, onEdit, onReview }: UploadProps & { active: boolean }) {
   const [upload, setUpload] = useState<CsvUpload>();
   const [title, setTitle] = useState("");
   const selectedFile = useRef(0);
+  const banks = useBankDirectory(active);
+  const fileDisabled = busy || !banks.data;
 
   const useFile = async (file?: File) => {
-    if (!file || busy) return;
+    if (!file || busy || !banks.data) return;
     const selection = ++selectedFile.current;
     onEdit();
     setUpload({ status: "reading", name: file.name });
     try {
       if (!/\.csv$/i.test(file.name)) throw new Error("Choose a .csv file.");
       if (file.size > BULK_CSV_MAX_BYTES) throw new Error("Choose a CSV file up to 100 KB.");
-      const recipients = parseBulkTransferCsv(await file.text());
+      const recipients = parseBulkTransferCsv(await file.text(), banks.data);
       if (selectedFile.current !== selection) return;
       const principal = recipients.reduce((sum, row) => sum + Math.round(row.amount * 100), 0) / 100;
       setUpload({ status: "ready", name: file.name, recipients, principal });
@@ -73,14 +96,18 @@ export function BulkTransferUpload({ settings, busy, error, onEdit, onReview }: 
               <PayrollCsvDownload />
             </div>
             <p id="bulk-file-instructions" className="mt-1 text-sm text-muted-foreground">
-              Upload a CSV with 2–{settings.max_recipients} recipients, up to {bulkMoney(settings.max_batch_amount)} per batch.
+              Import up to {settings.max_recipients} recipients. Use the bank name shown in the directory.
             </p>
           </div>
+          {!banks.data && (banks.isError ? <div className="flex flex-wrap items-center gap-2 text-sm">
+            <p role="alert">Couldn’t load the bank directory.</p>
+            <Button type="button" variant="outline" size="sm" onClick={() => void banks.refetch()}>Retry</Button>
+          </div> : <p role="status" className="text-sm text-muted-foreground">Loading banks…</p>)}
           <div onDragOver={(event) => event.preventDefault()} onDrop={(event) => {
             event.preventDefault();
             void useFile(event.dataTransfer.files[0]);
           }}>
-            <input id="recipient-csv" type="file" accept=".csv,text/csv" disabled={busy}
+            <input id="recipient-csv" type="file" accept=".csv,text/csv" disabled={fileDisabled}
               aria-describedby={issue ? "bulk-file-instructions bulk-file-error" : "bulk-file-instructions"}
               className="peer sr-only" onChange={(event) => {
                 const file = event.currentTarget.files?.[0];
@@ -89,7 +116,7 @@ export function BulkTransferUpload({ settings, busy, error, onEdit, onReview }: 
               }} />
             <label htmlFor="recipient-csv" className={cn(
               "flex min-w-0 cursor-pointer items-center gap-3 rounded-2xl border border-dashed border-primary/40 bg-accent/35 p-4 transition-colors hover:border-primary hover:bg-accent/65 peer-focus-visible:ring-2 peer-focus-visible:ring-ring sm:p-5",
-              busy && "pointer-events-none opacity-60",
+              fileDisabled && "pointer-events-none opacity-60",
             )}>
               <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary sm:size-12">
                 {upload?.status === "reading"
@@ -157,30 +184,32 @@ function PayrollCsvDownload() {
 function BulkCsvGuide() {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const banks = useQuery({
-    queryKey: ["nigerian-bank-directory"], enabled: open, staleTime: 15 * 60_000, retry: false,
-    queryFn: async (): Promise<BankOption[]> => {
-      const result = await SupabaseApiService.getBanks();
-      if (!Array.isArray(result?.data) || !result.data.length) throw new Error("Bank directory is unavailable.");
-      return result.data;
-    },
-  });
+  const banks = useBankDirectory(open);
   const term = search.trim().toLowerCase();
   const matches = banks.data?.filter(({ name, code }) => name.toLowerCase().includes(term) || String(code).includes(term));
   return (
     <details onToggle={(event) => setOpen(event.currentTarget.open)} className="group rounded-xl border px-3 text-sm">
       <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-2 font-medium [&::-webkit-details-marker]:hidden">
-        CSV format and bank codes <ChevronDown size={16} aria-hidden="true" className="shrink-0 transition-transform group-open:rotate-180 motion-reduce:transition-none" />
+        CSV format and bank names <ChevronDown size={16} aria-hidden="true" className="shrink-0 transition-transform group-open:rotate-180 motion-reduce:transition-none" />
       </summary>
       {open && <div className="space-y-2 pb-3">
-        <code className="block rounded-lg bg-muted/70 p-2 text-xs [overflow-wrap:anywhere]">bank_code,account_number,amount,narration</code>
-        <p className="break-words text-xs leading-relaxed text-muted-foreground">Set the bank code and account number columns to text in your spreadsheet to preserve leading zeros. Amounts are in naira, and narration is optional.</p>
-        <Input aria-label="Search bank codes" placeholder="Search bank name or code" value={search} onChange={(event) => setSearch(event.target.value)} className="h-10 rounded-lg" />
+        <code className="block rounded-lg bg-muted/70 p-2 text-xs [overflow-wrap:anywhere]">bank_name,account_number,amount,narration</code>
+        <p className="break-words text-xs leading-relaxed text-muted-foreground">Copy the bank name below. Format account numbers as text to keep leading zeros. Older files with a bank code column also work.</p>
+        <Input aria-label="Search bank names" placeholder="Search for a bank" value={search} onChange={(event) => setSearch(event.target.value)} className="h-10 rounded-lg" />
         {banks.isPending && <p role="status" className="text-xs text-muted-foreground">Loading banks…</p>}
         {banks.isError && <Button type="button" variant="outline" size="sm" onClick={() => void banks.refetch()}>Reload banks</Button>}
         {matches?.length === 0 && <p className="text-xs text-muted-foreground">No matching banks.</p>}
-        <ul className="max-h-40 divide-y overflow-y-auto pr-2" aria-label="Bank codes">
-          {matches?.map(({ name, code }) => <li key={`${code}-${name}`} className="flex items-baseline justify-between gap-3 py-2"><span>{name}</span><span className="font-mono text-muted-foreground">{code}</span></li>)}
+        <ul className="max-h-40 divide-y overflow-y-auto pr-2" aria-label="Bank names">
+          {matches?.map(({ name, code }) => (
+            <li key={code} className="flex items-center justify-between gap-2 py-1.5">
+              <span className="min-w-0 break-words">{name}</span>
+              <Button type="button" variant="ghost" size="icon" className="size-9 shrink-0" aria-label={`Copy ${name}`}
+                onClick={async () => {
+                  try { await navigator.clipboard.writeText(name); toast.success("Bank name copied"); }
+                  catch { toast.error("Couldn’t copy the bank name."); }
+                }}><Copy size={15} aria-hidden="true" /></Button>
+            </li>
+          ))}
         </ul>
       </div>}
     </details>
