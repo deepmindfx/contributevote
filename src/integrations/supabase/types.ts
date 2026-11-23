@@ -270,6 +270,7 @@ export type Database = {
           is_verified: boolean
           name: string
           privacy: string | null
+          share_slug: string
           spotlight_label: string | null
           start_date: string | null
           status: string | null
@@ -305,6 +306,7 @@ export type Database = {
           is_verified?: boolean
           name: string
           privacy?: string | null
+          share_slug?: string
           spotlight_label?: string | null
           start_date?: string | null
           status?: string | null
@@ -340,6 +342,7 @@ export type Database = {
           is_verified?: boolean
           name?: string
           privacy?: string | null
+          share_slug?: string
           spotlight_label?: string | null
           start_date?: string | null
           status?: string | null
@@ -749,6 +752,12 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      payment_alert_sounds: {
+        Row: { kind: string; object_path: string | null; updated_at: string }
+        Insert: { kind: string; object_path?: string | null; updated_at?: string }
+        Update: { kind?: string; object_path?: string | null; updated_at?: string }
+        Relationships: []
       }
       platform_payment_settings: {
         Row: {
@@ -1263,6 +1272,10 @@ export type Database = {
           p_webhook_url?: string
         }
         Returns: Json
+      }
+      admin_set_payment_alert_sound: {
+        Args: { p_kind: string; p_object_path: string | null }
+        Returns: string | null
       }
       admin_scan_aml_alerts: { Args: never; Returns: Json }
       admin_toggle_verified_organizer: {

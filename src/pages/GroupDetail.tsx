@@ -315,6 +315,7 @@ export default function GroupDetail() {
               {isPublic && isActive && (
                 <ShareGroupButton
                   groupId={group.id}
+                  shareSlug={group.share_slug}
                   groupName={group.name}
                   groupDescription={group.description || ""}
                   category={group.category}
@@ -395,7 +396,7 @@ export default function GroupDetail() {
                       accountName={accountName}
                       category={group.category}
                       coverUrl={group.cover_image_url}
-                      joinLink={isPublic && isActive ? GroupJoinService.generateShareLink(group.id) : undefined}
+                      joinLink={isPublic && isActive ? GroupJoinService.generateShareLink(group.id, group.share_slug) : undefined}
                       active={isActive && Boolean(bankName)}
                     />
                     {isActive && (

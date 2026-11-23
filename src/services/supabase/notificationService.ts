@@ -18,6 +18,11 @@ export function paymentVibrationEnabled(preferences: unknown) {
   return value !== false && value !== "false";
 }
 
+export function paymentSoundEnabled(preferences: unknown) {
+  const value = (preferences as { paymentSound?: unknown } | null)?.paymentSound;
+  return value !== false && value !== "false";
+}
+
 export interface NotificationRecord {
   id: string;
   user_id: string;

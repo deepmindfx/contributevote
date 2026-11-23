@@ -1,6 +1,10 @@
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+const uuid = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
+const shareSlug = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const publicGroupColumns = 'id,share_slug,name,description,category,privacy,cover_image_url,target_amount,frequency,contribution_amount,end_date,enable_voting_rights,voting_threshold';
+
 export interface JoinGroupResult {
   success: boolean;
   message?: string;
@@ -97,29 +101,27 @@ export const GroupJoinService = {
   /**
    * Get group info for join page (public groups only)
    */
-  async getPublicGroupInfo(groupId: string) {
-    try {
-      const { data: group, error } = await supabase
-        .from('contribution_groups')
-        .select('*')
-        .eq('id', groupId)
-        .eq('privacy', 'public')
-        .single();
-
-      if (error) throw error;
-      return group.status === "active" && !group.archived ? group : null;
-    } catch (error) {
-      console.error('Error getting public group info:', error);
-      return null;
-    }
+  async getPublicGroupInfo(groupLink: string) {
+    const key = groupLink.toLowerCase();
+    if (key.length > 80 || !shareSlug.test(key)) return null;
+    const { data: group, error } = await supabase
+      .from('contribution_groups')
+      .select(publicGroupColumns)
+      .eq(uuid.test(key) ? 'id' : 'share_slug', key)
+      .eq('privacy', 'public')
+      .eq('status', 'active')
+      .or('archived.is.null,archived.eq.false')
+      .maybeSingle();
+    if (error) throw error;
+    return group;
   },
 
-  /**
-   * Generate shareable link for a group
-   */
-  generateShareLink(groupId: string): string {
-    const baseUrl = window.location.origin;
-    return `${baseUrl}/join/${groupId}`;
+  getJoinPath(groupId: string, slug?: string | null): string {
+    return `/join/${encodeURIComponent(slug && shareSlug.test(slug) ? slug : groupId)}`;
+  },
+
+  generateShareLink(groupId: string, slug?: string | null): string {
+    return window.location.origin + GroupJoinService.getJoinPath(groupId, slug);
   },
 
   /**

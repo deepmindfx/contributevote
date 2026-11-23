@@ -40,12 +40,13 @@
 - Executed every 15 minutes by `pg_cron` → `process-scheduled-contributions` Edge Function via `contribute_from_wallet` RPC, updating execution timestamps and recording failure reasons (e.g., insufficient balance).
 
 ## 7. Discovery, Invitations, Receipts & Notifications
-- **Discovery** (`/discover`): Unauthenticated and authenticated users can browse, search, filter, and sort active public groups and join via `/join/:id`.
+- **Discovery** (`/discover`): Visitors can browse, search, filter, and sort active public groups and join via a stable `/join/:slug` link. Previously shared UUID links continue to resolve to the original public group. Private invitations use their existing tokens.
 - **Group invitations** (`InviteMembersDialog` & `/invite/:token`): Creators can enter an email or pick one from device contacts on supported browsers. Seven-day links can be copied, shared, or opened in the email app. Invitees see the group rules before joining, and `accept_group_invitation` checks the verified email and records membership atomically.
 - **Receipts & Reports**: Individual PNG/PDF receipts (`ModernReceipt`) and full contributor PDF statements (`PDFGenerator`) via `ContributionHistoryDialog`.
 - **Notifications**: Real-time Supabase `notifications` feed rendered in both `Header` and `Dashboard` with unread badges and one-click mark-read / navigation.
 - **Monthly activity** — Activity shows settled wallet flows for the selected month in Africa/Lagos time and exports a PDF statement. Group owners have a separate Insights tab for contributions, outside transfers, withdrawals, refunds, and fees.
 - **Device notifications** — Preferences control wallet, group, and governance alerts independently. Users can enable device notifications after browser permission. System alerts show an amount and payment category. Full sender details are available inside CollectiPay.
+- **In-app payment sounds** — Fresh incoming wallet and group payments play their own MP3 when the app is open and the browser permits audio. Payment sounds are on by default. Users can turn them off separately from vibration in Settings → Preferences. Admin Settings can replace or restore either track.
 
 ## 8. Super Admin Fintech Operations, Penalties & AML Compliance
 - **Live Mechanical Split-Flap User Counter** (`FlipCounterHero`): Real-time 3D split-flap growth board on `/admin` subscribed to `profiles` `INSERT` events via Supabase Realtime, with a **Big Screen Display** fullscreen mode and live KPI tickers (BVN verified, active pools, liquidity, outside payments).

@@ -10,6 +10,7 @@ import {
 } from "@/components/contribution/VerifiedCrowdfunderBadge";
 import { getCategoryLabel } from "@/services/supabase/groupEnhancementService";
 import { supabase } from "@/integrations/supabase/client";
+import { GroupJoinService } from "@/services/supabase/groupJoinService";
 import { cn } from "@/lib/utils";
 
 interface GroupCardProps {
@@ -72,7 +73,7 @@ export default function GroupCard({ group }: GroupCardProps) {
   }, [group.id, group.creator_id]);
 
   const handlePrimaryAction = () => {
-    navigate(isMember ? `/groups/${group.id}` : `/join/${group.id}`);
+    navigate(isMember ? `/groups/${group.id}` : GroupJoinService.getJoinPath(group.id, group.share_slug));
   };
 
   return (

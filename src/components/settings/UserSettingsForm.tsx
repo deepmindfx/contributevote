@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { DeviceNotificationSettings } from "./DeviceNotificationSettings";
-import { notificationAllowed, paymentVibrationEnabled } from "@/services/supabase/notificationService";
+import { notificationAllowed, paymentSoundEnabled, paymentVibrationEnabled } from "@/services/supabase/notificationService";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -63,6 +63,7 @@ const UserSettingsForm = () => {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState<SettingsTab>(() => resolveSettingsTab(searchParams.get("tab")));
   const dirtyRef = useRef(false);
+  const paymentSoundEdited = useRef(false);
   const syncedUserIdRef = useRef<string | null>(user?.id ?? null);
 
   const existingPrefs = (user?.preferences || {}) as Record<string, any>;
@@ -82,6 +83,7 @@ const UserSettingsForm = () => {
       walletNotifications: notificationAllowed("wallet_deposit", existingPrefs),
       groupNotifications: notificationAllowed("group_payment_received", existingPrefs),
       paymentVibration: paymentVibrationEnabled(existingPrefs),
+      paymentSound: paymentSoundEnabled(existingPrefs),
     },
   });
 
@@ -129,6 +131,7 @@ const UserSettingsForm = () => {
     if (switchedUser) {
       syncedUserIdRef.current = user.id;
       dirtyRef.current = false;
+      paymentSoundEdited.current = false;
       setPreviewImage(null);
       setPhotoCompressionMeta(null);
     } else if (dirtyRef.current) {
@@ -151,6 +154,7 @@ const UserSettingsForm = () => {
         walletNotifications: notificationAllowed("wallet_deposit", prefs),
         groupNotifications: notificationAllowed("group_payment_received", prefs),
         paymentVibration: paymentVibrationEnabled(prefs),
+        paymentSound: paymentSoundEnabled(prefs),
       },
     });
   }, [user?.id, user?.name, user?.email, user?.phone, user?.preferences]);
@@ -193,6 +197,7 @@ const UserSettingsForm = () => {
 
   const handlePreferenceChange = (preference: string, value: boolean) => {
     dirtyRef.current = true;
+    if (preference === "paymentSound") paymentSoundEdited.current = true;
     if (preference === "darkMode") {
       applyAppearance(value);
     }
@@ -319,6 +324,7 @@ const UserSettingsForm = () => {
         walletNotifications: userData.preferences.walletNotifications,
         groupNotifications: userData.preferences.groupNotifications,
         paymentVibration: userData.preferences.paymentVibration,
+        ...(paymentSoundEdited.current && { paymentSound: userData.preferences.paymentSound }),
         username: userData.username.trim(),
       };
 
@@ -329,6 +335,7 @@ const UserSettingsForm = () => {
       });
 
       dirtyRef.current = false;
+      paymentSoundEdited.current = false;
       toast.success("Settings saved");
     } catch (error: any) {
       console.error("Error updating profile:", error);
@@ -783,7 +790,8 @@ const UserSettingsForm = () => {
               {([
                 ["walletNotifications", "Wallet payment alerts", "Deposits, outgoing transfers, and refunds to your wallet."],
                 ["groupNotifications", "Group payment alerts", "Money received by your groups and verified bank contributions."],
-                ["paymentVibration", "Payment vibration", "Vibrate when money arrives on supported devices. Turn this off to keep payment alerts silent."],
+                ["paymentSound", "Payment sounds", "Play a sound for incoming wallet and group payments while CollectiPay is open."],
+                ["paymentVibration", "Payment vibration", "Vibrate when money arrives on supported devices."],
               ] as const).map(([key, label, description]) => (
                 <div key={key} className="flex items-center justify-between gap-4 p-5">
                   <div><Label htmlFor={key} className="text-sm font-bold">{label}</Label><p className="text-xs text-muted-foreground">{description}</p></div>

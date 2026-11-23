@@ -83,6 +83,11 @@ Apply migrations `20261122040000_activity_and_push.sql` and `20261122040100_paym
 - Apply `20261123030000_atomic_profile_settings.sql` before publishing the frontend. Settings saves merge the submitted keys into the current profile row so concurrent photo and preference updates preserve each other.
 - Deploy `flutterwave-virtual-account` with JWT verification enabled. Group retries check Flutterwave when the original response supplied an order reference. If no reference came back, use the group's `GROUP_<group_id>_VA` reference to confirm the outcome with Flutterwave. After confirming the order belongs to that exact request, operations can record its `order_ref` in the existing unresolved `group_bank_account_setups.provider_account` object so the owner can retry. Clear a reservation only after Flutterwave confirms it issued no account for that request.
 
+### Payment alert sounds and public group links
+
+- Apply `20261123040000_public_group_share_slugs.sql` and `20261123041000_payment_alert_sounds.sql` before publishing the frontend. The first reserves stable group links while retaining UUID lookup. The second adds the user sound preference, the two admin-managed sound slots, and the MP3 storage bucket.
+- The frontend bundles both default MP3s. Admin Settings publishes replacements to `payment-alert-sounds` and can restore either default. Custom audio plays in the open app after browser interaction. Background notifications use device notification settings.
+
 ## 5. Hosting Configuration (Vercel & Netlify)
 - **Vercel** (`vercel.json`): Includes SPA fallback rewrites (`/(.*) -> /index.html`) plus CSP, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, and `Permissions-Policy`.
 - **Netlify** (`netlify.toml`): Includes `npm run build` → `dist`, SPA redirect `/* -> /index.html`, security headers, and immutable asset caching.

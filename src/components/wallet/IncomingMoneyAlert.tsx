@@ -1,18 +1,24 @@
 import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { toast } from "sonner";
 import type { NotificationRecord } from "@/services/supabase/notificationService";
+import { playPaymentAlertSound } from "@/services/paymentAlertAudio";
 import "./incoming-money-alert.css";
 
 const incoming = new Set(["wallet_deposit", "wallet_credit", "bank_transfer_received", "group_payment_received", "refund_completed"]);
 
-export function announcePayment(notification: NotificationRecord, vibrate: boolean) {
+export function announcePayment(notification: NotificationRecord, vibrate: boolean, sound: boolean) {
   const credit = incoming.has(notification.type);
   const sent = notification.type === "transfer_completed";
   const failed = notification.type === "transfer_failed";
   if ((!credit && !sent && !failed) || document.visibilityState !== "visible") return;
+  const groupPayment = notification.type === "group_payment_received" || notification.type === "bank_transfer_received";
+  if (sound) {
+    if (groupPayment) playPaymentAlertSound("group");
+    else if (notification.type === "wallet_deposit" || notification.type === "wallet_credit") playPaymentAlertSound("wallet");
+  }
   const amount = notification.message.match(/₦[\d,]+(?:\.\d{1,2})?/)?.[0];
   const detail = notification.type === "refund_completed" ? "Group refund"
-    : notification.type === "group_payment_received" || notification.type === "bank_transfer_received" ? "Group payment"
+    : groupPayment ? "Group payment"
     : credit ? "Wallet credit" : "Bank transfer";
   const title = credit ? "Money received" : sent ? "Transfer sent" : "Transfer failed";
   const Direction = credit ? ArrowDownLeft : ArrowUpRight;

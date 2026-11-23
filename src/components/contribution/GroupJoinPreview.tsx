@@ -20,11 +20,12 @@ type PreviewGroup = GroupRuleDetails & {
   spotlight_label?: string | null;
 };
 
-export function GroupJoinPreview({ group, loading, error, inviter, children }: {
+export function GroupJoinPreview({ group, loading, error, inviter, onRetry, children }: {
   group?: PreviewGroup | null;
   loading: boolean;
   error: string;
   inviter?: string;
+  onRetry?: () => void;
   children?: ReactNode;
 }) {
   const title = group?.name || (loading ? "Group preview" : "Group unavailable");
@@ -58,7 +59,10 @@ export function GroupJoinPreview({ group, loading, error, inviter, children }: {
               </div>
             </Card>
           ) : (
-            <Card className="rounded-2xl p-5 text-sm text-muted-foreground">{error}</Card>
+            <Card className="space-y-3 rounded-2xl p-5 text-sm text-muted-foreground">
+              <p>{error}</p>
+              {onRetry && <Button type="button" variant="outline" onClick={onRetry}>Retry</Button>}
+            </Card>
           )}
         </div>
       </main>

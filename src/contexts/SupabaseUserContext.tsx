@@ -2,7 +2,9 @@ import { createContext, useContext, useEffect, useState, useCallback, useRef, us
 import { UserService } from '@/services/supabase/userService';
 import type { User as AuthUser } from '@supabase/supabase-js';
 import { useQueryClient } from '@tanstack/react-query';
-import { notificationAllowed, notificationCategory, NotificationService, NotificationRecord, paymentVibrationEnabled } from '@/services/supabase/notificationService';
+import { notificationAllowed, notificationCategory, NotificationService, NotificationRecord, paymentSoundEnabled, paymentVibrationEnabled } from '@/services/supabase/notificationService';
+import { enablePaymentAlertAudio, setPaymentSoundOverrides } from '@/services/paymentAlertAudio';
+import { getPaymentSoundOverrides } from '@/services/supabase/paymentAlertSoundService';
 import { disablePush } from '@/services/pwa';
 import { Database } from '@/integrations/supabase/types';
 import {
@@ -127,7 +129,8 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
       groupChanged ||= category === 'group';
       const preferences = notificationPreferences.current;
       if (!row.is_read && notificationAllowed(row.type, preferences)) {
-        announcePayment(row, paymentVibrationEnabled(preferences));
+        const playSound = paymentSoundEnabled(preferences) && (fromRealtime || Date.now() - Date.parse(row.created_at) < 30_000);
+        announcePayment(row, paymentVibrationEnabled(preferences), playSound);
       }
     }
     if (!fromRealtime) known.initialized = true;
@@ -147,6 +150,10 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
   }, [recordNotifications]);
 
   const liveUserId = user?.id;
+  const enablePaymentSounds = Boolean(liveUserId && paymentSoundEnabled(user?.preferences));
+  useEffect(() => {
+    if (enablePaymentSounds) return enablePaymentAlertAudio();
+  }, [liveUserId, enablePaymentSounds]);
   const liveWalletBalance = user?.wallet_balance ?? null;
   useEffect(() => {
     if (!liveUserId) { lastWallet.current = undefined; return; }
@@ -370,9 +377,21 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
     let connected = false;
     let syncing = false;
     let lastSync = 0;
+    let soundFetchVersion = 0;
+    let lastSoundSync = 0;
+    const syncPaymentSounds = () => {
+      lastSoundSync = Date.now();
+      const version = ++soundFetchVersion;
+      void getPaymentSoundOverrides().then((overrides) => {
+        if (sessionOwner.current === id && version === soundFetchVersion) setPaymentSoundOverrides(overrides);
+      }, () => undefined);
+    };
+    syncPaymentSounds();
 
     const syncVisibleData = (wake = false) => {
-      if (syncing || sessionOwner.current !== id || document.visibilityState !== 'visible' || !navigator.onLine) return;
+      if (sessionOwner.current !== id || document.visibilityState !== 'visible' || !navigator.onLine) return;
+      if (Date.now() - lastSoundSync > 45_000) syncPaymentSounds();
+      if (syncing) return;
       if (!wake && Date.now() - lastSync < (connected ? 30_000 : 8_000)) return;
       syncing = true;
       lastSync = Date.now();
@@ -417,6 +436,7 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
           void fetchNotificationsForUser(id);
         }
       )
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'payment_alert_sounds' }, syncPaymentSounds)
       .subscribe((status) => {
         connected = status === 'SUBSCRIBED';
         if (status !== 'CLOSED') onWake();
@@ -429,6 +449,8 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
     navigator.serviceWorker?.addEventListener('message', onPush);
 
     return () => {
+      soundFetchVersion++;
+      setPaymentSoundOverrides({ wallet: null, group: null });
       window.clearInterval(timer);
       document.removeEventListener('visibilitychange', onWake);
       window.removeEventListener('online', onWake);

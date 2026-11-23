@@ -15,6 +15,7 @@ import type { GroupShareArtwork, GroupShareFormat, GroupShareTheme } from "./gro
 
 interface ShareGroupButtonProps {
   groupId: string;
+  shareSlug?: string | null;
   groupName: string;
   groupDescription?: string | null;
   category?: string | null;
@@ -33,13 +34,13 @@ const themes: { id: GroupShareTheme; label: string; color: string }[] = [
 ];
 
 export function ShareGroupButton({
-  groupId, groupName, groupDescription, category, coverUrl, targetAmount, currentAmount,
+  groupId, shareSlug, groupName, groupDescription, category, coverUrl, targetAmount, currentAmount,
   accountNumber, bankName, accountName,
 }: ShareGroupButtonProps) {
   const [format, setFormat] = useState<GroupShareFormat>("story");
   const [theme, setTheme] = useState<GroupShareTheme>("emerald");
   const [copied, setCopied] = useState<"link" | "caption">();
-  const link = GroupJoinService.generateShareLink(groupId);
+  const link = GroupJoinService.generateShareLink(groupId, shareSlug);
   const artwork = useMemo<GroupShareArtwork>(() => ({
     kind: "poster", name: groupName, category: getCategoryLabel(category || "community"), coverUrl, joinLink: link,
     description: groupDescription?.trim(), raised: currentAmount, target: targetAmount, theme, format,
