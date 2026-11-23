@@ -1,2 +1,2 @@
 /*
-  Content-Security-Policy: default-src *; script-src * 'unsafe-inline' 'unsafe-eval'; style-src * 'unsafe-inline'; img-src * data:; connect-src *; frame-src *;
+  Content-Security-Policy: default-src *; script-src * 'unsafe-inline' 'unsafe-eval'; style-src * 'unsafe-inline'; img-src * data:; connect-src * wss://sivvjwffekhfabgxhbcd.supabase.co; frame-src *;

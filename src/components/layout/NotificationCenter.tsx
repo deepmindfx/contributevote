@@ -325,7 +325,7 @@ export function NotificationCenter() {
             className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
           >
             <Settings className="h-3.5 w-3.5" />
-            Alert preferences
+            Device alerts
           </Link>
 
           {notifications.length > 0 && (

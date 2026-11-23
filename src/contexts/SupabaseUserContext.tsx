@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, useMemo, ReactNode } from 'react';
 import { UserService } from '@/services/supabase/userService';
 import type { User as AuthUser } from '@supabase/supabase-js';
-import { notificationAllowed, NotificationService, NotificationRecord, paymentVibrationEnabled } from '@/services/supabase/notificationService';
+import { useQueryClient } from '@tanstack/react-query';
+import { notificationAllowed, notificationCategory, NotificationService, NotificationRecord, paymentVibrationEnabled } from '@/services/supabase/notificationService';
 import { disablePush } from '@/services/pwa';
 import { Database } from '@/integrations/supabase/types';
 import {
@@ -11,7 +12,7 @@ import {
 } from '@/integrations/supabase/client';
 import { passwordIssue } from '@/lib/passwordPolicy';
 import { normalizeSignupPhone, SIGNUP_PHONE_ERROR } from '@/lib/signupPhone';
-import { announceIncomingMoney } from '@/components/wallet/IncomingMoneyAlert';
+import { announcePayment } from '@/components/wallet/IncomingMoneyAlert';
 
 function isInvalidSessionError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;
@@ -74,6 +75,7 @@ interface SupabaseUserContextType {
 const SupabaseUserContext = createContext<SupabaseUserContextType | undefined>(undefined);
 
 export function SupabaseUserProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<Profile | null>(null);
   const [users, setUsers] = useState<Profile[]>([]);
   const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
@@ -87,6 +89,9 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
   const sessionRevision = useRef(0);
   const profileTask = useRef<number>();
   const pendingProfile = useRef<{ id: string; request: Promise<Profile | null> }>();
+  const notificationFetchVersion = useRef(0);
+  const seenNotifications = useRef<{ owner: string; initialized: boolean; ids: Set<string> }>();
+  const lastWallet = useRef<{ id: string; balance: number | null }>();
 
   const isAuthenticated = !!user;
   const isAdmin = user?.role === 'admin';
@@ -95,10 +100,59 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
   ), [notifications, user?.id, user?.preferences]);
   const unreadNotificationCount = visibleNotifications.filter((n) => !n.is_read).length;
 
+  const invalidatePaymentViews = useCallback((id: string, includeGroups: boolean) => {
+    void queryClient.invalidateQueries({
+      queryKey: ['workspace', id],
+      predicate: ({ queryKey }) => queryKey[2] === 'transactions' || queryKey[2] === 'monthly-ledger' ||
+        (includeGroups && (queryKey[2] === 'groups' || queryKey[2] === 'group' || queryKey[2] === 'group-analytics')),
+    });
+  }, [queryClient]);
+
+  const recordNotifications = useCallback((id: string, rows: NotificationRecord[], fromRealtime = false) => {
+    if (sessionOwner.current !== id) return;
+    if (seenNotifications.current?.owner !== id) {
+      seenNotifications.current = { owner: id, initialized: false, ids: new Set() };
+    }
+    const known = seenNotifications.current;
+    const announce = fromRealtime || known.initialized;
+    let walletChanged = false;
+    let groupChanged = false;
+    for (const row of rows) {
+      if (row.user_id !== id || known.ids.has(row.id)) continue;
+      known.ids.add(row.id);
+      if (!announce) continue;
+      const category = notificationCategory(row.type);
+      walletChanged ||= category === 'wallet';
+      groupChanged ||= category === 'group';
+      const preferences = notificationPreferences.current;
+      if (!row.is_read && notificationAllowed(row.type, preferences)) {
+        announcePayment(row, paymentVibrationEnabled(preferences));
+      }
+    }
+    if (!fromRealtime) known.initialized = true;
+    if (walletChanged || groupChanged) invalidatePaymentViews(id, groupChanged);
+  }, [invalidatePaymentViews]);
+
   const fetchNotificationsForUser = useCallback(async (userId: string) => {
-    const data = await NotificationService.getUserNotifications(userId);
-    if (sessionOwner.current === userId) setNotifications(data);
-  }, []);
+    const version = ++notificationFetchVersion.current;
+    try {
+      const data = await NotificationService.getUserNotifications(userId, AbortSignal.timeout(10_000));
+      if (sessionOwner.current !== userId || version !== notificationFetchVersion.current) return;
+      recordNotifications(userId, data);
+      setNotifications(data);
+    } catch {
+      // Keep the last inbox until the next successful sync.
+    }
+  }, [recordNotifications]);
+
+  const liveUserId = user?.id;
+  const liveWalletBalance = user?.wallet_balance ?? null;
+  useEffect(() => {
+    if (!liveUserId) { lastWallet.current = undefined; return; }
+    const previous = lastWallet.current;
+    lastWallet.current = { id: liveUserId, balance: liveWalletBalance };
+    if (previous?.id === liveUserId && previous.balance !== liveWalletBalance) invalidatePaymentViews(liveUserId, false);
+  }, [liveUserId, liveWalletBalance, invalidatePaymentViews]);
 
   const resolveUserProfile = useCallback(async (authUser: AuthUser): Promise<Profile | null> => {
     const controller = new AbortController();
@@ -175,6 +229,8 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
 
     if (sessionOwner.current !== nextId) {
       sessionOwner.current = nextId;
+      seenNotifications.current = undefined;
+      notificationFetchVersion.current++;
       profileOwner.current = undefined;
       pendingProfile.current = undefined;
       window.clearTimeout(profileTask.current);
@@ -290,11 +346,41 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('online', reconnect);
   }, [sessionUnavailable, retrySession]);
 
+  const currentRefresh = useRef<{ id: string; request: Promise<void> }>();
+  const refreshCurrentUser = useCallback(() => {
+    const id = user?.id;
+    if (!id) return Promise.resolve();
+    if (currentRefresh.current?.id === id) return currentRefresh.current.request;
+    const request = UserService.getUserById(id, AbortSignal.timeout(10_000)).then(
+      (profile) => { if (profile) applyProfile(profile); },
+      (error) => { console.error('Error refreshing current user:', error); },
+    ).finally(() => {
+      if (currentRefresh.current?.request === request) currentRefresh.current = undefined;
+    });
+    currentRefresh.current = { id, request };
+    return request;
+  }, [user?.id, applyProfile]);
+
   // Real-time subscription for profile and notifications updates
   useEffect(() => {
     if (!user?.id) return;
     const id = user.id;
     void fetchNotificationsForUser(id);
+    let connected = false;
+    let syncing = false;
+    let lastSync = 0;
+
+    const syncVisibleData = (wake = false) => {
+      if (syncing || sessionOwner.current !== id || document.visibilityState !== 'visible' || !navigator.onLine) return;
+      if (!wake && Date.now() - lastSync < (connected ? 30_000 : 8_000)) return;
+      syncing = true;
+      lastSync = Date.now();
+      void Promise.allSettled([refreshCurrentUser(), fetchNotificationsForUser(id)]).finally(() => { syncing = false; });
+    };
+    const onWake = () => syncVisibleData(true);
+    const onPush = (event: MessageEvent) => {
+      if (event.data?.type === 'collectipay-payment-alert') onWake();
+    };
 
     const channel = supabase
       .channel(`user-realtime-${user.id}`)
@@ -322,19 +408,34 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
         (payload) => {
           if (payload.eventType === 'INSERT' && sessionOwner.current === id) {
             const notification = payload.new as NotificationRecord;
-            if (notification.user_id === id && notificationAllowed(notification.type, notificationPreferences.current)) {
-              announceIncomingMoney(notification, paymentVibrationEnabled(notificationPreferences.current));
+            if (notification.user_id === id) {
+              recordNotifications(id, [notification], true);
+              setNotifications((previous) => [notification, ...previous.filter((row) => row.id !== notification.id)].slice(0, 100));
             }
           }
           void fetchNotificationsForUser(id);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        connected = status === 'SUBSCRIBED';
+        if (status !== 'CLOSED') onWake();
+      });
+
+    const timer = window.setInterval(() => syncVisibleData(), 8_000);
+    document.addEventListener('visibilitychange', onWake);
+    window.addEventListener('online', onWake);
+    window.addEventListener('focus', onWake);
+    navigator.serviceWorker?.addEventListener('message', onPush);
 
     return () => {
-      supabase.removeChannel(channel);
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onWake);
+      window.removeEventListener('online', onWake);
+      window.removeEventListener('focus', onWake);
+      navigator.serviceWorker?.removeEventListener('message', onPush);
+      void supabase.removeChannel(channel);
     };
-  }, [user?.id, applyProfile, fetchNotificationsForUser]);
+  }, [user?.id, applyProfile, fetchNotificationsForUser, recordNotifications, refreshCurrentUser]);
 
   const refreshNotifications = useCallback(async () => {
     if (user?.id) {
@@ -407,21 +508,6 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
     if (!ok) setNotifications(snapshot);
     return ok;
   }, [user?.id]);
-
-  const currentRefresh = useRef<{ id: string; request: Promise<void> }>();
-  const refreshCurrentUser = useCallback(() => {
-    const id = user?.id;
-    if (!id) return Promise.resolve();
-    if (currentRefresh.current?.id === id) return currentRefresh.current.request;
-    const request = UserService.getUserById(id).then(
-      (profile) => { if (profile) applyProfile(profile); },
-      (error) => { console.error('Error refreshing current user:', error); },
-    ).finally(() => {
-      if (currentRefresh.current?.request === request) currentRefresh.current = undefined;
-    });
-    currentRefresh.current = { id, request };
-    return request;
-  }, [user?.id, applyProfile]);
 
   const refreshUserData = useCallback(async () => {
     const id = user?.id;
@@ -589,6 +675,8 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
     pendingProfile.current = undefined;
     currentRefresh.current = undefined;
     sessionOwner.current = null;
+    seenNotifications.current = undefined;
+    notificationFetchVersion.current++;
     profileOwner.current = undefined;
     setUser(null);
     setUsers([]);

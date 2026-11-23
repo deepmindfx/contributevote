@@ -386,8 +386,9 @@ export default function TransferForm() {
   const beneficiaries = beneficiariesQuery.data || [];
 
   const updateTransferStatus = useCallback((status: string) => {
-    setReceipt((previous) => (previous ? { ...previous, status } : previous));
-  }, []);
+    setReceipt((previous) => (previous && previous.status !== status ? { ...previous, status } : previous));
+    void Promise.allSettled([refreshCurrentUser(), refreshContributionData(true)]);
+  }, [refreshCurrentUser, refreshContributionData]);
   useTransferStatus(receipt?.reference, receipt?.status, user?.id, updateTransferStatus);
 
   const stage = receipt ? "receipt" : review ? "review" : step;

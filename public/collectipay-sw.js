@@ -19,7 +19,7 @@ self.addEventListener("push", (event) => {
   event.waitUntil((async () => {
     const payment = message.incoming || message.kind === "wallet" || message.kind === "group";
     const quiet = payment && message.vibration === false;
-    const windows = message.incoming && !quiet ? await self.clients.matchAll({ type: "window", includeUncontrolled: true }) : [];
+    const windows = payment ? await self.clients.matchAll({ type: "window", includeUncontrolled: true }).catch(() => []) : [];
     const appVisible = windows.some((client) => client.visibilityState === "visible");
     await self.registration.showNotification(message.title || "CollectiPay", {
       body: message.body || "You have a new update.",
@@ -30,6 +30,11 @@ self.addEventListener("push", (event) => {
       ...(quiet ? { silent: true } : message.incoming && !appVisible ? { vibrate: [110, 70, 150] } : {}),
       data: { href: message.href || "/dashboard" },
     });
+    for (const client of windows) {
+      if (client.visibilityState === "visible") {
+        try { client.postMessage({ type: "collectipay-payment-alert" }); } catch { /* The page can still catch up on its next sync. */ }
+      }
+    }
   })());
 });
 self.addEventListener("notificationclick", (event) => {

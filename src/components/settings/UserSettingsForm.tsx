@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { DeviceNotificationSettings } from "./DeviceNotificationSettings";
-import { paymentVibrationEnabled } from "@/services/supabase/notificationService";
+import { notificationAllowed, paymentVibrationEnabled } from "@/services/supabase/notificationService";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -79,8 +79,8 @@ const UserSettingsForm = () => {
       darkMode: usesDarkMode(existingPrefs),
       anonymousContributions: Boolean(existingPrefs.anonymousContributions),
       notificationsEnabled: existingPrefs.notificationsEnabled !== false,
-      walletNotifications: existingPrefs.walletNotifications !== false,
-      groupNotifications: existingPrefs.groupNotifications !== false,
+      walletNotifications: notificationAllowed("wallet_deposit", existingPrefs),
+      groupNotifications: notificationAllowed("group_payment_received", existingPrefs),
       paymentVibration: paymentVibrationEnabled(existingPrefs),
     },
   });
@@ -145,8 +145,8 @@ const UserSettingsForm = () => {
         darkMode: usesDarkMode(prefs),
         anonymousContributions: Boolean(prefs.anonymousContributions),
         notificationsEnabled: prefs.notificationsEnabled !== false,
-        walletNotifications: prefs.walletNotifications !== false,
-        groupNotifications: prefs.groupNotifications !== false,
+        walletNotifications: notificationAllowed("wallet_deposit", prefs),
+        groupNotifications: notificationAllowed("group_payment_received", prefs),
         paymentVibration: paymentVibrationEnabled(prefs),
       },
     });

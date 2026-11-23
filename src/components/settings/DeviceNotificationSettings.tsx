@@ -48,7 +48,7 @@ export function DeviceNotificationSettings() {
   return (
     <div id="device-notifications" className="cp-card-native scroll-mt-20 space-y-3 p-5">
       <h3 className="flex items-center gap-2 text-sm font-semibold"><Bell size={16} aria-hidden /> Device notifications</h3>
-      <p className="text-sm text-muted-foreground">Get payment amounts and updates on this device when CollectiPay is closed. Choose the categories above.</p>
+      <p className="text-sm text-muted-foreground">Enable alerts on this device to receive payment updates when CollectiPay is closed. Your browser will ask for permission.</p>
       {available && (pushConfigured || enabled) ? (
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="outline" onClick={() => void toggle(enabled)} disabled={pending}>{pending ? "Updating…" : enabled ? "Turn off on this device" : "Enable on this device"}</Button>

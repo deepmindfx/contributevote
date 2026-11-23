@@ -30,18 +30,16 @@ export interface NotificationRecord {
 }
 
 export const NotificationService = {
-  async getUserNotifications(userId: string, limit = 100): Promise<NotificationRecord[]> {
+  async getUserNotifications(userId: string, signal: AbortSignal, limit = 100): Promise<NotificationRecord[]> {
     const { data, error } = await supabase
       .from('notifications')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
-      .limit(limit);
+      .limit(limit)
+      .abortSignal(signal);
 
-    if (error) {
-      console.error('Error fetching notifications:', error);
-      return [];
-    }
+    if (error) throw error;
 
     return (data as unknown as NotificationRecord[]) || [];
   },

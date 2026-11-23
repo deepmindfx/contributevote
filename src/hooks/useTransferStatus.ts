@@ -34,6 +34,8 @@ export function useTransferStatus(reference: string | undefined, status: string 
     void check();
     const timer = window.setInterval(() => void check(), 8_000);
     document.addEventListener("visibilitychange", check);
+    window.addEventListener("online", check);
+    window.addEventListener("focus", check);
     const channel = supabase.channel(`transfer-status-${reference}`)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "transactions", filter: `reference_id=eq.${reference}` },
         ({ new: row }) => { if (row.user_id === userId) update(row.status); })
@@ -42,6 +44,8 @@ export function useTransferStatus(reference: string | undefined, status: string 
       stopped = true;
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", check);
+      window.removeEventListener("online", check);
+      window.removeEventListener("focus", check);
       void supabase.removeChannel(channel);
     };
   }, [reference, pending, userId, onStatus]);
