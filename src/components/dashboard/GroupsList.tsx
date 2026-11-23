@@ -48,8 +48,12 @@ export default function GroupsList() {
                 <li key={group.id}>
                   <Link to={`/groups/${group.id}`} className="block p-4 transition-colors hover:bg-muted/45 focus-visible:bg-muted focus-visible:outline-none sm:px-5">
                     <div className="flex min-w-0 items-center gap-3">
-                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent text-primary" aria-hidden="true">
+                      <span className="relative grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-xl bg-accent text-primary" aria-hidden="true">
                         <CategoryIcon category={group.category} size={19} />
+                        {group.cover_image_url && (
+                          <img key={group.cover_image_url} src={group.cover_image_url} alt="" loading="lazy" className="absolute inset-0 size-full object-cover"
+                            onError={(event) => { event.currentTarget.hidden = true; }} />
+                        )}
                       </span>
                       <div className="min-w-0 flex-1">
                         <h3 className="truncate text-sm font-semibold">{group.name}</h3>

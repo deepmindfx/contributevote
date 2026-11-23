@@ -44,6 +44,8 @@ import { GroupAdminPanel } from '@/components/contribution/GroupAdminPanel';
 import { PendingBankTransfers } from '@/components/contribution/PendingBankTransfers';
 import { ShareableBankCard } from '@/components/contribution/ShareableBankCard';
 import { ShareGroupButton } from '@/components/contribution/ShareGroupButton';
+import { GroupCover } from '@/components/contribution/GroupCover';
+import { GroupJoinService } from '@/services/supabase/groupJoinService';
 import { InviteMembersDialog } from '@/components/contribution/InviteMembersDialog';
 import { BvnInputDialog } from '@/components/contribution/BvnInputDialog';
 import { GroupRules } from '@/components/contribution/GroupRules';
@@ -256,7 +258,10 @@ export default function GroupDetail() {
   const progress = targetAmount > 0 ? Math.min(100, Math.max(0, (currentAmount / targetAmount) * 100)) : 0;
   const isActive = group.status === 'active' && !group.archived;
   const isPublic = group.privacy === 'public';
-  const accountNumber = group.account_number || group.bank_details?.accountNumber;
+  const accountNumber = [group.account_number, group.bank_details?.accountNumber]
+    .find((value): value is string => typeof value === 'string' && /^\d{10}$/.test(value));
+  const bankName = group.bank_name || group.account_details?.bank_name || group.account_details?.bankName || group.bank_details?.bankName;
+  const accountName = group.account_name || group.account_details?.accountName || group.bank_details?.accountName || group.name;
   const canManage = isCreator || isPlatformAdmin;
 
   return (
@@ -300,24 +305,12 @@ export default function GroupDetail() {
           className="app-panel-hero group-detail-hero relative overflow-hidden"
           aria-labelledby="group-title"
         >
-          {group.cover_image_url && (
-            <>
-              <img
-                src={group.cover_image_url}
-                alt=""
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-35"
-              />
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#052d25] via-[#064538]/80 to-[#063a30]/75" />
-            </>
-          )}
-          <div className="relative z-10">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-1.5 sm:mb-4">
             <Button asChild variant="ghost" className="group-detail-back gap-1.5 px-0">
               <Link to="/all-groups"><ArrowLeft size={16} aria-hidden="true" /> My groups</Link>
             </Button>
             <div className="app-panel-tools flex flex-wrap gap-2">
-              {isPublic && (
+              {isPublic && isActive && (
                 <ShareGroupButton
                   groupId={group.id}
                   groupName={group.name}
@@ -325,17 +318,25 @@ export default function GroupDetail() {
                   category={group.category}
                   targetAmount={targetAmount}
                   currentAmount={currentAmount}
-                  frequency={group.frequency}
+                  coverUrl={group.cover_image_url}
                   accountNumber={accountNumber}
-                  bankName={group.bank_name || group.account_details?.bank_name || group.account_details?.bankName}
-                  accountName={group.account_name || group.account_details?.accountName || group.name}
-                  memberCount={Array.isArray(group.contributors) ? group.contributors.length : undefined}
-                  enableVotingRights={group.enable_voting_rights !== false}
+                  bankName={bankName}
+                  accountName={accountName}
                 />
               )}
               {!isPublic && isCreator && isActive && <InviteMembersDialog key={group.id} groupId={group.id} groupName={group.name} />}
             </div>
           </div>
+          <GroupCover url={group.cover_image_url} name={group.name} category={group.category}
+            className="mb-4 mt-1 max-h-72 rounded-2xl border border-white/15 lg:max-h-56">
+            {isCreator && (
+              <Button type="button" size="sm" variant="secondary" disabled={isUploadingCover}
+                onClick={() => coverInputRef.current?.click()}
+                className="h-9 gap-1.5 rounded-full border border-white/20 bg-[#082b24]/90 px-3 text-xs font-semibold text-white backdrop-blur-sm hover:bg-[#082b24]">
+                <Camera size={14} aria-hidden="true" /> {group.cover_image_url ? "Change photo" : "Add photo"}
+              </Button>
+            )}
+          </GroupCover>
           <p className="panel-kicker text-sm">
             {isPublic ? "Public" : "Private"} · {getCategoryLabel(group.category)}
             {!isActive && ` · ${group.archived ? "Archived" : group.status}`}
@@ -364,7 +365,6 @@ export default function GroupDetail() {
               <div className="h-full rounded-full bg-[#dcf6b8]" style={{ width: progress + "%" }} />
             </div>
           </div>
-          </div>
         </section>
 
         <div className="app-panel-body space-y-4">
@@ -378,44 +378,35 @@ export default function GroupDetail() {
                       <Building2 size={16} aria-hidden="true" /> Bank details
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="p-2 pt-14 sm:p-3 sm:pt-14">
-                    <DialogTitle className="sr-only">Group bank details</DialogTitle>
-                    <DialogDescription className="sr-only">Copy or share the account details for this group.</DialogDescription>
-                    <div className="px-2 pb-1"><GroupRules group={group} /></div>
+                  <DialogContent className="gap-4">
+                    <div className="space-y-1 pr-9">
+                      <DialogTitle>Bank details</DialogTitle>
+                      <DialogDescription>
+                        {isActive ? "Transfer directly to this group from your bank." : "This group is currently closed to contributions."}
+                        {isActive && group.enable_voting_rights !== false && " A group admin can link your transfer to your registered account to grant voting rights."}
+                      </DialogDescription>
+                    </div>
                     <ShareableBankCard
                       groupName={group.name}
                       accountNumber={accountNumber}
-                      bankName={group.bank_name || group.account_details?.bank_name || group.bank_details?.bankName || "Virtual Bank"}
-                      accountName={group.account_name || group.bank_details?.accountName || group.name}
+                      bankName={bankName || "Bank name unavailable"}
+                      accountName={accountName}
+                      category={group.category}
+                      coverUrl={group.cover_image_url}
+                      joinLink={isPublic && isActive ? GroupJoinService.generateShareLink(group.id) : undefined}
+                      active={isActive && Boolean(bankName)}
                     />
+                    {isActive && (
+                      <details className="rounded-xl border px-3 py-2.5">
+                        <summary className="cursor-pointer text-sm font-medium">Group rules and voting rights</summary>
+                        <div className="pt-3"><GroupRules group={group} showTitle={false} /></div>
+                      </details>
+                    )}
                   </DialogContent>
                 </Dialog>
               ) : isCreator && (
                 <Button variant="outline" className="h-11 gap-2 rounded-xl" onClick={() => setShowBvnDialog(true)} disabled={isCreatingAccount}>
                   <Building2 size={16} aria-hidden="true" /> Bank setup
-                </Button>
-              )}
-            </div>
-          )}
-
-          {group.cover_image_url && (
-            <div className="relative overflow-hidden rounded-2xl border bg-card shadow-sm">
-              <img
-                src={group.cover_image_url}
-                alt={group.name}
-                className="max-h-36 w-full object-cover sm:max-h-[22rem]"
-              />
-              {isCreator && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  disabled={isUploadingCover}
-                  onClick={() => coverInputRef.current?.click()}
-                  className="absolute bottom-3 right-3 h-9 gap-1.5 rounded-xl bg-black/65 text-xs font-semibold text-white backdrop-blur-sm hover:bg-black/80"
-                >
-                  <Camera className="h-3.5 w-3.5" />
-                  Change photo
                 </Button>
               )}
             </div>

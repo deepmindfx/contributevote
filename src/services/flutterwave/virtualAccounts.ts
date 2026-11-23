@@ -83,7 +83,7 @@ export const createGroupVirtualAccount = async (groupId: string) => {
   try {
     const result = await EdgeFunctionService.createVirtualAccount({ purpose: 'group', groupId });
 
-    if (!result?.success || !result?.data) {
+    if (!result?.success || typeof result.data?.account_number !== 'string' || !/^\d{10}$/.test(result.data.account_number)) {
       return {
         success: false,
         message: result?.error || 'Failed to create virtual account',

@@ -25,9 +25,10 @@ export class EdgeFunctionService {
     tx_ref?: string
     group_id?: string
     anonymous?: boolean
-  }) {
+  }, signal?: AbortSignal) {
     const { data, error } = await supabase.functions.invoke('flutterwave-verify-transaction', {
-      body: params
+      body: params,
+      signal,
     })
 
     if (error) {

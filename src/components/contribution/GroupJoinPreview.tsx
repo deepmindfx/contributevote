@@ -7,9 +7,11 @@ import { Card } from "@/components/ui/card";
 import BrandLoader from "@/components/ui/BrandLoader";
 import { GroupRules } from "./GroupRules";
 import type { GroupRuleDetails } from "./GroupRules";
+import { GroupCover } from "./GroupCover";
 
 type PreviewGroup = GroupRuleDetails & {
   name: string;
+  category?: string | null;
   target_amount: number;
   privacy?: string | null;
   cover_image_url?: string | null;
@@ -48,13 +50,7 @@ export function GroupJoinPreview({ group, loading, error, inviter, children }: {
           ) : group ? (
             <Card className="overflow-hidden rounded-2xl">
               {group.cover_image_url && (
-                <div className="aspect-[16/9] w-full overflow-hidden bg-muted">
-                  <img
-                    src={group.cover_image_url}
-                    alt={group.name}
-                    className="h-full w-full object-cover"
-                  />
-                </div>
+                <GroupCover url={group.cover_image_url} name={group.name} category={group.category} />
               )}
               <div className="space-y-5 p-4 sm:p-6">
                 <GroupRules group={group} />

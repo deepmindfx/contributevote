@@ -1,324 +1,114 @@
-import { useState, useRef } from 'react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Copy, Share2, Check, Building2, Info, Download, Image as ImageIcon } from 'lucide-react';
-import { toast } from 'sonner';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CollectiPayMark } from '@/components/ui/BrandLoader';
+import { useMemo, useState } from "react";
+import { Building2, Check, Copy, Share2 } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { CollectiPayMark } from "@/components/ui/BrandLoader";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { getCategoryLabel } from "@/services/supabase/groupEnhancementService";
+import { GroupSharePreview } from "./GroupSharePreview";
+import { COLLECTIPAY_SHARE_HOST } from "./groupShareImage";
+import type { GroupShareArtwork } from "./groupShareImage";
 
 interface ShareableBankCardProps {
   groupName: string;
   accountNumber: string;
   bankName: string;
-  accountName?: string;
+  accountName: string;
+  category?: string | null;
+  coverUrl?: string | null;
+  joinLink?: string;
+  active: boolean;
 }
 
 export function ShareableBankCard({
-  groupName,
-  accountNumber,
-  bankName,
-  accountName,
+  groupName, accountNumber, bankName, accountName, category, coverUrl, joinLink, active,
 }: ShareableBankCardProps) {
-  const [copiedField, setCopiedField] = useState<string | null>(null);
-  const [shareDialogOpen, setShareDialogOpen] = useState(false);
-  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
-  const cardRef = useRef<HTMLDivElement>(null);
+  const [copied, setCopied] = useState<"number" | "details">();
+  const artwork = useMemo<GroupShareArtwork>(() => ({
+    kind: "bank", name: groupName, category: getCategoryLabel(category || "community"), coverUrl, joinLink,
+    bank: { number: accountNumber, bank: bankName, name: accountName },
+  }), [accountName, accountNumber, bankName, category, coverUrl, groupName, joinLink]);
+  const caption = [
+    groupName + " · CollectiPay group account",
+    accountNumber,
+    bankName,
+    accountName,
+    joinLink || "https://" + COLLECTIPAY_SHARE_HOST,
+  ].join("\n");
 
-  const copyToClipboard = async (text: string, label: string) => {
+  const copy = async (field: "number" | "details") => {
     try {
-      await navigator.clipboard.writeText(text);
-      setCopiedField(label);
-      toast.success(`${label} copied`);
-      setTimeout(() => setCopiedField(null), 2000);
+      await navigator.clipboard.writeText(field === "number" ? accountNumber : caption);
+      setCopied(field);
+      window.setTimeout(() => setCopied((current) => current === field ? undefined : current), 2_000);
+      toast.success(field === "number" ? "Account number copied" : "Account details copied");
     } catch {
-      toast.error('Failed to copy');
-    }
-  };
-
-  const shareText = `Contribute to "${groupName}" on CollectiPay
-
-Bank Transfer Details:
-Account Number: ${accountNumber}
-Bank: ${bankName}
-Account Name: ${accountName || groupName}
-
-Powered by CollectiPay — https://collectipay.com.ng`;
-
-  const shareToWhatsApp = () => {
-    window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
-  };
-
-  const shareToTwitter = () => {
-    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`, '_blank');
-  };
-
-  const shareToFacebook = () => {
-    window.open(
-      `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent('https://collectipay.com.ng')}&quote=${encodeURIComponent(shareText)}`,
-      '_blank'
-    );
-  };
-
-  const downloadAsImage = async () => {
-    const card = cardRef.current;
-    if (!card) return;
-
-    setIsGeneratingImage(true);
-    try {
-      const { default: html2canvas } = await import('html2canvas');
-      const canvas = await html2canvas(card, {
-        backgroundColor: '#ffffff',
-        scale: 3,
-        logging: false,
-        useCORS: true,
-      });
-
-      canvas.toBlob((blob) => {
-        if (blob) {
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `${groupName.replace(/\s+/g, '_')}_bank_details.png`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
-          toast.success('Bank card image saved');
-        }
-      });
-    } catch (error) {
-      console.error('Error generating image:', error);
-      toast.error('Failed to generate image');
-    } finally {
-      setIsGeneratingImage(false);
-    }
-  };
-
-  const shareAsImage = async () => {
-    const card = cardRef.current;
-    if (!card) return;
-
-    setIsGeneratingImage(true);
-    try {
-      const { default: html2canvas } = await import('html2canvas');
-      const canvas = await html2canvas(card, {
-        backgroundColor: '#ffffff',
-        scale: 3,
-        logging: false,
-        useCORS: true,
-      });
-
-      canvas.toBlob(async (blob) => {
-        if (blob) {
-          const file = new File([blob], `${groupName}_bank_details.png`, { type: 'image/png' });
-
-          if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-            try {
-              await navigator.share({
-                files: [file],
-                title: `Contribute to ${groupName}`,
-                text: 'Bank transfer details',
-              });
-              toast.success('Shared successfully');
-            } catch (error: any) {
-              if (error?.name !== 'AbortError') {
-                console.error('Error sharing:', error);
-                toast.error('Failed to share image');
-              }
-            }
-          } else {
-            await downloadAsImage();
-          }
-        }
-      });
-    } catch (error) {
-      console.error('Error generating image:', error);
-      toast.error('Failed to generate image');
-    } finally {
-      setIsGeneratingImage(false);
+      toast.error("Couldn’t copy. Try again.");
     }
   };
 
   return (
-    <Card ref={cardRef} className="overflow-hidden rounded-[1.35rem] border bg-card shadow-sm">
-      {/* Header Row */}
-      <div className="flex items-center justify-between gap-2 border-b px-3 py-4 sm:px-5">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent text-primary">
-            <Building2 className="h-5 w-5" />
-          </span>
+    <div className="min-w-0 space-y-4">
+      <div className="overflow-hidden rounded-2xl border bg-background">
+        <div className="flex items-start gap-3 bg-[#0b3d31] p-4 text-white sm:p-5">
+          <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-white/10 text-[#ddefc4]">
+            <Building2 size={19} aria-hidden="true" />
+          </div>
           <div className="min-w-0">
-            <h3 className="text-sm font-bold tracking-tight text-foreground">
-              Dedicated Group Account
-            </h3>
-            <p className="truncate text-xs text-muted-foreground">{groupName}</p>
+            <p className="text-xs font-semibold text-[#cee8da]">Dedicated group account</p>
+            <h3 className="mt-0.5 break-words text-lg font-semibold leading-snug">{groupName}</h3>
           </div>
         </div>
-        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-accent px-2.5 py-1 text-xs font-semibold text-accent-foreground">
-          <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-          Active
-        </span>
+        <dl className="divide-y px-4 sm:px-5">
+          <div className="flex flex-wrap items-center justify-between gap-2 py-4">
+            <div className="min-w-0">
+              <dt className="text-xs font-medium text-muted-foreground">Account number</dt>
+              <dd className="mt-1 font-mono text-xl font-bold tabular-nums tracking-wider sm:text-2xl">{accountNumber}</dd>
+            </div>
+            <Button type="button" variant="outline" size="sm" onClick={() => void copy("number")} className="h-10 gap-2 rounded-xl">
+              {copied === "number" ? <Check size={15} /> : <Copy size={15} />}
+              {copied === "number" ? "Copied" : "Copy number"}
+            </Button>
+          </div>
+          <div className="grid gap-3 py-4 sm:grid-cols-2">
+            <div className="min-w-0">
+              <dt className="text-xs font-medium text-muted-foreground">Bank</dt>
+              <dd className="mt-1 break-words text-sm font-semibold">{bankName}</dd>
+            </div>
+            <div className="min-w-0">
+              <dt className="text-xs font-medium text-muted-foreground">Account name</dt>
+              <dd className="mt-1 break-words text-sm font-semibold">{accountName}</dd>
+            </div>
+          </div>
+        </dl>
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t bg-muted/35 px-4 py-3 text-xs sm:px-5">
+          <span className="flex items-center gap-1.5 font-semibold"><CollectiPayMark size={18} /> Created with CollectiPay</span>
+          <span className="text-muted-foreground">{COLLECTIPAY_SHARE_HOST}</span>
+        </div>
       </div>
-
-      {/* Body */}
-      <div className="space-y-4 p-3 sm:p-5">
-        {/* Tap-to-copy Account Number Hero Box */}
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border bg-accent/45 px-3 py-3.5 sm:px-4">
-          <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Account Number
-            </p>
-            <p className="mt-0.5 break-all font-mono text-lg font-bold tracking-[0.06em] text-foreground tabular-nums sm:text-2xl">
-              {accountNumber}
-            </p>
-          </div>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => copyToClipboard(accountNumber, 'Account number')}
-            className="h-10 shrink-0 rounded-xl bg-card px-3.5 font-semibold shadow-sm hover:bg-card/80"
-          >
-            {copiedField === 'Account number' ? (
-              <>
-                <Check className="mr-1.5 h-4 w-4 text-primary" />
-                Copied
-              </>
-            ) : (
-              <>
-                <Copy className="mr-1.5 h-4 w-4 text-primary" />
-                Copy
-              </>
-            )}
-          </Button>
-        </div>
-
-        {/* Bank & Account Name Grid */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="rounded-xl border bg-muted/35 px-3.5 py-3">
-            <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-              Bank Name
-            </p>
-            <p className="mt-0.5 truncate text-sm font-semibold text-foreground">{bankName}</p>
-          </div>
-          <div className="rounded-xl border bg-muted/35 px-3.5 py-3">
-            <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-              Account Name
-            </p>
-            <p className="mt-0.5 truncate text-sm font-semibold text-foreground">
-              {accountName || groupName}
-            </p>
-          </div>
-        </div>
-
-        {/* Subtle Verification Note */}
-        <div className="flex items-start gap-2.5 rounded-xl bg-muted/50 px-3.5 py-2.5 text-xs text-muted-foreground">
-          <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-          <p>
-            Transfers from external bank apps credit this pool automatically. In-app wallet contributions grant instant voting rights.
-          </p>
-        </div>
-
-        {/* Action Row */}
-        <div className="grid grid-cols-2 gap-2.5 pt-1">
-          <Button
-            type="button"
-            onClick={() => copyToClipboard(shareText, 'Account details')}
-            variant="outline"
-            className="h-11 rounded-xl font-semibold"
-          >
-            {copiedField === 'Account details' ? (
-              <Check className="mr-2 h-4 w-4 text-primary" />
-            ) : (
-              <Copy className="mr-2 h-4 w-4" />
-            )}
-            Copy all
-          </Button>
-
-          <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <Button type="button" variant="outline" onClick={() => void copy("details")} className="h-11 gap-2 rounded-xl">
+          {copied === "details" ? <Check size={16} /> : <Copy size={16} />} Copy details
+        </Button>
+        {active && (
+          <Dialog>
             <DialogTrigger asChild>
-              <Button type="button" className="h-11 rounded-xl font-semibold">
-                <Share2 className="mr-2 h-4 w-4" />
-                Share card
-              </Button>
+              <Button type="button" className="h-11 gap-2 rounded-xl"><Share2 size={16} /> Share card</Button>
             </DialogTrigger>
-            <DialogContent className="rounded-2xl sm:max-w-md">
+            <DialogContent className="max-h-[92dvh] sm:max-w-lg">
               <DialogHeader>
-                <DialogTitle>Share Group Account</DialogTitle>
-                <DialogDescription>
-                  Send bank transfer details as text or a crisp card image.
-                </DialogDescription>
+                <DialogTitle>Share bank details</DialogTitle>
+                <DialogDescription>Send a CollectiPay card with the group’s transfer details.</DialogDescription>
               </DialogHeader>
-
-              <Tabs defaultValue="text" className="w-full">
-                <TabsList className="app-segmented grid w-full grid-cols-2">
-                  <TabsTrigger value="text">Text</TabsTrigger>
-                  <TabsTrigger value="image">Image Card</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="text" className="space-y-2.5 pt-4">
-                  <Button
-                    onClick={shareToWhatsApp}
-                    className="h-11 w-full rounded-xl bg-[#25D366] text-white hover:bg-[#20BD5A]"
-                  >
-                    Share on WhatsApp
-                  </Button>
-                  <Button
-                    onClick={shareToTwitter}
-                    variant="outline"
-                    className="h-11 w-full rounded-xl"
-                  >
-                    Share on X / Twitter
-                  </Button>
-                  <Button
-                    onClick={shareToFacebook}
-                    variant="outline"
-                    className="h-11 w-full rounded-xl"
-                  >
-                    Share on Facebook
-                  </Button>
-                </TabsContent>
-
-                <TabsContent value="image" className="space-y-2.5 pt-4">
-                  <Button
-                    onClick={downloadAsImage}
-                    disabled={isGeneratingImage}
-                    className="h-11 w-full rounded-xl"
-                    variant="outline"
-                  >
-                    <Download className="mr-2 h-4 w-4" />
-                    {isGeneratingImage ? 'Generating image…' : 'Save card image'}
-                  </Button>
-                  <Button
-                    onClick={shareAsImage}
-                    disabled={isGeneratingImage}
-                    className="h-11 w-full rounded-xl"
-                  >
-                    <ImageIcon className="mr-2 h-4 w-4" />
-                    {isGeneratingImage ? 'Generating image…' : 'Share card image'}
-                  </Button>
-                </TabsContent>
-              </Tabs>
+              <GroupSharePreview artwork={artwork} caption={caption} />
+              <a href={`https://wa.me/?text=${encodeURIComponent(caption)}`} target="_blank" rel="noopener noreferrer"
+                className="justify-self-center rounded-md text-sm font-medium text-primary hover:underline focus-visible:outline focus-visible:outline-2">
+                Send details as text on WhatsApp
+              </a>
             </DialogContent>
           </Dialog>
-        </div>
-
-        {/* Crisp Vector Branding Footer */}
-        <div className="flex items-center justify-center gap-2 border-t pt-3 text-xs text-muted-foreground">
-          <CollectiPayMark size={18} />
-          <span>
-            Secured by <strong className="font-semibold text-foreground">CollectiPay</strong>
-          </span>
-        </div>
+        )}
       </div>
-    </Card>
+    </div>
   );
 }

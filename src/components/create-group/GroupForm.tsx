@@ -242,7 +242,7 @@ function AccountGroupForm({ owner }: { owner: string }) {
     if (mounted.current) setPendingAttempt(null);
   };
 
-  const openCreatedGroup = (attempt: CreationAttempt) => {
+  const finishGroupCreation = (attempt: CreationAttempt) => {
     if (!attempt.groupId || !mounted.current) return;
     clearAttempt(attempt);
     try {
@@ -317,13 +317,13 @@ function AccountGroupForm({ owner }: { owner: string }) {
       }
 
       const account = await createGroupVirtualAccount(groupId);
-      if (!account.success || !account.responseBody?.account_number) {
+      if (!account.success) {
         if (mounted.current) setBankSetupError(account.message || "The bank account couldn’t be linked. Try again.");
         return;
       }
       if (!mounted.current) return;
       toast.success("Group created and bank account linked.");
-      openCreatedGroup(attempt);
+      finishGroupCreation(attempt);
     } catch (error: any) {
       console.error("Error creating group:", error);
       if (mounted.current) toast.error(error?.message || "Couldn’t confirm group creation. Try again.");
@@ -493,10 +493,12 @@ function AccountGroupForm({ owner }: { owner: string }) {
           {pendingAttempt.groupId ? "Your group is saved. Bank setup uses your saved BVN and won’t charge another group creation fee." : "Retry to confirm the result of this group creation request."}
         </p>
         {bankSetupError && <p role="alert" className="text-sm text-destructive">{bankSetupError}</p>}
-        <Button onClick={() => void retryCreation()} disabled={creating}>
-          {pendingAttempt.groupId ? creating ? "Setting up bank account…" : "Retry bank setup" : creating ? "Creating group…" : "Retry group creation"}
-        </Button>
-        {pendingAttempt.groupId && bankSetupError && <Button variant="outline" disabled={creating} onClick={() => openCreatedGroup(pendingAttempt)}>View group</Button>}
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => void retryCreation()} disabled={creating}>
+            {pendingAttempt.groupId ? creating ? "Setting up bank account…" : "Retry bank setup" : creating ? "Creating group…" : "Retry group creation"}
+          </Button>
+          {pendingAttempt.groupId && bankSetupError && <Button variant="outline" disabled={creating} onClick={() => navigate(`/groups/${pendingAttempt.groupId}`)}>View saved group</Button>}
+        </div>
       </Card>
     );
   }
