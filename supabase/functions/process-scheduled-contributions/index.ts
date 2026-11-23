@@ -1,7 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
 import { runPayoutReconciliation } from "../_shared/runPayoutReconciliation.ts";
+import { getSchedulerClient } from "../_shared/schedulerClient.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,15 +13,9 @@ serve(async (req) => {
   }
 
   try {
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (req.method !== "POST") return new Response(null, { status: 405 });
-    if (!serviceKey || req.headers.get("Authorization") !== "Bearer " + serviceKey) {
-      return new Response(null, { status: 401 });
-    }
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      serviceKey
-    );
+    const supabaseClient = await getSchedulerClient(req);
+    if (!supabaseClient) return new Response(null, { status: 401 });
 
     const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
     const deadlinesOnly = body.deadlines_only === true;

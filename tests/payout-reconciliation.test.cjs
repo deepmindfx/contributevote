@@ -5,13 +5,13 @@ const test = require("node:test");
 const vm = require("node:vm");
 const ts = require("typescript");
 
-function load(file, deps, fetch) {
+function load(file, deps, fetch, globals = {}) {
   const exports = {};
   const source = fs.readFileSync(path.join(__dirname, "../supabase/functions/_shared", `${file}.ts`), "utf8");
   const compiled = ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText;
-  vm.runInNewContext(compiled, { exports, require: (name) => deps[name], fetch, console, URLSearchParams, AbortSignal, Response });
+  vm.runInNewContext(compiled, { exports, require: (name) => deps[name], fetch, console, URLSearchParams, AbortSignal, Response, ...globals });
   return exports;
 }
 
@@ -136,4 +136,28 @@ test("the worker records a failed lookup and releases its lease for the next che
   assert.equal(result, reported);
   assert.equal(result.single.pending, 1);
   assert.equal(result.single.failed, 1);
+});
+
+test("scheduler routes require the validated dedicated token", async () => {
+  const good = "a".repeat(64);
+  const env = { SUPABASE_URL: "https://fixture.example", SUPABASE_SERVICE_ROLE_KEY: "fixture-admin" };
+  let checked = 0;
+  const db = { rpc: async (name, args) => {
+    assert.equal(name, "is_collectipay_scheduler_request");
+    checked++;
+    return { data: args.p_token === good };
+  } };
+  const worker = load("schedulerClient", {
+    "jsr:@supabase/supabase-js@2": { createClient: (url, key) => {
+      assert.equal(url, env.SUPABASE_URL);
+      assert.equal(key, env.SUPABASE_SERVICE_ROLE_KEY);
+      return db;
+    } },
+  }, undefined, { Deno: { env: { get: (name) => env[name] } } });
+  const request = (headers) => new Request("https://fixture.example", { headers });
+  assert.equal(await worker.getSchedulerClient(request({})), null);
+  assert.equal(await worker.getSchedulerClient(request({ "x-collectipay-scheduler-token": "bad" })), null);
+  assert.equal(await worker.getSchedulerClient(request({ "x-collectipay-scheduler-token": "b".repeat(64) })), null);
+  assert.equal(await worker.getSchedulerClient(request({ "x-collectipay-scheduler-token": good })), db);
+  assert.equal(checked, 2);
 });
