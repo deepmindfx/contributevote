@@ -1,4 +1,4 @@
-import { flutterwaveFetch, type FlutterwaveRuntimeConfig } from "./flutterwaveConfig.ts";
+import { flutterwaveFetch, listFlutterwaveTransfers, type FlutterwaveRuntimeConfig } from "./flutterwaveConfig.ts";
 
 export type TransferRow = {
   user_id: string; status: string; amount: number | string; reference_id: string; bulk_batch_id?: string | null;
@@ -23,10 +23,11 @@ export async function reconcileBankTransfer(
   if (!config.secretKey) return row.status;
 
   const recordId = lookup.recordId;
-  const path = recordId
-    ? "/transfers/" + encodeURIComponent(String(recordId))
-    : "/transfers?reference=" + encodeURIComponent(reference);
-  const remote = await flutterwaveFetch(path, { method: "GET", signal: AbortSignal.timeout(9000) }, config).catch(() => null);
+  const signal = AbortSignal.timeout(9000);
+  const remote = await (recordId
+    ? flutterwaveFetch("/transfers/" + encodeURIComponent(recordId), { method: "GET", signal }, config)
+    : listFlutterwaveTransfers(new URLSearchParams({ reference }), signal, config)
+  ).catch(() => null);
   const result = remote?.response.ok ? await remote.response.json().catch(() => null) : null;
   // Rotate unreachable transfers to the back of the scheduled queue without changing their outcome.
   if (result?.status !== "success") {

@@ -1,4 +1,4 @@
-import { flutterwaveFetch, type FlutterwaveRuntimeConfig } from "./flutterwaveConfig.ts";
+import { listFlutterwaveTransfers, type FlutterwaveRuntimeConfig } from "./flutterwaveConfig.ts";
 import { findMatchingProviderIds, reconcileBankTransfer, transferReconciliationFields, type TransferRow } from "./reconcileBankTransfer.ts";
 
 type Job = { id: string; provider_batch_id: string | null; lease: string };
@@ -24,9 +24,8 @@ async function reconcileJob(db: any, job: Job, config: FlutterwaveRuntimeConfig)
     const deadline = Date.now() + 12_000;
     for (let page = 1; page <= 10 && Date.now() < deadline; page++) {
       const query = new URLSearchParams({ batch_id: job.provider_batch_id, page: String(page) });
-      const remote = await flutterwaveFetch(`/transfers?${query}`, {
-        signal: AbortSignal.timeout(Math.max(1, Math.min(6000, deadline - Date.now()))),
-      }, config).catch(() => null);
+      const signal = AbortSignal.timeout(Math.max(1, Math.min(6000, deadline - Date.now())));
+      const remote = await listFlutterwaveTransfers(query, signal, config).catch(() => null);
       const result = remote?.response.ok ? await remote.response.json().catch(() => null) : null;
       if (result?.status !== "success" || !Array.isArray(result.data)) break;
       candidates.push(...result.data);
