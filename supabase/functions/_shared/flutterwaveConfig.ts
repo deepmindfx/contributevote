@@ -139,7 +139,24 @@ export async function flutterwaveFetch(
 // The payout relay can reject transfer-list queries. Discovery is read-only and
 // can use Flutterwave directly without sending any payout or relay credential.
 export function listFlutterwaveTransfers(query: URLSearchParams, signal: AbortSignal, config: FlutterwaveRuntimeConfig) {
-  return flutterwaveFetch(`/transfers?${query}`, { method: "GET", signal }, {
+  return directTransferLookup(`/transfers?${query}`, signal, config);
+}
+
+export async function getFlutterwaveTransfer(id: string, config: FlutterwaveRuntimeConfig) {
+  const path = "/transfers/" + encodeURIComponent(id);
+  const viaRelay = Boolean(config.staticIpProxyUrl && config.staticIpProxySecret);
+  const read = async (request: ReturnType<typeof flutterwaveFetch>) => {
+    const remote = await request.catch(() => null);
+    const payload = remote?.response.ok ? await remote.response.json().catch(() => null) : null;
+    return payload?.status === "success" ? payload : null;
+  };
+  const payload = await read(flutterwaveFetch(path, { method: "GET", signal: AbortSignal.timeout(viaRelay ? 4000 : 9000) }, config));
+  if (payload || !viaRelay) return payload;
+  return read(directTransferLookup(path, AbortSignal.timeout(5000), config));
+}
+
+function directTransferLookup(path: string, signal: AbortSignal, config: FlutterwaveRuntimeConfig) {
+  return flutterwaveFetch(path, { method: "GET", signal }, {
     ...config, staticIpProxyUrl: "", staticIpProxySecret: "",
   });
 }

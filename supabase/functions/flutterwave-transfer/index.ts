@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { flutterwaveFetch, getFlutterwaveConfig } from "../_shared/flutterwaveConfig.ts";
 
-import { reconcileBankTransfer, transferReconciliationFields } from "../_shared/reconcileBankTransfer.ts";
+import { reconcileBankTransfer, rememberPayoutId, transferReconciliationFields } from "../_shared/reconcileBankTransfer.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -133,14 +133,25 @@ Deno.serve(async (req: Request) => {
     });
     if (!claimed) return await currentReceipt();
 
-    await flutterwaveFetch('/transfers', {
+    const submitted = await flutterwaveFetch('/transfers', {
       method: 'POST',
       signal: AbortSignal.timeout(20_000),
       body: {
         account_bank, account_number, amount: numericAmount, beneficiary_name, reference, currency,
         debit_currency: currency, narration: narration || 'Transfer from CollectiPay', callback_url: config.webhookUrl,
       },
-    }, config).then(({ response }) => response.body?.cancel()).catch(() => {});
+    }, config).catch(() => null);
+    if (submitted?.response.ok) {
+      const acknowledgement = await submitted.response.json().catch(() => null);
+      if (acknowledgement?.status === "success") {
+        await rememberPayoutId(supabaseAdmin, {
+          user_id: user.id, reference_id: reference, amount: numericAmount, status: "pending",
+          created_at: reserved.created_at, metadata: { account_bank, account_number },
+        }, acknowledgement.data).catch(() => {});
+      }
+    } else {
+      await submitted?.response.body?.cancel().catch(() => {});
+    }
 
     // A response may be lost after acceptance. Only reconciliation can settle this debit.
     return await currentReceipt();

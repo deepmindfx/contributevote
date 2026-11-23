@@ -16,3 +16,6 @@ verify_jwt = false
 
 [functions.flutterwave-bulk-transfer]
 verify_jwt = true
+
+[functions.reconcile-bank-payouts]
+verify_jwt = true

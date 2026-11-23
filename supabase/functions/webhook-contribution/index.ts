@@ -6,7 +6,7 @@ import {
   type FlutterwaveRuntimeConfig,
 } from "../_shared/flutterwaveConfig.ts";
 
-import { reconcileBankTransfer, transferReconciliationFields } from "../_shared/reconcileBankTransfer.ts";
+import { findMatchingProviderIds, reconcileBankTransfer, transferReconciliationFields } from "../_shared/reconcileBankTransfer.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -211,7 +211,10 @@ async function handleOutboundTransferCallback(supabase: any, transferData: any, 
     const { data: row, error } = await supabase.from("transactions").select(transferReconciliationFields)
       .eq("type", "transfer").eq("reference_id", reference).maybeSingle();
     if (error) throw error;
-    if (row?.metadata?.dispatched_at) await reconcileBankTransfer(supabase, row, config);
+    if (row?.metadata?.dispatched_at) {
+      const [recordId] = findMatchingProviderIds(row, [transferData]);
+      await reconcileBankTransfer(supabase, row, config, { recordId });
+    }
   }
   return paymentResponse({ received: true });
 }

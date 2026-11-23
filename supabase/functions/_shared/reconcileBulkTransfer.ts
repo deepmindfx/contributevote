@@ -40,16 +40,18 @@ async function reconcileJob(db: any, job: Job, config: FlutterwaveRuntimeConfig)
 
   // Check the oldest pending rows first. Each recorded check advances updated_at.
   // Batch-list statuses may lag; use the listing only to locate individual payouts.
+  let unavailable = 0;
   const outcomes = await Promise.allSettled(pending.slice(0, 8).map((row) => {
     const ids = findMatchingProviderIds(row, candidates);
     return reconcileBankTransfer(db, row, config, {
       recordId: ids.length === 1 ? ids[0] : undefined,
       issue: issues.get(row.reference_id),
+      onUnavailable: () => { unavailable++; },
     });
   }));
   return {
     progress: outcomes.some((outcome) => outcome.status === "fulfilled" && resolved(outcome.value)),
-    failures: outcomes.filter((outcome) => outcome.status === "rejected").length,
+    failures: unavailable + outcomes.filter((outcome) => outcome.status === "rejected").length,
   };
 }
 

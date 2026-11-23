@@ -74,6 +74,7 @@ import {
 } from "@/components/admin/AdminActionDialogs";
 import { FlipCounterHero } from "@/components/admin/FlipCounterHero";
 import { AdminPaymentSettings } from "@/components/admin/AdminPaymentSettings";
+import { AdminPayoutHealth } from "@/components/admin/AdminPayoutHealth";
 import { AdminPaymentAlertSounds } from "@/components/admin/AdminPaymentAlertSounds";
 import { AdminPricingRevenue } from "@/components/admin/AdminPricingRevenue";
 import { AdminBulkTransfers } from "@/components/admin/AdminBulkTransfers";
@@ -2093,6 +2094,7 @@ const AdminDashboard = () => {
                   TAB 7: FLUTTERWAVE GATEWAY & WEBHOOK SETTINGS
                  ================================================================ */}
               <TabsContent value="gateway" className="space-y-4">
+                <AdminPayoutHealth />
                 <AdminPaymentAlertSounds />
                 <AdminPaymentSettings onSettingsSaved={() => void loadPlatformData()} />
               </TabsContent>

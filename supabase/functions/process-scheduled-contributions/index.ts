@@ -1,9 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-import { getFlutterwaveConfig } from "../_shared/flutterwaveConfig.ts";
-import { reconcileBankTransfer, transferReconciliationFields } from "../_shared/reconcileBankTransfer.ts";
-import { reconcileBulkTransfers } from "../_shared/reconcileBulkTransfer.ts";
+import { runPayoutReconciliation } from "../_shared/runPayoutReconciliation.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -35,8 +33,6 @@ serve(async (req) => {
       scheduled: { processed: 0, failed: 0 },
       refunds: { processed: 0, failed: 0 },
       withdrawals: { processed: 0, failed: 0 },
-      bankTransfers: { resolved: 0, pending: 0, failed: 0 },
-      bulkTransfers: { checked: 0, progressed: 0, failed: 0 },
       mode: deadlinesOnly ? 'deadlines-only' : 'full',
     };
 
@@ -109,33 +105,13 @@ serve(async (req) => {
       }
     }
 
-    const { data: pendingTransfers, error: transferError } = await supabaseClient.from('transactions')
-      .select(transferReconciliationFields).eq('type','transfer').eq('status','pending')
-      .is('bulk_batch_id',null)
-      .filter('metadata->>pricing_reserved','eq','true')
-      .lt('updated_at', new Date(Date.now() - 120_000).toISOString()).order('updated_at').limit(40);
-    if (transferError) results.bankTransfers.failed++;
-    else if (pendingTransfers?.length) {
-      const config = await getFlutterwaveConfig({ supabaseAdmin: supabaseClient });
-      for (let offset = 0; offset < pendingTransfers.length; offset += 8) {
-        await Promise.all(pendingTransfers.slice(offset, offset + 8).map(async (row) => {
-          try {
-            const status = await reconcileBankTransfer(supabaseClient, row, config);
-            if (status === "pending") results.bankTransfers.pending++;
-            else results.bankTransfers.resolved++;
-          } catch {
-            results.bankTransfers.failed++;
-          }
-        }));
+    let payoutBackup: Awaited<ReturnType<typeof runPayoutReconciliation>> | null = null;
+    if (!deadlinesOnly) {
+      try {
+        payoutBackup = await runPayoutReconciliation(supabaseClient, true);
+      } catch {
+        console.warn("Scheduled payout backup could not finish");
       }
-    }
-
-    try {
-      const config = await getFlutterwaveConfig({ supabaseAdmin: supabaseClient });
-      results.bulkTransfers = await reconcileBulkTransfers(supabaseClient, config);
-    } catch (error) {
-      results.bulkTransfers.failed++;
-      console.warn("Couldn’t reconcile bulk transfers", { code: (error as { code?: string })?.code });
     }
 
     return new Response(
@@ -143,6 +119,7 @@ serve(async (req) => {
         success: true,
         timestamp: now,
         results,
+        payoutBackup,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
