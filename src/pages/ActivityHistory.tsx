@@ -1,15 +1,15 @@
 import { useCallback, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { toast } from "sonner";
 import { useMonthlyLedger } from "@/hooks/useMonthlyLedger";
 import { useTransferStatus } from "@/hooks/useTransferStatus";
 import { analyzeWalletMonth, completedLedgerEntry, currentLagosMonth, walletMovement } from "@/services/supabase/monthlyLedger";
 import { MonthPicker, MonthlyFlowInsights } from "@/components/wallet/MonthlyFlowInsights";
-import { saveBankStatement } from "@/utils/bankStatement";
+import { StatementExportButton } from "@/components/wallet/StatementExportButton";
 import Header from "@/components/layout/Header";
 import {
   ArrowDownLeft,
   ArrowUpRight,
+  BarChart3,
   Vote as VoteIcon,
   Users,
   RefreshCw,
@@ -60,7 +60,6 @@ const ActivityHistory = () => {
   const { contributions } = useSupabaseContribution();
   const [search] = useSearchParams();
   const [month, setMonth] = useState(currentLagosMonth);
-  const [exporting, setExporting] = useState(false);
   const ledger = useMonthlyLedger(user?.id, month);
   const [activeTab, setActiveTab] = useState<ActivityFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -72,14 +71,6 @@ const ActivityHistory = () => {
 
   const userTransactions = useMemo(() => ledger.entries || [], [ledger.entries]);
   const summary = useMemo(() => analyzeWalletMonth(userTransactions, month), [userTransactions, month]);
-  const exportStatement = async () => {
-    if (!ledger.entries || exporting) return;
-    setExporting(true);
-    const account = (user?.preferences as { virtualAccount?: { accountNumber?: string; accounts?: { accountNumber?: string }[] } } | null)?.virtualAccount;
-    try { await saveBankStatement(month, user?.name || "CollectiPay account", ledger.entries, account?.accountNumber || account?.accounts?.[0]?.accountNumber); }
-    catch { toast.error("Couldn’t export the statement."); }
-    finally { setExporting(false); }
-  };
   const filteredTransactions = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
 
@@ -364,17 +355,21 @@ const ActivityHistory = () => {
         </section>
 
         <div className="app-panel-body space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <MonthPicker month={month} onChange={setMonth} />
-            <Button type="button" variant="outline" onClick={exportStatement} disabled={exporting || !ledger.entries}>
-              {exporting ? "Exporting…" : "Export bank statement"}
-            </Button>
-          </div>
+          <Card className="space-y-3 rounded-2xl p-4 sm:p-5" aria-labelledby="wallet-statement-title">
+            <div>
+              <h2 id="wallet-statement-title" className="font-semibold">Bank statement</h2>
+              <p className="text-sm text-muted-foreground">Choose a month and confirm with your transaction PIN.</p>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <MonthPicker month={month} onChange={setMonth} />
+              <StatementExportButton month={month} scope="wallet" />
+            </div>
+          </Card>
           {ledger.error && <div className="flex flex-wrap items-center gap-2 text-sm"><p role="alert">Couldn’t load this month.</p><Button variant="outline" onClick={ledger.reload}>Retry</Button></div>}
           {!ledger.entries && !ledger.error && <p role="status" className="text-sm text-muted-foreground">Loading activity…</p>}
           {ledger.entries && (
             <details className="rounded-2xl border bg-card p-4" open={search.get("view") === "analytics" || undefined}>
-              <summary className="cursor-pointer font-semibold">Transfer analytics</summary>
+              <summary className="cursor-pointer font-semibold"><BarChart3 size={17} className="ml-1 mr-2 inline text-primary" aria-hidden="true" />Transfer analytics</summary>
               <div className="mt-4"><MonthlyFlowInsights report={summary} /></div>
             </details>
           )}

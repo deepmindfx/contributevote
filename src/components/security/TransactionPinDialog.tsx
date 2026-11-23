@@ -23,7 +23,8 @@ interface TransactionPinDialogProps {
   amount?: number;
   confirmLabel?: string;
   pending?: boolean;
-  /** Called with the verified 4-digit PIN once validated against the server */
+  /** The action verifies the PIN and returns its result in one server request. */
+  verifyInAction?: boolean;
   onVerified: (pin: string) => Promise<void> | void;
 }
 
@@ -35,6 +36,7 @@ export function TransactionPinDialog({
   amount,
   confirmLabel = "Confirm & Proceed",
   pending = false,
+  verifyInAction = false,
   onVerified,
 }: TransactionPinDialogProps) {
   const { user, refreshCurrentUser } = useSupabaseUser();
@@ -103,16 +105,14 @@ export function TransactionPinDialog({
     setSubmitting(true);
     setError("");
     try {
-      const { data, error: rpcErr } = await (supabase as any).rpc("verify_user_transaction_pin", {
-        p_pin: pin,
-      });
-
-      if (rpcErr || !data?.success) {
-        setError(data?.error || rpcErr?.message || "Incorrect 4-digit Transaction PIN.");
-        setPin("");
-        return;
+      if (!verifyInAction) {
+        const { data, error: rpcErr } = await (supabase as any).rpc("verify_user_transaction_pin", { p_pin: pin });
+        if (rpcErr || !data?.success) {
+          setError(data?.error || rpcErr?.message || "Incorrect 4-digit Transaction PIN.");
+          setPin("");
+          return;
+        }
       }
-
       await onVerified(pin);
     } catch (err: any) {
       setError(err?.message || "Could not verify PIN.");

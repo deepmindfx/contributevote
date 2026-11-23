@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 import { getFlutterwaveConfig } from "../_shared/flutterwaveConfig.ts";
 import { reconcileBankTransfer, transferReconciliationFields } from "../_shared/reconcileBankTransfer.ts";
+import { reconcileBulkTransfers } from "../_shared/reconcileBulkTransfer.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -35,146 +36,29 @@ serve(async (req) => {
       refunds: { processed: 0, failed: 0 },
       withdrawals: { processed: 0, failed: 0 },
       bankTransfers: { resolved: 0, pending: 0, failed: 0 },
+      bulkTransfers: { checked: 0, progressed: 0, failed: 0 },
       mode: deadlinesOnly ? 'deadlines-only' : 'full',
     };
 
-    // 1. Process Active Recurring Contributions
     if (!deadlinesOnly) {
-      const { data: recurringDue, error: recurringErr } = await supabaseClient
-        .from('recurring_contributions')
-        .select('*')
-        .eq('is_active', true)
-        .lte('next_contribution_date', now);
-
-      if (recurringErr) {
-        console.error('Error querying recurring_contributions:', recurringErr);
-      }
-
-      if (recurringDue) {
-        for (const recurring of recurringDue) {
-          try {
-            if (recurring.end_date && new Date(recurring.end_date) < new Date()) {
-              await supabaseClient
-                .from('recurring_contributions')
-                .update({ is_active: false, updated_at: now })
-                .eq('id', recurring.id);
-              continue;
-            }
-
-            const { data: contributeResult, error: contributeError } = await supabaseClient.rpc(
-              'contribute_from_wallet',
-              {
-                p_user_id: recurring.user_id,
-                p_group_id: recurring.group_id,
-                p_amount: recurring.amount,
-              }
-            );
-
-            if (contributeError) throw contributeError;
-            if (!contributeResult?.success) {
-              throw new Error(contributeResult?.error || 'Wallet contribution failed');
-            }
-
-            // Advance nextDate strictly into the future so a previously missed window
-            // never triggers a rapid catch-up burst of back-to-back charges.
-            const nextDate = new Date(recurring.next_contribution_date);
-            const nowMs = Date.now();
-            let guard = 0;
-            do {
-              switch (recurring.frequency) {
-                case 'daily':
-                  nextDate.setDate(nextDate.getDate() + 1);
-                  break;
-                case 'weekly':
-                  nextDate.setDate(nextDate.getDate() + 7);
-                  break;
-                case 'monthly':
-                  nextDate.setMonth(nextDate.getMonth() + 1);
-                  break;
-                default:
-                  nextDate.setMonth(nextDate.getMonth() + 1);
-                  break;
-              }
-              guard++;
-            } while (nextDate.getTime() <= nowMs && guard < 400);
-
-            const reachedEnd = Boolean(recurring.end_date && nextDate > new Date(recurring.end_date));
-
-            await supabaseClient
-              .from('recurring_contributions')
-              .update({
-                next_contribution_date: nextDate.toISOString(),
-                is_active: !reachedEnd,
-                total_contributions: Number(recurring.total_contributions || 0) + 1,
-                total_amount: Number(recurring.total_amount || 0) + Number(recurring.amount || 0),
-                last_contribution_at: now,
-                updated_at: now,
-              })
-              .eq('id', recurring.id);
-
-            results.recurring.processed++;
-          } catch (error) {
-            console.error(`Failed to process recurring ${recurring.id}:`, error);
-            results.recurring.failed++;
-          }
+      for (const spec of [
+        { table: "recurring_contributions", kind: "recurring", due: "next_contribution_date", counter: results.recurring },
+        { table: "scheduled_contributions", kind: "scheduled", due: "scheduled_date", counter: results.scheduled },
+      ] as const) {
+        const dueQuery = supabaseClient.from(spec.table).select("id," + spec.due).lte(spec.due, now);
+        const { data: due, error } = await (spec.kind === "recurring" ? dueQuery.eq("is_active", true) : dueQuery.eq("status", "pending"))
+          .order(spec.due).order("id");
+        if (error) {
+          spec.counter.failed++;
+          console.warn("Couldn’t list due contributions", { kind: spec.kind, code: error.code });
+          continue;
         }
-      }
-    }
-
-    // 2. Process One-Time Scheduled Contributions
-    if (!deadlinesOnly) {
-      const { data: scheduledDue, error: scheduledErr } = await supabaseClient
-        .from('scheduled_contributions')
-        .select('*')
-        .eq('status', 'pending')
-        .lte('scheduled_date', now);
-
-      if (scheduledErr) {
-        console.error('Error querying scheduled_contributions:', scheduledErr);
-      }
-
-      if (scheduledDue) {
-        for (const scheduled of scheduledDue) {
-          try {
-            const { data: contributeResult, error: contributeError } = await supabaseClient.rpc(
-              'contribute_from_wallet',
-              {
-                p_user_id: scheduled.user_id,
-                p_group_id: scheduled.group_id,
-                p_amount: scheduled.amount,
-              }
-            );
-
-            if (contributeError) throw contributeError;
-            if (!contributeResult?.success) {
-              throw new Error(contributeResult?.error || 'Wallet contribution failed');
-            }
-
-            await supabaseClient
-              .from('scheduled_contributions')
-              .update({
-                status: 'completed',
-                executed_at: now,
-                updated_at: now,
-              })
-              .eq('id', scheduled.id);
-
-            results.scheduled.processed++;
-          } catch (error) {
-            const reason = error instanceof Error ? error.message : String(error);
-            console.error(`Failed to process scheduled ${scheduled.id}:`, reason);
-
-            await supabaseClient
-              .from('scheduled_contributions')
-              .update({
-                status: 'failed',
-                failure_reason: reason,
-                updated_at: now,
-              })
-              .eq('id', scheduled.id);
-
-            results.scheduled.failed++;
-          }
+        for (const item of (due ?? []) as unknown as Array<{ id: string } & Record<string, string>>) {
+          const { data, error: chargeError } = await supabaseClient.rpc("service_run_due_contribution", {
+            p_kind: spec.kind, p_id: item.id, p_expected_at: item[spec.due],
+          });
+          if (chargeError || data === "failed") spec.counter.failed++;
+          else if (data === "completed") spec.counter.processed++;
         }
       }
     }
@@ -208,8 +92,26 @@ serve(async (req) => {
     if (refundError) results.refunds.failed++;
     else results.refunds.processed = Number(expiredRefunds) || 0;
 
+    // Approval and payout can be separated by a temporary group hold.
+    const retryBefore = new Date(Date.now() - 60_000).toISOString();
+    for (const spec of [
+      { table: "withdrawal_requests", kind: "withdrawal", counter: results.withdrawals },
+      { table: "group_refund_requests", kind: "refund", counter: results.refunds },
+    ] as const) {
+      let approved = supabaseClient.from(spec.table).select("id").eq("status", "approved").lt("updated_at", retryBefore);
+      if (spec.kind === "refund") approved = approved.eq("verified_request", true);
+      const { data: due, error } = await approved.order("updated_at").order("id").limit(10);
+      if (error) { spec.counter.failed++; continue; }
+      for (const item of due ?? []) {
+        const { data, error: retryError } = await supabaseClient.rpc("service_retry_approved_group_settlement", { p_kind: spec.kind, p_id: item.id });
+        if (retryError) spec.counter.failed++;
+        else if (data) spec.counter.processed++;
+      }
+    }
+
     const { data: pendingTransfers, error: transferError } = await supabaseClient.from('transactions')
       .select(transferReconciliationFields).eq('type','transfer').eq('status','pending')
+      .is('bulk_batch_id',null)
       .filter('metadata->>pricing_reserved','eq','true')
       .lt('updated_at', new Date(Date.now() - 120_000).toISOString()).order('updated_at').limit(40);
     if (transferError) results.bankTransfers.failed++;
@@ -226,6 +128,14 @@ serve(async (req) => {
           }
         }));
       }
+    }
+
+    try {
+      const config = await getFlutterwaveConfig({ supabaseAdmin: supabaseClient });
+      results.bulkTransfers = await reconcileBulkTransfers(supabaseClient, config);
+    } catch (error) {
+      results.bulkTransfers.failed++;
+      console.warn("Couldn’t reconcile bulk transfers", { code: (error as { code?: string })?.code });
     }
 
     return new Response(

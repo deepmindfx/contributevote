@@ -11,6 +11,7 @@ import { WalletService } from "@/services/supabase/walletService";
 import type { ReservedAccountData } from "@/services/supabase/walletService";
 import { BvnInputDialog } from "@/components/contribution/BvnInputDialog";
 import { WalletAccountDetails } from "./WalletAccountDetails";
+import { WalletReportLinks } from "./WalletReportLinks";
 import { formatWalletBonus, WalletBankBonusNotice } from "./WalletBankBonusNotice";
 import { useWalletBankBonus, walletBankBonusOfferKey } from "@/hooks/useWalletBankBonus";
 
@@ -90,6 +91,7 @@ export default function ReservedAccount() {
               <Button asChild variant="ghost"><Link to="/wallet-history?view=bank">Bank history</Link></Button>
               <Button variant="ghost" className="gap-2" onClick={refresh} disabled={working}><RefreshCw size={16} className={working ? "motion-safe:animate-spin" : ""} aria-hidden="true" /> Refresh</Button>
             </div>
+            <WalletReportLinks scope="wallet" />
           </>
         ) : (
           <>

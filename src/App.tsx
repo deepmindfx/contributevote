@@ -179,6 +179,7 @@ const AppRoutes = () => {
       <Route path="/admin-login" element={<screens.adminAuth />} />
       <Route path="/discover" element={<screens.discover />} />
       <Route path="/faq" element={<screens.faq />} />
+      <Route path="/support" element={<ProtectedRoute><screens.support /></ProtectedRoute>} />
       
       {/* Protected Routes */}
       <Route path="/dashboard" element={
@@ -237,6 +238,7 @@ const AppRoutes = () => {
       <Route path="/join/:id" element={<screens.join />} />
       <Route path="/invite/:token" element={<screens.invite />} />
       <Route path="/transfer/bulk" element={<ProtectedRoute><screens.bulkTransfer /></ProtectedRoute>} />
+      <Route path="/transfer/bulk/history" element={<ProtectedRoute><screens.bulkTransferHistory /></ProtectedRoute>} />
       <Route path="/transfer" element={
         <ProtectedRoute>
           <screens.transfer />

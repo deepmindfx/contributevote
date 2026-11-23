@@ -112,73 +112,38 @@ Deno.serve(async (req: Request) => {
     });
     if (reserveError || !reserved?.success) throw new Error(reserveError?.message || reserved?.error || 'Could not reserve the transfer');
     const fee = Number(reserved.fee);
-    const transferReceipt = (status: string, remote: { id?: number | string; bank_name?: string } = {}) =>
+    const transferReceipt = (status: string, transactionId?: string) =>
       new Response(JSON.stringify({
         status: 'success',
         data: {
-          id: remote.id, reference, amount: numericAmount, fee, fee_reason: reserved.fee_reason, status,
+          id: transactionId, reference, amount: numericAmount, fee, fee_reason: reserved.fee_reason, status,
           created_at: reserved.created_at || new Date().toISOString(), full_name: beneficiary_name, account_number,
-          bank_name: remote.bank_name || reserved.bank_name || cleanBankName || account_bank, narration,
+          bank_name: reserved.bank_name || cleanBankName || account_bank, narration,
         },
       }), { headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+    const currentReceipt = async (fallbackStatus = 'pending') => {
+      const { data } = await supabaseAdmin.from('transactions').select('id,status')
+        .eq('user_id', user.id).eq('reference_id', reference).maybeSingle();
+      return transferReceipt(data?.status || fallbackStatus, data?.id);
+    };
 
-    if (reserved.replayed && reserved.status !== 'pending') return transferReceipt(reserved.status);
+    if (reserved.replayed && reserved.status !== 'pending') return await currentReceipt(reserved.status);
     const { data: claimed } = await supabaseAdmin.rpc('service_claim_transfer_dispatch', {
       p_reference: reference, p_user_id: user.id,
     });
-    if (!claimed) {
-      return transferReceipt('pending');
-    }
+    if (!claimed) return await currentReceipt();
 
-    const settle = async (status: 'pending' | 'completed' | 'failed', details: Record<string, unknown>) => {
-      const { data, error } = await supabaseAdmin.rpc('service_settle_priced_transfer', {
-        p_reference: reference, p_status: status, p_details: details,
-      });
-      if (error || !data?.found) throw new Error('We couldn’t confirm the transfer. Check Wallet history before trying again.');
-      return data.status as string;
-    };
-
-    const { response: transferResponse, routedViaStaticIp } = await flutterwaveFetch('/transfers', {
+    await flutterwaveFetch('/transfers', {
       method: 'POST',
       signal: AbortSignal.timeout(20_000),
       body: {
         account_bank, account_number, amount: numericAmount, beneficiary_name, reference, currency,
         debit_currency: currency, narration: narration || 'Transfer from CollectiPay', callback_url: config.webhookUrl,
       },
-    }, config).catch(() => ({ response: new Response(null, { status: 503 }), routedViaStaticIp: false }));
+    }, config).then(({ response }) => response.body?.cancel()).catch(() => {});
 
-    // A timeout or provider server error can occur after acceptance. Keep the reserved payment pending.
-    if (transferResponse.status >= 500 || [408, 409, 429].includes(transferResponse.status)) {
-      return transferReceipt('pending');
-    }
-    const transferData = await transferResponse.json().catch(() => null);
-    if ([401, 403].includes(transferResponse.status)) {
-      await settle('failed', {});
-      return transferReceipt('failed');
-    }
-    // An error without a matching provider transfer could be a lost response or duplicate
-    // reference. Keep the debit reserved until authenticated reconciliation confirms the outcome.
-    if (transferData?.data?.reference !== reference) {
-      return transferReceipt('pending');
-    }
-    const providerStatus = String(transferData.data.status || '').toUpperCase();
-    const providerMatches = transferData.data.currency === 'NGN'
-      && Number(transferData.data.amount) === numericAmount && String(transferData.data.account_number) === account_number
-      && (!transferData.data.bank_code || String(transferData.data.bank_code) === account_bank);
-    if (!providerMatches) {
-      await settle('pending', { flutterwave_id: transferData.data.id });
-      return transferReceipt('pending');
-    }
-    const completeMessage = typeof transferData.data.complete_message === 'string' && transferData.data.complete_message.trim()
-      ? transferData.data.complete_message.trim().slice(0, 240)
-      : undefined;
-    const settledStatus = await settle(providerStatus === 'SUCCESSFUL' ? 'completed' : providerStatus === 'FAILED' ? 'failed' : 'pending', {
-      bank_name: transferData.data.bank_name || cleanBankName || account_bank,
-      ...(completeMessage ? { complete_message: completeMessage } : {}),
-      flutterwave_id: transferData.data.id, flutterwave_reference: transferData.data.reference,
-      routed_via_static_ip: routedViaStaticIp, static_ip: routedViaStaticIp ? config.staticIpAddress : null,
-    });
-    return transferReceipt(settledStatus, transferData.data);
+    // A response may be lost after acceptance. Only reconciliation can settle this debit.
+    return await currentReceipt();
   } catch (error) {
     console.error('Error processing transfer:', error);
 

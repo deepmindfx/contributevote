@@ -43,6 +43,7 @@ import { MoneySentAnimation } from "@/components/wallet/MoneySentAnimation";
 import { RecipientNicknameDialog } from "@/components/wallet/RecipientNicknameDialog";
 import { WalletFlow } from "@/components/wallet/WalletFlow";
 import { TransferAllowanceNotice } from "@/components/wallet/TransferAllowanceNotice";
+import { supportLink } from "@/services/supabase/supportService";
 import { useBankDirectory } from "@/hooks/useBankDirectory";
 import { useTransferAllowance } from "@/hooks/useTransferAllowance";
 import { useTransferStatus } from "@/hooks/useTransferStatus";
@@ -507,7 +508,7 @@ export default function TransferForm() {
               </span>
             </button>
 
-            <button
+            {(complete || failed) && <button
               type="button"
               onClick={() => {
                 setReceipt(null);
@@ -531,7 +532,7 @@ export default function TransferForm() {
                   Same recipient
                 </span>
               </span>
-            </button>
+            </button>}
 
             <button
               type="button"
@@ -564,6 +565,7 @@ export default function TransferForm() {
           <Button asChild className="h-12 w-full rounded-xl font-bold">
             <Link to="/wallet-history">Done · View Wallet History</Link>
           </Button>
+          {!complete && receipt.reference && <Button asChild variant="ghost" className="w-full text-primary"><Link to={supportLink("transfer", receipt.reference)}>Get help with this transfer</Link></Button>}
         </div>
 
         {/* Full Verified Receipt Modal */}

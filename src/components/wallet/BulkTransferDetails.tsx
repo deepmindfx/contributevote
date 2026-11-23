@@ -1,9 +1,11 @@
 import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { ArrowDownLeft, BadgeCheck, FileSpreadsheet } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { useBankDirectory } from "@/hooks/useBankDirectory";
 import { cn } from "@/lib/utils";
 import type { BulkTransferBatch } from "@/services/supabase/bulkTransferService";
+import { supportLink } from "@/services/supabase/supportService";
 
 const naira = new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN" });
 export const bulkMoney = (amount: number) => naira.format(amount);
@@ -75,7 +77,7 @@ export function BulkTransferDetails({ batch, showReferences = false, actions }: 
               <li key={row.reference} className="grid gap-2 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-4">
                 <div className="min-w-0 break-words [overflow-wrap:anywhere]">
                   <p className="text-sm font-semibold leading-snug">{row.beneficiary_name}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{row.account_number} · {bankNames.get(row.account_bank) ?? `Bank ${row.account_bank}`}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{bankNames.get(row.account_bank) ?? `Bank ${row.account_bank}`} · Account {row.account_number}</p>
                   {row.narration && <p className="text-xs text-muted-foreground">{row.narration}</p>}
                   {row.message && <p className="text-xs text-muted-foreground">{row.message}</p>}
                   {showReferences && <p className="break-all font-mono text-xs text-muted-foreground">{row.reference}</p>}
@@ -89,7 +91,8 @@ export function BulkTransferDetails({ batch, showReferences = false, actions }: 
             ))}
           </ul>
         </div>}
-        {batch.status === "needs_review" && <p className="text-sm text-muted-foreground">Some payouts are awaiting provider confirmation. Check this batch before starting another payment to the same recipients.</p>}
+        {batch.status === "needs_review" && <p className="text-sm text-muted-foreground">Some payouts are awaiting bank confirmation. We’ll continue checking automatically. Check this batch before paying those recipients again.</p>}
+        {batch.authorized_at && !showReferences && <Link className="inline-flex min-h-10 items-center text-sm font-medium text-primary underline-offset-4 hover:underline" to={supportLink("bulk_transfer", batch.id)}>Get help with this batch</Link>}
       </div>
       {actions && <div className="space-y-2 border-t bg-muted/25 px-4 py-3 sm:px-6">{actions}</div>}
     </Card>

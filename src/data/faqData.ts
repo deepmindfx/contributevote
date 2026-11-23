@@ -3,6 +3,7 @@ export type FaqCategoryId =
   | "groups"
   | "voting"
   | "transfers-fees"
+  | "ice-vault"
   | "security";
 
 export interface FaqCategory {
@@ -24,6 +25,7 @@ export const FAQ_CATEGORIES: FaqCategory[] = [
   { id: "groups", label: "Groups & Pools" },
   { id: "voting", label: "Voting & Refunds" },
   { id: "transfers-fees", label: "Transfers & Fees" },
+  { id: "ice-vault", label: "Ice Vault" },
   { id: "security", label: "Security & Receipts" },
 ];
 
@@ -137,8 +139,43 @@ export const FAQ_ITEMS: FaqItem[] = [
     featured: true,
     question: "What happens if my bank transfer fails?",
     answer:
-      "If the recipient bank or Flutterwave cannot complete a transfer, CollectiPay automatically refunds the full transfer amount plus any fee back into your wallet and restores your daily free-transfer allowance. You can view the exact failure reason and refunded receipt anytime in Wallet History or Activity.",
+      "A reservation that expires before a payout was sent is returned to your wallet with any fee. Once a bank payout may have been sent, a failed or uncertain status stays pending while CollectiPay checks the original reference. Open the transfer in Wallet History to see its latest status or contact support. Wait for an outcome before sending it again.",
     keywords: ["reversed", "pending", "insufficient", "refund", "failed"],
+  },
+  {
+    id: "how-bulk-transfers-work",
+    category: "transfers-fees",
+    question: "How do I send a bulk transfer or pay a salary batch?",
+    answer: "Open Bulk transfers from your wallet. Add recipients by choosing their bank and entering their account number, or upload the CSV template for a larger batch. Review the account names, amounts, fees and VAT, then approve the whole batch with your transaction PIN.",
+    keywords: ["bulk", "salary", "payroll", "batch", "csv", "VAT", "bank name"],
+  },
+  {
+    id: "bulk-transfer-one-payout-pending",
+    category: "transfers-fees",
+    question: "Why is one recipient in my bulk transfer still pending?",
+    answer: "Banks process each recipient separately. Bulk transfer history shows each result. A batch that was never sent can be refunded to your wallet, including fees and VAT. After dispatch, an uncertain payout stays reserved under its original reference while we check it. Use Get help on the batch to open a ticket with that reference.",
+    keywords: ["bulk", "partial", "pending", "failed", "batch", "ticket", "reference"],
+  },
+  {
+    id: "what-is-ice-vault",
+    category: "ice-vault",
+    question: "What is Ice Vault?",
+    answer: "Ice Vault lets you set aside money from your CollectiPay wallet until a maturity date. Review the amount, maturity date and terms before confirming with your transaction PIN. The full amount returns to your wallet at maturity. Ice Vault pays no interest or bonuses and has no locking fee.",
+    keywords: ["fixed savings", "lock funds", "freeze", "maturity", "savings"],
+  },
+  {
+    id: "ice-vault-maturity",
+    category: "ice-vault",
+    question: "When can I get my money back from Ice Vault?",
+    answer: "You can use your locked money once it matures. Ice Vault releases it to your wallet automatically. If the automatic release is delayed, open the matured lock and choose Withdraw to wallet. If you still need help, open a support ticket from that lock.",
+    keywords: ["fixed savings", "unfreeze", "withdraw", "maturity", "release", "early withdrawal"],
+  },
+  {
+    id: "support-tickets",
+    category: "security",
+    question: "How can I get help with a payout, a refund, or my account?",
+    answer: "Sign in and open Support from the Help & FAQ page. Choose a topic and describe what happened. If you're opening a ticket from a transfer, a batch, or Ice Vault, CollectiPay can attach the reference for you. Replies and status updates appear in your ticket conversation.",
+    keywords: ["support", "help", "complaint", "ticket", "status", "refund"],
   },
   {
     id: "group-withdrawal-fees",

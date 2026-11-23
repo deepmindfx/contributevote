@@ -24,9 +24,9 @@ const UserSettings = () => {
             </Button>
             <div className="flex flex-wrap items-center gap-2">
               <Button asChild variant="ghost" className="app-panel-secondary gap-1.5 rounded-xl">
-                <Link to="/faq">
+                <Link to="/support">
                   <HelpCircle size={15} aria-hidden="true" />
-                  Help &amp; FAQ
+                  Support
                 </Link>
               </Button>
               <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-[#dbf5b4]">

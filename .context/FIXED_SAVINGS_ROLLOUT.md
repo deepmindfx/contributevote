@@ -26,4 +26,6 @@ Apply `20261122211000_ice_vault_manual_release.sql` to keep older unsettled lock
 
 Apply `20261122214500_ice_vault_reliability.sql` before deploying the matching frontend. The maturity sweep allows one run at a time. The minute-by-minute `collectipay-fixed-savings-notifications` job retries pending alerts independently of wallet settlement. Watch for failed deliveries in database warnings and the private outbox. Ice Vault entries stay in the wallet ledger and are excluded from cash-flow AML rules.
 
+Apply `20261123055000_ice_vault_maturity_queue.sql` to skip busy wallets before taking the sweep's batch limit and pause retries of individual failed credits for five minutes. Check database warnings and active locks with `maturity_retry_at` set to track credit errors.
+
 New locks require terms acceptance, a transaction PIN, a healthy scheduler, and an enabled program. Customer balances and savings data are scoped to the signed-in account. The database clock determines release eligibility. Super Admin settings edits use a revision check and record the actor and before-and-after settings in the private audit table.

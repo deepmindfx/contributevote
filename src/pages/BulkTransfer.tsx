@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Activity, ArrowLeft, Check, ChevronRight, History, ListChecks, RefreshCw, UploadCloud } from "lucide-react";
 import { toast } from "sonner";
 import { WalletFlow } from "@/components/wallet/WalletFlow";
+import { WalletReportLinks } from "@/components/wallet/WalletReportLinks";
 import { BulkTransferDetails, bulkMoney, bulkStatus } from "@/components/wallet/BulkTransferDetails";
 import { BulkTransferCsvHelp, BulkTransferUpload } from "@/components/wallet/BulkTransferUpload";
 import { TransactionPinDialog } from "@/components/security/TransactionPinDialog";
@@ -40,6 +41,7 @@ function BulkTransferSteps({ current }: { current: number }) {
 
 export default function BulkTransfer() {
   const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
   const candidate = params.get("batch") ?? "";
   const id = uuid.test(candidate) ? candidate : undefined;
   const { user, refreshCurrentUser } = useSupabaseUser();
@@ -59,6 +61,16 @@ export default function BulkTransfer() {
     refetchInterval: (query) => query.state.data?.pending ? 8_000 : false,
   });
   const batch = detail.data;
+
+  const returnToBatches = () => {
+    setError("");
+    if (params.get("from") === "history") {
+      const filters = new URLSearchParams(params);
+      filters.delete("batch");
+      filters.delete("from");
+      navigate(`/transfer/bulk/history?${filters}`);
+    } else setParams({});
+  };
 
   const refreshWallet = () => {
     void Promise.allSettled([
@@ -120,9 +132,10 @@ export default function BulkTransfer() {
     <WalletFlow title="Bulk transfers" description="Pay multiple Nigerian bank accounts with one approval." wide
       headerRight={<Button asChild variant="outline" size="sm" className="app-panel-secondary"><Link to="/transfer">Single transfer</Link></Button>}>
       <div ref={stage} tabIndex={-1} role="region" className="space-y-4 outline-none" aria-label="Bulk transfer workspace">
+        {!id && <WalletReportLinks scope="bulk" />}
         <BulkTransferSteps current={batch?.authorized_at ? 2 : id ? 1 : 0} />
         {id ? <>
-          <Button type="button" variant="ghost" className="h-10 gap-2 px-3" disabled={busy} onClick={() => { setError(""); setParams({}); }}>
+          <Button type="button" variant="ghost" className="h-10 gap-2 px-3" disabled={busy} onClick={returnToBatches}>
             <ArrowLeft size={16} aria-hidden="true" /> All batches
           </Button>
           {detail.isPending && <p role="status">Loading batch…</p>}
@@ -133,14 +146,14 @@ export default function BulkTransfer() {
                 {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
                 {batch.status === "quoted" && <Button type="button" size="lg" className="w-full rounded-xl" disabled={busy || !settings.data?.enabled} onClick={() => setPinOpen(true)}>Confirm {bulkMoney(batch.total)}</Button>}
                 {batch.status === "reserved" && <Button type="button" size="lg" className="w-full rounded-xl" disabled={busy || !settings.data?.enabled} onClick={() => void submit()}>Continue authorized batch</Button>}
-                {batch.pending > 0 && batch.status !== "reserved" && (
+                {batch.pending > 0 && (
                   <Button type="button" variant="outline" size="lg" className="w-full gap-2 rounded-xl" disabled={busy} onClick={() => void reconcile()}>
                     <RefreshCw size={16} className={cn(busy && "motion-safe:animate-spin")} aria-hidden="true" /> {busy ? "Checking status…" : "Refresh transfer status"}
                   </Button>
                 )}
               </> : undefined
             } />
-            {batch.status === "expired" && <p className="text-sm text-muted-foreground">Return to all batches and upload your CSV again to get an updated quote.</p>}
+            {batch.status === "expired" && <p className="text-sm text-muted-foreground">Return to all batches and review your recipients again for an updated quote.</p>}
             <TransactionPinDialog open={pinOpen && batch.status === "quoted"} onOpenChange={setPinOpen} pending={busy} amount={batch.total}
               title="Authorize bulk transfer" description={`Confirm the full amount for ${batch.recipient_count} recipients, including all fees and VAT.`}
               confirmLabel="Send batch" onVerified={submit} />

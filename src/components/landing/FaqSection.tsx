@@ -32,7 +32,7 @@ export function FaqSection() {
             </span>
             <h2 id="faq-title">Clear answers before you pool a kobo.</h2>
             <p>
-              Everything you need to know about funding wallets, voting thresholds, bank transfers, and keeping group money transparent.
+              Find answers about shared pools, Ice Vault, and sending bank transfers individually or in bulk.
             </p>
             <div className="landing-faq-filters" role="tablist" aria-label="FAQ categories">
               <button

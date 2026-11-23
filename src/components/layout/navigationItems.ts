@@ -24,6 +24,6 @@ export function getWorkspaceLink(pathname: string) {
   if (path === "/admin" || path.startsWith("/admin/")) return adminWorkspaceLink;
   if (path.startsWith("/groups/") || path === "/create-group") return workspaceLinks[1];
   if (path === "/transfer") return workspaceLinks[0];
-  if (path === "/profile") return workspaceLinks.find((link) => link.to === "/settings");
+  if (path === "/profile" || path === "/support") return workspaceLinks.find((link) => link.to === "/settings");
   return workspaceLinks.find((link) => link.to === path);
 }

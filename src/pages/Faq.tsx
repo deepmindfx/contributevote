@@ -22,6 +22,7 @@ const categoryLabels: Record<FaqCategoryId, string> = {
   groups: "Groups & Pools",
   voting: "Voting & Refunds",
   "transfers-fees": "Transfers & Fees",
+  "ice-vault": "Ice Vault",
   security: "Security & Receipts",
 };
 
@@ -116,7 +117,7 @@ export default function Faq() {
             Frequently Asked Questions
           </h1>
           <p className="panel-kicker mt-1.5 max-w-2xl text-sm">
-            Clear, up-to-date answers on CollectiPay wallets, group voting rules, bank transfers, fees, BVN verification, and receipts.
+            Find answers about your wallet, bulk transfers, Ice Vault, group voting, and payments.
           </p>
 
           <div className="relative mt-5">
@@ -286,12 +287,12 @@ export default function Faq() {
           <div className="cp-card-native flex flex-col justify-between gap-4 p-5 sm:flex-row sm:items-center">
             <div>
               <h2 className="text-base font-bold text-foreground">
-                Ready to start pooling together?
+                Still need help?
               </h2>
               <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">
                 {isAuthenticated
-                  ? "Create a group, manage your PIN in Settings, or explore public community pools."
-                  : "Create your free CollectiPay account in under a minute and launch your first group."}
+                  ? "Open a ticket and follow replies from CollectiPay support."
+                  : "Sign in to open a support ticket for your account or a payment."}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -301,8 +302,8 @@ export default function Faq() {
                     <Link to="/settings">Account settings</Link>
                   </Button>
                   <Button asChild className="gap-1.5 rounded-xl font-semibold">
-                    <Link to="/create-group">
-                      Create a group <ArrowUpRight size={15} aria-hidden="true" />
+                    <Link to="/support">
+                      Support tickets <ArrowUpRight size={15} aria-hidden="true" />
                     </Link>
                   </Button>
                 </>
@@ -312,8 +313,8 @@ export default function Faq() {
                     <Link to="/discover">Explore groups</Link>
                   </Button>
                   <Button asChild className="gap-1.5 rounded-xl font-semibold">
-                    <Link to="/auth?mode=signup">
-                      Get started <ArrowUpRight size={15} aria-hidden="true" />
+                    <Link to="/auth">
+                      Sign in for support <ArrowUpRight size={15} aria-hidden="true" />
                     </Link>
                   </Button>
                 </>

@@ -25,6 +25,7 @@ import {
 } from "@/services/supabase/withdrawalService";
 import { cn } from "@/lib/utils";
 import { naira } from "@/services/supabase/pricingService";
+import { supportLink } from "@/services/supabase/supportService";
 
 interface GroupWithdrawalVotesCardProps {
   groupId: string;
@@ -130,8 +131,9 @@ export function GroupWithdrawalVotesCard({
 
   // Show pending proposals plus recently decided ones (last 2)
   const pendingRequests = requests.filter((r) => r.status === "pending");
-  const recentResolved = requests.filter((r) => r.status !== "pending").slice(0, 2);
-  const visibleRequests = pendingRequests.length > 0 ? pendingRequests : recentResolved;
+  const openRequests = requests.filter((r) => r.status === "pending" || r.status === "approved");
+  const recentResolved = requests.filter((r) => r.status !== "pending" && r.status !== "approved").slice(0, 2);
+  const visibleRequests = openRequests.length ? openRequests : recentResolved;
 
   if (loading || visibleRequests.length === 0) return null;
 
@@ -205,7 +207,7 @@ export function GroupWithdrawalVotesCard({
                         ) : (
                           <XCircle className="h-3 w-3" />
                         )}
-                        {req.status === "executed" ? "Approved & Paid" : req.status}
+                        {req.status === "executed" ? "Approved & paid" : req.status === "approved" ? "Approved · awaiting payout" : req.status}
                       </span>
                     </div>
                     <p className="mt-1.5 text-2xl font-extrabold tracking-tight text-foreground tabular-nums">
@@ -307,6 +309,9 @@ export function GroupWithdrawalVotesCard({
                       Contribute from your wallet (or have your bank transfer verified) to vote on payouts.
                     </p>
                   )
+                )}
+                {req.status === "approved" && req.requester_id === user?.id && (
+                  <Button asChild variant="outline" size="sm"><Link to={supportLink("group_withdrawal", req.id)}>Get help with this payout</Link></Button>
                 )}
               </div>
             );

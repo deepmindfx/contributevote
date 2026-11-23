@@ -64,6 +64,35 @@ export async function getBulkTransferHistory(p_admin = false, p_before?: string)
   return (data ?? []) as unknown as BulkTransferBatch[];
 }
 
+export type BulkHistoryStatus = "pending" | "completed" | "partial" | "failed" | "needs_review";
+export type BulkHistoryCursor = { before: string; id: string };
+export type BulkTransferAnalytics = {
+  totals: {
+    batches: number; recipients: number; completed: number; failed: number; pending: number;
+    authorized_total: number; paid_principal: number; paid_fee: number; paid_vat: number;
+    refunded_total: number; pending_total: number; previous_paid_principal: number;
+  };
+  daily: Array<{ day: number; paid: number; pending: number; failed: number }>;
+  banks: Array<{
+    bank_code: string | null; bank_name: string | null; recipients: number; completed: number;
+    pending: number; failed: number; paid_principal: number;
+  }>;
+};
+
+export async function loadBulkTransferAnalytics(month: string, signal: AbortSignal) {
+  const { data, error } = await supabase.rpc("get_my_bulk_transfer_analytics", { p_month: `${month}-01` }).abortSignal(signal);
+  if (error || !data) throw new Error("Couldn’t load bulk transfer analytics.");
+  return data as BulkTransferAnalytics;
+}
+
+export async function loadBulkTransferHistory(month: string, status: BulkHistoryStatus | undefined, cursor: BulkHistoryCursor | null, signal: AbortSignal) {
+  const { data, error } = await supabase.rpc("get_my_bulk_transfer_history", {
+    p_month: `${month}-01`, p_status: status, p_before: cursor?.before, p_before_id: cursor?.id,
+  }).abortSignal(signal);
+  if (error) throw new Error("Couldn’t load your batches.");
+  return (data ?? []) as unknown as BulkTransferBatch[];
+}
+
 type BulkAction = { action: "quote"; title: string; recipients: BulkRecipientInput[] }
   | { action: "submit"; batch_id: string; transaction_pin?: string }
   | { action: "reconcile"; batch_id: string };

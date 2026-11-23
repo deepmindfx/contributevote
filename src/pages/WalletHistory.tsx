@@ -17,10 +17,12 @@ import { format, isToday, isYesterday } from "date-fns";
 import Header from "@/components/layout/Header";
 import BrandLoader from "@/components/ui/BrandLoader";
 import { Button } from "@/components/ui/button";
+import { WalletReportLinks } from "@/components/wallet/WalletReportLinks";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { completedLedgerEntry, walletMovement } from "@/services/supabase/monthlyLedger";
+import { supportLink } from "@/services/supabase/supportService";
 import { useTransferStatus } from "@/hooks/useTransferStatus";
 import { CurrencySelector } from "@/components/wallet/CurrencySelector";
 import CollectiPayReceipt from "@/components/receipt/CollectiPayReceipt";
@@ -93,7 +95,7 @@ export default function WalletHistory() {
   const [filter, setFilter] = useState<keyof typeof filters>("all");
   const [query, setQuery] = useState("");
   const [groupNames, setGroupNames] = useState<Record<string, string>>({});
-  const [selected, setSelected] = useState<CollectiPayReceiptData | null>(null);
+  const [selected, setSelected] = useState<(CollectiPayReceiptData & { supportUrl?: string }) | null>(null);
   const updateReceiptStatus = useCallback((status: string) => {
     setSelected((receipt) => receipt ? { ...receipt, status } : receipt);
   }, []);
@@ -234,6 +236,11 @@ export default function WalletHistory() {
       : undefined;
 
     setSelected({
+      supportUrl: transaction.bulk_batch_id ? supportLink("bulk_transfer", transaction.bulk_batch_id)
+        : type === "transfer" ? supportLink("transfer", transaction.id)
+        : savingsMovement && typeof meta.savings_id === "string" ? supportLink("ice_vault", meta.savings_id)
+        : groupPayout ? supportLink("group_withdrawal", transaction.id)
+        : type === "refund" && transaction.contribution_id ? supportLink("group_refund", transaction.id) : undefined,
       kind,
       title,
       amount: Number(transaction.amount),
@@ -336,10 +343,6 @@ export default function WalletHistory() {
               </Button>
             </div>
           </div>
-          <Link to="/activity?view=analytics" className="mt-2 inline-flex min-h-10 items-center gap-2 rounded-lg text-sm font-semibold text-[#d9f7b6] underline-offset-4 hover:underline">
-            Analytics and bank statements
-          </Link>
-
           <h1 id="wallet-history-title" className="app-page-title mt-3">
             Wallet history
           </h1>
@@ -372,6 +375,8 @@ export default function WalletHistory() {
 
         {/* Overlapping Sheet Body */}
         <div className="app-panel-body space-y-4">
+          <WalletReportLinks scope="wallet" />
+          <Button asChild variant="ghost" className="h-10 px-2 text-primary"><Link to="/transfer/bulk/history">Bulk transfer history</Link></Button>
           <Tabs
             value={bankView ? "bank" : "wallet"}
             onValueChange={(value) =>
@@ -620,6 +625,7 @@ export default function WalletHistory() {
               doneLabel="Close receipt"
             />
           )}
+          {selected?.supportUrl && <Button asChild variant="secondary" className="w-full"><Link to={selected.supportUrl}>Get help with this transaction</Link></Button>}
         </DialogContent>
       </Dialog>
     </div>

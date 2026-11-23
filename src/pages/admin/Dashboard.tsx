@@ -80,6 +80,7 @@ import { AdminBulkTransfers } from "@/components/admin/AdminBulkTransfers";
 import { AdminTransactionAnalytics } from "@/components/admin/AdminTransactionAnalytics";
 import { AdminWalletBankBonus } from "@/components/admin/AdminWalletBankBonus";
 import { AdminIceVault } from "@/components/admin/AdminIceVault";
+import { SupportInbox } from "@/components/support/SupportInbox";
 import { hasTransactionPin } from "@/lib/transactionPin";
 import {
   SpotlightBadge,
@@ -131,6 +132,7 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
 
   // Platform datasets
+  const [supportTicket, setSupportTicket] = useState<string | null>(null);
   const [allGroups, setAllGroups] = useState<any[]>([]);
   const [allTransactions, setAllTransactions] = useState<any[]>([]);
   const [amlAlerts, setAmlAlerts] = useState<AmlAlertRecord[]>([]);
@@ -966,6 +968,10 @@ const AdminDashboard = () => {
                   <TabsTrigger value="ice-vault" className="gap-1.5 px-3">
                     <Snowflake className="h-4 w-4" />
                     <span>Ice Vault</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="support" className="gap-1.5 px-3">
+                    <ClipboardList className="h-4 w-4" />
+                    <span>Support tickets</span>
                   </TabsTrigger>
                 </TabsList>
               </div>
@@ -2097,6 +2103,7 @@ const AdminDashboard = () => {
               <TabsContent value="volume"><AdminTransactionAnalytics /></TabsContent>
               <TabsContent value="bulk-transfers"><AdminBulkTransfers /></TabsContent>
               <TabsContent value="ice-vault"><AdminIceVault /></TabsContent>
+              <TabsContent value="support"><SupportInbox admin selected={supportTicket} onSelect={setSupportTicket} /></TabsContent>
             </Tabs>
           )}
         </div>

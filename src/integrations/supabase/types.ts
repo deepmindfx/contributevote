@@ -1209,9 +1209,35 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_support_ticket: {
+        Args: { p_client_id: string; p_category: string; p_reference: string; p_subject: string; p_body: string }
+        Returns: string
+      }
+      list_support_tickets: {
+        Args: { p_admin: boolean; p_status: string | null; p_search: string; p_before: string | null; p_before_id: string | null; p_category?: string }
+        Returns: Json
+      }
+      get_support_ticket: {
+        Args: { p_ticket_id: string; p_admin: boolean; p_before_message?: number }
+        Returns: Json
+      }
+      reply_support_ticket: {
+        Args: { p_ticket_id: string; p_admin: boolean; p_client_id: string; p_body: string }
+        Returns: boolean
+      }
+      admin_update_support_tickets: {
+        Args: { p_status: string; p_tickets: Json }
+        Returns: number
+      }
       get_bulk_transfer_settings: { Args: never; Returns: Json }
       get_bulk_transfer_batch: { Args: { p_batch_id: string; p_admin?: boolean }; Returns: Json }
       get_bulk_transfer_history: { Args: { p_admin?: boolean; p_before?: string }; Returns: Json }
+      get_my_bulk_transfer_history: {
+        Args: { p_month: string; p_status?: string; p_before?: string; p_before_id?: string };
+        Returns: Json
+      }
+      get_my_bulk_transfer_analytics: { Args: { p_month: string }; Returns: Json }
+      prepare_statement_export: { Args: { p_month: string; p_scope: string; p_pin: string }; Returns: Json }
       admin_update_bulk_transfer_settings: { Args: { p_settings: Json }; Returns: Json }
       _mask_secret: { Args: { p_val: string }; Returns: string }
       accept_group_invitation: { Args: { p_token: string }; Returns: Json }

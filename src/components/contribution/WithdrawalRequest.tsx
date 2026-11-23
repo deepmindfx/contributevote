@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,6 +21,8 @@ interface WithdrawalRequestProps {
   groupId: string;
 }
 
+type WithdrawalAttempt = { details: string; id: string; fee: number; instant: boolean };
+
 export function WithdrawalRequest({ groupId }: WithdrawalRequestProps) {
   const { user, refreshCurrentUser } = useSupabaseUser();
   const { contributions, refreshContributionData } = useSupabaseContribution();
@@ -31,6 +33,8 @@ export function WithdrawalRequest({ groupId }: WithdrawalRequestProps) {
   const [rate, setRate] = useState<number>();
   const [pricingError, setPricingError] = useState(false);
   const [pricingVersion, setPricingVersion] = useState(0);
+  const submitting = useRef(false);
+  const attempt = useRef<WithdrawalAttempt | null>(null);
 
   const group: any = contributions.find((c) => c.id === groupId);
   const availableBalance = Number(group?.current_amount || 0);
@@ -79,11 +83,6 @@ export function WithdrawalRequest({ groupId }: WithdrawalRequestProps) {
       return;
     }
 
-    if (withdrawalAmount > availableBalance) {
-      toast.error(`Amount exceeds available balance (₦${availableBalance.toLocaleString()})`);
-      return;
-    }
-
     if (!purpose.trim()) {
       toast.error('Please provide a purpose for this withdrawal');
       return;
@@ -93,19 +92,35 @@ export function WithdrawalRequest({ groupId }: WithdrawalRequestProps) {
   };
 
   const executeWithdrawal = async (verifiedPin: string) => {
-    if (fee === undefined || isSubmitting) return;
+    if (!user || fee === undefined || submitting.current) return;
     const withdrawalAmount = parseFloat(amount);
+    const details = JSON.stringify([withdrawalAmount, purpose.trim()]);
+    const key = `collectipay:group-withdrawal:${user.id}:${groupId}`;
+    let saved: WithdrawalAttempt | null = null;
+    try { saved = JSON.parse(sessionStorage.getItem(key) ?? "null"); } catch { /* Fall back to this form's attempt. */ }
+    const previous = attempt.current;
+    const replay = saved?.details === details && typeof saved.id === "string" && Number.isFinite(saved.fee) && typeof saved.instant === "boolean"
+      ? saved : previous?.details === details ? previous : null;
+    const request = replay ?? { details, id: crypto.randomUUID(), fee, instant: !groupHasVotingRights };
+    if (withdrawalAmount > availableBalance && !replay) {
+      toast.error(`Amount exceeds available balance (₦${availableBalance.toLocaleString()})`);
+      return;
+    }
+    attempt.current = request;
+    try { sessionStorage.setItem(key, JSON.stringify(request)); } catch { /* The in-memory attempt still protects retries. */ }
+    submitting.current = true;
     setPinDialogOpen(false);
     setIsSubmitting(true);
 
     try {
-      if (!groupHasVotingRights) {
-        const result = await processInstantWithdrawal(groupId, withdrawalAmount, purpose.trim(), verifiedPin, fee);
+      if (request.instant) {
+        const result = await processInstantWithdrawal(groupId, withdrawalAmount, purpose.trim(), verifiedPin, request.fee, request.id);
         if (!result.success) {
           throw new Error(result.error || 'Failed to process withdrawal');
         }
 
-        toast.success(`${naira.format(withdrawalAmount - fee)} credited to your wallet`);
+        toast.success(`${naira.format(withdrawalAmount - request.fee)} credited to your wallet`);
+        clearAttempt();
         setAmount('');
         setPurpose('');
         await Promise.all([refreshCurrentUser(), refreshContributionData(true)]);
@@ -113,7 +128,7 @@ export function WithdrawalRequest({ groupId }: WithdrawalRequestProps) {
       }
 
       // Atomic server-side RPC verifies PIN, creates the withdrawal request, and notifies all verified voters
-      const result = await createWithdrawalRequest(groupId, withdrawalAmount, purpose.trim(), verifiedPin, fee);
+      const result = await createWithdrawalRequest(groupId, withdrawalAmount, purpose.trim(), verifiedPin, request.fee, request.id);
       if (!result.success) {
         throw new Error(result.error || 'Failed to create withdrawal request');
       }
@@ -121,15 +136,26 @@ export function WithdrawalRequest({ groupId }: WithdrawalRequestProps) {
       toast.success(
         `Withdrawal vote opened! ${result.data?.eligible_voters || eligibleVoterCount} eligible voter(s) can now vote.`
       );
+      clearAttempt();
       setAmount('');
       setPurpose('');
       await refreshContributionData(true);
     } catch (error: any) {
       console.error('Error creating withdrawal request:', error);
       toast.error(error?.message || 'Failed to create withdrawal request');
-      if (error?.message?.startsWith('The withdrawal fee changed')) reloadPricing();
+      if (error?.message?.startsWith('The withdrawal fee changed') || error?.message?.startsWith('This group requires voting approval') ||
+        error?.message?.startsWith('This group uses direct admin withdrawals')) {
+        clearAttempt();
+        reloadPricing();
+      }
     } finally {
+      submitting.current = false;
       setIsSubmitting(false);
+    }
+
+    function clearAttempt() {
+      attempt.current = null;
+      try { sessionStorage.removeItem(key); } catch { /* Storage is optional. */ }
     }
   };
 

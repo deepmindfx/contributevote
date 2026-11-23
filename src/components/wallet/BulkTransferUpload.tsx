@@ -1,12 +1,11 @@
 import { useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { ArrowRight, ChevronDown, Copy, Download, FileSpreadsheet, LoaderCircle, UploadCloud, UsersRound } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronDown, Copy, Download, FileSpreadsheet, LoaderCircle, UploadCloud } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { bulkMoney } from "@/components/wallet/BulkTransferDetails";
 import { BulkTransferRecipientsForm } from "@/components/wallet/BulkTransferRecipientsForm";
 import { useBankDirectory } from "@/hooks/useBankDirectory";
@@ -29,20 +28,22 @@ type UploadProps = {
 };
 
 export function BulkTransferUpload(props: UploadProps) {
-  const [mode, setMode] = useState("manual");
+  const [csvMode, setCsvMode] = useState(false);
+  const switchMode = (csv: boolean) => { setCsvMode(csv); props.onEdit(); };
   return (
-    <Tabs value={mode} onValueChange={(next) => { setMode(next); props.onEdit(); }}>
-      <TabsList className="mb-2 grid h-11 w-full grid-cols-2 rounded-xl" aria-label="Choose how to add recipients">
-        <TabsTrigger value="manual" className="gap-1.5 rounded-lg" disabled={props.busy}><UsersRound size={16} aria-hidden="true" /> Add recipients</TabsTrigger>
-        <TabsTrigger value="csv" className="gap-1.5 rounded-lg" disabled={props.busy}><FileSpreadsheet size={16} aria-hidden="true" /> Import CSV</TabsTrigger>
-      </TabsList>
-      <TabsContent value="manual" forceMount className="data-[state=inactive]:hidden">
-        <BulkTransferRecipientsForm {...props} active={mode === "manual"} />
-      </TabsContent>
-      <TabsContent value="csv" forceMount className="data-[state=inactive]:hidden">
-        <BulkTransferCsvUpload {...props} active={mode === "csv"} />
-      </TabsContent>
-    </Tabs>
+    <div>
+      <div hidden={csvMode}>
+        <BulkTransferRecipientsForm {...props} active={!csvMode} csvAction={
+          <Button type="button" variant="ghost" size="sm" className="h-10 gap-1.5 rounded-xl px-2 text-primary" disabled={props.busy}
+            onClick={() => switchMode(true)}><FileSpreadsheet size={16} aria-hidden="true" /> Import CSV</Button>
+        } />
+      </div>
+      <div hidden={!csvMode}>
+        <Button type="button" variant="ghost" size="sm" className="mb-2 h-10 gap-1.5" disabled={props.busy}
+          onClick={() => switchMode(false)}><ArrowLeft size={16} aria-hidden="true" /> Add recipients manually</Button>
+        <BulkTransferCsvUpload {...props} active={csvMode} />
+      </div>
+    </div>
   );
 }
 
@@ -92,7 +93,7 @@ function BulkTransferCsvUpload({ settings, active, busy, error, onEdit, onReview
         <div className="space-y-4 p-4 sm:p-6">
           <div>
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-xl font-semibold tracking-tight">New batch</h2>
+              <h2 className="text-xl font-semibold tracking-tight">Import a large batch</h2>
               <PayrollCsvDownload />
             </div>
             <p id="bulk-file-instructions" className="mt-1 text-sm text-muted-foreground">

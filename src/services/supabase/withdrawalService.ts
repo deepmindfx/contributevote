@@ -41,15 +41,18 @@ export async function createWithdrawalRequest(
   amount: number,
   purpose: string,
   pin: string,
-  expectedFee: number
+  expectedFee: number,
+  attemptId: string
 ): Promise<{ success: boolean; data?: any; error?: string }> {
   try {
-    const { data, error } = await (supabase as any).rpc('create_priced_withdrawal_request', {
+    const { data, error } = await (supabase as any).rpc('submit_group_withdrawal', {
       p_group_id: groupId,
       p_amount: amount,
       p_purpose: purpose.trim(),
       p_pin: pin || null,
       p_expected_fee: expectedFee,
+      p_attempt_id: attemptId,
+      p_instant: false,
     });
 
     if (error) throw error;
@@ -189,20 +192,23 @@ export async function processInstantWithdrawal(
   amount: number,
   purpose: string,
   pin: string,
-  expectedFee: number
+  expectedFee: number,
+  attemptId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const { data, error } = await (supabase as any).rpc('process_priced_instant_withdrawal', {
+    const { data, error } = await (supabase as any).rpc('submit_group_withdrawal', {
       p_group_id: groupId,
       p_amount: amount,
       p_purpose: purpose,
       p_pin: pin || null,
       p_expected_fee: expectedFee,
+      p_attempt_id: attemptId,
+      p_instant: true,
     });
 
     if (error) throw error;
 
-    return data?.success === false ? { success: false, error: data.error } : { success: true };
+    return data?.success === true ? { success: true } : { success: false, error: data?.error || "Couldn’t confirm the withdrawal. Retry this confirmation to check its outcome." };
   } catch (error) {
     console.error('Error processing instant withdrawal:', error);
     return {

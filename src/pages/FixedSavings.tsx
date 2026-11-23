@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { supportLink } from "@/services/supabase/supportService";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDownToLine, ArrowRight, Clock3, LockKeyhole, Snowflake } from "lucide-react";
 import { toast } from "sonner";
@@ -87,6 +88,8 @@ function LockCard({ item, now, onWithdraw, busy }: { item: SavingsItem; now: num
           <Link to="/transfer">Transfer to bank <ArrowRight size={16} aria-hidden="true" /></Link>
         </Button>
       </>}
+      {(readyToWithdraw || item.status === "reserving" || item.status === "failed") &&
+        <Link className="inline-flex min-h-9 items-center text-xs font-medium text-primary underline-offset-4 hover:underline" to={supportLink("ice_vault", item.id)}>Get help with this lock</Link>}
     </div>
   </Card>;
 }
@@ -140,9 +143,12 @@ function AccountSavings({ owner }: { owner: string }) {
     },
     refetchInterval: (current) => {
       const pages = current.state.data?.pages ?? [];
+      const firstPage = pages[0];
+      if (!firstPage) return false;
+      const serverNow = Date.parse(firstPage.server_now) + Math.max(0, Date.now() - firstPage.received_at);
       const candidates = pages[0]?.open_items ?? pages.flatMap((page) => page.items);
       return candidates.some((item) => item.status === "reserving" ||
-        (item.status === "active" && Date.parse(item.maturity_at) - Date.now() < day)) ? 15_000 : false;
+        (item.status === "active" && Date.parse(item.maturity_at) - serverNow < day)) ? 15_000 : false;
     },
   });
   const first = query.data?.pages[0];
@@ -165,7 +171,7 @@ function AccountSavings({ owner }: { owner: string }) {
     return () => window.clearInterval(timer);
   }, [canTick]);
 
-  const clearSavedQuote = () => {
+  const clearSavedQuote = useCallback(() => {
     try { sessionStorage.removeItem("collectipay-savings-quote:" + owner); } catch { /* Storage may be unavailable. */ }
     setPendingConfirmation(false);
     setQuote(null);
@@ -173,15 +179,13 @@ function AccountSavings({ owner }: { owner: string }) {
     setPin("");
     setAccepted(false);
     setActionError("");
-  };
+  }, [owner]);
 
   useEffect(() => {
-    if (existingQuote && !showReview) {
-      try { sessionStorage.removeItem("collectipay-savings-quote:" + owner); } catch { /* Storage may be unavailable. */ }
-      setPendingConfirmation(false);
-      setQuote(null);
-    }
-  }, [existingQuote, owner, showReview]);
+    if (!existingQuote || committing) return;
+    clearSavedQuote();
+    setAmount("");
+  }, [existingQuote, committing, clearSavedQuote]);
 
   const refresh = () => Promise.allSettled([
     queryClient.invalidateQueries({ queryKey: cacheKey }), refreshCurrentUser(), refreshContributionData(true),
@@ -272,6 +276,11 @@ function AccountSavings({ owner }: { owner: string }) {
   const dueItems = unsettledItems.filter((item) => canWithdrawLock(item, now));
   const openItems = unsettledItems.filter((item) => !canWithdrawLock(item, now));
   const history = items.filter((item) => item.status === "failed" || Boolean(item.credited_at));
+  const dueActive = dueItems.filter((item) => item.status === "active");
+  const dueBalance = dueActive.reduce((cents, item) => cents + Math.round(item.amount * 100), 0) / 100;
+  const locked = Math.max(0, (first?.totals.locked ?? 0) - dueBalance);
+  const activeCount = Math.max(0, (first?.totals.active_count ?? 0) - dueActive.length);
+  const available = (first?.totals.available ?? 0) + dueBalance;
 
   return (
     <WalletFlow title="Ice Vault" wide description="Set money aside until a date you choose. Your principal stays the same.">
@@ -280,8 +289,8 @@ function AccountSavings({ owner }: { owner: string }) {
           <SavingsIce hero />
           <div className="savings-summary-copy">
             <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-100"><Snowflake size={15} aria-hidden="true" /> Total locked</span>
-            <p className="break-words text-3xl font-semibold tracking-tight tabular-nums sm:text-4xl">{first ? naira.format(first.totals.locked) : "—"}</p>
-            {first && <p className="text-sm text-emerald-100">{first.totals.active_count} active {first.totals.active_count === 1 ? "lock" : "locks"}</p>}
+            <p className="break-words text-3xl font-semibold tracking-tight tabular-nums sm:text-4xl">{first ? naira.format(locked) : "—"}</p>
+            {first && <p className="text-sm text-emerald-100">{activeCount} active {activeCount === 1 ? "lock" : "locks"}</p>}
           </div>
         </section>
         {query.isPending ? <p role="status" className="text-sm text-muted-foreground">Loading savings…</p> : query.isError && !first ? (
@@ -292,9 +301,9 @@ function AccountSavings({ owner }: { owner: string }) {
             <p className="text-sm text-muted-foreground">These locks have matured. You can return the full amount to your wallet now.</p>
             <div className="grid gap-3 sm:grid-cols-2">{dueItems.map((item) => <LockCard key={item.id} item={item} now={now} onWithdraw={(id) => void withdraw(id)} busy={withdrawingId === item.id} />)}</div>
           </section>}
-          {first && (first.totals.pending > 0 || first.totals.available > 0) && <dl className="grid grid-cols-2 gap-3 text-sm">
-            <Card className="p-3"><dt className="text-muted-foreground">Awaiting confirmation</dt><dd className="font-semibold">{naira.format(first.totals.pending)}</dd></Card>
-            <Card className="p-3"><dt className="text-muted-foreground">Available to claim</dt><dd className="font-semibold">{naira.format(first.totals.available)}</dd></Card>
+          {first && (first.totals.pending > 0 || available > 0) && <dl className="grid grid-cols-2 gap-3 text-sm">
+            {first.totals.pending > 0 && <Card className="p-3"><dt className="text-muted-foreground">Awaiting confirmation</dt><dd className="font-semibold">{naira.format(first.totals.pending)}</dd></Card>}
+            {available > 0 && <Card className="p-3"><dt className="text-muted-foreground">Available to claim</dt><dd className="font-semibold">{naira.format(available)}</dd></Card>}
           </dl>}
           {(canStart && pinSet) || pendingConfirmation ? <Card className="rounded-2xl p-4 sm:p-5">
             <form className="space-y-4" onSubmit={review}>

@@ -76,8 +76,10 @@ export const screens = {
   join: screen(() => import("./pages/JoinGroup")),
   transfer: screen(() => import("./components/TransferForm")),
   bulkTransfer: screen(() => import("./pages/BulkTransfer")),
+  bulkTransferHistory: screen(() => import("./pages/BulkTransferHistory")),
   payment: screen(() => import("./pages/PaymentCallback")),
   faq: screen(() => import("./pages/Faq")),
+  support: screen(() => import("./pages/Support")),
 };
 
 const routes: Record<string, keyof typeof screens> = {
@@ -98,8 +100,10 @@ const routes: Record<string, keyof typeof screens> = {
   "/all-groups": "groups",
   "/transfer": "transfer",
   "/transfer/bulk": "bulkTransfer",
+  "/transfer/bulk/history": "bulkTransferHistory",
   "/payment-callback": "payment",
   "/faq": "faq",
+  "/support": "support",
 };
 
 const preloaded = new Set<string>();

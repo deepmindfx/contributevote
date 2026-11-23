@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { flutterwaveFetch, getFlutterwaveConfig, type FlutterwaveRuntimeConfig } from "../_shared/flutterwaveConfig.ts";
-import { reconcileBankTransfer, settleVerifiedBankTransfer, transferReconciliationFields, type TransferRow } from "../_shared/reconcileBankTransfer.ts";
+import { reconcileBulkTransfers } from "../_shared/reconcileBulkTransfer.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -33,60 +33,39 @@ function parseRecipients(raw: unknown): Recipient[] {
 
 async function verifyRecipients(rows: Recipient[], config: FlutterwaveRuntimeConfig) {
   const verified = [];
+  const lookups = new Map<string, Promise<string>>();
+  const resolve = async (row: Recipient) => {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const remote = await flutterwaveFetch("/accounts/resolve", {
+        method: "POST", signal: AbortSignal.timeout(6000),
+        body: { account_bank: row.account_bank, account_number: row.account_number },
+      }, config).catch(() => null);
+      if (!remote || remote.response.status === 429 || remote.response.status >= 500) {
+        if (!attempt) await new Promise((done) => setTimeout(done, 350));
+        continue;
+      }
+      const payload = await remote.response.json().catch(() => null);
+      const name = typeof payload?.data?.account_name === "string" ? payload.data.account_name.trim() : "";
+      return remote.response.ok && payload?.status === "success" && String(payload?.data?.account_number) === row.account_number
+        ? name.slice(0, 120) : "";
+    }
+    return "";
+  };
   for (let offset = 0; offset < rows.length; offset += 6) {
     const results = await Promise.all(rows.slice(offset, offset + 6).map(async (row, index) => {
-      const { response } = await flutterwaveFetch("/accounts/resolve", {
-        method: "POST", signal: AbortSignal.timeout(8_000),
-        body: { account_bank: row.account_bank, account_number: row.account_number },
-      }, config).catch(() => ({ response: new Response(null, { status: 503 }) }));
-      const payload = await response.json().catch(() => null);
-      const name = typeof payload?.data?.account_name === "string" ? payload.data.account_name.trim() : "";
-      if (!response.ok || payload?.status !== "success" || String(payload?.data?.account_number) !== row.account_number || !name) {
-        throw new Error(`Couldn’t verify the bank account in row ${offset + index + 1}. Check the bank code and account number, then try again.`);
+      const key = row.account_bank + ":" + row.account_number;
+      let account = lookups.get(key);
+      if (!account) {
+        account = resolve(row);
+        lookups.set(key, account);
       }
-      return { ...row, beneficiary_name: name.slice(0, 120) };
+      const name = await account;
+      if (!name) throw new Error(`Couldn’t verify recipient ${offset + index + 1}. Check their bank and account number, then try again.`);
+      return { ...row, beneficiary_name: name };
     }));
     verified.push(...results);
   }
   return verified;
-}
-
-async function reconcileBatch(db: any, id: string, providerBatchId: string | null, config: FlutterwaveRuntimeConfig) {
-  const { data: rows, error } = await db.from("transactions").select(transferReconciliationFields)
-    .eq("bulk_batch_id", id).eq("status", "pending").order("updated_at");
-  if (error) throw new Error("Couldn’t read the pending transfers.");
-  const pending = (rows ?? []) as TransferRow[];
-  if (!pending.length) return;
-
-  const candidates: any[] = [];
-  const issues = new Map<string, string>();
-  if (providerBatchId && providerId.test(providerBatchId)) {
-    for (let page = 1; page <= 10; page++) {
-      const query = new URLSearchParams({ batch_id: providerBatchId, page: String(page) });
-      const { response } = await flutterwaveFetch(`/transfers?${query}`, { signal: AbortSignal.timeout(6_000) }, config)
-        .catch(() => ({ response: new Response(null, { status: 503 }) }));
-      const result = await response.json().catch(() => null);
-      if (!response.ok || result?.status !== "success" || !Array.isArray(result.data)) break;
-      candidates.push(...result.data);
-      if (Array.isArray(result.meta?.errors)) {
-        for (const item of result.meta.errors) {
-          if (typeof item?.reference === "string" && typeof item?.message === "string") issues.set(item.reference, item.message.trim().slice(0, 240));
-        }
-      }
-      if (page >= Number(result.meta?.page_info?.total_pages || 1)) break;
-    }
-  }
-  const byReference = new Map(candidates.map((item) => [item?.reference, item]));
-  let fallbackLookups = 0;
-  for (let offset = 0; offset < pending.length; offset += 8) {
-    await Promise.allSettled(pending.slice(offset, offset + 8).map(async (row) => {
-      const match = byReference.get(row.reference_id);
-      if (match && row.metadata?.dispatched_at) return settleVerifiedBankTransfer(db, row, [match]);
-      const issue = issues.get(row.reference_id);
-      if (issue && row.metadata?.dispatched_at) await settleVerifiedBankTransfer(db, row, [], issue);
-      if (fallbackLookups++ < 8) return reconcileBankTransfer(db, row, config);
-    }));
-  }
 }
 
 Deno.serve(async (req: Request) => {
@@ -107,9 +86,8 @@ Deno.serve(async (req: Request) => {
     const action = body?.action;
     if (!["quote", "submit", "reconcile"].includes(action)) return json({ error: "Unknown bulk transfer action." }, 400);
     const config = await getFlutterwaveConfig({ supabaseAdmin: db });
-    if (!config.secretKey) return json({ error: "Bank transfers are temporarily unavailable." }, 503);
-
     if (action === "quote") {
+      if (!config.secretKey) return json({ error: "Bank transfers are temporarily unavailable." }, 503);
       if (!config.transfersEnabled) return json({ error: "Bank transfers are paused." }, 409);
       const title = typeof body.title === "string" ? body.title.trim() : "";
       if (!title || title.length > 80) return json({ error: "Enter a batch name up to 80 characters." }, 400);
@@ -130,12 +108,15 @@ Deno.serve(async (req: Request) => {
     const id = body.batch_id;
     if (typeof id !== "string" || !uuid.test(id)) return json({ error: "Choose a valid batch." }, 400);
     if (action === "reconcile") {
-      const { data: batch, error } = await db.from("bulk_transfer_batches").select("user_id,authorized_at,provider_batch_id").eq("id", id).maybeSingle();
+      const { data: batch, error } = await db.from("bulk_transfer_batches").select("user_id,authorized_at").eq("id", id).maybeSingle();
       if (error || !batch?.authorized_at || (batch.user_id !== user.id && profile.role !== "admin")) return json({ error: "Batch not found." }, 404);
-      await reconcileBatch(db, id, batch.provider_batch_id, config);
+      const result = await reconcileBulkTransfers(db, config, id);
+      if (result.failed) return json({ error: "Couldn’t check every payout. We’ll retry automatically." }, 503);
+      if (!result.checked) return json({ error: "No new check ran. If any payouts are pending, we’ll check them automatically." }, 409);
       return json({ batch_id: id });
     }
 
+    if (!config.secretKey) return json({ error: "Bank transfers are temporarily unavailable." }, 503);
     if (!config.transfersEnabled) return json({ error: "Bank transfers are paused." }, 409);
     const { data: reservation, error: reserveError } = await db.rpc("service_authorize_bulk_transfer", {
       p_user_id: user.id, p_batch_id: id, p_pin: typeof body.transaction_pin === "string" ? body.transaction_pin : null,

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +10,7 @@ import { ThumbsUp, ThumbsDown, Clock, CheckCircle, CheckCircle2, XCircle, Loader
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import BrandLoader from '@/components/ui/BrandLoader';
+import { supportLink } from '@/services/supabase/supportService';
 
 interface RefundRequestsCardProps {
   groupId: string;
@@ -426,6 +428,9 @@ export function RefundRequestsCard({
                     refunded to {(request.execution_details as any).refunds_processed} contributors
                   </p>
                 </div>
+              )}
+              {request.status === 'approved' && request.requester_id === user?.id && (
+                <Button asChild variant="outline" size="sm"><Link to={supportLink("group_refund", request.id)}>Get help with this refund</Link></Button>
               )}
 
               {request.status === 'rejected' && (

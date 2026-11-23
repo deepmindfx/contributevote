@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { ArrowRight, LoaderCircle, Pencil, Plus, X } from "lucide-react";
 import { BankPicker } from "@/components/wallet/BankPicker";
 import { bulkMoney } from "@/components/wallet/BulkTransferDetails";
@@ -16,13 +16,14 @@ type Editor = { id?: string; bank: BankOption | null; account: string; amount: s
 type Recipient = { id: string; bank: BankOption; account: string; amount: number };
 const emptyEditor: Editor = { bank: null, account: "", amount: "" };
 
-export function BulkTransferRecipientsForm({ settings, active, busy, error, onEdit, onReview }: {
+export function BulkTransferRecipientsForm({ settings, active, busy, error, onEdit, onReview, csvAction }: {
   settings: BulkTransferSettings;
   active: boolean;
   busy: boolean;
   error: string;
   onEdit: () => void;
   onReview: (title: string, recipients: BulkRecipientInput[]) => Promise<void>;
+  csvAction: ReactNode;
 }) {
   const [recipients, setRecipients] = useState<Recipient[]>([]);
   const [editor, setEditor] = useState<Editor | null>(emptyEditor);
@@ -58,7 +59,7 @@ export function BulkTransferRecipientsForm({ settings, active, busy, error, onEd
     }
     const row = { id: editor.id ?? crypto.randomUUID(), bank, account, amount };
     setRecipients(editor.id ? recipients.map((item) => item.id === row.id ? row : item) : [...recipients, row]);
-    edit(null);
+    edit(!editor.id && recipients.length === 0 ? emptyEditor : null);
   };
 
   const review = async () => {
@@ -75,7 +76,10 @@ export function BulkTransferRecipientsForm({ settings, active, busy, error, onEd
     <Card className="min-w-0 overflow-hidden rounded-3xl">
       <div className="space-y-4 p-4 sm:p-6">
         <div>
-          <h2 className="text-xl font-semibold tracking-tight">Add recipients</h2>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-xl font-semibold tracking-tight">Add recipients</h2>
+            {csvAction}
+          </div>
           <p className="mt-1 text-sm text-muted-foreground">Choose a bank by name. Add at least 2 recipients to review the batch.</p>
         </div>
         {!!recipients.length && <ul aria-label="Batch recipients" className="divide-y rounded-xl border px-3">
