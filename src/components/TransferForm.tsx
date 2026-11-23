@@ -30,7 +30,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -43,6 +42,7 @@ import CollectiPayReceipt from "@/components/receipt/CollectiPayReceipt";
 import { TransactionPinDialog } from "@/components/security/TransactionPinDialog";
 import { BankMonogram, BeneficiariesPanel } from "@/components/wallet/BeneficiariesPanel";
 import { MoneySentAnimation } from "@/components/wallet/MoneySentAnimation";
+import { RecipientNicknameDialog } from "@/components/wallet/RecipientNicknameDialog";
 import { WalletFlow } from "@/components/wallet/WalletFlow";
 import { TransferAllowanceNotice } from "@/components/wallet/TransferAllowanceNotice";
 import { useTransferAllowance } from "@/hooks/useTransferAllowance";
@@ -345,8 +345,6 @@ export default function TransferForm() {
   const [receipt, setReceipt] = useState<TransferReceipt | null>(null);
   const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
   const [nicknameDialogOpen, setNicknameDialogOpen] = useState(false);
-  const [nicknameDraft, setNicknameDraft] = useState("");
-  const [savingNickname, setSavingNickname] = useState(false);
 
   const [sending, setSending] = useState(false);
   const [pin, setPin] = useState("");
@@ -486,25 +484,21 @@ export default function TransferForm() {
     },
     nickname: string
   ) => {
-    if (!user) return;
-    try {
-      const merged = buildUpdatedBeneficiaryPreferences(user.preferences, {
-        type: "upsert",
-        item: {
-          key: beneficiaryKey(item.bankCode, item.accountNumber),
-          accountNumber: item.accountNumber,
-          bankCode: item.bankCode,
-          bankName: item.bankName,
-          accountName: item.accountName,
-          nickname: nickname || undefined,
-          favorite: item.favorite || Boolean(nickname),
-        },
-      });
-      await updateProfile({ preferences: merged as any });
-      toast.success(nickname ? `Saved nickname “${nickname}”` : "Nickname cleared");
-    } catch {
-      toast.error("Couldn’t save nickname");
-    }
+    if (!user) throw new Error("No user logged in");
+    const merged = buildUpdatedBeneficiaryPreferences(user.preferences, {
+      type: "upsert",
+      item: {
+        key: beneficiaryKey(item.bankCode, item.accountNumber),
+        accountNumber: item.accountNumber,
+        bankCode: item.bankCode,
+        bankName: item.bankName,
+        accountName: item.accountName,
+        nickname: nickname || undefined,
+        favorite: item.favorite || Boolean(nickname),
+      },
+    });
+    await updateProfile({ preferences: merged as any });
+    toast.success(nickname ? `Saved nickname “${nickname}”` : "Nickname cleared");
   };
 
   const handleHideRecent = async (item: TransferBeneficiary) => {
@@ -707,11 +701,7 @@ export default function TransferForm() {
             status={complete ? "sent" : failed ? "failed" : "processing"}
             amount={Number(receipt.amount ?? review.amount)}
             recipientName={recipientFullName}
-            recipientSubline={
-              !complete && !failed
-                ? `${bankLabel} · Follow status in Wallet history`
-                : `${bankLabel} · ${formatAccountNumberSpaced(acctLabel)}`
-            }
+            recipientSubline={`${bankLabel} · ${formatAccountNumberSpaced(acctLabel)}`}
             variant="transfer"
           />
 
@@ -720,14 +710,14 @@ export default function TransferForm() {
             <button
               type="button"
               onClick={() => setReceiptDialogOpen(true)}
-              className="cp-card-native cp-pressable flex items-center gap-2.5 p-3.5 text-left transition-colors hover:border-primary/40 hover:bg-accent/35"
+              className="cp-card-native cp-pressable flex items-center gap-2 p-3 text-left transition-colors hover:border-primary/40 hover:bg-accent/35"
             >
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-accent text-primary">
                 <Receipt size={17} aria-hidden="true" />
               </span>
               <span className="min-w-0">
-                <span className="block truncate text-xs font-bold text-foreground">
-                  Share Receipt
+                <span className="block text-xs font-semibold leading-tight text-foreground">
+                  Share receipt
                 </span>
                 <span className="block truncate text-[11px] text-muted-foreground">
                   Download PNG
@@ -737,18 +727,15 @@ export default function TransferForm() {
 
             <button
               type="button"
-              onClick={() => {
-                setNicknameDraft(currentSaved?.nickname || "");
-                setNicknameDialogOpen(true);
-              }}
-              className="cp-card-native cp-pressable flex items-center gap-2.5 p-3.5 text-left transition-colors hover:border-primary/40 hover:bg-accent/35"
+              onClick={() => setNicknameDialogOpen(true)}
+              className="cp-card-native cp-pressable flex items-center gap-2 p-3 text-left transition-colors hover:border-primary/40 hover:bg-accent/35"
             >
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-accent text-primary">
                 <Pencil size={17} aria-hidden="true" />
               </span>
               <span className="min-w-0">
-                <span className="block truncate text-xs font-bold text-foreground">
-                  {currentSaved?.nickname ? "Edit Nickname" : "Save Nickname"}
+                <span className="block text-xs font-semibold leading-tight text-foreground">
+                  {currentSaved?.nickname ? "Edit nickname" : "Save nickname"}
                 </span>
                 <span className="block truncate text-[11px] text-muted-foreground">
                   {currentSaved?.nickname || "Pin for 1-tap"}
@@ -767,14 +754,14 @@ export default function TransferForm() {
                 setError("");
                 setStep("amount");
               }}
-              className="cp-card-native cp-pressable flex items-center gap-2.5 p-3.5 text-left transition-colors hover:border-primary/40 hover:bg-accent/35"
+              className="cp-card-native cp-pressable flex items-center gap-2 p-3 text-left transition-colors hover:border-primary/40 hover:bg-accent/35"
             >
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-accent text-primary">
                 <Repeat2 size={17} aria-hidden="true" />
               </span>
               <span className="min-w-0">
-                <span className="block truncate text-xs font-bold text-foreground">
-                  Send Again
+                <span className="block text-xs font-semibold leading-tight text-foreground">
+                  Send again
                 </span>
                 <span className="block truncate text-[11px] text-muted-foreground">
                   Same recipient
@@ -794,14 +781,14 @@ export default function TransferForm() {
                 setVerification(undefined);
                 setStep("recipient");
               }}
-              className="cp-card-native cp-pressable flex items-center gap-2.5 p-3.5 text-left transition-colors hover:border-primary/40 hover:bg-accent/35"
+              className="cp-card-native cp-pressable flex items-center gap-2 p-3 text-left transition-colors hover:border-primary/40 hover:bg-accent/35"
             >
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-accent text-primary">
                 <Send size={16} aria-hidden="true" />
               </span>
               <span className="min-w-0">
-                <span className="block truncate text-xs font-bold text-foreground">
-                  New Transfer
+                <span className="block text-xs font-semibold leading-tight text-foreground">
+                  New transfer
                 </span>
                 <span className="block truncate text-[11px] text-muted-foreground">
                   Pick recipient
@@ -830,65 +817,23 @@ export default function TransferForm() {
           </DialogContent>
         </Dialog>
 
-        {/* Save / Edit Nickname Modal */}
-        <Dialog open={nicknameDialogOpen} onOpenChange={setNicknameDialogOpen}>
-          <DialogContent className="w-[calc(100%-2rem)] max-w-sm rounded-2xl">
-            <DialogHeader>
-              <DialogTitle>Save recipient nickname</DialogTitle>
-              <DialogDescription>
-                Give {recipientFullName} a memorable name so you can send again in one tap.
-              </DialogDescription>
-            </DialogHeader>
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                if (savingNickname) return;
-                setSavingNickname(true);
-                try {
-                  await handleSaveNickname(
-                    {
-                      accountNumber: review.account,
-                      bankCode: review.bank.code,
-                      bankName: bankLabel,
-                      accountName: recipientFullName,
-                      favorite: true,
-                    },
-                    nicknameDraft.trim()
-                  );
-                  setNicknameDialogOpen(false);
-                } finally {
-                  setSavingNickname(false);
-                }
-              }}
-              className="space-y-4"
-            >
-              <div className="space-y-2">
-                <Label htmlFor="receipt-nickname">Nickname</Label>
-                <Input
-                  id="receipt-nickname"
-                  value={nicknameDraft}
-                  maxLength={40}
-                  placeholder="e.g. Mom, My Moniepoint, Rent"
-                  onChange={(e) => setNicknameDraft(e.target.value)}
-                  className="h-11 rounded-xl"
-                />
-              </div>
-              <DialogFooter className="gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="rounded-xl"
-                  onClick={() => setNicknameDialogOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" className="rounded-xl font-semibold" disabled={savingNickname}>
-                  {savingNickname ? "Saving…" : "Save"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+        {nicknameDialogOpen && (
+          <RecipientNicknameDialog
+            accountName={recipientFullName}
+            initialNickname={currentSaved?.nickname}
+            onClose={() => setNicknameDialogOpen(false)}
+            onSave={(nickname) => handleSaveNickname(
+              {
+                accountNumber: review.account,
+                bankCode: review.bank.code,
+                bankName: bankLabel,
+                accountName: recipientFullName,
+                favorite: true,
+              },
+              nickname,
+            )}
+          />
+        )}
       </WalletFlow>
     );
   }

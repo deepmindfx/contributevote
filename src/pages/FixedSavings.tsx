@@ -124,7 +124,6 @@ function AccountSavings({ owner }: { owner: string }) {
   const [committing, setCommitting] = useState(false);
   const [withdrawingId, setWithdrawingId] = useState<string | null>(null);
   const [pin, setPin] = useState("");
-  const [reviewed, setReviewed] = useState(false);
   const [accepted, setAccepted] = useState(false);
   const [actionError, setActionError] = useState("");
   const commitGuard = useRef(false);
@@ -173,7 +172,6 @@ function AccountSavings({ owner }: { owner: string }) {
     setShowReview(false);
     setPin("");
     setAccepted(false);
-    setReviewed(false);
     setActionError("");
   };
 
@@ -208,7 +206,6 @@ function AccountSavings({ owner }: { owner: string }) {
     setActionError("");
     try {
       setQuote(await quoteSavings(value, selectedPeriod));
-      setReviewed(false);
       setAccepted(false);
       setShowReview(true);
     } catch (error) {
@@ -219,7 +216,7 @@ function AccountSavings({ owner }: { owner: string }) {
   const confirm = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!quote || (!pendingConfirmation && Date.parse(quote.expires_at) <= now) || !termsLink(quote.terms_url) ||
-        !accepted || !reviewed || !/^\d{4}$/.test(pin) || commitGuard.current) return;
+        !accepted || !/^\d{4}$/.test(pin) || commitGuard.current) return;
     commitGuard.current = true;
     setCommitting(true);
     setActionError("");
@@ -357,12 +354,12 @@ function AccountSavings({ owner }: { owner: string }) {
                 ? "The full amount returns to your wallet automatically at maturity."
                 : "Your provider confirms release after maturity."} Ice Vault pays no interest or bonuses.
             </p>
-            {approvedTerms ? <a href={approvedTerms} target="_blank" rel="noopener noreferrer" onClick={() => setReviewed(true)}
+            {approvedTerms ? <a href={approvedTerms} target="_blank" rel="noopener noreferrer"
               className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-primary underline underline-offset-4">
-              Review Ice Vault terms <ArrowRight size={14} aria-hidden="true" />
+              Read Ice Vault terms <ArrowRight size={14} aria-hidden="true" />
             </a> : <p role="status" className="text-sm text-muted-foreground">The terms are unavailable. Review a new quote.</p>}
             <label className="flex gap-2 text-sm">
-              <input type="checkbox" className="mt-0.5 accent-primary" checked={accepted} disabled={!reviewed || !approvedTerms || committing} onChange={(event) => setAccepted(event.target.checked)} />
+              <input type="checkbox" className="mt-0.5 accent-primary" checked={accepted} disabled={!approvedTerms || committing} onChange={(event) => setAccepted(event.target.checked)} />
               <span>I accept the Ice Vault terms and agree to lock this amount until the maturity time shown above.</span>
             </label>
             <div className="space-y-1.5"><Label htmlFor="savings-pin">Transaction PIN</Label>

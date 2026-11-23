@@ -22,7 +22,7 @@ export default function IceVaultTerms() {
           <section className="space-y-1">
             <h2 className="font-semibold">Payments and support</h2>
             <p>CollectiPay Enterprise Limited operates Ice Vault. Flutterwave processes wallet payments and bank transfers. The <a className="text-primary underline" href="https://flutterwave.com/ng/terms/" target="_blank" rel="noopener noreferrer">Flutterwave payment terms</a> apply to its services.</p>
-            <p>Contact <a className="text-primary underline" href="mailto:support@collectipay.com">support@collectipay.com</a> about an incorrect lock, an unauthorised transaction or a delayed release. Applicable consumer and dispute rights continue to apply.</p>
+            <p>Contact <a className="text-primary underline" href="mailto:support@collectipay.com.ng">support@collectipay.com.ng</a> about an incorrect lock, an unauthorised transaction or a delayed release. Applicable consumer and dispute rights continue to apply.</p>
           </section>
         </div>
         <Link to="/fixed-savings" className="text-sm font-medium text-primary underline underline-offset-4">Back to Ice Vault</Link>

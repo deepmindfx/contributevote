@@ -16,7 +16,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -27,7 +26,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { RecipientNicknameDialog } from "@/components/wallet/RecipientNicknameDialog";
 import {
   formatAccountNumberSpaced,
   getBankBadgeStyle,
@@ -75,8 +74,6 @@ export function BeneficiariesPanel({
   const [sheetTab, setSheetTab] = useState<"recents" | "favorites">("recents");
   const [sheetSearch, setSheetSearch] = useState("");
   const [editing, setEditing] = useState<TransferBeneficiary | null>(null);
-  const [nicknameDraft, setNicknameDraft] = useState("");
-  const [savingNickname, setSavingNickname] = useState(false);
 
   const favorites = useMemo(
     () => beneficiaries.filter((item) => item.favorite),
@@ -112,19 +109,6 @@ export function BeneficiariesPanel({
     // Close the full beneficiaries sheet before opening the nickname dialog so two Radix modals never stack
     setAllOpen(false);
     setEditing(item);
-    setNicknameDraft(item.nickname || "");
-  };
-
-  const submitNickname = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editing || savingNickname) return;
-    setSavingNickname(true);
-    try {
-      await onSaveNickname(editing, nicknameDraft.trim());
-      setEditing(null);
-    } finally {
-      setSavingNickname(false);
-    }
   };
 
   const renderRow = (item: TransferBeneficiary, compact = false) => {
@@ -443,43 +427,14 @@ export function BeneficiariesPanel({
         </DialogContent>
       </Dialog>
 
-      {/* Edit Nickname Dialog */}
-      <Dialog open={Boolean(editing)} onOpenChange={(open) => !open && setEditing(null)}>
-        <DialogContent className="w-[calc(100%-2rem)] max-w-sm rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>Recipient nickname</DialogTitle>
-            <DialogDescription>
-              Give {editing?.accountName} a short nickname so you can spot them faster.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={submitNickname} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="beneficiary-nickname">Nickname</Label>
-              <Input
-                id="beneficiary-nickname"
-                value={nicknameDraft}
-                maxLength={40}
-                placeholder="e.g. Mom, Landlord, My Moniepoint"
-                onChange={(e) => setNicknameDraft(e.target.value)}
-                className="h-11 rounded-xl"
-              />
-            </div>
-            <DialogFooter className="gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                className="rounded-xl"
-                onClick={() => setEditing(null)}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" className="rounded-xl font-semibold" disabled={savingNickname}>
-                {savingNickname ? "Saving…" : "Save nickname"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      {editing && (
+        <RecipientNicknameDialog
+          accountName={editing.accountName}
+          initialNickname={editing.nickname}
+          onClose={() => setEditing(null)}
+          onSave={(nickname) => onSaveNickname(editing, nickname)}
+        />
+      )}
     </>
   );
 }

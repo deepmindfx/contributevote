@@ -1,6 +1,8 @@
-import { useEffect, useId, useState } from "react";
-import { Building2, Check, Clock3, ShieldAlert, Sparkles, Users, Wallet } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { Building2, Check, Clock3, Users, Wallet, X } from "lucide-react";
+import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { cn } from "@/lib/utils";
+import { paymentVibrationEnabled } from "@/services/supabase/notificationService";
 import "./money-sent.css";
 
 interface MoneySentAnimationProps {
@@ -18,283 +20,63 @@ const ngn = new Intl.NumberFormat("en-NG", {
   currencyDisplay: "narrowSymbol",
 });
 
-const SPARK_ANGLES = [0, 36, 72, 108, 144, 180, 216, 252, 288, 324];
+const transferStatus = {
+  sent: { title: "Transfer complete", milestone: "Bank confirmed", Icon: Check },
+  processing: { title: "Transfer processing", milestone: "Awaiting bank", Icon: Clock3 },
+  failed: { title: "Transfer failed", milestone: "Failed", Icon: X },
+};
 
-function pointOnFlightArc(t: number) {
-  // Quadratic Bezier: P0=(14, 54), P1=(110, -8), P2=(206, 54)
-  const u = 1 - t;
-  const x = u * u * 14 + 2 * u * t * 110 + t * t * 206;
-  const y = u * u * 54 + 2 * u * t * -8 + t * t * 54;
-  return { x, y };
-}
+export function MoneySentAnimation({ status, amount, recipientName, recipientSubline, variant = "transfer", compact = false }: MoneySentAnimationProps) {
+  const { user } = useSupabaseUser();
+  const vibrationEnabled = paymentVibrationEnabled(user?.preferences);
+  const hasVibrated = useRef(false);
+  const { Icon, title, milestone } = transferStatus[status];
+  const isContribution = variant === "contribution";
+  const DestinationIcon = isContribution ? Users : Building2;
 
-export function MoneySentAnimation({
-  status,
-  amount,
-  recipientName,
-  recipientSubline,
-  variant = "transfer",
-  compact = false,
-}: MoneySentAnimationProps) {
-  const gradientId = useId();
-  const [displayAmount, setDisplayAmount] = useState(0);
-  const [shuttle, setShuttle] = useState<{ x: number; y: number; opacity: number; scale: number }>({
-    x: 14,
-    y: 54,
-    opacity: 0,
-    scale: 0.6,
-  });
-
-  // Tactile mobile haptic pulse + rolling amount + precision Bezier coin flight (starts at exact t=0 on mount!)
   useEffect(() => {
-    const safeAmount = Number.isFinite(amount) && amount > 0 ? amount : 0;
-
-    if (
-      status === "sent" &&
-      typeof navigator !== "undefined" &&
-      typeof navigator.vibrate === "function"
-    ) {
-      try {
-        navigator.vibrate([38, 45, 85]);
-      } catch {
-        // Ignore blocked haptics
-      }
+    if (status !== "sent") {
+      hasVibrated.current = false;
+    } else if (vibrationEnabled && !hasVibrated.current && typeof navigator.vibrate === "function") {
+      hasVibrated.current = true;
+      try { navigator.vibrate(35); } catch { /* Haptics may be blocked by the browser. */ }
     }
-
-    const reducedMotion =
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reducedMotion || status === "failed") {
-      setDisplayAmount(safeAmount);
-      setShuttle({ x: 14, y: 54, opacity: 0, scale: 0.6 });
-      return;
-    }
-
-    let rafId = 0;
-    const amountDuration = 640;
-    const flightDelay = status === "processing" ? 0 : 90;
-    const flightDuration = status === "processing" ? 1800 : 720;
-    const startedAt = performance.now();
-
-    const tick = (now: number) => {
-      const elapsed = now - startedAt;
-
-      // 1. Rolling amount reveal
-      if (safeAmount > 0) {
-        const amountProgress = Math.min(1, elapsed / amountDuration);
-        const easedAmount = 1 - Math.pow(1 - amountProgress, 3);
-        setDisplayAmount(amountProgress < 1 ? safeAmount * easedAmount : safeAmount);
-      } else {
-        setDisplayAmount(0);
-      }
-
-      // 2. Flying Naira coin along quadratic Bezier arc
-      if (elapsed < flightDelay) {
-        setShuttle({ x: 14, y: 54, opacity: 0, scale: 0.6 });
-      } else {
-        const rawT = (elapsed - flightDelay) / flightDuration;
-        const t = status === "processing" ? rawT % 1 : Math.min(1, rawT);
-        // Smooth ease-out for sent, symmetric ease-in-out for processing loop
-        const easedT =
-          status === "processing"
-            ? t < 0.5
-              ? 2 * t * t
-              : 1 - Math.pow(-2 * t + 2, 2) / 2
-            : 1 - Math.pow(1 - t, 3);
-        const { x, y } = pointOnFlightArc(easedT);
-        const fadeIn = Math.min(1, t / 0.14);
-        const fadeOut = Math.min(1, (1 - t) / 0.18);
-        const opacity = Math.max(0, Math.min(fadeIn, fadeOut));
-        const scale = 0.68 + 0.36 * Math.sin(Math.PI * t);
-        setShuttle({ x, y, opacity, scale });
-      }
-
-      const keepRunning =
-        status === "processing" ||
-        elapsed < Math.max(amountDuration, flightDelay + flightDuration);
-      if (keepRunning) {
-        rafId = requestAnimationFrame(tick);
-      } else {
-        setDisplayAmount(safeAmount);
-        setShuttle((prev) => ({ ...prev, opacity: 0 }));
-      }
-    };
-
-    rafId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafId);
-  }, [amount, status]);
-
-  const title =
-    status === "sent"
-      ? variant === "contribution"
-        ? "Contribution pooled!"
-        : "Money sent!"
-      : status === "failed"
-      ? "Transfer failed"
-      : "Money on the way";
-
-  const statusPill =
-    status === "sent"
-      ? variant === "contribution"
-        ? "Verified & Pooled"
-        : "Delivered by CollectiPay"
-      : status === "failed"
-      ? "Refunded to wallet"
-      : "Settling with recipient bank";
-
-  const DestinationIcon = variant === "contribution" ? Users : Building2;
+  }, [status, vibrationEnabled]);
 
   return (
-    <section
-      key={`${status}-${variant}`}
-      aria-live="polite"
-      className={cn(
-        "cp-money-stage",
-        `cp-money-stage--${status}`,
-        compact && "cp-money-stage--compact"
-      )}
-    >
-      {/* Subtle architectural background glow & grid */}
-      <div className="cp-money-stage-bg" aria-hidden="true" />
-
-      {/* Top status badge */}
-      <div className="cp-money-pill">
-        {status === "sent" ? (
-          <Sparkles size={12} aria-hidden="true" />
-        ) : status === "failed" ? (
-          <ShieldAlert size={12} aria-hidden="true" />
-        ) : (
-          <Clock3 size={12} className="animate-spin" style={{ animationDuration: "4s" }} aria-hidden="true" />
-        )}
-        <span>{statusPill}</span>
+    <section className={cn("cp-money-stage", `cp-money-stage--${status}`, compact && "cp-money-stage--compact")}>
+      <div className="cp-money-summary" aria-live="polite" aria-atomic="true">
+        <div className="min-w-0">
+          <h2 className="cp-money-title">{isContribution && status === "sent" ? "Contribution confirmed" : title}</h2>
+          <p className="cp-money-amount tabular-nums">{ngn.format(Number.isFinite(amount) ? amount : 0)}</p>
+        </div>
+        {isContribution && <span className="cp-money-status-icon" key={status} aria-hidden="true"><Icon size={23} strokeWidth={2} /></span>}
       </div>
 
-      {/* Unique CollectiPay Flight Arc: Wallet -> Trajectory Shuttle -> Destination + Seal Bloom */}
-      <div className="cp-money-flight" aria-hidden="true">
-        <div className="cp-flight-node cp-flight-node--from">
-          <Wallet size={17} />
+      {!isContribution && <div className="cp-money-timeline" role="group" aria-label="Transfer progress">
+        <div className="cp-money-rail" aria-hidden="true">
+          <span className="cp-money-node cp-money-node--wallet"><Wallet size={19} strokeWidth={1.75} /></span>
+          <span className="cp-money-track">
+            <span className="cp-money-track-fill" />
+            <span className="cp-money-signal" />
+          </span>
+          <span className="cp-money-node cp-money-node--bank">
+            <Building2 size={19} strokeWidth={1.75} />
+            <span key={status} className="cp-money-terminal-mark"><Icon size={11} strokeWidth={2.3} /></span>
+          </span>
         </div>
+        <div className="cp-money-timeline-labels"><span>From wallet</span><span>{milestone}</span></div>
+      </div>}
 
-        <svg
-          className="cp-flight-svg"
-          viewBox="0 0 220 76"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <defs>
-            <linearGradient id={gradientId} x1="0" y1="0" x2="220" y2="0" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stopColor="#34d399" stopOpacity="0.35" />
-              <stop offset="55%" stopColor="#dbf5b4" stopOpacity="0.98" />
-              <stop offset="100%" stopColor="#6ee7b7" stopOpacity="1" />
-            </linearGradient>
-          </defs>
-          {/* Base faint arc track */}
-          <path
-            d="M 14 54 Q 110 -8 206 54"
-            stroke="currentColor"
-            strokeOpacity="0.18"
-            strokeWidth="2.5"
-            strokeDasharray="4 6"
-            strokeLinecap="round"
-          />
-          {/* Illuminated sweep arc */}
-          {status !== "failed" && (
-            <path
-              className="cp-flight-arc"
-              d="M 14 54 Q 110 -8 206 54"
-              stroke={`url(#${gradientId})`}
-              strokeWidth="3.2"
-              strokeLinecap="round"
-            />
-          )}
-          {/* Flying Naira coin shuttle driven at exact mount t=0 along the SVG Bezier trajectory */}
-          {status !== "failed" && shuttle.opacity > 0.01 && (
-            <g
-              className="cp-flight-shuttle"
-              opacity={shuttle.opacity}
-              transform={`translate(${shuttle.x.toFixed(2)} ${shuttle.y.toFixed(2)}) scale(${shuttle.scale.toFixed(3)})`}
-            >
-              <circle r="11" fill="#dbf5b4" />
-              <circle r="15" fill="#dbf5b4" fillOpacity="0.22" />
-              <text
-                x="0"
-                y="4.2"
-                textAnchor="middle"
-                fill="#073a2f"
-                fontSize="12"
-                fontWeight="800"
-                fontFamily="Inter, system-ui, sans-serif"
-              >
-                ₦
-              </text>
-            </g>
-          )}
-        </svg>
-
-        {/* Center celebration seal */}
-        <div className="cp-money-seal-wrap">
-          {status === "sent" && (
-            <>
-              <span className="cp-seal-ring cp-seal-ring--1" />
-              <span className="cp-seal-ring cp-seal-ring--2" />
-              <div className="cp-seal-sparks">
-                {SPARK_ANGLES.map((angle, index) => (
-                  <span
-                    key={angle}
-                    className="cp-seal-spark"
-                    style={
-                      {
-                        "--spark-angle": `${angle}deg`,
-                        "--spark-delay": `${320 + (index % 3) * 45}ms`,
-                        "--spark-dist": index % 2 === 0 ? "46px" : "36px",
-                      } as React.CSSProperties
-                    }
-                  />
-                ))}
-              </div>
-            </>
-          )}
-
-          {status === "processing" && <span className="cp-seal-radar" />}
-
-          <div className="cp-money-seal">
-            {status === "sent" ? (
-              <svg viewBox="0 0 36 36" className="cp-seal-check" fill="none">
-                <path
-                  d="M9.5 18.5L15.4 24.4L27 12.2"
-                  stroke="currentColor"
-                  strokeWidth="3.4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            ) : status === "failed" ? (
-              <ShieldAlert size={24} />
-            ) : (
-              <Clock3 size={24} />
-            )}
-          </div>
-        </div>
-
-        <div className="cp-flight-node cp-flight-node--to">
-          <DestinationIcon size={17} />
-        </div>
-      </div>
-
-      {/* Headline & rolling amount */}
-      <h2 className="cp-money-title">{title}</h2>
-      <p className="cp-money-amount tabular-nums">{ngn.format(displayAmount)}</p>
-
-      {/* Recipient route chip */}
       <div className="cp-money-recipient">
-        <span className="cp-money-recipient-name">
-          {status === "sent" && <Check size={13} className="shrink-0 text-[#dbf5b4]" aria-hidden="true" />}
-          <span className="truncate">{recipientName}</span>
-        </span>
-        {recipientSubline && (
-          <span className="cp-money-recipient-sub">{recipientSubline}</span>
-        )}
+        <div className="cp-money-destination" aria-hidden="true"><DestinationIcon size={18} strokeWidth={1.7} /></div>
+        <dl className="min-w-0">
+          <dt className="sr-only">{isContribution ? "Group" : "Recipient"}</dt>
+          <dd className="cp-money-recipient-name" dir="auto">{recipientName}</dd>
+          {recipientSubline && <dd className="cp-money-recipient-sub">{recipientSubline}</dd>}
+        </dl>
       </div>
+
     </section>
   );
 }
