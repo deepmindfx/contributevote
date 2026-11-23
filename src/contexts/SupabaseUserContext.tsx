@@ -37,6 +37,7 @@ function isInvalidSessionError(error: unknown): boolean {
 }
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
+type ProfileSettingsPatch = Partial<Pick<Profile, 'name' | 'phone' | 'preferences'>>;
 
 interface SupabaseUserContextType {
   user: Profile | null;
@@ -57,7 +58,7 @@ interface SupabaseUserContextType {
   deleteNotification: (notificationId: string) => Promise<boolean>;
   clearReadNotifications: () => Promise<boolean>;
   clearAllNotifications: () => Promise<boolean>;
-  updateProfile: (userData: Partial<Profile>) => Promise<void>;
+  updateProfile: (userData: ProfileSettingsPatch) => Promise<void>;
   updateUserAsAdmin: (userId: string, userData: Partial<Profile>) => Promise<void>;
   depositToUserAsAdmin: (userId: string, amount: number) => Promise<void>;
   pauseUserAsAdmin: (userId: string) => Promise<void>;
@@ -609,10 +610,10 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
     return { success: true };
   };
 
-  const updateProfile = async (userData: Partial<Profile>) => {
+  const updateProfile = async (userData: ProfileSettingsPatch) => {
     if (!user) throw new Error('No user logged in');
 
-    const updatedUser = await UserService.updateUser(user.id, userData);
+    const updatedUser = await UserService.updateOwnSettings(user.id, userData);
     applyProfile(updatedUser);
   };
 

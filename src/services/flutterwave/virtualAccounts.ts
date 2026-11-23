@@ -87,6 +87,7 @@ export const createGroupVirtualAccount = async (groupId: string) => {
       return {
         success: false,
         message: result?.error || 'Failed to create virtual account',
+        needsReview: result?.code === 'GROUP_BANK_REVIEW_REQUIRED',
       };
     }
 
@@ -102,3 +103,9 @@ export const createGroupVirtualAccount = async (groupId: string) => {
     };
   }
 };
+
+export function groupBankSupportLink(groupId: string) {
+  const subject = encodeURIComponent('CollectiPay group bank setup');
+  const body = encodeURIComponent(`Please check bank setup for group ${groupId}.\nOriginal reference: GROUP_${groupId}_VA`);
+  return `mailto:support@collectipay.com.ng?subject=${subject}&body=${body}`;
+}

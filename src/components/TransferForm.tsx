@@ -50,7 +50,7 @@ import { useTransferStatus } from "@/hooks/useTransferStatus";
 import { pricedTransferFee } from "@/services/supabase/pricingService";
 import {
   beneficiaryKey,
-  buildUpdatedBeneficiaryPreferences,
+  buildBeneficiaryPreferencePatch,
   fetchTransferBeneficiaries,
   formatAccountNumberSpaced,
   getAmountMagnitudeLabel,
@@ -456,7 +456,7 @@ export default function TransferForm() {
     if (!user) return;
     const nextFavorite = !item.favorite;
     try {
-      const merged = buildUpdatedBeneficiaryPreferences(user.preferences, {
+      const patch = buildBeneficiaryPreferencePatch(user.preferences, {
         type: "upsert",
         item: {
           key: beneficiaryKey(item.bankCode, item.accountNumber),
@@ -468,7 +468,7 @@ export default function TransferForm() {
           favorite: nextFavorite,
         },
       });
-      await updateProfile({ preferences: merged as any });
+      await updateProfile({ preferences: patch as any });
       toast.success(nextFavorite ? "Added to favorites" : "Removed from favorites");
     } catch {
       toast.error("Couldn’t update favorite right now");
@@ -486,7 +486,7 @@ export default function TransferForm() {
     nickname: string
   ) => {
     if (!user) throw new Error("No user logged in");
-    const merged = buildUpdatedBeneficiaryPreferences(user.preferences, {
+    const patch = buildBeneficiaryPreferencePatch(user.preferences, {
       type: "upsert",
       item: {
         key: beneficiaryKey(item.bankCode, item.accountNumber),
@@ -498,18 +498,18 @@ export default function TransferForm() {
         favorite: item.favorite || Boolean(nickname),
       },
     });
-    await updateProfile({ preferences: merged as any });
+    await updateProfile({ preferences: patch as any });
     toast.success(nickname ? `Saved nickname “${nickname}”` : "Nickname cleared");
   };
 
   const handleHideRecent = async (item: TransferBeneficiary) => {
     if (!user) return;
     try {
-      const merged = buildUpdatedBeneficiaryPreferences(user.preferences, {
+      const patch = buildBeneficiaryPreferencePatch(user.preferences, {
         type: "hide",
         key: item.key,
       });
-      await updateProfile({ preferences: merged as any });
+      await updateProfile({ preferences: patch as any });
       toast.success("Removed from recent recipients");
     } catch {
       toast.error("Couldn’t remove recipient");

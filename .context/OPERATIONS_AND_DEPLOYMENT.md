@@ -78,6 +78,11 @@ Apply migrations `20261122040000_activity_and_push.sql` and `20261122040100_paym
 - Enable the hosted Supabase **Before User Created** Auth hook `public.require_signup_phone` alongside the frontend. Existing users sign in normally. New account signup stores a normalized phone number and continues to use email confirmation.
 - Existing unverified refund votes are closed during migration and remain visible in history. The owner can open a new secure vote. An approved refund returns the available amount proportionally to registered contributors, including nonvoters. Link unassigned outside payments to registered wallets before settlement.
 
+### Profile settings and pending group bank accounts
+
+- Apply `20261123030000_atomic_profile_settings.sql` before publishing the frontend. Settings saves merge the submitted keys into the current profile row so concurrent photo and preference updates preserve each other.
+- Deploy `flutterwave-virtual-account` with JWT verification enabled. Group retries check Flutterwave when the original response supplied an order reference. If no reference came back, use the group's `GROUP_<group_id>_VA` reference to confirm the outcome with Flutterwave. After confirming the order belongs to that exact request, operations can record its `order_ref` in the existing unresolved `group_bank_account_setups.provider_account` object so the owner can retry. Clear a reservation only after Flutterwave confirms it issued no account for that request.
+
 ## 5. Hosting Configuration (Vercel & Netlify)
 - **Vercel** (`vercel.json`): Includes SPA fallback rewrites (`/(.*) -> /index.html`) plus CSP, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, and `Permissions-Policy`.
 - **Netlify** (`netlify.toml`): Includes `npm run build` → `dist`, SPA redirect `/* -> /index.html`, security headers, and immutable asset caching.

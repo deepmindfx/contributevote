@@ -16,7 +16,7 @@ import {
 } from "@/services/supabase/groupEnhancementService";
 import { compressBannerImage, formatByteSize, readFileAsDataUrl } from "@/lib/imageCompression";
 import { uploadGroupCoverImage } from "@/services/supabase/groupImageService";
-import { createGroupVirtualAccount } from "@/services/flutterwave/virtualAccounts";
+import { createGroupVirtualAccount, groupBankSupportLink } from "@/services/flutterwave/virtualAccounts";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -53,10 +53,10 @@ function readCreationAttempt(owner: string): CreationAttempt | null {
   }
 }
 
-function readDraft(storageKey: string): GroupDraft {
+function readDraft(storageKey?: string): GroupDraft {
   let saved: Partial<GroupDraft> = {};
   try {
-    saved = JSON.parse(localStorage.getItem(storageKey) || "{}") ?? {};
+    if (storageKey) saved = JSON.parse(localStorage.getItem(storageKey) || "{}") ?? {};
   } catch {
     // Start a fresh draft if saved data cannot be read.
   }
@@ -94,6 +94,7 @@ function AccountGroupForm({ owner }: { owner: string }) {
   const attemptKey = `group-creation-request:${owner}`;
   const [pendingAttempt, setPendingAttempt] = useState(() => readCreationAttempt(owner));
   const [bankSetupError, setBankSetupError] = useState("");
+  const [bankSetupNeedsReview, setBankSetupNeedsReview] = useState(false);
   const [formData, setFormData] = useState(() => readDraft(draftKey));
   const [step, setStep] = useState<Step>(() => {
     try {
@@ -242,13 +243,28 @@ function AccountGroupForm({ owner }: { owner: string }) {
     if (mounted.current) setPendingAttempt(null);
   };
 
-  const finishGroupCreation = (attempt: CreationAttempt) => {
-    if (!attempt.groupId || !mounted.current) return;
-    clearAttempt(attempt);
+  const clearDraft = () => {
     try {
       localStorage.removeItem(draftKey);
       localStorage.removeItem(stepKey);
     } catch { /* Storage unavailable. */ }
+  };
+
+  const startDifferentGroup = () => {
+    if (!pendingAttempt?.groupId || submitPending.current) return;
+    clearAttempt(pendingAttempt);
+    clearDraft();
+    setFormData(readDraft());
+    setStep("goal");
+    coverSelection.current++;
+    setCoverFile(null);
+    setCoverPreviewUrl(null);
+  };
+
+  const finishGroupCreation = (attempt: CreationAttempt) => {
+    if (!attempt.groupId || !mounted.current) return;
+    clearAttempt(attempt);
+    clearDraft();
     void Promise.allSettled([refreshCurrentUser(), refreshContributionData(true)]);
     navigate(`/groups/${attempt.groupId}`, { replace: true });
   };
@@ -264,6 +280,7 @@ function AccountGroupForm({ owner }: { owner: string }) {
     setCreating(true);
     setShowFeeConfirmation(false);
     setBankSetupError("");
+    setBankSetupNeedsReview(false);
     try {
       let attempt = retry;
 
@@ -318,7 +335,10 @@ function AccountGroupForm({ owner }: { owner: string }) {
 
       const account = await createGroupVirtualAccount(groupId);
       if (!account.success) {
-        if (mounted.current) setBankSetupError(account.message || "The bank account couldn’t be linked. Try again.");
+        if (mounted.current) {
+          setBankSetupError(account.message || "The bank account couldn’t be linked. Try again.");
+          setBankSetupNeedsReview(Boolean(account.needsReview));
+        }
         return;
       }
       if (!mounted.current) return;
@@ -497,8 +517,14 @@ function AccountGroupForm({ owner }: { owner: string }) {
           <Button onClick={() => void retryCreation()} disabled={creating}>
             {pendingAttempt.groupId ? creating ? "Setting up bank account…" : "Retry bank setup" : creating ? "Creating group…" : "Retry group creation"}
           </Button>
-          {pendingAttempt.groupId && bankSetupError && <Button variant="outline" disabled={creating} onClick={() => navigate(`/groups/${pendingAttempt.groupId}`)}>View saved group</Button>}
+          {pendingAttempt.groupId && !creating && <>
+            <Button variant="outline" onClick={() => navigate(`/groups/${pendingAttempt.groupId}`)}>View saved group</Button>
+            <Button variant="ghost" onClick={startDifferentGroup}>Create a different group</Button>
+          </>}
         </div>
+        {bankSetupNeedsReview && pendingAttempt.groupId && (
+          <a className="inline-block text-sm font-medium text-primary underline" href={groupBankSupportLink(pendingAttempt.groupId)}>Contact support about this bank request</a>
+        )}
       </Card>
     );
   }

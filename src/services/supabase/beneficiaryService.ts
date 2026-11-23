@@ -279,24 +279,19 @@ export async function fetchTransferBeneficiaries(
   );
 }
 
-export function buildUpdatedBeneficiaryPreferences(
+export function buildBeneficiaryPreferencePatch(
   currentPreferences: unknown,
   action:
     | { type: "upsert"; item: SavedBeneficiaryPreference }
     | { type: "hide"; key: string }
 ): Record<string, unknown> {
-  const base =
-    currentPreferences && typeof currentPreferences === "object"
-      ? ({ ...(currentPreferences as Record<string, unknown>) } as Record<string, unknown>)
-      : {};
-  const { saved, hiddenKeys, hiddenAtByKey } = readSavedBeneficiaries(base);
+  const { saved, hiddenKeys, hiddenAtByKey } = readSavedBeneficiaries(currentPreferences);
 
   if (action.type === "hide") {
     hiddenKeys.add(action.key);
     const nextHiddenAt = { ...hiddenAtByKey, [action.key]: new Date().toISOString() };
     const nextSaved = saved.filter((entry) => entry.key !== action.key);
     return {
-      ...base,
       savedBeneficiaries: nextSaved,
       hiddenBeneficiaries: Array.from(hiddenKeys).slice(-100),
       hiddenBeneficiaryTimestamps: nextHiddenAt,
@@ -317,7 +312,6 @@ export function buildUpdatedBeneficiaryPreferences(
   }
 
   return {
-    ...base,
     savedBeneficiaries: nextSaved.slice(0, 60),
     hiddenBeneficiaries: Array.from(hiddenKeys).slice(-100),
     hiddenBeneficiaryTimestamps: nextHiddenAt,

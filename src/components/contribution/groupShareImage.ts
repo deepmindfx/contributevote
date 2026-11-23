@@ -31,7 +31,14 @@ async function loadArtwork(url?: string | null) {
   const image = new Image();
   image.crossOrigin = "anonymous";
   image.src = url;
-  try { await image.decode(); return image; } catch { return null; }
+  let timer: number | undefined;
+  try {
+    return await Promise.race([
+      image.decode().then(() => image),
+      new Promise<null>((resolve) => { timer = window.setTimeout(() => resolve(null), 8_000); }),
+    ]);
+  } catch { return null; }
+  finally { window.clearTimeout(timer); }
 }
 
 export async function renderGroupShareImage(artwork: GroupShareArtwork) {
@@ -101,7 +108,7 @@ export async function renderGroupShareImage(artwork: GroupShareArtwork) {
   ctx.fillStyle = palette.paper;
   ctx.fillRect(0, 0, WIDTH, height);
 
-  const heroHeight = artwork.kind === "bank" ? 206 : isStory ? 466 : 188;
+  const heroHeight = artwork.kind === "bank" ? 206 : isStory ? 466 : 176;
   const heroY = artwork.kind === "bank" ? 21 : 16;
   ctx.save();
   ctx.beginPath();
@@ -137,14 +144,15 @@ export async function renderGroupShareImage(artwork: GroupShareArtwork) {
 
   let y = heroY + heroHeight + 33;
   text(artwork.kind === "bank" ? "GROUP BANK ACCOUNT" : artwork.category.toUpperCase(), INSET, y, 12, 760, palette.accent);
-  const fitTitle = artwork.kind === "poster" && nameLines.length > 2;
+  const lineLimit = isStory ? 3 : 2;
+  const fitTitle = artwork.kind === "poster" && nameLines.length > lineLimit;
   const compactTitle = fitTitle ? lines(name, 24, 770) : nameLines;
-  const title = artwork.kind === "bank" ? compactTitle : compactTitle.slice(0, 3);
+  const title = artwork.kind === "bank" ? compactTitle : compactTitle.slice(0, lineLimit);
   const titleSize = fitTitle ? 24 : nameSize;
   const titleStep = titleSize + 6;
   title.forEach((line, index) => {
     y += titleStep;
-    text(index === 2 && compactTitle.length > 3 ? `${line.slice(0, -2)}…` : line, INSET, y, titleSize, 770);
+    text(artwork.kind === "poster" && index === lineLimit - 1 && compactTitle.length > lineLimit ? `${line.slice(0, -2)}…` : line, INSET, y, titleSize, 770);
   });
   y += 22;
 
@@ -175,13 +183,14 @@ export async function renderGroupShareImage(artwork: GroupShareArtwork) {
       y += 67;
     }
     if (artwork.bank) {
-      const bankLines = lines(artwork.bank.bank, 13, 550, CONTENT - 28);
-      const availableRows = Math.max(0, Math.floor((height - 71 - (y + 50)) / 17));
-      const visibleBankLines = bankLines.slice(0, Math.min(availableRows, 2));
-      round(INSET, y, CONTENT, 50 + visibleBankLines.length * 17, 13, palette.surface);
+      const summary = [artwork.bank.bank, artwork.bank.name].map((value) => {
+        const wrapped = lines(value, 13, 550, CONTENT - 28);
+        return wrapped.length > 1 ? `${wrapped[0].slice(0, -2)}…` : wrapped[0] || "";
+      });
+      round(INSET, y, CONTENT, 77, 13, palette.surface);
       text("DIRECT BANK TRANSFER", INSET + 14, y + 17, 10, 740, palette.muted);
-      text(artwork.bank.number, INSET + 14, y + 40, 20, 750);
-      visibleBankLines.forEach((line, index) => text(line, INSET + 14, y + 59 + index * 17, 13, 550, palette.muted));
+      text(artwork.bank.number, INSET + 14, y + 38, 20, 750);
+      summary.forEach((line, index) => text(line, INSET + 14, y + 55 + index * 15, 13, 550, palette.muted));
     }
   }
 
@@ -193,7 +202,11 @@ export async function renderGroupShareImage(artwork: GroupShareArtwork) {
   ctx.textAlign = "right";
   text(COLLECTIPAY_SHARE_HOST, WIDTH - INSET, height - 24 - footerOffset, 15, 690, palette.accent);
   ctx.textAlign = "left";
-  if (joinAddress) text(joinAddress, INSET, height - 12, 11, 550, palette.muted);
+  if (joinAddress) {
+    ctx.font = font(11, 550);
+    ctx.fillStyle = palette.muted;
+    ctx.fillText(joinAddress, INSET, height - 12, CONTENT);
+  }
 
   const blob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((result) => result ? resolve(result) : reject(new Error("Image export failed.")), "image/png");

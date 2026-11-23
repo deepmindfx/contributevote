@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,9 +13,10 @@ interface BvnInputDialogProps {
   initialBvn?: string | null;
   accountFor?: "group" | "wallet";
   onBonusVerification?: (bvn: string) => void;
+  feedback?: ReactNode;
 }
 
-export function BvnInputDialog({ open, onOpenChange, onSubmit, isLoading = false, initialBvn, accountFor = "group", onBonusVerification }: BvnInputDialogProps) {
+export function BvnInputDialog({ open, onOpenChange, onSubmit, isLoading = false, initialBvn, accountFor = "group", onBonusVerification, feedback }: BvnInputDialogProps) {
   const [bvn, setBvn] = useState("");
   const [editingSavedBvn, setEditingSavedBvn] = useState(false);
   const savedBvn = initialBvn && /^\d{11}$/.test(initialBvn) ? initialBvn : "";
@@ -73,6 +74,7 @@ export function BvnInputDialog({ open, onOpenChange, onSubmit, isLoading = false
               <p id="group-bank-bvn-help" className="text-sm text-muted-foreground">We save your BVN to your profile so you can reuse it.</p>
             </div>
           )}
+          {feedback}
           <DialogFooter className="gap-2">
             {onBonusVerification && (
               <Button type="button" variant="outline" disabled={isLoading || value.length !== 11} onClick={() => onSubmit(value)}>Bank setup only</Button>

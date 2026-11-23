@@ -20,6 +20,26 @@ function isAccountNumber(value: unknown) {
   return typeof value === 'string' && /^\d{10}$/.test(value);
 }
 
+function readOrderReference(value: unknown): string | undefined {
+  return typeof value === 'string' && /^[a-z0-9_-]{3,120}$/i.test(value) ? value : undefined;
+}
+
+function readProviderAccount(data: Record<string, unknown> | undefined) {
+  const account_number = String(data?.account_number ?? '');
+  const bank_name = typeof data?.bank_name === 'string' ? data.bank_name.trim() : '';
+  const flw_ref = typeof data?.flw_ref === 'string' ? data.flw_ref.trim() : undefined;
+  const order_ref = readOrderReference(data?.order_ref);
+  const status = String(data?.account_status ?? '').trim().toLowerCase();
+  if (!isAccountNumber(account_number) || !bank_name || (!flw_ref && !order_ref) || (status && status !== 'active')) return null;
+  return { account_number, bank_name, flw_ref, order_ref, account_reference: data?.account_reference };
+}
+
+function groupBankPending(orderReferenceKnown = false) {
+  return json({ success: false, code: orderReferenceKnown ? 'GROUP_BANK_PENDING' : 'GROUP_BANK_REVIEW_REQUIRED',
+    error: orderReferenceKnown ? 'The bank is still confirming your account. Check again shortly.'
+      : 'The original bank request is awaiting confirmation. If this continues, contact support from the saved group.' }, 409);
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -128,6 +148,12 @@ Deno.serve(async (req: Request) => {
       if (error || !data) return json({ success: false, error: 'Couldn’t link the confirmed group bank account. Retry setup.' }, 503);
       return json({ success: true, data });
     };
+    const rememberProviderAccount = async (groupId: string, account: Record<string, unknown>, attemptId?: string) => {
+      let update = supabaseAdmin.from('group_bank_account_setups').update({ provider_account: account }).eq('group_id', groupId);
+      if (attemptId) update = update.eq('attempt_id', attemptId);
+      const { error } = await update;
+      if (error) console.error('Could not retain group account for recovery', { code: error.code });
+    };
     let groupAttempt: string | undefined;
     if (groupTarget) {
       const { data: setup, error } = await supabaseAdmin.rpc('service_claim_group_bank_setup', {
@@ -135,9 +161,22 @@ Deno.serve(async (req: Request) => {
       });
       if (error || !setup) return json({ success: false, error: 'Couldn’t start group bank setup. Try again.' }, 503);
       if (setup.account) return json({ success: true, data: setup.account });
-      if (setup.provider_account) return linkGroupAccount(groupTarget, setup.provider_account);
       if (!setup.attempt_id) {
-        return json({ success: false, error: 'Bank setup is awaiting confirmation. Check again shortly.' }, 409);
+        const knownAccount = readProviderAccount(setup.provider_account);
+        if (knownAccount) return linkGroupAccount(groupTarget, knownAccount);
+        const orderRef = readOrderReference(setup.provider_account?.order_ref);
+        if (!orderRef) return groupBankPending();
+        try {
+          const { response } = await flutterwaveFetch(`/virtual-account-numbers/${encodeURIComponent(orderRef)}`,
+            { signal: AbortSignal.timeout(15_000) }, config);
+          const result = await response.json().catch(() => null);
+          const account = readProviderAccount(result?.data);
+          if (!response.ok || result?.status !== 'success' || !account || account.order_ref !== orderRef) return groupBankPending(true);
+          await rememberProviderAccount(groupTarget, account);
+          return linkGroupAccount(groupTarget, account);
+        } catch {
+          return groupBankPending(true);
+        }
       }
       groupAttempt = setup.attempt_id;
     } else {
@@ -149,36 +188,38 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    const { response } = await flutterwaveFetch('/virtual-account-numbers', {
+    const providerRequest = flutterwaveFetch('/virtual-account-numbers', {
       method: 'POST',
       signal: AbortSignal.timeout(20_000),
       body: { email: user.email, tx_ref: txRef, bvn, narration, is_permanent: true, currency: 'NGN' },
     }, config);
+    const providerResult = await providerRequest.catch((error) => {
+      if (groupTarget) return null;
+      throw error;
+    });
+    if (!providerResult) return groupBankPending();
+    const { response } = providerResult;
     const result = await response.json().catch(() => null);
     const data = result?.data;
-    const accountNumber = String(data?.account_number ?? '');
-    const bankName = typeof data?.bank_name === 'string' ? data.bank_name.trim() : '';
-    const accountStatus = String(data?.account_status ?? '').trim().toLowerCase();
-    if (!response.ok || result?.status !== 'success' || !isAccountNumber(accountNumber) || !bankName
-      || (!data?.flw_ref && !data?.order_ref) || (accountStatus && accountStatus !== 'active')) {
+    const providerAccount = readProviderAccount(data);
+    if (!response.ok || result?.status !== 'success' || !providerAccount) {
       console.warn('Flutterwave did not confirm a usable virtual account', { status: response.status });
       if (groupTarget && groupAttempt) {
+        const orderRef = readOrderReference(data?.order_ref);
+        if (response.ok && result?.status === 'success' && orderRef) {
+          await rememberProviderAccount(groupTarget, { order_ref: orderRef }, groupAttempt);
+          return groupBankPending(true);
+        }
         const rejected = [400, 401, 403, 422].includes(response.status) && result?.status === 'error'
-          && !/duplicate|already|exists|unique/i.test(String(result.message || ''));
-        if (!rejected) return json({ success: false, error: 'The bank hasn’t confirmed setup yet. The original request is still pending.' }, 503);
+          && !orderRef && !/duplicate|already|exists|unique|conflict/i.test(String(result.message || ''));
+        if (!rejected) return groupBankPending();
         await supabaseAdmin.from('group_bank_account_setups').delete().eq('group_id', groupTarget).eq('attempt_id', groupAttempt);
       }
       return json({ success: false, error: 'The bank couldn’t confirm your account. Check your BVN and try again.' }, 422);
     }
 
-    const providerAccount = {
-      account_number: accountNumber, bank_name: bankName,
-      flw_ref: data.flw_ref, order_ref: data.order_ref, account_reference: data.account_reference,
-    };
     if (groupTarget && groupAttempt) {
-      const { error } = await supabaseAdmin.from('group_bank_account_setups').update({ provider_account: providerAccount })
-        .eq('group_id', groupTarget).eq('attempt_id', groupAttempt);
-      if (error) console.error('Could not retain group account for recovery', { code: error.code });
+      await rememberProviderAccount(groupTarget, providerAccount, groupAttempt);
       return linkGroupAccount(groupTarget, providerAccount);
     }
 
@@ -188,8 +229,9 @@ Deno.serve(async (req: Request) => {
       p_live: config.mode === 'live' && !config.secretKey.startsWith('FLWSECK_TEST'),
       p_verification_id: verificationId ?? null,
       p_account: {
-        accountNumber, bankName, accountName: name, flwRef: data.flw_ref, orderRef: data.order_ref,
-        accountReference: data.account_reference, createdAt: new Date().toISOString(),
+        accountNumber: providerAccount.account_number, bankName: providerAccount.bank_name, accountName: name,
+        flwRef: providerAccount.flw_ref, orderRef: providerAccount.order_ref,
+        accountReference: providerAccount.account_reference, createdAt: new Date().toISOString(),
       },
     });
     if (completeError || !completed?.account) {

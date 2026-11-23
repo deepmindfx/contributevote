@@ -31,7 +31,7 @@ import {
   updateGroupCoverImage,
   uploadGroupCoverImageWithMeta,
 } from '@/services/supabase/groupImageService';
-import { createGroupVirtualAccount } from '@/services/flutterwave/virtualAccounts';
+import { createGroupVirtualAccount, groupBankSupportLink } from '@/services/flutterwave/virtualAccounts';
 import { ContributeButton } from '@/components/contribution/ContributeButton';
 import { RecurringContributionDialog } from '@/components/contribution/RecurringContributionDialog';
 import { ScheduledContributionDialog } from '@/components/contribution/ScheduledContributionDialog';
@@ -103,6 +103,7 @@ export default function GroupDetail() {
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
   const [isUploadingCover, setIsUploadingCover] = useState(false);
   const [showBvnDialog, setShowBvnDialog] = useState(false);
+  const [bankSetupFeedback, setBankSetupFeedback] = useState<{ groupId: string; message: string; needsReview?: boolean }>();
   const userBvn = user?.bvn ?? null;
   const coverInputRef = useRef<HTMLInputElement>(null);
 
@@ -156,6 +157,7 @@ export default function GroupDetail() {
 
   const handleSetupBankAccount = async (bvn: string) => {
     setIsCreatingAccount(true);
+    setBankSetupFeedback(undefined);
     try {
       const cleanBvn = bvn.replace(/\D/g, "");
       if (cleanBvn.length !== 11) {
@@ -188,7 +190,7 @@ export default function GroupDetail() {
         });
         await refreshContributionData(true);
       } else {
-        toast.error(accountData.message || 'Failed to create bank account');
+        setBankSetupFeedback({ groupId: group.id, message: accountData.message || 'Failed to create bank account', needsReview: accountData.needsReview });
       }
     } catch (error) {
       console.error('Error creating virtual account:', error);
@@ -527,6 +529,12 @@ export default function GroupDetail() {
         onOpenChange={setShowBvnDialog}
         onSubmit={handleSetupBankAccount}
         isLoading={isCreatingAccount}
+        feedback={bankSetupFeedback?.groupId === group.id && (
+          <div role="status" className="space-y-2 rounded-xl border bg-muted/40 p-3 text-sm">
+            <p>{bankSetupFeedback.message}</p>
+            {bankSetupFeedback.needsReview && <a className="font-medium text-primary underline" href={groupBankSupportLink(group.id)}>Contact support about this bank request</a>}
+          </div>
+        )}
         initialBvn={userBvn}
       />
     </div>

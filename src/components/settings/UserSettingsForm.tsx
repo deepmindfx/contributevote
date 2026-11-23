@@ -244,7 +244,7 @@ const UserSettingsForm = () => {
     photoSaveInFlight.current = true;
     setIsSavingPhoto(true);
     try {
-      await updateProfile({ preferences: { ...existingPrefs, profileImage: previewImage } });
+      await updateProfile({ preferences: { profileImage: previewImage } });
       setUserData((previous) => ({ ...previous, profileImage: previewImage }));
       setPreviewImage(null);
       setPhotoCompressionMeta(null);
@@ -310,12 +310,9 @@ const UserSettingsForm = () => {
     setIsLoading(true);
 
     try {
-      const currentPrefs = (user.preferences || {}) as Record<string, any>;
       const fullName = `${userData.firstName} ${userData.lastName}`.trim();
 
-      // IMPORTANT: Spread existingPrefs so virtualAccount and transactionPin are never overwritten!
-      const mergedPreferences = {
-        ...currentPrefs,
+      const preferences = {
         darkMode: userData.preferences.darkMode,
         anonymousContributions: userData.preferences.anonymousContributions,
         notificationsEnabled: userData.preferences.notificationsEnabled,
@@ -323,18 +320,15 @@ const UserSettingsForm = () => {
         groupNotifications: userData.preferences.groupNotifications,
         paymentVibration: userData.preferences.paymentVibration,
         username: userData.username.trim(),
-        profileImage: userData.profileImage,
       };
 
       await updateProfile({
         name: fullName || user.name,
         phone: userData.phone.trim() || null,
-        preferences: mergedPreferences,
+        preferences,
       });
 
       dirtyRef.current = false;
-      setPreviewImage(null);
-      setPhotoCompressionMeta(null);
       toast.success("Settings saved");
     } catch (error: any) {
       console.error("Error updating profile:", error);

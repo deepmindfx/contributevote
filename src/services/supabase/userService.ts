@@ -72,6 +72,13 @@ export class UserService {
     return data
   }
 
+  static async updateOwnSettings(id: string, patch: Pick<ProfileUpdate, 'name' | 'phone' | 'preferences'>): Promise<Profile> {
+    const { data, error } = await supabase.rpc('update_my_profile_settings', { p_user_id: id, p_patch: patch }).single<Profile>();
+    if (error) throw error;
+    if (!data || data.id !== id) throw new Error('The profile update could not be confirmed.');
+    return data;
+  }
+
   // Update wallet balance
   static async updateWalletBalance(id: string, amount: number): Promise<Profile> {
     const { data, error } = await supabase

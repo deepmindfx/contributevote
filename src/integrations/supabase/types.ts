@@ -1493,6 +1493,10 @@ export type Database = {
         Args: { p_group_id: string; p_user_id: string }
         Returns: Json
       }
+      update_my_profile_settings: {
+        Args: { p_user_id: string; p_patch: Json }
+        Returns: Database["public"]["Tables"]["profiles"]["Row"]
+      }
       verify_user_transaction_pin: { Args: { p_pin: string }; Returns: Json }
     }
     Enums: {

@@ -45,7 +45,7 @@ export default function Header({
     applyAppearance(darkMode);
     if (user) {
       try {
-        await updateProfile({ preferences: { ...preferences, darkMode } });
+        await updateProfile({ preferences: { darkMode } });
       } catch {
         applyAppearance(!darkMode);
         toast.error("Could not save your appearance.");

@@ -65,10 +65,10 @@ export function ShareableBankCard({
               <dt className="text-xs font-medium text-muted-foreground">Account number</dt>
               <dd className="mt-1 font-mono text-xl font-bold tabular-nums tracking-wider sm:text-2xl">{accountNumber}</dd>
             </div>
-            <Button type="button" variant="outline" size="sm" onClick={() => void copy("number")} className="h-10 gap-2 rounded-xl">
+            {active && <Button type="button" variant="outline" size="sm" onClick={() => void copy("number")} className="h-10 gap-2 rounded-xl">
               {copied === "number" ? <Check size={15} /> : <Copy size={15} />}
               {copied === "number" ? "Copied" : "Copy number"}
-            </Button>
+            </Button>}
           </div>
           <div className="grid gap-3 py-4 sm:grid-cols-2">
             <div className="min-w-0">
@@ -86,29 +86,27 @@ export function ShareableBankCard({
           <span className="text-muted-foreground">{COLLECTIPAY_SHARE_HOST}</span>
         </div>
       </div>
-      <div className="grid gap-2 sm:grid-cols-2">
+      {active && <div className="grid gap-2 sm:grid-cols-2">
         <Button type="button" variant="outline" onClick={() => void copy("details")} className="h-11 gap-2 rounded-xl">
           {copied === "details" ? <Check size={16} /> : <Copy size={16} />} Copy details
         </Button>
-        {active && (
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button type="button" className="h-11 gap-2 rounded-xl"><Share2 size={16} /> Share card</Button>
-            </DialogTrigger>
-            <DialogContent className="max-h-[92dvh] sm:max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Share bank details</DialogTitle>
-                <DialogDescription>Send a CollectiPay card with the group’s transfer details.</DialogDescription>
-              </DialogHeader>
-              <GroupSharePreview artwork={artwork} caption={caption} />
-              <a href={`https://wa.me/?text=${encodeURIComponent(caption)}`} target="_blank" rel="noopener noreferrer"
-                className="justify-self-center rounded-md text-sm font-medium text-primary hover:underline focus-visible:outline focus-visible:outline-2">
-                Send details as text on WhatsApp
-              </a>
-            </DialogContent>
-          </Dialog>
-        )}
-      </div>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button type="button" className="h-11 gap-2 rounded-xl"><Share2 size={16} /> Share card</Button>
+          </DialogTrigger>
+          <DialogContent className="max-h-[92dvh] sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Share bank details</DialogTitle>
+              <DialogDescription>Send a CollectiPay card with the group’s transfer details.</DialogDescription>
+            </DialogHeader>
+            <GroupSharePreview artwork={artwork} caption={caption} />
+            <a href={`https://wa.me/?text=${encodeURIComponent(caption)}`} target="_blank" rel="noopener noreferrer"
+              className="justify-self-center rounded-md text-sm font-medium text-primary hover:underline focus-visible:outline focus-visible:outline-2">
+              Send details as text on WhatsApp
+            </a>
+          </DialogContent>
+        </Dialog>
+      </div>}
     </div>
   );
 }
