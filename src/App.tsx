@@ -236,6 +236,7 @@ const AppRoutes = () => {
       } />
       <Route path="/join/:id" element={<screens.join />} />
       <Route path="/invite/:token" element={<screens.invite />} />
+      <Route path="/transfer/bulk" element={<ProtectedRoute><screens.bulkTransfer /></ProtectedRoute>} />
       <Route path="/transfer" element={
         <ProtectedRoute>
           <screens.transfer />

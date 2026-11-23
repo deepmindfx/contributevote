@@ -47,6 +47,7 @@ export interface CollectiPayReceiptData {
   title?: string;
   amount: number;
   fee?: number;
+  vat?: number;
   currency?: string;
   status?: string;
   date?: string;
@@ -187,7 +188,7 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
 
   const statusMeta = normalizeStatus(data.status);
   const StatusIcon = statusMeta.icon;
-  const totalAmount = data.amount + (data.fee || 0);
+  const totalAmount = data.amount + (data.fee || 0) + (data.vat || 0);
   const isGroupPayoutCredit =
     data.kind === "withdrawal" &&
     (data.sender?.label?.toLowerCase().includes("pool") ||
@@ -296,9 +297,10 @@ export const CollectiPayReceipt: React.FC<CollectiPayReceiptProps> = ({
       value: formatChannelLabel(data.paymentMethod) || data.paymentMethod,
     });
   }
-  if (typeof data.fee === "number" && data.fee > 0) {
+  if ((data.fee || 0) > 0 || (data.vat || 0) > 0) {
     detailRows.push({ label: "Transfer Amount", value: formatNaira(data.amount) });
-    detailRows.push({ label: "Transaction Fee", value: formatNaira(data.fee) });
+    detailRows.push({ label: "Transaction Fee", value: formatNaira(data.fee || 0) });
+    if (typeof data.vat === "number") detailRows.push({ label: "VAT on Transfer Fee", value: formatNaira(data.vat) });
     detailRows.push({
       label: statusMeta.tone === "failed" ? "Amount Refunded" : "Total Debited",
       value: formatNaira(totalAmount),

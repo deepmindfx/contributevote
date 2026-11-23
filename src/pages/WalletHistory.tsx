@@ -240,6 +240,7 @@ export default function WalletHistory() {
       date: transaction.created_at,
       status: transaction.status,
       fee: !groupPayout && Number.isFinite(fee) ? fee : undefined,
+      vat: transaction.payment_method === "bulk_bank_transfer" ? Number(meta.vat) || 0 : undefined,
       reference: metaText(meta, "transactionReference") || transaction.reference_id || transaction.id,
       transactionId: transaction.id,
       groupName: pool,

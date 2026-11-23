@@ -76,6 +76,7 @@ import { FlipCounterHero } from "@/components/admin/FlipCounterHero";
 import { AdminPaymentSettings } from "@/components/admin/AdminPaymentSettings";
 import { AdminPaymentAlertSounds } from "@/components/admin/AdminPaymentAlertSounds";
 import { AdminPricingRevenue } from "@/components/admin/AdminPricingRevenue";
+import { AdminBulkTransfers } from "@/components/admin/AdminBulkTransfers";
 import { AdminTransactionAnalytics } from "@/components/admin/AdminTransactionAnalytics";
 import { AdminWalletBankBonus } from "@/components/admin/AdminWalletBankBonus";
 import { AdminIceVault } from "@/components/admin/AdminIceVault";
@@ -957,6 +958,10 @@ const AdminDashboard = () => {
                   <TabsTrigger value="volume" className="gap-1.5 px-3">
                     <Activity className="h-4 w-4" />
                     <span>Transaction analytics</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="bulk-transfers" className="gap-1.5 px-3">
+                    <ClipboardList className="h-4 w-4" />
+                    <span>Bulk transfers</span>
                   </TabsTrigger>
                   <TabsTrigger value="ice-vault" className="gap-1.5 px-3">
                     <Snowflake className="h-4 w-4" />
@@ -2090,6 +2095,7 @@ const AdminDashboard = () => {
                 <AdminWalletBankBonus />
               </TabsContent>
               <TabsContent value="volume"><AdminTransactionAnalytics /></TabsContent>
+              <TabsContent value="bulk-transfers"><AdminBulkTransfers /></TabsContent>
               <TabsContent value="ice-vault"><AdminIceVault /></TabsContent>
             </Tabs>
           )}

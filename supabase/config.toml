@@ -13,3 +13,6 @@ verify_jwt = false
 
 [functions.deliver-web-push]
 verify_jwt = false
+
+[functions.flutterwave-bulk-transfer]
+verify_jwt = true

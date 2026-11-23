@@ -261,6 +261,107 @@
 .landing-steps h3 { font-size: clamp(1.15rem, 2vw, 1.65rem); font-weight: 740; letter-spacing: -.045em; }
 .landing-steps p { margin-top: .6rem; color: #3f5748; line-height: 1.6; }
 
+.landing-payroll {
+  padding-block: clamp(3rem, 8vw, 7rem);
+  background: #112b21;
+}
+
+.landing-payroll-layout {
+  display: grid;
+  align-items: center;
+  gap: clamp(1.65rem, 5vw, 5.5rem);
+}
+
+.landing-payroll .landing-section-heading p { color: #c1d5ca; }
+
+.landing-payroll .landing-payroll-category {
+  margin: 0 0 .8rem;
+  color: var(--landing-lime);
+  font-size: .84rem;
+  font-weight: 720;
+}
+
+.landing-payroll-stage {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  padding: clamp(.85rem, 4.5vw, 3.25rem);
+  border: 1px solid #b7e6c42e;
+  border-radius: clamp(1.25rem, 3vw, 2rem);
+  background:
+    repeating-radial-gradient(ellipse at 102% -12%, transparent 0 1.3rem, #b9ecc017 1.34rem 1.4rem),
+    linear-gradient(138deg, #276144, #16392d);
+}
+
+.landing-payroll-sheet {
+  width: min(100%, 28rem);
+  min-width: 0;
+  overflow: hidden;
+  border-radius: clamp(1rem, 2vw, 1.45rem);
+  background: #fbfdf8;
+  color: var(--landing-ink);
+  box-shadow: 0 1rem 2rem #071a134d;
+}
+
+.landing-payroll-sheet-heading {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  padding: clamp(.75rem, 2.7vw, 1.45rem);
+}
+
+.landing-payroll-sheet-heading > span:last-child, .landing-payroll-total > span:first-child {
+  display: grid;
+  gap: .12rem;
+}
+
+.landing-payroll-sheet small { color: #456354; font-size: .72rem; }
+.landing-payroll-sheet-heading strong { font-size: clamp(1.02rem, 2.2vw, 1.35rem); letter-spacing: -.04em; }
+
+.landing-payroll-symbol, .landing-payroll-person {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: .7rem;
+  background: #e1f1d9;
+  color: #20543c;
+}
+
+.landing-payroll-symbol { width: 2.55rem; height: 2.55rem; }
+.landing-payroll-person { width: 1.85rem; height: 1.85rem; border-radius: 50%; font-size: .63rem; font-weight: 740; }
+.landing-payroll-sheet ul { padding-inline: clamp(.75rem, 2.7vw, 1.45rem); }
+
+.landing-payroll-sheet li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: clamp(.3rem, 1.6vw, .7rem);
+  padding-block: .63rem;
+  border-top: 1px solid #e1ebe2;
+  font-size: clamp(.75rem, 2.2vw, .9rem);
+  overflow-wrap: anywhere;
+}
+
+.landing-payroll-sheet li strong { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.landing-payroll-total {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: .45rem .7rem;
+  margin-top: .35rem;
+  padding: clamp(.75rem, 2.7vw, 1.45rem);
+  background: #e5f0db;
+}
+
+.landing-payroll-total strong { font-size: clamp(1.2rem, 3vw, 1.7rem); letter-spacing: -.055em; line-height: 1.12; }
+.landing-payroll-total > span:last-child { color: #2c5e43; font-size: .75rem; font-weight: 685; }
+
+@media (min-width: 52rem) {
+  .landing-payroll-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1.12fr); }
+}
+
 .landing-compare {
   width: 100%;
   margin-top: clamp(1.6rem, 4.5vw, 3.25rem);
@@ -330,6 +431,11 @@
   .landing-intro h1 { font-size: clamp(3.25rem, 6vw, 6.3rem); }
   .landing-hero-photo > img { aspect-ratio: 1.08; }
   .landing-pricing > div { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+
+@media (min-width: 57.01rem) and (max-width: 68rem) {
+  .landing-header > div { gap: .75rem; }
+  .landing-main-nav { gap: clamp(.6rem, 1.25vw, 1rem); }
 }
 
 @media (max-width: 57rem) {

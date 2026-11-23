@@ -36,7 +36,7 @@ export function walletMovement(entry: LedgerEntry) {
   }
   if (entry.type === "deposit" || entry.type === "refund") return amount;
   if (entry.type === "withdrawal" && entry.contribution_id) return amount;
-  if (entry.type === "transfer") return -(amount + (Number(metadata.fee) || 0));
+  if (entry.type === "transfer") return -(Number(metadata.total_debited) || (amount + (Number(metadata.fee) || 0)));
   if (entry.type === "withdrawal") return -amount;
   if (entry.type === "contribution" && entry.payment_method === "wallet") return -amount;
   return 0;

@@ -3,6 +3,7 @@ import { ArrowDownLeft, ArrowRight, ArrowUpRight, Check, HeartHandshake, UsersRo
 import { Link } from "react-router-dom";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { CollectiPayMark } from "@/components/ui/BrandLoader";
+import { BulkPayrollSection } from "@/components/landing/BulkPayrollSection";
 import { CommunityStoriesSection } from "@/components/landing/CommunityStoriesSection";
 import { FaqSection } from "@/components/landing/FaqSection";
 import { SmartShowcaseSection } from "@/components/landing/SmartShowcaseSection";
@@ -33,6 +34,7 @@ const comparisons = [
 
 const sectionLinks = [
   { href: "#how-it-works", text: "How it works" },
+  { href: "#bulk-transfers", text: "Bulk transfers" },
   { href: "#why-collectipay", text: "Why CollectiPay" },
   { href: "#pricing", text: "Pricing" },
   { href: "#faq", text: "FAQ" },
@@ -132,6 +134,8 @@ export default function Index() {
             </div>
           </div>
         </section>
+
+        <BulkPayrollSection isAuthenticated={isAuthenticated} />
 
         <SmartShowcaseSection />
 

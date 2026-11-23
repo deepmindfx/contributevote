@@ -1328,6 +1328,7 @@ export default function TransferForm() {
     >
       <div className="cp-page-enter space-y-4">
         {allowance && <TransferAllowanceNotice allowance={allowance} />}
+        <Button asChild variant="outline" className="w-full rounded-xl"><Link to="/transfer/bulk">Bulk transfer</Link></Button>
 
         {/* Recipient Account Input Card */}
         <Card className="cp-card-native p-4 sm:p-5">

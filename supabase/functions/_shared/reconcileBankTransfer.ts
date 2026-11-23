@@ -1,6 +1,6 @@
 import { flutterwaveFetch, type FlutterwaveRuntimeConfig } from "./flutterwaveConfig.ts";
 
-type TransferRow = {
+export type TransferRow = {
   user_id: string; status: string; amount: number | string; reference_id: string;
   created_at: string; updated_at?: string | null; metadata?: Record<string, unknown>;
 };
@@ -24,6 +24,12 @@ export async function reconcileBankTransfer(db: any, row: TransferRow, config: F
   const result = await response.json().catch(() => null);
   if (result?.status !== "success") return row.status;
   const candidates = Array.isArray(result.data) ? result.data : [result.data];
+  return settleVerifiedBankTransfer(db, row, candidates);
+}
+
+export async function settleVerifiedBankTransfer(db: any, row: TransferRow, candidates: any[], providerBatchIssue?: string) {
+  const reference = row.reference_id;
+  const meta = row.metadata ?? {};
   const match = candidates.find((item) =>
     item?.reference === reference && item.currency === "NGN" &&
     Number(item.amount) === Number(row.amount) && String(item.account_number) === String(meta.account_number) &&
@@ -43,6 +49,7 @@ export async function reconcileBankTransfer(db: any, row: TransferRow, config: F
       ...(match?.id ? { flutterwave_id: match.id } : {}),
       ...(bankName ? { bank_name: bankName } : {}),
       ...(completeMessage ? { complete_message: completeMessage } : {}),
+      ...(providerBatchIssue && !match ? { provider_batch_issue: providerBatchIssue } : {}),
     },
   });
   if (error) throw error;

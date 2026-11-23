@@ -88,6 +88,12 @@ Apply migrations `20261122040000_activity_and_push.sql` and `20261122040100_paym
 - Apply `20261123040000_public_group_share_slugs.sql` and `20261123041000_payment_alert_sounds.sql` before publishing the frontend. The first reserves stable group links while retaining UUID lookup. The second adds the user sound preference, the two admin-managed sound slots, and the MP3 storage bucket.
 - The frontend bundles both default MP3s. Admin Settings publishes replacements to `payment-alert-sounds` and can restore either default. Custom audio plays in the open app after browser interaction. Background notifications use device notification settings.
 
+### Bulk bank transfers
+
+- Apply `20261123050000_bulk_transfer_quotes.sql`, `20261123051000_bulk_transfer_dispatch.sql`, and `20261123052000_bulk_transfer_management.sql` in order. Deploy `flutterwave-bulk-transfer` with JWT verification enabled. The existing webhook and scheduled transfer reconciliation still apply to individual recipients.
+- Bulk transfers start paused. Verify the merchant’s Flutterwave bulk payout access, settlement currency, fee schedule, and the static-IP relay route for `POST /v3/bulk-transfers` and `GET /v3/transfers?batch_id=…` in the test environment. Review a test batch through completion and a failed recipient before enabling it in **Super Admin → Bulk transfers**.
+- Reconcile a delayed batch by its Flutterwave batch ID and the individual transfer references shown in Super Admin. If submission timed out, use the existing references to ask Flutterwave for the final status. A duplicate-reference or missing-transfer response alone cannot establish whether a wallet refund is due.
+
 ## 5. Hosting Configuration (Vercel & Netlify)
 - **Vercel** (`vercel.json`): Includes SPA fallback rewrites (`/(.*) -> /index.html`) plus CSP, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, and `Permissions-Policy`.
 - **Netlify** (`netlify.toml`): Includes `npm run build` → `dist`, SPA redirect `/* -> /index.html`, security headers, and immutable asset caching.

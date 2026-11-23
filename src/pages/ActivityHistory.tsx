@@ -200,6 +200,7 @@ const ActivityHistory = () => {
       title: savingsMovement ? tx.description || "Ice Vault" : isGroupPayout ? "Group Payout" : titleMap[rawType] || "Transaction Receipt",
       amount: Number(tx.amount || 0),
       fee: !isGroupPayout && Number.isFinite(parsedFee) ? parsedFee : undefined,
+      vat: tx.payment_method === "bulk_bank_transfer" ? Number(meta.vat) || 0 : undefined,
       status: tx.status || "completed",
       date: tx.created_at,
       reference: (meta.transactionReference as string) || tx.reference_id || tx.id,

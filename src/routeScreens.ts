@@ -75,6 +75,7 @@ export const screens = {
   groups: screen(() => import("./pages/AllGroups")),
   join: screen(() => import("./pages/JoinGroup")),
   transfer: screen(() => import("./components/TransferForm")),
+  bulkTransfer: screen(() => import("./pages/BulkTransfer")),
   payment: screen(() => import("./pages/PaymentCallback")),
   faq: screen(() => import("./pages/Faq")),
 };
@@ -96,6 +97,7 @@ const routes: Record<string, keyof typeof screens> = {
   "/votes": "votes",
   "/all-groups": "groups",
   "/transfer": "transfer",
+  "/transfer/bulk": "bulkTransfer",
   "/payment-callback": "payment",
   "/faq": "faq",
 };

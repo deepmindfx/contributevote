@@ -1078,6 +1078,7 @@ export type Database = {
           anonymous: boolean | null
           balance_after: number | null
           balance_before: number | null
+          bulk_batch_id: string | null
           contribution_id: string | null
           created_at: string | null
           description: string | null
@@ -1095,6 +1096,7 @@ export type Database = {
           anonymous?: boolean | null
           balance_after?: number | null
           balance_before?: number | null
+          bulk_batch_id?: string | null
           contribution_id?: string | null
           created_at?: string | null
           description?: string | null
@@ -1112,6 +1114,7 @@ export type Database = {
           anonymous?: boolean | null
           balance_after?: number | null
           balance_before?: number | null
+          bulk_batch_id?: string | null
           contribution_id?: string | null
           created_at?: string | null
           description?: string | null
@@ -1206,6 +1209,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_bulk_transfer_settings: { Args: never; Returns: Json }
+      get_bulk_transfer_batch: { Args: { p_batch_id: string; p_admin?: boolean }; Returns: Json }
+      get_bulk_transfer_history: { Args: { p_admin?: boolean; p_before?: string }; Returns: Json }
+      admin_update_bulk_transfer_settings: { Args: { p_settings: Json }; Returns: Json }
       _mask_secret: { Args: { p_val: string }; Returns: string }
       accept_group_invitation: { Args: { p_token: string }; Returns: Json }
       admin_adjust_user_wallet: {
