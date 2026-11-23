@@ -4,6 +4,7 @@ import AuthForm from "@/components/auth/AuthForm";
 import { CollectiPayMark } from "@/components/ui/BrandLoader";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { hasStoredSupabaseSession } from "@/integrations/supabase/client";
+import { safeReturnPath } from "@/lib/safeReturnPath";
 import "@/styles/auth.css";
 
 export default function Auth() {
@@ -12,9 +13,7 @@ export default function Auth() {
   const [search, setSearch] = useSearchParams();
   const mode = search.get("mode") === "signup" ? "signup" : "signin";
   const requestedDestination = location.state?.returnUrl || search.get("redirect");
-  const destination = typeof requestedDestination === "string" && /^\/(?![/\\])/.test(requestedDestination)
-    ? requestedDestination
-    : "/dashboard";
+  const destination = safeReturnPath(requestedDestination, window.location.origin) ?? "/dashboard";
 
   const changeMode = (nextMode: "signin" | "signup") => {
     setSearch((previous) => {

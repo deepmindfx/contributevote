@@ -7,13 +7,14 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { walletBankBonusOfferKey } from "@/hooks/useWalletBankBonus";
 import { naira } from "@/services/supabase/pricingService";
 import { getWalletBankBonusReport, updateWalletBankBonus } from "@/services/supabase/walletBankBonusService";
 
-const reportKey = ["admin-wallet-bank-bonus"] as const;
-
 export function AdminWalletBankBonus() {
+  const { user } = useSupabaseUser();
+  const reportKey = ["admin-wallet-bank-bonus", user?.id] as const;
   const client = useQueryClient();
   const { data: report, isError, refetch } = useQuery({
     queryKey: reportKey,

@@ -8,7 +8,6 @@ import { useNavigate } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import BrandLoader, { CollectiPayMark } from "@/components/ui/BrandLoader";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
-import { supabase } from "@/integrations/supabase/client";
 
 const AdminAuth = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -29,43 +28,20 @@ const AdminAuth = () => {
     const password = loginData.password;
 
     if (!rawIdentifier || !password) {
-      toast.error("Enter your admin username (or email) and password");
+      toast.error("Enter your administrator email and password");
       return;
     }
 
     setIsLoading(true);
     try {
-      let resolvedEmail = rawIdentifier;
-
-      // Support admin username (e.g., "admin") or email via safe SECURITY DEFINER resolver
-      if (!rawIdentifier.includes("@")) {
-        const { data: emailFromRpc, error: rpcError } = await (supabase as any).rpc(
-          "resolve_admin_login_email",
-          { p_identifier: rawIdentifier }
-        );
-
-        if (rpcError) {
-          console.error("Admin username lookup error:", rpcError);
-          toast.error("Could not verify admin username. Try signing in with your admin email.");
-          return;
-        }
-
-        if (!emailFromRpc || typeof emailFromRpc !== "string") {
-          toast.error("Invalid administrator credentials");
-          return;
-        }
-
-        resolvedEmail = emailFromRpc;
-      }
-
-      const { error, profile } = await signIn(resolvedEmail, password);
+      const { error, profile } = await signIn(rawIdentifier, password);
 
       if (error) {
         toast.error(error.message || "Invalid administrator credentials");
         return;
       }
 
-      if (!profile || profile.role !== "admin") {
+      if (!profile || profile.role !== "admin" || (profile.status ?? "active") !== "active") {
         await logout();
         toast.error("Access denied. This account does not have administrator privileges.");
         return;
@@ -114,7 +90,7 @@ const AdminAuth = () => {
                 </div>
               </div>
               <p className="mt-3 text-xs leading-relaxed text-[#cce9db]">
-                Sign in with your administrator username or email to manage AML compliance, users, pools, and Flutterwave gateway credentials.
+                Sign in with your administrator email to manage AML compliance, users, pools, and gateway settings.
               </p>
             </div>
 
@@ -122,16 +98,16 @@ const AdminAuth = () => {
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="admin-identifier" className="text-xs font-semibold">
-                    Admin Username or Email
+                    Administrator email
                   </Label>
                   <div className="relative">
                     <UserCheck className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       id="admin-identifier"
                       name="identifier"
-                      type="text"
+                      type="email"
                       autoComplete="username"
-                      placeholder="admin or admin@collectipay.com.ng"
+                      placeholder="Enter your administrator email"
                       className="h-12 rounded-xl pl-10"
                       value={loginData.identifier}
                       onChange={(e) =>

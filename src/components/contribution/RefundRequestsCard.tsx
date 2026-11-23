@@ -124,17 +124,15 @@ export function RefundRequestsCard({
     return vote?.vote;
   };
 
+  const validVoteCount = (request: GroupRefundRequest) => (request.total_votes_for || 0) + (request.total_votes_against || 0);
+
   const getVotePercentage = (request: GroupRefundRequest) => {
-    if (!request.total_eligible_voters || request.total_eligible_voters === 0) return 0;
-    if (!Array.isArray(request.votes) || request.votes.length === 0) return 0;
-    return Math.min(100, (request.total_votes_for / request.votes.length) * 100);
+    const votes = validVoteCount(request);
+    return votes ? Math.min(100, (request.total_votes_for / votes) * 100) : 0;
   };
 
-  const getParticipationPercentage = (request: GroupRefundRequest) => {
-    if (!request.total_eligible_voters || request.total_eligible_voters === 0) return 0;
-    if (!Array.isArray(request.votes)) return 0;
-    return Math.min(100, (request.votes.length / request.total_eligible_voters) * 100);
-  };
+  const getParticipationPercentage = (request: GroupRefundRequest) =>
+    request.total_eligible_voters ? Math.min(100, (validVoteCount(request) / request.total_eligible_voters) * 100) : 0;
 
   const getDaysRemaining = (deadline: string) => {
     const end = Date.parse(deadline);
@@ -271,7 +269,7 @@ export function RefundRequestsCard({
                     <div className="flex items-center justify-between text-sm">
                       <span className="inline-flex items-center gap-1.5 font-medium text-muted-foreground">
                         <BarChart3 className="h-4 w-4 text-primary" />
-                        Participation: {request.votes?.length || 0} of {request.total_eligible_voters} voted
+                        Participation: {validVoteCount(request)} of {request.total_eligible_voters} voted
                       </span>
                       <span className={`font-bold ${
                         getParticipationPercentage(request) >= 70 
@@ -296,7 +294,7 @@ export function RefundRequestsCard({
                         </span>
                       ) : (
                         <span className="text-orange-600">
-                          {Math.ceil(request.total_eligible_voters * 0.7) - (request.votes?.length || 0)} more needed
+                          {Math.ceil(request.total_eligible_voters * 0.7) - (validVoteCount(request))} more needed
                         </span>
                       )}
                     </div>
@@ -307,7 +305,7 @@ export function RefundRequestsCard({
                     <div className="flex items-center justify-between text-sm">
                       <span className="inline-flex items-center gap-1.5 font-medium text-muted-foreground">
                         <ShieldCheck className="h-4 w-4 text-primary" />
-                        Approval: {request.total_votes_for || 0} of {request.votes?.length || 0} voted "For"
+                        Approval: {request.total_votes_for || 0} of {validVoteCount(request)} voted "For"
                       </span>
                       <span className={`font-bold ${
                         votePercentage >= approvalThreshold 
@@ -329,7 +327,7 @@ export function RefundRequestsCard({
                         </span>
                       ) : (
                         <span className="text-orange-600">
-                          {Math.max(1, Math.ceil((request.votes?.length || 0) * (approvalThreshold / 100)) - (request.total_votes_for || 0))} more "For" votes needed
+                          {Math.max(1, Math.ceil((validVoteCount(request)) * (approvalThreshold / 100)) - (request.total_votes_for || 0))} more "For" votes needed
                         </span>
                       )}
                     </div>

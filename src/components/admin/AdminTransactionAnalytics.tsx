@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { currentLagosMonth, lagosMonthRange } from "@/services/supabase/monthlyLedger";
 import { getGroupWithdrawalPolicy, naira, setGroupWithdrawalOverride } from "@/services/supabase/pricingService";
 
@@ -56,6 +57,7 @@ function GroupFeeOverride({ group }: { group: Entity }) {
 }
 
 export function AdminTransactionAnalytics() {
+  const { user } = useSupabaseUser();
   const [month, setMonth] = useState(currentLagosMonth);
   const [scope, setScope] = useState<Scope>("platform");
   const [search, setSearch] = useState("");
@@ -64,7 +66,7 @@ export function AdminTransactionAnalytics() {
   const { start, end, days } = lagosMonthRange(month);
 
   const entities = useQuery({
-    queryKey: ["admin-transaction-entities", scope, queryText],
+    queryKey: ["admin-transaction-entities", user?.id, scope, queryText],
     enabled: scope !== "platform",
     queryFn: async ({ signal }) => {
       const { data, error } = await supabase.rpc("admin_search_transaction_entities", { p_scope: scope, p_search: queryText }).abortSignal(signal);
@@ -73,7 +75,7 @@ export function AdminTransactionAnalytics() {
     },
   });
   const analytics = useQuery({
-    queryKey: ["admin-transaction-analytics", month, scope, entity?.id],
+    queryKey: ["admin-transaction-analytics", user?.id, month, scope, entity?.id],
     enabled: scope === "platform" || Boolean(entity),
     queryFn: async ({ signal }) => {
       const { data, error } = await supabase.rpc("admin_transaction_analytics", {

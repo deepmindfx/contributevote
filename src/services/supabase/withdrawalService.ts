@@ -7,6 +7,7 @@ export interface WithdrawalRequest {
   amount: number;
   fee_amount?: number;
   fee_percent?: number;
+  total_eligible_voters?: number | null;
   purpose: string;
   status: 'pending' | 'approved' | 'rejected' | 'expired' | 'executed';
   deadline: string;

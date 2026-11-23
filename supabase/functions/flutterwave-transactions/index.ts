@@ -37,26 +37,32 @@ Deno.serve(async (req: Request) => {
       throw new Error('Unauthorized');
     }
 
-    const config = await getFlutterwaveConfig();
-    if (!config.secretKey) {
-      throw new Error('Flutterwave secret key not configured');
-    }
-
     const body: TransactionsRequest = await req.json();
-    if (!body.account_reference) {
-      throw new Error('Missing required field: account_reference');
+    const reference = typeof body.account_reference === "string" ? body.account_reference.trim() : "";
+    if (!reference || reference.length > 180) throw new Error("Invalid account reference");
+    const { data: profile, error: profileError } = await supabaseUserClient.from("profiles")
+      .select("preferences").eq("id", user.id).maybeSingle();
+    const account = profile?.preferences?.virtualAccount;
+    const linked = [account, ...(Array.isArray(account?.accounts) ? account.accounts : [])];
+    if (profileError || !linked.some((item) =>
+      item?.accountReference === reference || item?.account_reference === reference
+    )) {
+      return new Response(JSON.stringify({ success: false, error: "Account unavailable" }), {
+        status: 404, headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
     }
+    const config = await getFlutterwaveConfig();
+    if (!config.secretKey) throw new Error("Flutterwave is unavailable");
 
     const { response } = await flutterwaveFetch(
-      `/virtual-account-numbers/${encodeURIComponent(body.account_reference)}/transactions`,
-      { method: 'GET' },
+      `/virtual-account-numbers/${encodeURIComponent(reference)}/transactions`,
+      { method: 'GET', signal: AbortSignal.timeout(9000) },
       config
     );
 
     if (!response.ok) {
-      const errorData = await response.text();
-      console.error('Flutterwave API error:', errorData);
-      throw new Error(`Flutterwave API error: ${response.status}`);
+      console.warn("Flutterwave virtual account history request failed", response.status);
+      throw new Error("Account history is temporarily unavailable");
     }
 
     const data = await response.json();
@@ -69,8 +75,6 @@ Deno.serve(async (req: Request) => {
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
   } catch (error) {
-    console.error('Error fetching transactions:', error);
-
     return new Response(JSON.stringify({
       success: false,
       error: error instanceof Error ? error.message : String(error),

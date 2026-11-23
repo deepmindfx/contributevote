@@ -224,15 +224,8 @@ export const ContributorService = {
         }));
       }
 
-      // Fallback direct query
-      const { data: fallback, error: fallbackError } = await supabase
-        .from('contributors')
-        .select('*')
-        .eq('group_id', groupId)
-        .order('total_contributed', { ascending: false });
-
-      if (fallbackError) throw fallbackError;
-      return fallback || [];
+      if (error) throw error;
+      return [];
     } catch (error) {
       console.error('Error getting contributors:', error);
       return [];

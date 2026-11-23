@@ -143,10 +143,7 @@ export class ContributionService {
 
   // Delete contribution group
   static async deleteContributionGroup(id: string): Promise<void> {
-    const { error } = await supabase
-      .from('contribution_groups')
-      .delete()
-      .eq('id', id)
+    const { error } = await supabase.rpc('delete_empty_group', { p_group_id: id })
     
     if (error) throw error
   }

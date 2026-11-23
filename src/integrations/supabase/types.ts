@@ -1209,6 +1209,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      delete_empty_group: { Args: { p_group_id: string }; Returns: undefined }
       admin_get_payout_reconciliation_health: { Args: Record<never, never>; Returns: Json }
       create_support_ticket: {
         Args: { p_client_id: string; p_category: string; p_reference: string; p_subject: string; p_body: string }

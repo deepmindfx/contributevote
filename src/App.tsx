@@ -144,6 +144,12 @@ const ProtectedRoute = ({ children }: { children: ReactNode }) => {
 
 const AppRoutes = () => {
   const { user, isAuthenticated, isAdmin } = useSupabaseUser();
+  useEffect(() => {
+    if (isAuthenticated && isAdmin) return;
+    queryClient.removeQueries({
+      predicate: ({ queryKey }) => typeof queryKey[0] === "string" && queryKey[0].startsWith("admin-"),
+    });
+  }, [isAuthenticated, isAdmin, user?.id]);
   const darkMode = usesDarkMode(user?.preferences);
   const { pathname } = useLocation();
   const navType = useNavigationType();

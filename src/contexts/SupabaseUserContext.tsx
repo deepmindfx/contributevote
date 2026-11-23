@@ -97,7 +97,7 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
   const lastWallet = useRef<{ id: string; balance: number | null }>();
 
   const isAuthenticated = !!user;
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === 'admin' && (user.status ?? 'active') === 'active';
   const visibleNotifications = useMemo(() => notifications.filter(
     (notification) => notification.user_id === user?.id && notificationAllowed(notification.type, user?.preferences),
   ), [notifications, user?.id, user?.preferences]);
@@ -538,7 +538,7 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
     await Promise.allSettled([
       refreshCurrentUser(),
       fetchNotificationsForUser(id),
-      user.role === 'admin' && UserService.getUsers().then((profiles) => {
+      user.role === 'admin' && (user.status ?? 'active') === 'active' && UserService.getUsers().then((profiles) => {
         if (sessionOwner.current === id) setUsers(profiles);
       }, (error) => console.error('Error loading admin users:', error)),
     ]);

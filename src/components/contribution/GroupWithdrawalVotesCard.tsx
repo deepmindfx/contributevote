@@ -178,9 +178,10 @@ export function GroupWithdrawalVotesCard({
             const votes = Array.isArray(req.votes) ? req.votes : [];
             const yesVotes = votes.filter((v) => v.vote === true).length;
             const noVotes = votes.filter((v) => v.vote === false).length;
-            const votesCast = votes.length;
+            const votesCast = yesVotes + noVotes;
+            const electorate = req.total_eligible_voters ?? eligibleVoters;
             const participationPct =
-              eligibleVoters > 0 ? Math.min(100, (votesCast / eligibleVoters) * 100) : 0;
+              electorate > 0 ? Math.min(100, (votesCast / electorate) * 100) : 0;
             const approvalPct = votesCast > 0 ? (yesVotes / votesCast) * 100 : 0;
             const userVoteObj = user ? votes.find((v) => v.user_id === user.id) : undefined;
             const isPending = req.status === "pending";
@@ -234,7 +235,7 @@ export function GroupWithdrawalVotesCard({
                     <div className="flex items-center justify-between text-xs">
                       <span className="inline-flex items-center gap-1 font-medium text-muted-foreground">
                         <BarChart3 className="h-3.5 w-3.5 text-primary" />
-                        Participation ({votesCast}/{eligibleVoters})
+                        Participation ({votesCast}/{electorate})
                       </span>
                       <span className="font-bold tabular-nums text-foreground">
                         {Math.round(participationPct)}% / 70%
