@@ -254,7 +254,7 @@ const AppRoutes = () => {
       {/* Migration Route - Removed for production security */}
       
       {/* Payment Callback Route */}
-      <Route path="/payment-callback" element={<screens.payment />} />
+      <Route path="/payment-callback" element={<ProtectedRoute><screens.payment /></ProtectedRoute>} />
       
       {/* Admin Routes */}
       <Route path="/admin" element={

@@ -183,8 +183,8 @@ export class WalletService {
 
       const result = await EdgeFunctionService.createPaymentInvoice(invoiceData);
 
-      if (!result || !result.success) {
-        toast.error("Failed to create payment invoice");
+      if (!result?.success || !result.data?.checkoutUrl) {
+        toast.error(result?.error || "Couldn’t open Flutterwave checkout. Try again.");
         return null;
       }
 

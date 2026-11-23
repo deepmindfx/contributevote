@@ -16,6 +16,7 @@ import {
 } from "@/services/supabase/groupEnhancementService";
 import { compressBannerImage, formatByteSize, readFileAsDataUrl } from "@/lib/imageCompression";
 import { uploadGroupCoverImage } from "@/services/supabase/groupImageService";
+import { createGroupVirtualAccount } from "@/services/flutterwave/virtualAccounts";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,6 +41,7 @@ type CreationAttempt = {
   owner: string;
   group: Parameters<typeof createGroupWithFee>[1];
   authorization: Parameters<typeof createGroupWithFee>[2];
+  groupId?: string;
 };
 
 function readCreationAttempt(owner: string): CreationAttempt | null {
@@ -91,6 +93,7 @@ function AccountGroupForm({ owner }: { owner: string }) {
   const stepKey = `${STEP_STORAGE_KEY}:${owner}`;
   const attemptKey = `group-creation-request:${owner}`;
   const [pendingAttempt, setPendingAttempt] = useState(() => readCreationAttempt(owner));
+  const [bankSetupError, setBankSetupError] = useState("");
   const [formData, setFormData] = useState(() => readDraft(draftKey));
   const [step, setStep] = useState<Step>(() => {
     try {
@@ -227,6 +230,29 @@ function AccountGroupForm({ owner }: { owner: string }) {
     }
   };
 
+  const rememberAttempt = (attempt: CreationAttempt) => {
+    if (mounted.current) setPendingAttempt(attempt);
+    try { localStorage.setItem(attemptKey, JSON.stringify(attempt)); } catch { /* Storage unavailable. */ }
+  };
+
+  const clearAttempt = (attempt: CreationAttempt) => {
+    try {
+      if (readCreationAttempt(owner)?.authorization.requestId === attempt.authorization.requestId) localStorage.removeItem(attemptKey);
+    } catch { /* Storage unavailable. */ }
+    if (mounted.current) setPendingAttempt(null);
+  };
+
+  const openCreatedGroup = (attempt: CreationAttempt) => {
+    if (!attempt.groupId || !mounted.current) return;
+    clearAttempt(attempt);
+    try {
+      localStorage.removeItem(draftKey);
+      localStorage.removeItem(stepKey);
+    } catch { /* Storage unavailable. */ }
+    void Promise.allSettled([refreshCurrentUser(), refreshContributionData(true)]);
+    navigate(`/groups/${attempt.groupId}`, { replace: true });
+  };
+
   const createGroup = async (expectedFee: number, retry?: CreationAttempt) => {
     if (user?.id !== owner) return;
     const unresolved = retry ? null : readCreationAttempt(owner) ?? pendingAttempt;
@@ -237,7 +263,7 @@ function AccountGroupForm({ owner }: { owner: string }) {
 
     setCreating(true);
     setShowFeeConfirmation(false);
-    let committed = false;
+    setBankSetupError("");
     try {
       let attempt = retry;
 
@@ -266,53 +292,43 @@ function AccountGroupForm({ owner }: { owner: string }) {
           },
         };
         if (!mounted.current) return;
-        setPendingAttempt(attempt);
-        try {
-          localStorage.setItem(attemptKey, JSON.stringify(attempt));
-        } catch {
-          // Keep the in-memory request when browser storage is unavailable.
-        }
+        rememberAttempt(attempt);
       }
-      const result = await createGroupWithFee(owner, attempt.group, attempt.authorization);
-      if (result?.success && !mounted.current) return;
-      try {
-        if (readCreationAttempt(owner)?.authorization.requestId === attempt.authorization.requestId) {
-          localStorage.removeItem(attemptKey);
-        }
-      } catch { /* Storage unavailable. */ }
-      if (mounted.current) setPendingAttempt(null);
-
-      if (!result?.success) {
-        if (!mounted.current) return;
-        if (result?.code === "GROUP_CREATION_FEE_CHANGED") {
-          setFreeRemaining(result.free_remaining ?? null);
-          if (result.required_amount === 500) {
-            setShowFeeConfirmation(true);
-            return;
+      let groupId = attempt.groupId;
+      if (!groupId) {
+        const result = await createGroupWithFee(owner, attempt.group, attempt.authorization);
+        if (!result?.success) {
+          clearAttempt(attempt);
+          if (!mounted.current) return;
+          if (result?.code === "GROUP_CREATION_FEE_CHANGED") {
+            setFreeRemaining(result.free_remaining ?? null);
+            if (result.required_amount === 500) {
+              setShowFeeConfirmation(true);
+              return;
+            }
           }
+          toast.error(result?.message || result?.error || "Couldn’t create the group. Try again.");
+          return;
         }
-        toast.error(result?.message || result?.error || "Couldn’t create the group. Try again.");
+        if (!result.group_id) throw new Error("Couldn’t confirm the group ID. Retry the same request.");
+        groupId = result.group_id;
+        attempt = { ...attempt, groupId };
+        rememberAttempt(attempt);
+      }
+
+      const account = await createGroupVirtualAccount(groupId);
+      if (!account.success || !account.responseBody?.account_number) {
+        if (mounted.current) setBankSetupError(account.message || "The bank account couldn’t be linked. Try again.");
         return;
       }
-
-      try {
-        if (mounted.current) {
-          localStorage.removeItem(draftKey);
-          localStorage.removeItem(stepKey);
-        }
-      } catch {
-        // Ignore storage errors
-      }
-      committed = true;
       if (!mounted.current) return;
-      toast.success(result.message || "Group pool created.");
-      void Promise.allSettled([refreshCurrentUser(), refreshContributionData(true)]);
-      navigate(result.group_id ? "/groups/" + result.group_id : "/all-groups", { replace: true });
+      toast.success("Group created and bank account linked.");
+      openCreatedGroup(attempt);
     } catch (error: any) {
       console.error("Error creating group:", error);
       if (mounted.current) toast.error(error?.message || "Couldn’t confirm group creation. Try again.");
     } finally {
-      if (!committed && mounted.current) setCreating(false);
+      if (mounted.current) setCreating(false);
     }
   };
 
@@ -469,16 +485,18 @@ function AccountGroupForm({ owner }: { owner: string }) {
   if (pendingAttempt) {
     return (
       <Card className="cp-card-native space-y-3 p-5">
-        <h2 className="text-lg font-semibold">Group creation pending</h2>
+        <h2 className="text-lg font-semibold">{pendingAttempt.groupId ? "Linking your group bank account" : "Group creation pending"}</h2>
         <p className="break-words text-sm text-muted-foreground">
           {pendingAttempt.group.name} · {pendingAttempt.authorization.expectedFee === 0 ? "Free" : "₦500 confirmed"}
         </p>
         <p className="text-sm text-muted-foreground">
-          Retry this submission to confirm the result. If it already succeeded, you’ll open the existing group.
+          {pendingAttempt.groupId ? "Your group is saved. Bank setup uses your saved BVN and won’t charge another group creation fee." : "Retry to confirm the result of this group creation request."}
         </p>
+        {bankSetupError && <p role="alert" className="text-sm text-destructive">{bankSetupError}</p>}
         <Button onClick={() => void retryCreation()} disabled={creating}>
-          {creating ? "Checking group creation…" : "Retry group creation"}
+          {pendingAttempt.groupId ? creating ? "Setting up bank account…" : "Retry bank setup" : creating ? "Creating group…" : "Retry group creation"}
         </Button>
+        {pendingAttempt.groupId && bankSetupError && <Button variant="outline" disabled={creating} onClick={() => openCreatedGroup(pendingAttempt)}>View group</Button>}
       </Card>
     );
   }

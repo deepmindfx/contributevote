@@ -16,7 +16,7 @@
 ## 3. Contribution Groups & Quota
 - **Creation Wizard** (`/create-group`, `GroupForm`): Native 2-step builder with custom interactive inputs — quick goal presets (`₦50k`–`₦1M`), tactile Contribution Frequency tile cards (`Daily`/`Weekly`/`Monthly`/`One-time`), inline + searchable 19-category `CategoryIcon` picker sheet, quick target-date chips, privacy & governance tile selectors, customizable Voting Threshold (`50%`/`60%`/`75%`/`80%`), and a live emerald Pool Blueprint summary card before creation.
 - **Free Quota**: First 3 groups are free; subsequent groups require confirmation and deduct `₦500` atomically via `create_group_with_fee_check`.
-- **Dedicated Group Bank Account**: The creator can select **Bank setup** from `/groups/:id` after creating the group. Flutterwave verifies the account with the creator’s BVN and the app saves the returned details on `contribution_groups` (`account_number`, `account_name`, `bank_name`, `account_reference`, `account_details`).
+- **Dedicated Group Bank Account**: The creation wizard uses the creator’s saved BVN to provision a Flutterwave account and waits for the link to finish. A retry resumes the original group and fee authorization. The **Bank setup** action on `/groups/:id` also supports existing groups. If Flutterwave’s response is inconclusive, reconcile the original `GROUP_<group_id>_VA` reference before allowing another provider request.
 - **Archiving**: Creators can archive/unarchive groups via `archive_group` / `unarchive_group`; archived groups are hidden unless "Show Archived" is toggled.
 
 ## 4. Funding a Group & Voting Rights Model

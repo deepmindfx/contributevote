@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useSupabaseUser } from '@/contexts/SupabaseUserContext';
 import { WalletContributionService } from '@/services/supabase/walletContributionService';
@@ -48,7 +48,9 @@ export function ContributeButton({
   const [amount, setAmount] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [pinDialogOpen, setPinDialogOpen] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [processing, setProcessing] = useState<'checkout' | 'wallet' | null>(null);
+  const isProcessing = processing !== null;
+  const checkoutInFlight = useRef(false);
   const [receipt, setReceipt] = useState<CollectiPayReceiptData | null>(null);
   const { user, refreshCurrentUser } = useSupabaseUser();
   const [anonymousOverride, setAnonymousOverride] = useState<boolean>();
@@ -73,17 +75,25 @@ export function ContributeButton({
   const validAmount = /^\d+(?:\.\d{1,2})?$/.test(amount) && parsedAmount >= 100;
 
   const startCheckout = async () => {
-    if (!groupRules || !user?.email || !validAmount || isProcessing) return;
-    setIsProcessing(true);
+    if (!groupRules || !user?.email || !validAmount || isProcessing || checkoutInFlight.current) return;
+    checkoutInFlight.current = true;
+    setProcessing('checkout');
     try {
       const checkout = await WalletService.createPaymentInvoice({
         amount: parsedAmount, description: `Contribution to ${groupName}`,
         customerEmail: user.email, customerName: user.name || user.email,
         userId: user.id, contributionId: groupId, anonymous: isAnonymous,
       });
-      if (checkout?.checkoutUrl) window.location.assign(checkout.checkoutUrl);
+      if (checkout?.checkoutUrl) {
+        const url = new URL(checkout.checkoutUrl);
+        if (url.origin !== 'https://checkout.flutterwave.com' || url.username || url.password) throw new Error();
+        window.location.assign(url.href);
+      }
+    } catch {
+      toast.error('Couldn’t open Flutterwave checkout. Try again.');
     } finally {
-      setIsProcessing(false);
+      checkoutInFlight.current = false;
+      setProcessing(null);
     }
   };
 
@@ -135,7 +145,7 @@ export function ContributeButton({
     if (!groupRules || !user) return;
     const contributionAmount = parseFloat(amount);
     setPinDialogOpen(false);
-    setIsProcessing(true);
+    setProcessing('wallet');
 
     try {
       const result = await WalletContributionService.contributeFromWallet(
@@ -189,7 +199,7 @@ export function ContributeButton({
     } catch (error) {
       console.error('Error contributing from wallet:', error);
     } finally {
-      setIsProcessing(false);
+      setProcessing(null);
     }
   };
 
@@ -199,8 +209,8 @@ export function ContributeButton({
         <BrandLoader
           variant="overlay"
           badge="Group Contribution"
-          message={`Pooling ₦${parsedAmount.toLocaleString()}`}
-          submessage={`Adding your contribution to ${groupName} & activating voting rights…`}
+          message={processing === 'checkout' ? 'Opening Flutterwave checkout' : `Pooling ₦${parsedAmount.toLocaleString()}`}
+          submessage={processing === 'checkout' ? 'You’ll return here once Flutterwave finishes.' : `Adding your contribution to ${groupName}…`}
         />
       )}
 

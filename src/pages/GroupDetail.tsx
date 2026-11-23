@@ -172,12 +172,7 @@ export default function GroupDetail() {
         void refreshCurrentUser();
       }
 
-      const accountData = await createGroupVirtualAccount({
-        email: user.email,
-        bvn: cleanBvn,
-        groupName: group.name,
-        groupId: group.id,
-      });
+      const accountData = await createGroupVirtualAccount(group.id);
 
       if (accountData.success && accountData.responseBody) {
         toast.success('Bank account created successfully.');

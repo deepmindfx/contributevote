@@ -547,6 +547,35 @@ export type Database = {
           },
         ]
       }
+      group_bank_account_setups: {
+        Row: {
+          attempt_id: string
+          group_id: string
+          provider_account: Json | null
+          requested_at: string
+        }
+        Insert: {
+          attempt_id?: string
+          group_id: string
+          provider_account?: Json | null
+          requested_at?: string
+        }
+        Update: {
+          attempt_id?: string
+          group_id?: string
+          provider_account?: Json | null
+          requested_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_bank_account_setups_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: true
+            referencedRelation: "contribution_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       group_invitations: {
         Row: {
           accepted_at: string | null
@@ -1450,6 +1479,10 @@ export type Database = {
       save_user_bvn: { Args: { p_bvn: string }; Returns: Json }
       service_adjust_wallet_balance: {
         Args: { p_delta: number; p_user_id: string }
+        Returns: Json
+      }
+      service_claim_group_bank_setup: {
+        Args: { p_group_id: string; p_user_id: string }
         Returns: Json
       }
       set_user_transaction_pin: {

@@ -79,19 +79,9 @@ export const verifyTransaction = async (
 /**
  * Create a virtual account for a contribution group via Supabase Edge Function
  */
-export const createGroupVirtualAccount = async (data: {
-  email: string;
-  bvn: string;
-  groupName: string;
-  groupId: string;
-}) => {
+export const createGroupVirtualAccount = async (groupId: string) => {
   try {
-    const result = await EdgeFunctionService.createVirtualAccount({
-      email: data.email,
-      bvn: data.bvn,
-      tx_ref: `GROUP_${data.groupId}_${Date.now()}`,
-      narration: `Virtual account for ${data.groupName}`,
-    });
+    const result = await EdgeFunctionService.createVirtualAccount({ purpose: 'group', groupId });
 
     if (!result?.success || !result?.data) {
       return {

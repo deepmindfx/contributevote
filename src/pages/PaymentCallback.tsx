@@ -1,95 +1,73 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { EdgeFunctionService } from '@/services/supabase/edgeFunctionService';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
+import BrandLoader from '@/components/ui/BrandLoader';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { WalletFlow } from '@/components/wallet/WalletFlow';
 import { useSupabaseUser } from '@/contexts/SupabaseUserContext';
 import { useSupabaseContribution } from '@/contexts/SupabaseContributionContext';
-import BrandLoader from '@/components/ui/BrandLoader';
-import { toast } from 'sonner';
+import { EdgeFunctionService } from '@/services/supabase/edgeFunctionService';
 
-const PaymentCallback = () => {
-  const [searchParams] = useSearchParams();
+function groupReturnPath(value: unknown): string | null {
+  return typeof value === 'string' && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(value) ? `/groups/${value}` : null;
+}
+
+export default function PaymentCallback() {
+  const [params] = useSearchParams();
   const navigate = useNavigate();
-  const { loading, refreshCurrentUser } = useSupabaseUser();
+  const { refreshCurrentUser } = useSupabaseUser();
   const { refreshContributionData } = useSupabaseContribution();
-  const [isVerifying, setIsVerifying] = useState(true);
-  const hasVerifiedRef = useRef(false);
+  const transactionId = params.get('transaction_id');
+  const reference = params.get('tx_ref') || undefined;
+  const returnPath = groupReturnPath(params.get('group'));
+  const canVerify = /^\d{1,20}$/.test(transactionId ?? '');
+  const cancelled = !canVerify && ['canceled', 'cancelled', 'failed'].includes(params.get('status')?.toLowerCase() ?? '');
+  const [attempt, setAttempt] = useState(0);
+  const [error, setError] = useState('');
+  const verification = useRef<{ key: string; request: ReturnType<typeof EdgeFunctionService.verifyTransaction> }>();
 
   useEffect(() => {
-    if (loading || hasVerifiedRef.current) return;
-    hasVerifiedRef.current = true;
-
-    const verifyPayment = async () => {
-      const status = searchParams.get('status');
-      const tx_ref = searchParams.get('tx_ref') || undefined;
-      const transaction_id = searchParams.get('transaction_id');
-      let targetGroupId: string | null = null;
-
-      if (!transaction_id || (status && status !== 'successful' && status !== 'completed')) {
-        toast.error('Payment was not completed');
-        navigate('/dashboard', { replace: true });
+    if (!canVerify || !transactionId) return;
+    const key = JSON.stringify([transactionId, reference, attempt]);
+    if (verification.current?.key !== key) {
+      verification.current = { key, request: EdgeFunctionService.verifyTransaction({ transaction_id: transactionId, tx_ref: reference }) };
+    }
+    let active = true;
+    void verification.current.request.then((result) => {
+      if (!active) return;
+      if (!result?.success) {
+        setError(result?.error || 'Flutterwave hasn’t confirmed this payment yet.');
         return;
       }
+      const groupPath = groupReturnPath(result.data?.contributionId);
+      void Promise.allSettled([refreshCurrentUser(), refreshContributionData(true)]);
+      toast.success(groupPath ? 'Contribution verified and credited' : 'Payment verified and credited to your wallet');
+      navigate(groupPath || '/dashboard', { replace: true });
+    }, () => {
+      if (active) setError('We couldn’t reach Flutterwave to confirm your payment. Try verifying again.');
+    });
+    return () => { active = false; };
+  }, [attempt, canVerify, transactionId, reference, navigate, refreshCurrentUser, refreshContributionData]);
 
-      try {
-        let storedDetails: { contribution_id?: string; anonymous?: boolean } | null = null;
-        if (tx_ref) {
-          try {
-            const storedRaw = localStorage.getItem(`flw_transaction_${tx_ref}`);
-            storedDetails = storedRaw ? JSON.parse(storedRaw) : null;
-          } catch {
-            storedDetails = null;
-          }
-        }
-        targetGroupId = storedDetails?.contribution_id || null;
-
-        const result = await EdgeFunctionService.verifyTransaction({
-          transaction_id,
-          tx_ref,
-          group_id: targetGroupId || undefined,
-          anonymous: storedDetails?.anonymous,
-        });
-
-        if (result?.success) {
-          targetGroupId = result.data?.contributionId || targetGroupId;
-          if (tx_ref) {
-            localStorage.removeItem(`flw_transaction_${tx_ref}`);
-          }
-          await Promise.all([refreshCurrentUser(), refreshContributionData(true)]);
-          toast.success(
-            targetGroupId
-              ? 'Contribution verified and credited!'
-              : 'Payment verified and wallet credited!'
-          );
-        } else {
-          throw new Error(result?.error || 'Payment verification failed');
-        }
-      } catch (error) {
-        console.error('Payment verification error:', error);
-        toast.error(error instanceof Error ? error.message : 'Payment verification failed');
-      } finally {
-        setIsVerifying(false);
-        if (targetGroupId) {
-          navigate(`/groups/${targetGroupId}`, { replace: true });
-        } else {
-          navigate('/dashboard', { replace: true });
-        }
-      }
-    };
-
-    void verifyPayment();
-  }, [loading, searchParams, navigate, refreshCurrentUser, refreshContributionData]);
+  if (canVerify && !error) {
+    return <BrandLoader variant="fullscreen" message="Verifying your payment" submessage="We’re checking the payment securely with Flutterwave." />;
+  }
 
   return (
-    <BrandLoader
-      variant="fullscreen"
-      message={isVerifying ? 'Verifying your payment' : 'Payment confirmed'}
-      submessage={
-        isVerifying
-          ? 'Please hold on while we securely confirm your transaction…'
-          : 'Redirecting you back to CollectiPay…'
-      }
-    />
+    <WalletFlow title={cancelled ? 'Payment not completed' : 'Payment verification'}>
+      <Card className="space-y-4 rounded-2xl p-5">
+        <p role="status" className="text-sm text-muted-foreground">
+          {cancelled ? 'Checkout ended before the payment could be confirmed.'
+            : error || 'The return link is missing payment details. Check Wallet History for your payment status.'}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {canVerify && <Button onClick={() => { setError(''); setAttempt((current) => current + 1); }}>Retry verification</Button>}
+          <Button variant={canVerify ? 'outline' : 'default'} asChild>
+            <Link to={returnPath || '/wallet-history'}>{returnPath ? 'Back to group' : 'Open Wallet History'}</Link>
+          </Button>
+        </div>
+      </Card>
+    </WalletFlow>
   );
-};
-
-export default PaymentCallback;
+}

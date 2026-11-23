@@ -91,6 +91,8 @@ const UserSettingsForm = () => {
   const [isSavingPin, setIsSavingPin] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isCompressingPhoto, setIsCompressingPhoto] = useState(false);
+  const [isSavingPhoto, setIsSavingPhoto] = useState(false);
+  const photoSaveInFlight = useRef(false);
   const [photoCompressionMeta, setPhotoCompressionMeta] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
@@ -128,6 +130,7 @@ const UserSettingsForm = () => {
       syncedUserIdRef.current = user.id;
       dirtyRef.current = false;
       setPreviewImage(null);
+      setPhotoCompressionMeta(null);
     } else if (dirtyRef.current) {
       // Preserve unsaved form edits when realtime updates refresh the profile row (e.g. incoming deposit).
       return;
@@ -214,14 +217,11 @@ const UserSettingsForm = () => {
         targetMaxBytes: 180 * 1024,
       });
 
-      dirtyRef.current = true;
       setPreviewImage(compressed.dataUrl);
-      setUserData((prev) => ({ ...prev, profileImage: compressed.dataUrl }));
 
       if (compressed.originalBytes > compressed.compressedBytes) {
         const summary = `Optimized ${formatByteSize(compressed.originalBytes)} → ${formatByteSize(compressed.compressedBytes)} (HD)`;
         setPhotoCompressionMeta(summary);
-        toast.success(`Photo ready (${summary})`);
       } else {
         setPhotoCompressionMeta(`${formatByteSize(compressed.compressedBytes)} (HD)`);
       }
@@ -230,6 +230,30 @@ const UserSettingsForm = () => {
     } finally {
       setIsCompressingPhoto(false);
       e.target.value = "";
+    }
+  };
+
+  const closePhotoPreview = () => {
+    if (photoSaveInFlight.current) return;
+    setPreviewImage(null);
+    setPhotoCompressionMeta(null);
+  };
+
+  const saveProfilePhoto = async () => {
+    if (!previewImage || photoSaveInFlight.current) return;
+    photoSaveInFlight.current = true;
+    setIsSavingPhoto(true);
+    try {
+      await updateProfile({ preferences: { ...existingPrefs, profileImage: previewImage } });
+      setUserData((previous) => ({ ...previous, profileImage: previewImage }));
+      setPreviewImage(null);
+      setPhotoCompressionMeta(null);
+      toast.success("Profile photo saved");
+    } catch {
+      toast.error("Couldn’t save your profile photo. Try again.");
+    } finally {
+      photoSaveInFlight.current = false;
+      setIsSavingPhoto(false);
     }
   };
 
@@ -380,7 +404,7 @@ const UserSettingsForm = () => {
                 <div className="flex flex-col items-center gap-4 rounded-2xl border bg-muted/25 p-4 sm:flex-row">
                   <div className="relative shrink-0">
                     <Avatar className="h-20 w-20 border-2 border-primary/25 shadow-sm">
-                      <AvatarImage src={previewImage || userData.profileImage} />
+                      <AvatarImage src={userData.profileImage} />
                       <AvatarFallback className="bg-accent text-xl font-bold text-primary">
                         {userData.firstName?.charAt(0)}
                         {userData.lastName?.charAt(0)}
@@ -397,6 +421,7 @@ const UserSettingsForm = () => {
                         id="profile-image"
                         className="hidden"
                         accept="image/*"
+                        disabled={isCompressingPhoto || isSavingPhoto || isLoading}
                         onChange={handleProfileImage}
                       />
                     </label>
@@ -418,10 +443,8 @@ const UserSettingsForm = () => {
                     </div>
                     <p className="text-[11px] text-muted-foreground">
                       {isCompressingPhoto
-                        ? "Optimizing photo with lossless HD compression…"
-                        : photoCompressionMeta
-                        ? `Ready to save · ${photoCompressionMeta}`
-                        : "JPG, PNG, or WebP up to 5MB (auto-compressed to lossless HD)."}
+                        ? "Optimizing photo…"
+                        : "JPG, PNG, or WebP up to 5 MB."}
                     </p>
                   </div>
                 </div>
@@ -788,6 +811,25 @@ const UserSettingsForm = () => {
           </Button>
         </div>
       </form>
+
+      <Dialog open={Boolean(previewImage)} onOpenChange={(open) => { if (!open) closePhotoPreview(); }}>
+        <DialogContent className="w-[calc(100%-2rem)] max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Save profile photo?</DialogTitle>
+            <DialogDescription>This is the photo other CollectiPay members will see.</DialogDescription>
+          </DialogHeader>
+          {previewImage && <div className="grid justify-items-center gap-3 p-2">
+            <img src={previewImage} className="h-28 w-28 rounded-full border object-cover" alt="New profile photo preview" />
+            {photoCompressionMeta && <p className="text-xs text-muted-foreground">{photoCompressionMeta}</p>}
+          </div>}
+          <DialogFooter className="gap-2">
+            <Button type="button" variant="outline" onClick={closePhotoPreview} disabled={isSavingPhoto} className="h-11 rounded-xl">Cancel</Button>
+            <Button type="button" onClick={() => void saveProfilePhoto()} disabled={isSavingPhoto} className="h-11 rounded-xl">
+              {isSavingPhoto ? "Saving…" : "Save photo"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
         <DialogContent className="w-[calc(100%-2rem)] max-w-md rounded-2xl">

@@ -21,6 +21,23 @@ interface InvoiceRequest {
   anonymous?: boolean;
 }
 
+function checkoutReturnUrl(requested: string, groupId?: string) {
+  const canonical = 'https://collectipay.com.ng';
+  const allowed = new Set([canonical, 'https://www.collectipay.com.ng']);
+  const configured = Deno.env.get('COLLECTIPAY_SITE_URL');
+  if (configured && URL.canParse(configured)) {
+    const site = new URL(configured);
+    if (site.protocol === 'https:' && !site.username && !site.password) allowed.add(site.origin);
+  }
+  const returnUrl = URL.canParse(requested) ? new URL(requested) : undefined;
+  if (!returnUrl || !allowed.has(returnUrl.origin) || returnUrl.username || returnUrl.password) {
+    throw new Error('Open CollectiPay on its official site to start checkout.');
+  }
+  const callback = new URL('/payment-callback', returnUrl.origin);
+  if (groupId) callback.searchParams.set('group', groupId);
+  return callback.href;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -71,6 +88,7 @@ Deno.serve(async (req: Request) => {
         if (!membership) throw new Error('Join this group before contributing.');
       }
     }
+    const redirectUrl = checkoutReturnUrl(body.redirectUrl, body.groupId);
     const paymentReference = 'CP_CHECKOUT_' + crypto.randomUUID();
     const { error: intentError } = await supabaseAdmin.from('checkout_intents').insert({
       reference: paymentReference, user_id: user.id, group_id: body.groupId || null, amount,
@@ -83,8 +101,8 @@ Deno.serve(async (req: Request) => {
       tx_ref: paymentReference,
       amount,
       currency: 'NGN',
-      payment_options: 'card, banktransfer',
-      redirect_url: body.redirectUrl,
+      payment_options: 'card,banktransfer',
+      redirect_url: redirectUrl,
       customer: {
         email: user.email,
         name: body.customerName,
@@ -106,15 +124,15 @@ Deno.serve(async (req: Request) => {
       config
     );
 
-    const responseText = await response.text();
     if (!response.ok) {
-      console.error('Flutterwave API error:', response.status, responseText);
-      throw new Error(`Flutterwave API error: ${response.status}`);
+      console.error('Flutterwave checkout request failed', { status: response.status });
+      throw new Error('Flutterwave couldn’t open checkout. Try again shortly.');
     }
 
-    const data = JSON.parse(responseText);
-    const checkoutUrl = data?.data?.link;
-    if (!checkoutUrl) {
+    const data = await response.json().catch(() => null);
+    let checkoutUrl: URL | undefined;
+    try { checkoutUrl = new URL(data?.data?.link); } catch { /* Provider response missing a link. */ }
+    if (!checkoutUrl || checkoutUrl.origin !== 'https://checkout.flutterwave.com' || checkoutUrl.username || checkoutUrl.password) {
       throw new Error('Flutterwave did not return a checkout link');
     }
 
@@ -129,9 +147,9 @@ Deno.serve(async (req: Request) => {
         customerEmail: user.email,
         customerName: body.customerName,
         expiryDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-        redirectUrl: body.redirectUrl,
-        checkoutUrl,
-        link: checkoutUrl,
+        redirectUrl,
+        checkoutUrl: checkoutUrl.href,
+        link: checkoutUrl.href,
         createdOn: new Date().toISOString(),
       },
     }), {

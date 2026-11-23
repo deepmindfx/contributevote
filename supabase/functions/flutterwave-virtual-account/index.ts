@@ -52,7 +52,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('status, name, preferences')
+      .select('status, name, bvn, preferences')
       .eq('id', user.id)
       .maybeSingle();
 
@@ -74,7 +74,7 @@ Deno.serve(async (req: Request) => {
     const primary = isAccountNumber(existing?.accountNumber) ? existing : existing?.accounts?.[0];
     if (forGroup) {
       const groupId = body.groupId ?? legacyReference.split('_')[1];
-      if (typeof groupId !== 'string' || !/^[\da-f-]{36}$/i.test(groupId)) {
+      if (typeof groupId !== 'string' || !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(groupId)) {
         return json({ success: false, error: 'Select a valid group.' }, 400);
       }
       const { data: group } = await supabaseAdmin.from('contribution_groups')
@@ -86,7 +86,7 @@ Deno.serve(async (req: Request) => {
         account_number: group.account_number, bank_name: group.bank_name, order_ref: group.account_reference,
       } });
       groupTarget = groupId;
-      txRef = `GROUP_${groupId}_${crypto.randomUUID()}`;
+      txRef = `GROUP_${groupId}_VA`;
       narration = `Virtual account for ${group.name}`;
     } else if (isAccountNumber(primary?.accountNumber)) {
       return json({ success: true, account: existing, bonusAmount: 0, data: {
@@ -98,11 +98,11 @@ Deno.serve(async (req: Request) => {
     const config = await getFlutterwaveConfig({ supabaseAdmin });
     if (!config.secretKey) return json({ success: false, error: 'Bank account setup is temporarily unavailable.' }, 503);
 
-    let bvn = typeof body.bvn === 'string' ? body.bvn.trim() : '';
+    let bvn = (forGroup ? String(profile.bvn || '') : typeof body.bvn === 'string' ? body.bvn : '').trim();
     let verificationId: string | undefined;
     const resuming = !forGroup && typeof body.verificationId === 'string';
     if (!resuming && !/^\d{11}$/.test(bvn)) {
-      return json({ success: false, error: 'Enter a valid 11-digit BVN.' }, 400);
+      return json({ success: false, error: forGroup ? 'Save your BVN before setting up the group account.' : 'Enter a valid 11-digit BVN.' }, 400);
     }
     if (resuming) {
       if (!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(body.verificationId)) {
@@ -121,13 +121,32 @@ Deno.serve(async (req: Request) => {
       bvn = verified.bvn;
     }
 
-    if (!forGroup) {
+    const linkGroupAccount = async (groupId: string, account: Record<string, unknown>) => {
+      const { data, error } = await supabaseAdmin.rpc('service_save_group_bank_account', {
+        p_user_id: user.id, p_group_id: groupId, p_account: account,
+      });
+      if (error || !data) return json({ success: false, error: 'Couldn’t link the confirmed group bank account. Retry setup.' }, 503);
+      return json({ success: true, data });
+    };
+    let groupAttempt: string | undefined;
+    if (groupTarget) {
+      const { data: setup, error } = await supabaseAdmin.rpc('service_claim_group_bank_setup', {
+        p_user_id: user.id, p_group_id: groupTarget,
+      });
+      if (error || !setup) return json({ success: false, error: 'Couldn’t start group bank setup. Try again.' }, 503);
+      if (setup.account) return json({ success: true, data: setup.account });
+      if (setup.provider_account) return linkGroupAccount(groupTarget, setup.provider_account);
+      if (!setup.attempt_id) {
+        return json({ success: false, error: 'Bank setup is awaiting confirmation. Check again shortly.' }, 409);
+      }
+      groupAttempt = setup.attempt_id;
+    } else {
       const { data: claimed } = await supabaseAdmin.rpc('service_claim_wallet_account_setup', { p_user_id: user.id });
       if (!claimed) return json({ success: false, error: 'Bank setup is in progress. Check again in a moment.' }, 409);
-    }
-    const { data: saved, error: saveError } = await supabaseUserClient.rpc('save_user_bvn', { p_bvn: bvn });
-    if (saveError || !saved?.success) {
-      return json({ success: false, error: saved?.error || 'Couldn’t save your BVN. Please try again.' }, 400);
+      const { data: saved, error: saveError } = await supabaseUserClient.rpc('save_user_bvn', { p_bvn: bvn });
+      if (saveError || !saved?.success) {
+        return json({ success: false, error: saved?.error || 'Couldn’t save your BVN. Please try again.' }, 400);
+      }
     }
 
     const { response } = await flutterwaveFetch('/virtual-account-numbers', {
@@ -143,6 +162,12 @@ Deno.serve(async (req: Request) => {
     if (!response.ok || result?.status !== 'success' || !isAccountNumber(accountNumber) || !bankName
       || (!data?.flw_ref && !data?.order_ref) || (accountStatus && accountStatus !== 'active')) {
       console.warn('Flutterwave did not confirm a usable virtual account', { status: response.status });
+      if (groupTarget && groupAttempt) {
+        const rejected = [400, 401, 403, 422].includes(response.status) && result?.status === 'error'
+          && !/duplicate|already|exists|unique/i.test(String(result.message || ''));
+        if (!rejected) return json({ success: false, error: 'The bank hasn’t confirmed setup yet. The original request is still pending.' }, 503);
+        await supabaseAdmin.from('group_bank_account_setups').delete().eq('group_id', groupTarget).eq('attempt_id', groupAttempt);
+      }
       return json({ success: false, error: 'The bank couldn’t confirm your account. Check your BVN and try again.' }, 422);
     }
 
@@ -150,12 +175,11 @@ Deno.serve(async (req: Request) => {
       account_number: accountNumber, bank_name: bankName,
       flw_ref: data.flw_ref, order_ref: data.order_ref, account_reference: data.account_reference,
     };
-    if (groupTarget) {
-      const { data: groupAccount, error } = await supabaseAdmin.rpc('service_save_group_bank_account', {
-        p_user_id: user.id, p_group_id: groupTarget, p_account: providerAccount,
-      });
-      if (error || !groupAccount) return json({ success: false, error: 'Couldn’t finish setting up this group bank account.' }, 503);
-      return json({ success: true, data: groupAccount });
+    if (groupTarget && groupAttempt) {
+      const { error } = await supabaseAdmin.from('group_bank_account_setups').update({ provider_account: providerAccount })
+        .eq('group_id', groupTarget).eq('attempt_id', groupAttempt);
+      if (error) console.error('Could not retain group account for recovery', { code: error.code });
+      return linkGroupAccount(groupTarget, providerAccount);
     }
 
     const { data: completed, error: completeError } = await supabaseAdmin.rpc('service_complete_wallet_bank_account', {

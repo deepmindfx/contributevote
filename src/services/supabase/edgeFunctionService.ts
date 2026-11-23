@@ -30,14 +30,21 @@ export class EdgeFunctionService {
       body: params
     })
 
-    if (error) throw error
+    if (error) {
+      if (error.context instanceof Response) {
+        const details = await error.context.json().catch(() => null)
+        if (details?.error) return details
+      }
+      throw error
+    }
     return data
   }
 
   // Create virtual account
   static async createVirtualAccount(userData: {
     bvn?: string
-    purpose?: 'wallet'
+    purpose?: 'wallet' | 'group'
+    groupId?: string
     claimBonus?: boolean
     verificationId?: string
     email?: string
@@ -85,7 +92,13 @@ export class EdgeFunctionService {
       body: invoiceData
     })
     
-    if (error) throw error
+    if (error) {
+      if (error.context instanceof Response) {
+        const details = await error.context.json().catch(() => null)
+        if (details?.error) return details
+      }
+      throw error
+    }
     return data
   }
 }

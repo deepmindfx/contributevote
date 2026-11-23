@@ -45,8 +45,8 @@ Deno.serve(async (req: Request) => {
     }
 
     const { transaction_id, tx_ref, group_id } = await req.json();
-    if (!transaction_id) {
-      throw new Error('Missing required field: transaction_id');
+    if (!/^\d{1,20}$/.test(String(transaction_id ?? ''))) {
+      throw new Error('The payment return is missing a valid transaction ID.');
     }
 
     // Verify user profile exists and is active
@@ -72,8 +72,8 @@ Deno.serve(async (req: Request) => {
     );
 
     if (!verifyRes.ok) {
-      const errText = await verifyRes.text();
-      throw new Error(`Flutterwave verify error (${verifyRes.status}): ${errText}`);
+      console.warn('Flutterwave checkout verification request failed', { status: verifyRes.status });
+      throw new Error('Flutterwave couldn’t confirm this payment yet. Try verifying again.');
     }
 
     const verifyJson = await verifyRes.json();
@@ -82,7 +82,7 @@ Deno.serve(async (req: Request) => {
     if (verifyJson?.status !== 'success' || flwData?.status !== 'successful') {
       return new Response(JSON.stringify({
         success: false,
-        error: 'Transaction was not successful',
+        error: 'Flutterwave hasn’t confirmed this payment yet. If you paid, try verifying again shortly.',
         status: flwData?.status || 'failed',
       }), {
         status: 400,
