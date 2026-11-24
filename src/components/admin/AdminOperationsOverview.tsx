@@ -1,9 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowUpRight, Clock3, Gavel, Inbox, LifeBuoy, RefreshCw, ShieldCheck, Wallet } from "lucide-react";
+import { ArrowUpRight, Building2, Clock3, Gavel, Inbox, LifeBuoy, RefreshCw, ShieldAlert, ShieldCheck, Users, Wallet } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { FlipCounterHero } from "@/components/admin/FlipCounterHero";
+import { naira } from "@/services/supabase/pricingService";
 
 type Overview = {
   payout_health: { worker_stale: boolean; stalled_payouts: number } | null;
@@ -12,6 +14,17 @@ type Overview = {
   incoming_review: number;
   legacy_card_review: number;
   support_work: number;
+  platform?: {
+    users: number;
+    verified_bvn: number;
+    restricted_users: number;
+    wallet_float: number;
+    groups: number;
+    group_liquidity: number;
+    aml_alerts: number;
+    high_aml_alerts: number;
+    outside_payments: number;
+  };
   governance: { open_votes: number; overdue_votes: number; approved_unsettled: number };
   admins: { id: string; name: string | null; status: string; pin_ready: boolean }[];
 };
@@ -32,10 +45,17 @@ export function AdminOperationsOverview({ adminId, onOpen }: {
     refetchInterval: 60_000,
   });
   const data = overview.data;
+  const totals = data?.platform;
+  const metrics = totals ? [
+    { label: "Platform users", value: totals.users.toLocaleString("en-NG"), detail: `${totals.verified_bvn} BVN verified · ${totals.restricted_users} restricted`, icon: Users },
+    { label: "Group liquidity", value: naira.format(totals.group_liquidity), detail: `${totals.groups} ${totals.groups === 1 ? "group" : "groups"}`, icon: Building2 },
+    { label: "Wallet float", value: naira.format(totals.wallet_float), icon: Wallet },
+    { label: "Open AML alerts", value: totals.aml_alerts.toLocaleString("en-NG"), detail: `${totals.high_aml_alerts} high or critical`, icon: ShieldAlert },
+  ] : [];
   const activeAdmins = data?.admins.filter(admin => admin.status === "active") ?? [];
   const ready = activeAdmins.filter(admin => admin.pin_ready).length;
   const work = data ? [
-    { label: "Wallet approvals", value: data.wallet_approvals, detail: "Manual adjustments awaiting a decision", tab: "users", icon: Wallet },
+    { label: "Wallet debit approvals", value: data.wallet_approvals, detail: "Debit requests awaiting a decision", tab: "users", icon: Wallet },
     { label: "Payout approvals", value: data.payout_approvals, detail: "Recoveries awaiting a decision", tab: "gateway", icon: ShieldCheck },
     { label: "Incoming payments", value: data.incoming_review, detail: data.legacy_card_review ? data.legacy_card_review + " awaiting manual card review" : "Waiting for account matching or settlement", tab: "gateway", icon: Inbox },
     { label: "Delayed bank payouts", value: data.payout_health?.stalled_payouts ?? null, detail: data.payout_health?.worker_stale ? "Reconciliation worker is overdue" : "Dispatched and pending over five minutes", tab: "gateway", icon: Clock3 },
@@ -45,6 +65,18 @@ export function AdminOperationsOverview({ adminId, onOpen }: {
 
   return (
     <div className="space-y-5">
+      {totals && <dl className="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label="Platform totals">
+        {metrics.map(({ label, value, detail, icon: Icon }) => (
+          <div key={label} className="cp-card-native min-w-0 rounded-xl p-3 sm:p-4">
+            <dt className="flex items-start justify-between gap-1.5 text-xs font-medium text-muted-foreground sm:text-sm">
+              {label}<Icon className="size-4 shrink-0 text-primary" aria-hidden="true" />
+            </dt>
+            <dd className="mt-2 break-words text-xl font-semibold tracking-tight tabular-nums sm:text-2xl">{value}</dd>
+            {detail && <dd className="mt-1 text-xs text-muted-foreground">{detail}</dd>}
+          </div>
+        ))}
+      </dl>}
+      {data && !totals && <p className="text-sm text-muted-foreground">Platform totals are unavailable.</p>}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold tracking-tight">Work queues</h2>
         <Button variant="outline" size="sm" disabled={overview.isFetching} onClick={() => void overview.refetch()}>
@@ -89,6 +121,13 @@ export function AdminOperationsOverview({ adminId, onOpen }: {
             ))}
           </ul>
         </section>
+        {totals && <details className="cp-card-native rounded-xl p-4">
+          <summary className="cursor-pointer rounded-sm text-sm font-semibold">Live signup display</summary>
+          <div className="mt-4">
+            <FlipCounterHero userCount={totals.users} bvnVerifiedCount={totals.verified_bvn} groupCount={totals.groups}
+              totalLiquidity={totals.group_liquidity} externalPaymentsCount={totals.outside_payments} />
+          </div>
+        </details>}
       </>}
     </div>
   );

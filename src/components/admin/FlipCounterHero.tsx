@@ -111,17 +111,8 @@ export const FlipCounterHero: React.FC<FlipCounterHeroProps> = ({
   totalLiquidity,
   externalPaymentsCount,
 }) => {
-  const [displayCount, setDisplayCount] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
-
-  // Trigger dramatic mechanical flip-up when real user count loads or increments
-  useEffect(() => {
-    const t = setTimeout(() => {
-      setDisplayCount(Math.max(0, Math.floor(userCount)));
-    }, 180);
-    return () => clearTimeout(t);
-  }, [userCount]);
-
+  const displayCount = Math.max(0, Math.floor(userCount));
   const paddedRaw = String(displayCount).padStart(Math.max(5, String(displayCount).length), "0");
   const formattedChars = paddedRaw
     .replace(/\B(?=(\d{3})+(?!\d))/g, ",")

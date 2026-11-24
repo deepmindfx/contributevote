@@ -24,7 +24,7 @@ export default function Header({
   mobileGreeting?: string;
   mobilePanel?: boolean;
 } = {}) {
-  const { user, isAuthenticated, logout, updateProfile } = useSupabaseUser();
+  const { user, isAuthenticated, isAdmin, logout, updateProfile } = useSupabaseUser();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const section = getWorkspaceLink(pathname);
@@ -64,7 +64,7 @@ export default function Header({
       }
     >
       <div className="app-header-inner">
-        <Link to={isAuthenticated ? "/dashboard" : "/"} className="app-brand">
+        <Link to={isAdmin ? "/admin" : isAuthenticated ? "/dashboard" : "/"} className="app-brand">
           <CollectiPayMark size={32} />
           <span>CollectiPay</span>
         </Link>
@@ -72,7 +72,7 @@ export default function Header({
         {isAuthenticated ? (
           <>
             <span className="workspace-header-label">{section?.label}</span>
-            <nav className="app-desktop-nav app-context-nav" aria-label="Main navigation">
+            {!isAdmin && <nav className="app-desktop-nav app-context-nav" aria-label="Main navigation">
               {workspaceLinks
                 .filter(({ mobileLabel, to }) => (mobileLabel && to !== "/settings") || to === "/discover")
                 .map(({ to, label }) => (
@@ -80,7 +80,7 @@ export default function Header({
                     {label}
                   </Link>
                 ))}
-            </nav>
+            </nav>}
 
             {mobileGreeting && (
               <div className="app-wallet-greeting" aria-hidden="true">

@@ -57,6 +57,7 @@ export const screens = {
   index: screen(() => import("./pages/Index")),
   auth: screen(() => import("./pages/Auth")),
   adminAuth: screen(() => import("./pages/AdminAuth")),
+  staffEntry: screen(() => import("./pages/StaffEntry")),
   dashboard: screen(() => import("./pages/Dashboard")),
   createGroup: screen(() => import("./pages/CreateGroup")),
   contribute: screen(() => import("./pages/ContributePage")),
@@ -85,11 +86,9 @@ export const screens = {
 const routes: Record<string, keyof typeof screens> = {
   "/": "index",
   "/auth": "auth",
-  "/admin-login": "adminAuth",
   "/dashboard": "dashboard",
   "/create-group": "createGroup",
   "/settings": "settings",
-  "/admin": "admin",
   "/profile": "profile",
   "/discover": "discover",
   "/wallet-history": "walletHistory",
@@ -115,8 +114,7 @@ export function preloadScreen(pathname: string) {
     path.startsWith("/contribute/share/") ? "contributeShare" :
     path.startsWith("/contribute/") ? "contribute" :
     path.startsWith("/invite/") ? "invite" :
-    path.startsWith("/join/") ? "join" :
-    path.startsWith("/admin/") ? "admin" : undefined;
+    path.startsWith("/join/") ? "join" : undefined;
   if (!screen || preloaded.has(screen)) return;
   preloaded.add(screen);
   void screens[screen].preload().catch(() => preloaded.delete(screen));

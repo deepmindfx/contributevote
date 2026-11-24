@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
@@ -14,7 +14,6 @@ import {
   Flame,
   Gavel,
   Globe,
-  Layers,
   Lock,
   Pin,
   Play,
@@ -41,7 +40,6 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { supabase } from "@/integrations/supabase/client";
-import { ContributionService } from "@/services/supabase/contributionService";
 import { TransactionService } from "@/services/supabase/transactionService";
 import {
   AdminComplianceService,
@@ -59,11 +57,9 @@ import {
   GroupSpotlightDialog,
   IssuePenaltyDialog,
   ManualAmlFlagDialog,
-  RemoveBvnDialog,
   VerifyOrganizerDialog,
   WalletAdjustDialog,
 } from "@/components/admin/AdminActionDialogs";
-import { FlipCounterHero } from "@/components/admin/FlipCounterHero";
 import { AdminPaymentSettings } from "@/components/admin/AdminPaymentSettings";
 import { AdminPayoutHealth } from "@/components/admin/AdminPayoutHealth";
 import { AdminPaymentReviews } from "@/components/admin/AdminPaymentReviews";
@@ -72,14 +68,17 @@ import { AdminPricingRevenue } from "@/components/admin/AdminPricingRevenue";
 import { AdminBulkTransfers } from "@/components/admin/AdminBulkTransfers";
 import { AdminTransactionAnalytics } from "@/components/admin/AdminTransactionAnalytics";
 import { AdminWalletBankBonus } from "@/components/admin/AdminWalletBankBonus";
-import { AdminWalletAdjustments, WALLET_ADJUSTMENTS_QUERY } from "@/components/admin/AdminWalletAdjustments";
-import { useQueryClient } from "@tanstack/react-query";
+import { AdminWalletAdjustments } from "@/components/admin/AdminWalletAdjustments";
+import { useIsFetching, useQueryClient } from "@tanstack/react-query";
 import { AdminIceVault } from "@/components/admin/AdminIceVault";
 import { AdminGroupGovernance } from "@/components/admin/AdminGroupGovernance";
 import { AdminOperationsOverview } from "@/components/admin/AdminOperationsOverview";
 import { AdminShell, resolveAdminSection, type AdminSection } from "@/components/admin/AdminShell";
 import { SupportInbox } from "@/components/support/SupportInbox";
-import { hasTransactionPin } from "@/lib/transactionPin";
+import { AdminPageControls, useAdminRecordPage, useAdminSearch } from "@/components/admin/AdminRecordPage";
+import { AdminUserTransactionHistory, type AdminTransaction } from "@/components/admin/AdminUserTransactionHistory";
+import type { AdminEntity } from "@/components/admin/AdminEntityPicker";
+import type { Database } from "@/integrations/supabase/types";
 import {
   SpotlightBadge,
   VerifiedCrowdfunderBadge,
@@ -87,7 +86,23 @@ import {
 import { cn } from "@/lib/utils";
 import { isAdminQueryKey } from "@/lib/adminQueries";
 
+type Tables = Database["public"]["Tables"];
+type AdminUser = Pick<Tables["profiles"]["Row"], "id" | "name" | "email" | "phone" | "status" | "role" | "wallet_balance" | "is_verified_organizer" | "organizer_badge_label"> &
+  { has_pin: boolean; has_bvn: boolean; profile_image: string | null };
+type AdminGroup = Pick<Tables["contribution_groups"]["Row"], "id" | "name" | "category" | "frequency" | "status" | "archived" | "is_verified" | "is_pinned" | "spotlight_label" | "featured_priority" | "verification_note" | "current_amount" | "target_amount" | "voting_threshold" | "enable_voting_rights" | "privacy"> &
+  { profiles: { name: string | null; email: string | null }; member_count: number };
+
+function isPenaltyTransaction({ metadata }: Pick<AdminTransaction, "metadata">) {
+  return metadata && typeof metadata === "object" && !Array.isArray(metadata) && metadata.category === "admin_penalty";
+}
+
 const HIGH_VALUE_THRESHOLD = 500000;
+
+const noticeStatuses = { all: "All", pending: "Open", waived: "Closed", applied: "Historical debit" } as const;
+
+function accountEntity(profile: { id: string; name?: string | null; email?: string | null }): AdminEntity {
+  return { id: profile.id, name: profile.name || profile.email || "Account " + profile.id, description: profile.email ?? null };
+}
 
 function AdminView({ active, value, className, children }: {
   active: AdminSection;
@@ -136,7 +151,7 @@ const amlStatusBadgeStyle = (status: AmlAlertStatus) => {
 };
 
 const AdminDashboard = () => {
-  const { users, user, refreshUserData, logout } = useSupabaseUser();
+  const { user, logout } = useSupabaseUser();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -151,15 +166,8 @@ const AdminDashboard = () => {
 
   // Platform datasets
   const [supportTicket, setSupportTicket] = useState<string | null>(null);
-  const [allGroups, setAllGroups] = useState<any[]>([]);
-  const [allTransactions, setAllTransactions] = useState<any[]>([]);
-  const [amlAlerts, setAmlAlerts] = useState<AmlAlertRecord[]>([]);
-  const [penalties, setPenalties] = useState<AdminPenaltyRecord[]>([]);
-  const [auditLogs, setAuditLogs] = useState<AdminAuditLogRecord[]>([]);
-  const [externalPayments, setExternalPayments] = useState<ExternalPaymentTrackRecord[]>([]);
   const [extFilter, setExtFilter] = useState<"all" | "unverified" | "flagged" | "blocked" | "verified">("all");
   const [extQuery, setExtQuery] = useState("");
-  const [loadingPlatformData, setLoadingPlatformData] = useState(true);
 
   // Busy overlay state for kinetic Pooling-C feedback
   const [overlayState, setOverlayState] = useState<{
@@ -175,6 +183,7 @@ const AdminDashboard = () => {
   const [amlStatusFilter, setAmlStatusFilter] = useState<"active" | "all" | AmlAlertStatus>("active");
   const [amlSeverityFilter, setAmlSeverityFilter] = useState<"all" | AmlAlertSeverity>("all");
   const [penaltyFilter, setPenaltyFilter] = useState<"all" | "applied" | "pending" | "waived">("all");
+  const [noticeQuery, setNoticeQuery] = useState("");
   const [txQuery, setTxQuery] = useState("");
   const [findingReference, setFindingReference] = useState(false);
   const [txTypeFilter, setTxTypeFilter] = useState<string>("all");
@@ -185,203 +194,79 @@ const AdminDashboard = () => {
   const [walletDialogUser, setWalletDialogUser] = useState<any | null>(null);
   const [penaltyDialogState, setPenaltyDialogState] = useState<{
     open: boolean;
-    user: any | null;
+    user: AdminEntity | null;
     amlAlertId?: string | null;
   }>({ open: false, user: null, amlAlertId: null });
   const [groupControlTarget, setGroupControlTarget] = useState<any | null>(null);
   const [spotlightGroupTarget, setSpotlightGroupTarget] = useState<any | null>(null);
   const [verifyOrganizerTarget, setVerifyOrganizerTarget] = useState<any | null>(null);
-  const [removeBvnTarget, setRemoveBvnTarget] = useState<any | null>(null);
   const [reviewingAlert, setReviewingAlert] = useState<AmlAlertRecord | null>(null);
-  const [manualFlagState, setManualFlagState] = useState<{ open: boolean; user: any | null }>({
+  const [manualFlagState, setManualFlagState] = useState<{ open: boolean; user: AdminEntity | null }>({
     open: false,
     user: null,
   });
   const [receiptData, setReceiptData] = useState<CollectiPayReceiptData | null>(null);
+  const [historyAccount, setHistoryAccount] = useState<AdminEntity | null>(null);
+  const historyTrigger = useRef<HTMLButtonElement | null>(null);
   const [actionPending, setActionPending] = useState(false);
 
+  const adminId = user?.id;
+  const refreshing = useIsFetching({
+    predicate: ({ queryKey }) => queryKey[1] === adminId && queryKey[0] !== "admin-access" && isAdminQueryKey(queryKey),
+  }) > 0;
+  const userSearch = useAdminSearch(userQuery);
+  const groupSearch = useAdminSearch(groupQuery);
+  const ledgerSearch = useAdminSearch(txQuery);
+  const externalSearch = useAdminSearch(extQuery);
+  const auditSearch = useAdminSearch(auditQuery);
+  const noticeSearch = useAdminSearch(noticeQuery);
+
+  const users = useAdminRecordPage<AdminUser>(adminId, "users", { enabled: activeTab === "users", status: userStatusFilter, search: userSearch });
+  const groups = useAdminRecordPage<AdminGroup>(adminId, "groups", { enabled: activeTab === "groups", status: groupFilter, search: groupSearch });
+  const transactions = useAdminRecordPage<AdminTransaction>(adminId, "ledger", {
+    enabled: activeTab === "ledger", status: txTypeFilter, filter: highValueOnly ? "high" : "all", search: ledgerSearch,
+  });
+  const alerts = useAdminRecordPage<AmlAlertRecord>(adminId, "aml", { enabled: activeTab === "aml", status: amlStatusFilter, filter: amlSeverityFilter });
+  const notices = useAdminRecordPage<AdminPenaltyRecord>(adminId, "penalties", { enabled: activeTab === "penalties", status: penaltyFilter, search: noticeSearch });
+  const outsidePayments = useAdminRecordPage<ExternalPaymentTrackRecord>(adminId, "external", {
+    enabled: activeTab === "external", status: extFilter, search: externalSearch,
+  });
+  const audits = useAdminRecordPage<AdminAuditLogRecord>(adminId, "audit", { enabled: activeTab === "audit", search: auditSearch });
+
   const loadPlatformData = useCallback(async () => {
-    setLoadingPlatformData(true);
-    try {
-      const [groupsRes, txRes, alertsRes, penaltiesRes, logsRes, extRes] = await Promise.allSettled([
-        ContributionService.getContributionGroups(),
-        TransactionService.getTransactions(),
-        AdminComplianceService.getAmlAlerts(),
-        AdminComplianceService.getPenalties(),
-        AdminComplianceService.getAuditLogs(),
-        AdminComplianceService.getExternalPayments(),
-        refreshUserData(),
-      ]);
+    await queryClient.invalidateQueries({
+      predicate: ({ queryKey }) => queryKey[1] === adminId && queryKey[0] !== "admin-access" && isAdminQueryKey(queryKey),
+      refetchType: "active",
+    });
+  }, [adminId, queryClient]);
 
-      if (groupsRes.status === "fulfilled") setAllGroups(groupsRes.value || []);
-      if (txRes.status === "fulfilled") setAllTransactions(txRes.value || []);
-      if (alertsRes.status === "fulfilled") setAmlAlerts(alertsRes.value || []);
-      if (penaltiesRes.status === "fulfilled") setPenalties(penaltiesRes.value || []);
-      if (logsRes.status === "fulfilled") setAuditLogs(logsRes.value || []);
-      if (extRes.status === "fulfilled") setExternalPayments(extRes.value || []);
-    } catch (error) {
-      console.error("Error loading admin command center:", error);
-      toast.error("Failed to sync platform operations data");
-    } finally {
-      setLoadingPlatformData(false);
-    }
-  }, [refreshUserData]);
-
+  // A burst of signups only needs one fresh aggregate, even with the board open.
   useEffect(() => {
-    loadPlatformData();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Realtime subscription so the Mechanical Flip-Board User Counter flips live on new signups
-  useEffect(() => {
-    const channel = supabase
-      .channel("admin-live-user-counter")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "profiles" },
-        () => {
-          void refreshUserData();
-        }
-      )
+    if (activeTab !== "operations" || !adminId) return;
+    let timer: number | undefined;
+    const channel = supabase.channel("admin-live-user-counter")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "profiles" }, () => {
+        if (timer !== undefined) return;
+        timer = window.setTimeout(() => {
+          timer = undefined;
+          void queryClient.invalidateQueries({ queryKey: ["admin-operations-overview", adminId] });
+        }, 900);
+      })
       .subscribe();
-
     return () => {
-      supabase.removeChannel(channel);
+      window.clearTimeout(timer);
+      void supabase.removeChannel(channel);
     };
-  }, [refreshUserData]);
+  }, [activeTab, adminId, queryClient]);
 
-  // Executive KPIs
-  const totalWalletFloat = useMemo(
-    () => users.reduce((sum, u) => sum + Number(u.wallet_balance || 0), 0),
-    [users]
-  );
-  const totalGroupLiquidity = useMemo(
-    () => allGroups.reduce((sum, g) => sum + Number(g.current_amount || 0), 0),
-    [allGroups]
-  );
-  const activeAmlAlerts = useMemo(
-    () => amlAlerts.filter((a) => ["open", "investigating", "escalated"].includes(a.status)),
-    [amlAlerts]
-  );
-  const criticalAmlCount = useMemo(
-    () => activeAmlAlerts.filter((a) => a.severity === "critical" || a.severity === "high").length,
-    [activeAmlAlerts]
-  );
-  const restrictedUsersCount = useMemo(
-    () => users.filter((u) => u.status && u.status !== "active").length,
-    [users]
-  );
-  const bvnVerifiedCount = useMemo(
-    () => users.filter((u) => u.bvn && String(u.bvn).trim().length >= 11).length,
-    [users]
-  );
-  const activePenaltiesSum = useMemo(
-    () =>
-      penalties
-        .filter((p) => p.status !== "waived")
-        .reduce((sum, p) => sum + Number(p.amount || 0), 0),
-    [penalties]
-  );
-
-  // Filtered datasets
-  const filteredUsers = useMemo(() => {
-    const q = userQuery.trim().toLowerCase();
-    return users.filter((u) => {
-      const matchesQ =
-        !q ||
-        u.name?.toLowerCase().includes(q) ||
-        u.email?.toLowerCase().includes(q) ||
-        u.phone?.toLowerCase().includes(q);
-      if (!matchesQ) return false;
-      if (userStatusFilter === "active") return !u.status || u.status === "active";
-      if (userStatusFilter === "paused") return u.status === "paused";
-      if (userStatusFilter === "frozen") return u.status === "frozen" || u.status === "suspended";
-      if (userStatusFilter === "no_bvn") return !u.bvn || String(u.bvn).trim().length < 11;
-      return true;
+  const openNoticeForAlert = (alert: AmlAlertRecord) => {
+    if (!alert.user_id) return;
+    setPenaltyDialogState({
+      open: true,
+      user: accountEntity({ id: alert.user_id, name: alert.user_profile?.name, email: alert.user_profile?.email }),
+      amlAlertId: alert.id,
     });
-  }, [users, userQuery, userStatusFilter]);
-
-  const filteredGroups = useMemo(() => {
-    const q = groupQuery.trim().toLowerCase();
-    return allGroups.filter((g) => {
-      const matchesQ =
-        !q ||
-        g.name?.toLowerCase().includes(q) ||
-        g.category?.toLowerCase().includes(q) ||
-        g.profiles?.name?.toLowerCase().includes(q);
-      if (!matchesQ) return false;
-      if (groupFilter === "active") return !g.archived && (!g.status || g.status === "active");
-      if (groupFilter === "verified") return Boolean(g.is_verified);
-      if (groupFilter === "pinned") return Boolean(g.is_pinned || g.spotlight_label);
-      if (groupFilter === "restricted") return g.status === "paused" || g.status === "frozen";
-      if (groupFilter === "archived") return Boolean(g.archived);
-      return true;
-    });
-  }, [allGroups, groupQuery, groupFilter]);
-
-  const filteredAlerts = useMemo(() => {
-    return amlAlerts.filter((a) => {
-      if (amlStatusFilter === "active") {
-        if (!["open", "investigating", "escalated"].includes(a.status)) return false;
-      } else if (amlStatusFilter !== "all" && a.status !== amlStatusFilter) {
-        return false;
-      }
-      if (amlSeverityFilter !== "all" && a.severity !== amlSeverityFilter) return false;
-      return true;
-    });
-  }, [amlAlerts, amlStatusFilter, amlSeverityFilter]);
-
-  const filteredPenalties = useMemo(() => {
-    if (penaltyFilter === "all") return penalties;
-    return penalties.filter((p) => p.status === penaltyFilter);
-  }, [penalties, penaltyFilter]);
-
-  const filteredTransactions = useMemo(() => {
-    const q = txQuery.trim().toLowerCase();
-    return allTransactions.filter((tx) => {
-      if (txTypeFilter !== "all" && tx.type !== txTypeFilter) return false;
-      if (highValueOnly && Number(tx.amount || 0) < HIGH_VALUE_THRESHOLD) return false;
-      if (!q) return true;
-      return (
-        tx.description?.toLowerCase().includes(q) ||
-        tx.reference_id?.toLowerCase().includes(q) ||
-        tx.profiles?.name?.toLowerCase().includes(q) ||
-        tx.profiles?.email?.toLowerCase().includes(q) ||
-        tx.contribution_groups?.name?.toLowerCase().includes(q)
-      );
-    });
-  }, [allTransactions, txQuery, txTypeFilter, highValueOnly]);
-
-  const filteredAuditLogs = useMemo(() => {
-    const q = auditQuery.trim().toLowerCase();
-    if (!q) return auditLogs;
-    return auditLogs.filter(
-      (log) =>
-        log.summary.toLowerCase().includes(q) ||
-        log.action.toLowerCase().includes(q) ||
-        log.target_type.toLowerCase().includes(q) ||
-        log.admin_profile?.name?.toLowerCase().includes(q)
-    );
-  }, [auditLogs, auditQuery]);
-
-  const filteredExternalPayments = useMemo(() => {
-    const q = extQuery.trim().toLowerCase();
-    return externalPayments.filter((ep) => {
-      if (extFilter !== "all" && ep.verification_status !== extFilter) return false;
-      if (!q) return true;
-      return (
-        ep.sender_name?.toLowerCase().includes(q) ||
-        ep.sender_bank?.toLowerCase().includes(q) ||
-        ep.reference_id?.toLowerCase().includes(q) ||
-        ep.group?.name?.toLowerCase().includes(q) ||
-        ep.narration?.toLowerCase().includes(q)
-      );
-    });
-  }, [externalPayments, extFilter, extQuery]);
-
-  const unverifiedExternalCount = useMemo(
-    () => externalPayments.filter((ep) => ep.verification_status === "unverified" || ep.verification_status === "flagged").length,
-    [externalPayments]
-  );
+  };
 
   const handleReviewExternalPayment = async (
     trackId: string,
@@ -440,7 +325,6 @@ const AdminDashboard = () => {
   const handleWalletAdjust = async (payload: {
     userId: string;
     amount: number;
-    direction: "credit" | "debit";
     reason: string;
     caseReference: string;
     pin: string;
@@ -458,7 +342,7 @@ const AdminDashboard = () => {
       }
       toast.success(res.status === "pending" ? "Submitted for independent approval" : `This request is already ${res.status}.`);
       setWalletDialogUser(null);
-      void queryClient.invalidateQueries({ queryKey: [WALLET_ADJUSTMENTS_QUERY] });
+      await loadPlatformData();
     } catch (error: any) {
       toast.error(error?.message || "Wallet adjustment failed");
     } finally {
@@ -498,30 +382,25 @@ const AdminDashboard = () => {
     amount: number;
     penaltyType: PenaltyType;
     reason: string;
-    deductWallet: boolean;
     groupId?: string | null;
     amlAlertId?: string | null;
   }) => {
     setActionPending(true);
     setOverlayState({
-      message: "Issuing compliance penalty",
-      submessage: "Recording the fine and its audit entry…",
+      message: "Recording compliance notice",
+      submessage: "Saving the notice and audit entry…",
     });
     try {
       const res = await AdminComplianceService.issuePenalty(payload);
       if (!res?.success) {
-        toast.error(res?.error || "Failed to issue penalty");
+        toast.error(res?.error || "Failed to record the notice");
         return;
       }
-      toast.success(
-        res.deducted_from_wallet
-          ? `Penalty of ${formatNaira(payload.amount)} deducted from wallet`
-          : `Penalty of ${formatNaira(payload.amount)} logged as pending settlement`
-      );
+      toast.success("Compliance notice recorded");
       setPenaltyDialogState({ open: false, user: null, amlAlertId: null });
       await loadPlatformData();
     } catch (error: any) {
-      toast.error(error?.message || "Failed to issue penalty");
+      toast.error(error?.message || "Failed to record the notice");
     } finally {
       setActionPending(false);
       setOverlayState(null);
@@ -531,23 +410,22 @@ const AdminDashboard = () => {
   const handleWaivePenalty = async (penalty: AdminPenaltyRecord) => {
     setActionPending(true);
     setOverlayState({
-      message: "Waiving compliance penalty",
-      submessage: "Updating the penalty record…",
+      message: "Closing compliance notice",
+      submessage: "Updating the compliance record…",
     });
     try {
       const res = await AdminComplianceService.waivePenalty(
         penalty.id,
-        false,
-        "Waived via Super Admin Command Center"
+        "Closed by administrator"
       );
       if (!res?.success) {
-        toast.error(res?.error || "Failed to waive penalty");
+        toast.error(res?.error || "Failed to close the notice");
         return;
       }
-      toast.success("Penalty waived", penalty.deducted_from_wallet ? { description: "Request a wallet credit for independent approval if a refund is due." } : undefined);
+      toast.success("Compliance record closed");
       await loadPlatformData();
     } catch (error: any) {
-      toast.error(error?.message || "Failed to waive penalty");
+      toast.error(error?.message || "Failed to close the notice");
     } finally {
       setActionPending(false);
       setOverlayState(null);
@@ -650,29 +528,6 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleRemoveUserBvn = async (payload: { userId: string; reason: string }) => {
-    setActionPending(true);
-    setOverlayState({
-      message: "Unlinking BVN from user profile",
-      submessage: "Clearing KYC record, notifying user, and recording audit trail…",
-    });
-    try {
-      const res = await AdminComplianceService.removeUserBvn(payload.userId, payload.reason);
-      if (!res?.success) {
-        toast.error(res?.error || "Failed to unlink BVN");
-        return;
-      }
-      toast.success(res.message || "BVN unlinked from user account");
-      setRemoveBvnTarget(null);
-      await loadPlatformData();
-    } catch (error: any) {
-      toast.error(error?.message || "Failed to unlink BVN");
-    } finally {
-      setActionPending(false);
-      setOverlayState(null);
-    }
-  };
-
   const handleUpdateAmlAlert = async (alertId: string, status: AmlAlertStatus, note: string) => {
     setActionPending(true);
     try {
@@ -716,7 +571,7 @@ const AdminDashboard = () => {
     }
   };
 
-  const openTransactionReceipt = (tx: any) => {
+  const transactionReceipt = (tx: AdminTransaction): CollectiPayReceiptData => {
     const kindMap: Record<string, CollectiPayReceiptData["kind"]> = {
       deposit: "deposit",
       withdrawal: "withdrawal",
@@ -726,12 +581,12 @@ const AdminDashboard = () => {
       payment: "transfer",
     };
 
-    setReceiptData({
+    return {
       kind: kindMap[tx.type] || "transfer",
-      title: tx.metadata?.category === "admin_penalty" ? "Compliance Penalty" : undefined,
+      title: isPenaltyTransaction(tx) ? "Compliance Penalty" : undefined,
       amount: Number(tx.amount || 0),
-      status: tx.status || "completed",
-      date: tx.created_at,
+      status: tx.status || "unknown",
+      date: tx.created_at || "Date unavailable",
       reference: tx.reference_id || tx.id,
       transactionId: tx.id,
       groupName: tx.contribution_groups?.name || undefined,
@@ -744,8 +599,9 @@ const AdminDashboard = () => {
         name: tx.profiles?.name || tx.profiles?.email || "CollectiPay Member",
         subtitle: tx.profiles?.email || undefined,
       },
-    });
+    };
   };
+  const openTransactionReceipt = (tx: AdminTransaction) => setReceiptData(transactionReceipt(tx));
 
   const findLedgerReference = async () => {
     const reference = txQuery.trim();
@@ -765,14 +621,6 @@ const AdminDashboard = () => {
     }
   };
 
-  const refreshAdmin = () => {
-    void loadPlatformData();
-    void queryClient.invalidateQueries({
-      predicate: ({ queryKey }) => queryKey[0] !== "admin-access" && isAdminQueryKey(queryKey),
-      refetchType: "active",
-    });
-  };
-
   const sectionActions = activeTab === "aml" ? (
     <>
       <Button onClick={() => void handleRunAmlScan()} disabled={Boolean(overlayState)}>
@@ -784,7 +632,7 @@ const AdminDashboard = () => {
     </>
   ) : activeTab === "penalties" ? (
     <Button onClick={() => setPenaltyDialogState({ open: true, user: null, amlAlertId: null })}>
-      <Gavel aria-hidden="true" /> Issue penalty
+      <Gavel aria-hidden="true" /> Record notice
     </Button>
   ) : undefined;
 
@@ -802,41 +650,14 @@ const AdminDashboard = () => {
         active={activeTab}
         href={sectionHref}
         name={user?.name?.trim() || "Administrator"}
-        counts={{ aml: activeAmlAlerts.length, external: unverifiedExternalCount, penalties: penalties.filter(p => p.status !== "waived").length }}
-        refreshing={loadingPlatformData}
-        onRefresh={refreshAdmin}
-        onSignOut={() => void logout()}
+        refreshing={refreshing}
+        onRefresh={() => void loadPlatformData()}
+        onSignOut={() => { void logout(); navigate("/", { replace: true }); }}
         actions={sectionActions}
       >
-        {loadingPlatformData && users.length === 0 ? (
-          <BrandLoader variant="page" message="Loading operations" />
-        ) : (
           <>
-              <AdminView active={activeTab} value="operations" className="space-y-6">
-                <dl className="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label="Platform totals">
-                  {[
-                    { label: "Platform users", value: users.length.toLocaleString(), detail: `${bvnVerifiedCount} BVN verified · ${restrictedUsersCount} restricted`, icon: Users },
-                    { label: "Group liquidity", value: formatNaira(totalGroupLiquidity), detail: `${allGroups.length} ${allGroups.length === 1 ? "group" : "groups"}`, icon: Layers },
-                    { label: "Wallet float", value: formatNaira(totalWalletFloat), detail: `${allTransactions.length.toLocaleString()} recent ${allTransactions.length === 1 ? "ledger entry" : "ledger entries"}`, icon: Wallet },
-                    { label: "Open AML alerts", value: activeAmlAlerts.length.toLocaleString(), detail: `${criticalAmlCount} high or critical · ${formatNaira(activePenaltiesSum)} in active fines`, icon: ShieldAlert },
-                  ].map(({ label, value, detail, icon: Icon }) => (
-                    <div key={label} className="cp-card-native min-w-0 rounded-xl p-3 sm:p-4">
-                      <dt className="flex items-start justify-between gap-1.5 text-xs font-medium text-muted-foreground sm:text-sm">
-                        {label}<Icon className="size-4 shrink-0 text-primary" aria-hidden="true" />
-                      </dt>
-                      <dd className="mt-2 break-words text-xl font-semibold tracking-tight tabular-nums sm:text-2xl">{value}</dd>
-                      <dd className="mt-1 text-xs text-muted-foreground">{detail}</dd>
-                    </div>
-                  ))}
-                </dl>
+              <AdminView active={activeTab} value="operations">
                 {user && <AdminOperationsOverview adminId={user.id} onOpen={section => navigate(sectionHref(section))} />}
-                <details className="cp-card-native rounded-xl p-4">
-                  <summary className="cursor-pointer rounded-sm text-sm font-semibold">Live signup display</summary>
-                  <div className="mt-4">
-                    <FlipCounterHero userCount={users.length} bvnVerifiedCount={bvnVerifiedCount} groupCount={allGroups.length}
-                      totalLiquidity={totalGroupLiquidity} externalPaymentsCount={externalPayments.length} />
-                  </div>
-                </details>
               </AdminView>
               <AdminView active={activeTab} value="governance">
                 {user && <AdminGroupGovernance adminId={user.id} />}
@@ -917,7 +738,7 @@ const AdminDashboard = () => {
                 </div>
 
                 {/* Alert Cards */}
-                {filteredAlerts.length === 0 ? (
+                {alerts.loaded && alerts.rows.length === 0 ? (
                   <div className="cp-card-native flex flex-col items-center justify-center px-6 py-14 text-center">
                     <span className="grid h-14 w-14 place-items-center rounded-2xl bg-accent text-primary">
                       <ShieldCheck className="h-7 w-7" />
@@ -945,7 +766,7 @@ const AdminDashboard = () => {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {filteredAlerts.map((alert) => (
+                    {alerts.rows.map((alert) => (
                       <div
                         key={alert.id}
                         className="cp-card-native flex flex-col justify-between gap-4 p-5 lg:flex-row lg:items-center"
@@ -1027,23 +848,11 @@ const AdminDashboard = () => {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => {
-                                const foundUser = users.find((u) => u.id === alert.user_id) || {
-                                  id: alert.user_id,
-                                  name: alert.user_profile?.name,
-                                  email: alert.user_profile?.email,
-                                  wallet_balance: 0,
-                                };
-                                setPenaltyDialogState({
-                                  open: true,
-                                  user: foundUser,
-                                  amlAlertId: alert.id,
-                                });
-                              }}
+                              onClick={() => openNoticeForAlert(alert)}
                               className="h-9 gap-1 rounded-xl"
                             >
                               <Gavel className="h-3.5 w-3.5" />
-                              Penalty
+                              Notice
                             </Button>
                           )}
                         </div>
@@ -1051,6 +860,7 @@ const AdminDashboard = () => {
                     ))}
                   </div>
                 )}
+                <AdminPageControls listing={alerts} label="AML alerts" />
               </AdminView>
 
               {/* ================================================================
@@ -1073,6 +883,7 @@ const AdminDashboard = () => {
                       <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
                         placeholder="Search by sender name, bank, reference, or group…"
+                        maxLength={120}
                         value={extQuery}
                         onChange={(e) => setExtQuery(e.target.value)}
                         className="h-11 rounded-xl pl-10"
@@ -1098,7 +909,7 @@ const AdminDashboard = () => {
                   </div>
                 </div>
 
-                {filteredExternalPayments.length === 0 ? (
+                {outsidePayments.loaded && outsidePayments.rows.length === 0 ? (
                   <div className="cp-card-native py-14 text-center">
                     <Building2 className="mx-auto h-10 w-10 text-muted-foreground/60" />
                     <p className="mt-3 text-sm font-semibold text-foreground">
@@ -1110,7 +921,7 @@ const AdminDashboard = () => {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {filteredExternalPayments.map((ep) => (
+                    {outsidePayments.rows.map((ep) => (
                       <div
                         key={ep.id}
                         className="cp-card-native flex flex-col justify-between gap-4 p-4 lg:flex-row lg:items-center"
@@ -1222,19 +1033,21 @@ const AdminDashboard = () => {
                     ))}
                   </div>
                 )}
+                <AdminPageControls listing={outsidePayments} label="outside payments" />
               </AdminView>
 
               {/* ================================================================
                   TAB 2: USER & KYC MANAGEMENT
                  ================================================================ */}
               <AdminView active={activeTab} value="users" className="space-y-4">
-                {user && <AdminWalletAdjustments adminId={user.id} users={users} onSettled={loadPlatformData} />}
+                {user && <AdminWalletAdjustments adminId={user.id} onSettled={loadPlatformData} />}
                 <div className="cp-card-native p-4 space-y-3">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="relative flex-1">
                       <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
                         placeholder="Search by name, email, or phone…"
+                        maxLength={120}
                         value={userQuery}
                         onChange={(e) => setUserQuery(e.target.value)}
                         className="h-11 rounded-xl pl-10"
@@ -1243,7 +1056,7 @@ const AdminDashboard = () => {
                     <div className="flex flex-wrap gap-1.5">
                       {(
                         [
-                          { id: "all", label: `All (${users.length})` },
+                          { id: "all", label: "All" },
                           { id: "active", label: "Active" },
                           { id: "paused", label: "Paused" },
                           { id: "frozen", label: "Frozen" },
@@ -1269,10 +1082,8 @@ const AdminDashboard = () => {
                 </div>
 
                 <div className="space-y-2.5">
-                  {filteredUsers.map((u) => {
-                    const prefs = (u.preferences || {}) as Record<string, any>;
-                    const hasPin = hasTransactionPin(prefs);
-                    const hasBvn = Boolean(u.bvn && String(u.bvn).trim().length >= 11);
+                  {users.rows.map((u) => {
+                    const { has_pin: hasPin, has_bvn: hasBvn } = u;
                     const status = u.status || "active";
                     const isRestricted = status !== "active";
 
@@ -1283,7 +1094,7 @@ const AdminDashboard = () => {
                       >
                         <div className="flex min-w-0 items-center gap-3.5">
                           <Avatar className="h-11 w-11 shrink-0 border">
-                            <AvatarImage src={prefs.profileImage || ""} />
+                            <AvatarImage src={u.profile_image || undefined} />
                             <AvatarFallback className="bg-accent font-bold text-primary">
                               {(u.name || u.email || "U").charAt(0).toUpperCase()}
                             </AvatarFallback>
@@ -1302,9 +1113,9 @@ const AdminDashboard = () => {
                               {u.role === "admin" && (
                                 <Badge className="text-[10px]">Admin</Badge>
                               )}
-                              {(u as any).is_verified_organizer && (
+                              {u.is_verified_organizer && (
                                 <VerifiedCrowdfunderBadge
-                                  label={(u as any).organizer_badge_label || "Verified Crowdfunder"}
+                                  label={u.organizer_badge_label || "Verified Crowdfunder"}
                                 />
                               )}
                               <span
@@ -1340,26 +1151,24 @@ const AdminDashboard = () => {
                           </div>
 
                           <div className="flex flex-wrap gap-1.5">
+                            <Button size="sm" variant="outline" className="h-9 gap-1 rounded-xl text-xs"
+                              aria-label={`Transaction history for ${accountEntity(u).name}`}
+                              onClick={event => {
+                                historyTrigger.current = event.currentTarget;
+                                setHistoryAccount(accountEntity(u));
+                              }}>
+                              <ReceiptText className="h-3.5 w-3.5" aria-hidden="true" />
+                              Transaction history
+                            </Button>
                             <Button
                               size="sm"
-                              variant={(u as any).is_verified_organizer ? "secondary" : "outline"}
+                              variant={u.is_verified_organizer ? "secondary" : "outline"}
                               onClick={() => setVerifyOrganizerTarget(u)}
                               className="h-9 gap-1 rounded-xl text-xs"
                             >
                               <BadgeCheck className="h-3.5 w-3.5 text-primary" />
-                              {(u as any).is_verified_organizer ? "Verified" : "Verify Badge"}
+                              {u.is_verified_organizer ? "Verified" : "Verify Badge"}
                             </Button>
-                            {hasBvn && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setRemoveBvnTarget(u)}
-                                className="h-9 gap-1 rounded-xl border-amber-500/40 text-xs text-amber-700 hover:bg-amber-500/10 dark:text-amber-300"
-                              >
-                                <Ban className="h-3.5 w-3.5" />
-                                Unlink BVN
-                              </Button>
-                            )}
                             <Button
                               size="sm"
                               variant="outline"
@@ -1368,23 +1177,23 @@ const AdminDashboard = () => {
                               className="h-9 gap-1 rounded-xl text-xs"
                             >
                               <Wallet className="h-3.5 w-3.5" />
-                              Request credit / debit
+                              Request debit
                             </Button>
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={() =>
-                                setPenaltyDialogState({ open: true, user: u, amlAlertId: null })
+                                setPenaltyDialogState({ open: true, user: accountEntity(u), amlAlertId: null })
                               }
                               className="h-9 gap-1 rounded-xl text-xs"
                             >
                               <Gavel className="h-3.5 w-3.5" />
-                              Penalty
+                              Notice
                             </Button>
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => setManualFlagState({ open: true, user: u })}
+                              onClick={() => setManualFlagState({ open: true, user: accountEntity(u) })}
                               className="h-9 gap-1 rounded-xl text-xs"
                             >
                               <Flag className="h-3.5 w-3.5" />
@@ -1420,12 +1229,13 @@ const AdminDashboard = () => {
                     );
                   })}
 
-                  {filteredUsers.length === 0 && (
+                  {users.loaded && users.rows.length === 0 && (
                     <div className="cp-card-native py-12 text-center text-sm text-muted-foreground">
                       No users match your filter criteria.
                     </div>
                   )}
                 </div>
+                <AdminPageControls listing={users} label="accounts" />
               </AdminView>
 
               {/* ================================================================
@@ -1438,6 +1248,7 @@ const AdminDashboard = () => {
                       <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
                         placeholder="Search pools by name, category, or creator…"
+                        maxLength={120}
                         value={groupQuery}
                         onChange={(e) => setGroupQuery(e.target.value)}
                         className="h-11 rounded-xl pl-10"
@@ -1446,7 +1257,7 @@ const AdminDashboard = () => {
                     <div className="flex flex-wrap gap-1.5">
                       {(
                         [
-                          { id: "all", label: `All (${allGroups.length})` },
+                          { id: "all", label: "All" },
                           { id: "pinned", label: "Pinned / Top" },
                           { id: "verified", label: "Verified" },
                           { id: "active", label: "Active" },
@@ -1473,13 +1284,11 @@ const AdminDashboard = () => {
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  {filteredGroups.map((group) => {
+                  {groups.rows.map((group) => {
                     const current = Number(group.current_amount || 0);
                     const target = Math.max(1, Number(group.target_amount || 1));
                     const pct = Math.min(100, Math.round((current / target) * 100));
-                    const memberCount = Array.isArray(group.contributors)
-                      ? group.contributors.length
-                      : 0;
+                    const memberCount = group.member_count;
                     const status = group.status || "active";
 
                     return (
@@ -1603,18 +1412,22 @@ const AdminDashboard = () => {
                     );
                   })}
 
-                  {filteredGroups.length === 0 && (
+                  {groups.loaded && groups.rows.length === 0 && (
                     <div className="cp-card-native col-span-full py-12 text-center text-sm text-muted-foreground">
                       No contribution groups match your search.
                     </div>
                   )}
                 </div>
+                <AdminPageControls listing={groups} label="groups" />
               </AdminView>
 
               {/* ================================================================
                   TAB 4: PENALTIES LEDGER
                  ================================================================ */}
               <AdminView active={activeTab} value="penalties" className="space-y-4">
+                <p className="text-sm text-muted-foreground">Record account issues and notify customers. Recording or closing a notice leaves their wallet balance unchanged.</p>
+                <Input type="search" maxLength={120} aria-label="Search compliance notices" placeholder="Find by account or reason"
+                  value={noticeQuery} onChange={event => setNoticeQuery(event.target.value)} />
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex flex-wrap gap-1.5">
                     {(["all", "applied", "pending", "waived"] as const).map((st) => (
@@ -1629,34 +1442,26 @@ const AdminDashboard = () => {
                             : "bg-card text-muted-foreground hover:bg-accent"
                         )}
                       >
-                        {st}
+                        {noticeStatuses[st]}
                       </button>
                     ))}
                   </div>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => setPenaltyDialogState({ open: true, user: null, amlAlertId: null })}
-                    className="h-9 gap-1.5 rounded-xl"
-                  >
-                    <Gavel className="h-4 w-4" />
-                    Issue Penalty
-                  </Button>
+
                 </div>
 
-                {filteredPenalties.length === 0 ? (
+                {notices.loaded && notices.rows.length === 0 ? (
                   <div className="cp-card-native py-14 text-center">
                     <Gavel className="mx-auto h-10 w-10 text-muted-foreground/60" />
                     <p className="mt-3 text-sm font-semibold text-foreground">
-                      No penalties recorded
+                      No compliance records found
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Issue late-contribution, dispute, or compliance fines from here or any user row.
+                      New notices and historical records appear here.
                     </p>
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {filteredPenalties.map((p) => (
+                    {notices.rows.map((p) => (
                       <div
                         key={p.id}
                         className="cp-card-native flex flex-col justify-between gap-4 p-4 sm:flex-row sm:items-center"
@@ -1673,14 +1478,14 @@ const AdminDashboard = () => {
                               }
                               className="capitalize"
                             >
-                              {p.status}
+                              {noticeStatuses[p.status]}
                             </Badge>
                             <span className="rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-semibold capitalize text-foreground">
                               {p.penalty_type.replace(/_/g, " ")}
                             </span>
                             {p.deducted_from_wallet && (
                               <span className="text-[11px] font-semibold text-primary">
-                                Deducted from wallet
+                                Historical wallet debit
                               </span>
                             )}
                           </div>
@@ -1695,15 +1500,15 @@ const AdminDashboard = () => {
                           </p>
                           <p className="text-xs text-muted-foreground">{p.reason}</p>
                           <p className="text-[11px] text-muted-foreground">
-                            Issued {safeFormatDate(p.created_at)}
-                            {p.waived_at ? ` · Waived ${safeFormatDate(p.waived_at)}` : ""}
+                            Recorded {safeFormatDate(p.created_at)}
+                            {p.waived_at ? ` · Closed ${safeFormatDate(p.waived_at)}` : ""}
                           </p>
                         </div>
 
                         <div className="flex items-center justify-between gap-3 sm:shrink-0 sm:flex-col sm:items-end">
-                          <span className="text-lg font-extrabold text-destructive tabular-nums">
-                            {formatNaira(p.amount)}
-                          </span>
+                          {p.amount > 0 && <span className="text-sm font-semibold tabular-nums">
+                            {p.deducted_from_wallet ? "Original debit" : "Reference amount"} · {formatNaira(p.amount)}
+                          </span>}
                           {p.status !== "waived" && (
                             <Button
                               size="sm"
@@ -1712,7 +1517,7 @@ const AdminDashboard = () => {
                               onClick={() => handleWaivePenalty(p)}
                               className="h-9 rounded-xl text-xs"
                             >
-                              Waive fine
+                              Close record
                             </Button>
                           )}
                         </div>
@@ -1720,6 +1525,7 @@ const AdminDashboard = () => {
                     ))}
                   </div>
                 )}
+                <AdminPageControls listing={notices} label="compliance notices" />
               </AdminView>
 
               {/* ================================================================
@@ -1779,7 +1585,7 @@ const AdminDashboard = () => {
                 </div>
 
                 <div className="cp-card-native divide-y divide-border/70 overflow-hidden">
-                  {filteredTransactions.slice(0, 60).map((tx) => {
+                  {transactions.rows.map((tx) => {
                     const isCredit = tx.type === "deposit" || tx.type === "refund";
                     const isHighValue = Number(tx.amount || 0) >= HIGH_VALUE_THRESHOLD;
 
@@ -1808,7 +1614,7 @@ const AdminDashboard = () => {
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-1.5">
                               <span className="truncate text-sm font-bold capitalize text-foreground">
-                                {tx.metadata?.category === "admin_penalty"
+                                {isPenaltyTransaction(tx)
                                   ? "Compliance Penalty"
                                   : tx.type}
                               </span>
@@ -1847,12 +1653,13 @@ const AdminDashboard = () => {
                     );
                   })}
 
-                  {filteredTransactions.length === 0 && (
+                  {transactions.loaded && transactions.rows.length === 0 && (
                     <div className="py-12 text-center text-sm text-muted-foreground">
                       No transactions match your current filters.
                     </div>
                   )}
                 </div>
+                <AdminPageControls listing={transactions} label="transactions" />
               </AdminView>
 
               {/* ================================================================
@@ -1864,6 +1671,7 @@ const AdminDashboard = () => {
                     <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       placeholder="Filter audit log by action, admin, or summary…"
+                      maxLength={120}
                       value={auditQuery}
                       onChange={(e) => setAuditQuery(e.target.value)}
                       className="h-11 rounded-xl pl-10"
@@ -1872,7 +1680,7 @@ const AdminDashboard = () => {
                 </div>
 
                 <div className="cp-card-native divide-y divide-border/70 overflow-hidden">
-                  {filteredAuditLogs.map((log) => (
+                  {audits.rows.map((log) => (
                     <div key={log.id} className="flex items-start justify-between gap-4 px-5 py-3.5">
                       <div className="min-w-0 space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
@@ -1894,12 +1702,13 @@ const AdminDashboard = () => {
                     </div>
                   ))}
 
-                  {filteredAuditLogs.length === 0 && (
+                  {audits.loaded && audits.rows.length === 0 && (
                     <div className="py-12 text-center text-sm text-muted-foreground">
                       No audit entries yet. Actions taken in this console are logged automatically.
                     </div>
                   )}
                 </div>
+                <AdminPageControls listing={audits} label="audit records" />
               </AdminView>
 
               {/* ================================================================
@@ -1920,7 +1729,6 @@ const AdminDashboard = () => {
               <AdminView active={activeTab} value="ice-vault"><AdminIceVault /></AdminView>
               <AdminView active={activeTab} value="support"><SupportInbox admin selected={supportTicket} onSelect={setSupportTicket} /></AdminView>
           </>
-        )}
       </AdminShell>
 
       {/* MODALS */}
@@ -1937,8 +1745,6 @@ const AdminDashboard = () => {
         onOpenChange={(open) =>
           !open && setPenaltyDialogState({ open: false, user: null, amlAlertId: null })
         }
-        users={users}
-        groups={allGroups}
         presetUser={penaltyDialogState.user}
         presetAmlAlertId={penaltyDialogState.amlAlertId}
         pending={actionPending}
@@ -1969,14 +1775,6 @@ const AdminDashboard = () => {
         onConfirm={handleToggleVerifiedOrganizer}
       />
 
-      <RemoveBvnDialog
-        open={Boolean(removeBvnTarget)}
-        onOpenChange={(open) => !open && setRemoveBvnTarget(null)}
-        user={removeBvnTarget}
-        pending={actionPending}
-        onConfirm={handleRemoveUserBvn}
-      />
-
       <AmlReviewDialog
         open={Boolean(reviewingAlert)}
         onOpenChange={(open) => !open && setReviewingAlert(null)}
@@ -1987,25 +1785,20 @@ const AdminDashboard = () => {
           await handleUpdateUserStatus(uid, "frozen", reason);
           setReviewingAlert(null);
         }}
-        onOpenPenaltyForAlert={(alert) => {
-          const foundUser = users.find((u) => u.id === alert.user_id) || {
-            id: alert.user_id,
-            name: alert.user_profile?.name,
-            email: alert.user_profile?.email,
-            wallet_balance: 0,
-          };
-          setPenaltyDialogState({ open: true, user: foundUser, amlAlertId: alert.id });
-        }}
+        onOpenPenaltyForAlert={openNoticeForAlert}
       />
 
       <ManualAmlFlagDialog
         open={manualFlagState.open}
         onOpenChange={(open) => !open && setManualFlagState({ open: false, user: null })}
-        users={users}
         presetUser={manualFlagState.user}
         pending={actionPending}
         onConfirm={handleCreateManualFlag}
       />
+
+      {user && historyAccount && <AdminUserTransactionHistory key={historyAccount.id}
+        adminId={user.id} account={historyAccount} receiptFor={transactionReceipt}
+        onClose={() => setHistoryAccount(null)} returnFocus={() => historyTrigger.current?.focus()} />}
 
       <Dialog open={Boolean(receiptData)} onOpenChange={(open) => !open && setReceiptData(null)}>
         <DialogContent className="w-[calc(100%-1.5rem)] max-h-[92dvh] max-w-[29rem] overflow-y-auto rounded-2xl p-4 sm:p-6">

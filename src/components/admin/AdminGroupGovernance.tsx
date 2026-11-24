@@ -146,8 +146,8 @@ export function AdminGroupGovernance({ adminId }: { adminId: string }) {
                 <dt className="text-xs text-muted-foreground">{proposal.kind === "refund" ? "Requested refund" : "Requested withdrawal"}</dt>
                 <dd className="font-medium tabular-nums">{proposal.kind === "refund"
                   ? proposal.refund_percentage === null ? "Unavailable" : proposal.refund_percentage + "%"
-                  : naira(proposal.amount ?? 0)}</dd>
-                {proposal.fee_amount > 0 && <dd className="text-xs text-muted-foreground">Includes {naira(proposal.fee_amount)} fee</dd>}
+                  : naira.format(proposal.amount ?? 0)}</dd>
+                {proposal.fee_amount > 0 && <dd className="text-xs text-muted-foreground">Includes {naira.format(proposal.fee_amount)} fee</dd>}
               </div>
               <div>
                 <dt className="text-xs text-muted-foreground">Voting deadline (WAT)</dt>
@@ -162,7 +162,7 @@ export function AdminGroupGovernance({ adminId }: { adminId: string }) {
               {proposal.settled_refunds !== null && (
                 <div className="col-span-2">
                   <dt className="text-xs text-muted-foreground">Completed refund credits</dt>
-                  <dd className="font-medium tabular-nums">{naira(proposal.settled_amount ?? 0)} · {proposal.settled_refunds} wallet credits</dd>
+                  <dd className="font-medium tabular-nums">{naira.format(proposal.settled_amount ?? 0)} · {proposal.settled_refunds} wallet credits</dd>
                 </div>
               )}
             </dl>

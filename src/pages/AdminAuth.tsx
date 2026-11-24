@@ -5,7 +5,6 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Eye, EyeOff, KeyRound, Lock, ShieldCheck, UserCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import Header from "@/components/layout/Header";
 import BrandLoader, { CollectiPayMark } from "@/components/ui/BrandLoader";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 
@@ -37,21 +36,20 @@ const AdminAuth = () => {
       const { error, profile } = await signIn(rawIdentifier, password);
 
       if (error) {
-        toast.error(error.message || "Invalid administrator credentials");
+        toast.error("Couldn’t sign in. Check your credentials and try again.");
         return;
       }
 
       if (!profile || profile.role !== "admin" || (profile.status ?? "active") !== "active") {
         await logout();
-        toast.error("Access denied. This account does not have administrator privileges.");
+        toast.error("Couldn’t sign in. Check your credentials and try again.");
         return;
       }
 
       toast.success("Welcome to Super Admin Command Center");
       navigate("/admin", { replace: true });
-    } catch (error: any) {
-      console.error("Admin login error:", error);
-      toast.error(error?.message || "An error occurred during login");
+    } catch {
+      toast.error("Couldn’t sign in. Try again shortly.");
     } finally {
       setIsLoading(false);
     }
@@ -67,8 +65,6 @@ const AdminAuth = () => {
           submessage="Authenticating session & loading command center…"
         />
       )}
-
-      <Header />
 
       <main className="flex-1 flex items-center justify-center px-4 py-12 sm:py-16">
         <div className="w-full max-w-md space-y-5">
@@ -162,18 +158,6 @@ const AdminAuth = () => {
                 </Button>
               </form>
 
-              <div className="mt-5 border-t pt-4 text-center">
-                <p className="text-xs text-muted-foreground">
-                  Looking for your personal wallet?{" "}
-                  <button
-                    type="button"
-                    onClick={() => navigate("/auth")}
-                    className="font-semibold text-primary hover:underline"
-                  >
-                    Member sign in
-                  </button>
-                </p>
-              </div>
             </div>
           </div>
         </div>

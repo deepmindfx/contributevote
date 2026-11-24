@@ -1625,6 +1625,10 @@ export type Database = {
       admin_platform_pricing_report: { Args: Record<never, never>; Returns: Json }
       admin_transaction_analytics: { Args: { p_start: string; p_end: string; p_scope: string; p_entity_id?: string }; Returns: Json }
       admin_search_transaction_entities: { Args: { p_scope: string; p_search: string }; Returns: { id: string; name: string; description: string | null }[] }
+      admin_page_records: {
+        Args: { p_view: string; p_status?: string; p_filter?: string; p_search?: string; p_before_at?: string; p_before_id?: string; p_limit?: number; p_user_id?: string }
+        Returns: { id: string; cursor_at: string; record: Json }[]
+      }
       admin_save_transfer_pricing: { Args: { p_settings: Json }; Returns: Json }
       admin_set_group_withdrawal_fee: { Args: { p_group_id: string; p_enabled: boolean | null }; Returns: undefined }
       get_group_withdrawal_policy: { Args: { p_group_id: string }; Returns: Json }

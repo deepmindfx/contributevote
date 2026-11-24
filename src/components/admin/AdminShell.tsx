@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  Activity, ArrowUpRight, BarChart3, Building2, ChevronDown, ChevronRight, ClipboardList, Gavel, KeyRound,
+  Activity, BarChart3, Building2, ChevronDown, ChevronRight, ClipboardList, Gavel, KeyRound,
   LayoutDashboard, LifeBuoy, LogOut, Menu, PanelLeftClose, PanelLeftOpen, ReceiptText, RefreshCw, ShieldAlert,
-  Snowflake, Users, Vote, Wallet, ArrowDownToLine, ListOrdered,
+  Snowflake, Users, Vote, ArrowDownToLine, ListOrdered,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -46,7 +46,7 @@ const navigation = [
     label: "Risk & settings",
     items: [
       { id: "aml", label: "AML alerts", icon: ShieldAlert },
-      { id: "penalties", label: "Penalties", icon: Gavel },
+      { id: "penalties", label: "Compliance notices", icon: Gavel },
       { id: "audit", label: "Audit log", icon: ClipboardList },
       { id: "gateway", label: "Payment gateway", icon: KeyRound },
     ],
@@ -63,10 +63,9 @@ export function resolveAdminSection(value: string | null): AdminSection {
   return destinations.find(destination => destination.id === value)?.id ?? "operations";
 }
 
-function AdminNavigation({ active, collapsed, counts, href, onNavigate }: {
+function AdminNavigation({ active, collapsed, href, onNavigate }: {
   active: AdminSection;
   collapsed: boolean;
-  counts: Partial<Record<AdminSection, number>>;
   href: (section: AdminSection) => string;
   onNavigate?: () => void;
 }) {
@@ -77,16 +76,12 @@ function AdminNavigation({ active, collapsed, counts, href, onNavigate }: {
           <p className={cn("admin-nav-label", collapsed && "sr-only")}>{group.label}</p>
           <ul className="space-y-0.5">
             {group.items.map(({ id, label, icon: Icon }) => {
-              const count = counts[id] ?? 0;
               const item = (
                 <Link to={href(id)} aria-current={active === id ? "page" : undefined}
-                  aria-label={collapsed ? label + (count ? " (" + count + ")" : "") : undefined}
+                  aria-label={collapsed ? label : undefined}
                   className={cn("admin-nav-link", collapsed && "admin-nav-link--icon")} onClick={onNavigate}>
                   <Icon aria-hidden="true" className="size-[17px] shrink-0" strokeWidth={1.8} />
                   {!collapsed && <span className="min-w-0 flex-1">{label}</span>}
-                  {count > 0 && <span className={cn("admin-nav-count", collapsed && "admin-nav-count--dot")} aria-hidden={collapsed || undefined}>
-                    {!collapsed && (count > 99 ? "99+" : count)}
-                  </span>}
                 </Link>
               );
               return (
@@ -107,10 +102,9 @@ function AdminNavigation({ active, collapsed, counts, href, onNavigate }: {
   );
 }
 
-export function AdminShell({ active, href, counts, name, refreshing, onRefresh, onSignOut, actions, children }: {
+export function AdminShell({ active, href, name, refreshing, onRefresh, onSignOut, actions, children }: {
   active: AdminSection;
   href: (section: AdminSection) => string;
-  counts: Partial<Record<AdminSection, number>>;
   name: string;
   refreshing: boolean;
   onRefresh: () => void;
@@ -156,13 +150,7 @@ export function AdminShell({ active, href, counts, name, refreshing, onRefresh, 
           <CollectiPayMark size={31} />
           {!collapsed && <span className="min-w-0"><span className="block text-sm font-semibold">CollectiPay</span><span className="admin-brand-caption">Super Admin</span></span>}
         </Link>
-        <AdminNavigation active={active} collapsed={collapsed} counts={counts} href={href} />
-        <div className="admin-rail-footer">
-          <Link to="/dashboard" className={cn("admin-nav-link", collapsed && "admin-nav-link--icon")} aria-label="Return to wallet" title={collapsed ? "Return to wallet" : undefined}>
-            <Wallet size={17} aria-hidden="true" />
-            {!collapsed && <><span className="flex-1">Return to wallet</span><ArrowUpRight className="size-3.5 opacity-65" aria-hidden="true" /></>}
-          </Link>
-        </div>
+        <AdminNavigation active={active} collapsed={collapsed} href={href} />
       </aside>
 
       <div className="min-w-0">
@@ -182,7 +170,7 @@ export function AdminShell({ active, href, counts, name, refreshing, onRefresh, 
                     <SheetDescription className="admin-brand-caption">Super Admin navigation</SheetDescription>
                   </div>
                 </div>
-                <AdminNavigation active={active} collapsed={false} counts={counts} href={href} onNavigate={() => setDrawerOpen(false)} />
+                <AdminNavigation active={active} collapsed={false} href={href} onNavigate={() => setDrawerOpen(false)} />
               </SheetContent>
             </Sheet>
             <Button type="button" variant="ghost" size="icon" onClick={() => setCollapsed(value => !value)}
@@ -212,7 +200,6 @@ export function AdminShell({ active, href, counts, name, refreshing, onRefresh, 
                 <DropdownMenuLabel className="truncate">{name}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild><Link to="/settings"><KeyRound className="mr-2 size-4" aria-hidden="true" /> Account settings &amp; PIN</Link></DropdownMenuItem>
-                <DropdownMenuItem asChild><Link to="/dashboard"><Wallet className="mr-2 size-4" aria-hidden="true" /> Return to wallet</Link></DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={onSignOut}><LogOut className="mr-2 size-4" aria-hidden="true" /> Sign out</DropdownMenuItem>
               </DropdownMenuContent>

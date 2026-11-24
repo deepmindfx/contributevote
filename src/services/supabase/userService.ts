@@ -32,6 +32,19 @@ export class UserService {
     return data
   }
 
+  static async getUserByPhone(phone: string): Promise<Profile | null> {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('phone', phone)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (error) throw error
+    return data
+  }
+
   // Get user by email
   static async getUserByEmail(email: string): Promise<Profile | null> {
     const { data, error } = await supabase
@@ -92,13 +105,4 @@ export class UserService {
     return data
   }
 
-  // Delete user
-  static async deleteUser(id: string): Promise<void> {
-    const { error } = await supabase
-      .from('profiles')
-      .delete()
-      .eq('id', id)
-    
-    if (error) throw error
-  }
 }

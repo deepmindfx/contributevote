@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { naira } from "@/services/supabase/pricingService";
+import { AdminPageControls, useAdminRecordPage } from "./AdminRecordPage";
 
 type Decision = "request" | "approve" | "cancel";
 type Review = {
@@ -31,31 +32,17 @@ type Inbound = { provider_id: string; amount: number; reason: keyof typeof inbou
 
 export function AdminPaymentReviews() {
   const { user, isAdmin } = useSupabaseUser();
+  const queryClient = useQueryClient();
   const [reference, setReference] = useState("");
   const [basis, setBasis] = useState("not_debited");
   const [evidence, setEvidence] = useState("");
   const [note, setNote] = useState("");
   const [action, setAction] = useState<{ type: Decision; reviewId?: string }>();
   const [saving, setSaving] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
-  const payouts = useQuery({
-    queryKey: ["workspace", user?.id, "admin-payout-recoveries"],
-    enabled: Boolean(user?.id && isAdmin),
-    queryFn: async ({ signal }) => {
-      const { data, error } = await supabase.rpc("admin_list_payout_recoveries").abortSignal(signal);
-      if (error) throw error;
-      return data as unknown as Review[];
-    },
-  });
-  const inbound = useQuery({
-    queryKey: ["workspace", user?.id, "admin-inbound-review"],
-    enabled: Boolean(user?.id && isAdmin),
-    queryFn: async ({ signal }) => {
-      const { data, error } = await supabase.rpc("admin_list_pending_inbound_payments").abortSignal(signal);
-      if (error) throw error;
-      return data as unknown as Inbound[];
-    },
-  });
+  const payouts = useAdminRecordPage<Review>(user?.id, "payouts", { status: showHistory ? "history" : "pending", enabled: isAdmin });
+  const inbound = useAdminRecordPage<Inbound>(user?.id, "inbound", { enabled: isAdmin });
 
   const request = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -76,6 +63,7 @@ export function AdminPaymentReviews() {
         setReference("");
         setEvidence("");
         setNote("");
+        setShowHistory(false);
         toast.success("Recovery submitted for a second administrator to review.");
       } else if (action.reviewId) {
         const { data, error } = await supabase.functions.invoke("admin-payout-recovery", {
@@ -88,7 +76,7 @@ export function AdminPaymentReviews() {
         toast.success(data?.status === "approved" ? "Wallet credit recorded." : "Review closed.");
       }
       setAction(undefined);
-      await payouts.refetch();
+      await queryClient.invalidateQueries({ queryKey: ["admin-record-page", user?.id, "payouts"] });
     } finally {
       setSaving(false);
     }
@@ -97,7 +85,12 @@ export function AdminPaymentReviews() {
   return (
     <div className="space-y-4">
       <section className="cp-card-native space-y-4 p-4 sm:p-5" aria-labelledby="payout-review-title">
-        <h3 id="payout-review-title" className="font-semibold">Payout recovery</h3>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 id="payout-review-title" className="font-semibold">Payout recovery</h3>
+          <Button variant="outline" size="sm" onClick={() => setShowHistory(!showHistory)}>
+            {showHistory ? "Pending reviews" : "Recovery history"}
+          </Button>
+        </div>
         <p className="text-sm text-muted-foreground">Use the original payout reference and independent provider settlement evidence that the funds were never debited or have been returned. A second administrator verifies the evidence before a wallet credit.</p>
         <details className="rounded-xl border p-3">
           <summary className="cursor-pointer text-sm font-medium">Submit settlement evidence</summary>
@@ -127,9 +120,8 @@ export function AdminPaymentReviews() {
           </form>
         </details>
 
-        {payouts.isPending && <p role="status" className="text-sm">Loading payout reviews…</p>}
-        {payouts.isError && <Button variant="outline" size="sm" onClick={() => void payouts.refetch()}>Retry payout reviews</Button>}
-        {payouts.data?.map(review => (
+        {payouts.loaded && payouts.rows.length === 0 && <p className="text-sm text-muted-foreground">No payout reviews on this page.</p>}
+        {payouts.rows.map(review => (
           <article key={review.id} className="space-y-2 rounded-xl border p-3 text-sm">
             <p className="font-medium">{naira.format(review.amount)} · {review.bulk ? "Bulk recipient" : "Single payout"} · {review.status === "pending" ? "Awaiting review" : review.status}</p>
             <p className="break-all font-mono text-xs text-muted-foreground">{review.reference_id}</p>
@@ -144,18 +136,19 @@ export function AdminPaymentReviews() {
             )}
           </article>
         ))}
+        <AdminPageControls listing={payouts} label="payout reviews" />
       </section>
 
       <section className="cp-card-native space-y-2 p-4 sm:p-5" aria-labelledby="incoming-review-title">
         <h3 id="incoming-review-title" className="font-semibold">Unmatched incoming payments</h3>
         <p className="text-sm text-muted-foreground">Verified Flutterwave payments waiting for an account match or ledger settlement. The reconciliation worker retries them automatically.</p>
-        {inbound.isError && <Button variant="outline" size="sm" onClick={() => void inbound.refetch()}>Retry incoming payments</Button>}
-        {inbound.data?.map(item => (
+        {inbound.rows.map(item => (
           <p className="break-all text-sm" key={item.provider_id}>
             {naira.format(item.amount)} · Flutterwave {item.provider_id} · {inboundReviewReasons[item.reason]}
           </p>
         ))}
-        {inbound.data?.length === 0 && <p className="text-sm text-muted-foreground">No incoming payments currently need review.</p>}
+        {inbound.loaded && inbound.rows.length === 0 && <p className="text-sm text-muted-foreground">No incoming payments on this page.</p>}
+        <AdminPageControls listing={inbound} label="incoming payments" />
       </section>
       <TransactionPinDialog open={Boolean(action)} onOpenChange={open => { if (!open && !saving) setAction(undefined); }}
         title={action?.type === "approve" ? "Approve payout recovery" : action?.type === "cancel" ? "Close payout review" : "Submit payout evidence"}

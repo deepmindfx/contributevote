@@ -2,8 +2,6 @@ import React, { useEffect, useState } from "react";
 import {
   AlertTriangle,
   Archive,
-  ArrowDownLeft,
-  ArrowUpRight,
   BadgeCheck,
   Check,
   CheckCircle2,
@@ -43,11 +41,12 @@ import {
   type PenaltyType,
 } from "@/services/supabase/adminComplianceService";
 import { cn } from "@/lib/utils";
+import { AdminEntityPicker, type AdminEntity } from "./AdminEntityPicker";
 
 const QUICK_AMOUNTS = [1000, 5000, 10000, 25000, 50000];
 
 /* ============================================================================
- * 1. WALLET CREDIT / DEBIT DIALOG
+ * 1. WALLET DEBIT DIALOG
  * ========================================================================== */
 interface WalletAdjustDialogProps {
   open: boolean;
@@ -57,7 +56,6 @@ interface WalletAdjustDialogProps {
   onConfirm: (payload: {
     userId: string;
     amount: number;
-    direction: "credit" | "debit";
     reason: string;
     caseReference: string;
     pin: string;
@@ -71,7 +69,6 @@ export const WalletAdjustDialog: React.FC<WalletAdjustDialogProps> = ({
   pending,
   onConfirm,
 }) => {
-  const [direction, setDirection] = useState<"credit" | "debit">("credit");
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
   const [caseReference, setCaseReference] = useState("");
@@ -79,7 +76,6 @@ export const WalletAdjustDialog: React.FC<WalletAdjustDialogProps> = ({
 
   useEffect(() => {
     if (open) {
-      setDirection("credit");
       setAmount("");
       setReason("");
       setCaseReference("");
@@ -89,7 +85,7 @@ export const WalletAdjustDialog: React.FC<WalletAdjustDialogProps> = ({
 
   const numericAmount = Number(amount);
   const currentBalance = Number(user?.wallet_balance || 0);
-  const insufficientForDebit = direction === "debit" && numericAmount > currentBalance;
+  const insufficientForDebit = numericAmount > currentBalance;
   const canSubmit = Number.isFinite(numericAmount) && numericAmount > 0 && !insufficientForDebit &&
     /^[a-z0-9][a-z0-9._-]{5,79}$/i.test(caseReference.trim()) && reason.trim().length >= 8 && /^\d{4}$/.test(pin);
 
@@ -98,7 +94,6 @@ export const WalletAdjustDialog: React.FC<WalletAdjustDialogProps> = ({
     await onConfirm({
       userId: user.id,
       amount: numericAmount,
-      direction,
       reason: reason.trim(),
       caseReference: caseReference.trim(),
       pin,
@@ -110,7 +105,7 @@ export const WalletAdjustDialog: React.FC<WalletAdjustDialogProps> = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90dvh] w-[calc(100%-1.5rem)] max-w-md overflow-y-auto rounded-2xl">
         <DialogHeader>
-          <DialogTitle>Request a wallet adjustment</DialogTitle>
+          <DialogTitle>Request a wallet debit</DialogTitle>
           <DialogDescription>
             {user?.name || user?.email} · Current balance:{" "}
             <strong className="text-foreground tabular-nums">
@@ -121,37 +116,6 @@ export const WalletAdjustDialog: React.FC<WalletAdjustDialogProps> = ({
         </DialogHeader>
 
         <div className="space-y-4 py-1">
-          <div className="grid grid-cols-2 gap-2.5">
-            <button
-              type="button"
-              data-selected={direction === "credit"}
-              onClick={() => setDirection("credit")}
-              className="cp-tile-option flex items-center gap-2.5 p-3 text-left"
-            >
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
-                <ArrowDownLeft className="h-4 w-4" />
-              </span>
-              <div>
-                <span className="block text-sm font-bold">Credit</span>
-                <span className="block text-[11px] text-muted-foreground">Add funds</span>
-              </div>
-            </button>
-            <button
-              type="button"
-              data-selected={direction === "debit"}
-              onClick={() => setDirection("debit")}
-              className="cp-tile-option flex items-center gap-2.5 p-3 text-left"
-            >
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-red-500/15 text-red-700 dark:text-red-300">
-                <ArrowUpRight className="h-4 w-4" />
-              </span>
-              <div>
-                <span className="block text-sm font-bold">Debit</span>
-                <span className="block text-[11px] text-muted-foreground">Deduct funds</span>
-              </div>
-            </button>
-          </div>
-
           <div className="space-y-2">
             <Label htmlFor="admin-wallet-amount">Amount (₦)</Label>
             <div className="relative">
@@ -191,11 +155,7 @@ export const WalletAdjustDialog: React.FC<WalletAdjustDialogProps> = ({
             <Label htmlFor="admin-wallet-reason">Audit reason</Label>
             <Input
               id="admin-wallet-reason"
-              placeholder={
-                direction === "credit"
-                  ? "e.g. Manual settlement / reconciliation refund"
-                  : "e.g. Duplicate credit reversal"
-              }
+              placeholder="e.g. Duplicate credit reversal"
               value={reason}
               maxLength={400}
               onChange={(e) => setReason(e.target.value)}
@@ -237,9 +197,7 @@ export const WalletAdjustDialog: React.FC<WalletAdjustDialogProps> = ({
 interface IssuePenaltyDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  users: any[];
-  groups: any[];
-  presetUser?: any | null;
+  presetUser?: AdminEntity | null;
   presetAmlAlertId?: string | null;
   pending: boolean;
   onConfirm: (payload: {
@@ -247,7 +205,6 @@ interface IssuePenaltyDialogProps {
     amount: number;
     penaltyType: PenaltyType;
     reason: string;
-    deductWallet: boolean;
     groupId?: string | null;
     amlAlertId?: string | null;
   }) => Promise<void>;
@@ -256,218 +213,92 @@ interface IssuePenaltyDialogProps {
 export const IssuePenaltyDialog: React.FC<IssuePenaltyDialogProps> = ({
   open,
   onOpenChange,
-  users,
-  groups,
   presetUser,
   presetAmlAlertId,
   pending,
   onConfirm,
 }) => {
-  const [selectedUserId, setSelectedUserId] = useState("");
-  const [selectedGroupId, setSelectedGroupId] = useState("");
+  const [selectedUser, setSelectedUser] = useState<AdminEntity | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<AdminEntity | null>(null);
   const [penaltyType, setPenaltyType] = useState<PenaltyType>("policy_violation");
-  const [amount, setAmount] = useState("2500");
+  const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
 
   useEffect(() => {
-    if (open) {
-      setSelectedUserId(presetUser?.id || users[0]?.id || "");
-      setSelectedGroupId("");
-      setPenaltyType(presetAmlAlertId ? "aml_hold" : "policy_violation");
-      setAmount(presetAmlAlertId ? "10000" : "2500");
-      setReason("");
-    }
-  }, [open, presetUser?.id, presetAmlAlertId, users]);
+    if (!open) return;
+    setSelectedUser(null);
+    setSelectedGroup(null);
+    setPenaltyType(presetAmlAlertId ? "aml_hold" : "policy_violation");
+    setAmount("");
+    setReason("");
+  }, [open, presetUser?.id, presetAmlAlertId]);
 
-  const targetUser = users.find((u) => u.id === selectedUserId) || presetUser;
-  const numericAmount = Number(amount);
-  const walletBalance = Number(targetUser?.wallet_balance || 0);
-
-  const submit = async () => {
-    if (!selectedUserId || !Number.isFinite(numericAmount) || numericAmount <= 0 || !reason.trim()) {
-      return;
-    }
-    await onConfirm({
-      userId: selectedUserId,
-      amount: numericAmount,
-      penaltyType,
-      reason: reason.trim(),
-      deductWallet: false,
-      groupId: selectedGroupId || null,
-      amlAlertId: presetAmlAlertId || null,
-    });
-  };
+  const target = presetUser || selectedUser;
+  const validAmount = amount === "" || (/^\d+(?:\.\d{1,2})?$/.test(amount) && Number(amount) <= 9_999_999_999_999.99);
+  const canSubmit = Boolean(target && validAmount && reason.trim() && !pending);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[calc(100%-1.5rem)] max-h-[90dvh] max-w-lg overflow-y-auto rounded-2xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Gavel className="h-5 w-5 text-destructive" />
-            Issue Compliance Penalty
-          </DialogTitle>
+          <DialogTitle>Record a compliance notice</DialogTitle>
           <DialogDescription>
-            Record a formal fine, notify the user immediately, and optionally deduct from their wallet.
+            Notify the customer and document the issue in the audit log. Their wallet balance stays the same.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-1">
-          {/* User selector if not locked */}
+        <form className="space-y-4" onSubmit={(event) => {
+          event.preventDefault();
+          if (!target || !canSubmit) return;
+          void onConfirm({
+            userId: target.id,
+            amount: Number(amount || 0),
+            penaltyType,
+            reason: reason.trim(),
+            groupId: selectedGroup?.id,
+            amlAlertId: presetAmlAlertId,
+          });
+        }}>
           {presetUser ? (
-            <div className="flex items-center justify-between rounded-xl border bg-muted/40 px-3.5 py-2.5 text-sm">
-              <div>
-                <p className="font-semibold text-foreground">{presetUser.name || presetUser.email}</p>
-                <p className="text-xs text-muted-foreground">{presetUser.email}</p>
-              </div>
-              <span className="text-xs font-bold text-primary tabular-nums">
-                Bal: ₦{walletBalance.toLocaleString("en-NG")}
-              </span>
+            <div className="rounded-xl border bg-muted/40 p-3">
+              <p className="text-xs text-muted-foreground">Account</p>
+              <p className="break-words text-sm font-semibold">{presetUser.name}</p>
+              {presetUser.description && <p className="break-all text-xs text-muted-foreground">{presetUser.description}</p>}
             </div>
-          ) : (
-            <div className="space-y-2">
-              <Label>Target user</Label>
-              <div className="max-h-36 space-y-1.5 overflow-y-auto rounded-xl border p-2">
-                {users.slice(0, 40).map((u) => {
-                  const selected = u.id === selectedUserId;
-                  return (
-                    <button
-                      key={u.id}
-                      type="button"
-                      data-selected={selected}
-                      onClick={() => setSelectedUserId(u.id)}
-                      className="cp-tile-option flex w-full items-center justify-between px-3 py-2 text-left text-xs"
-                    >
-                      <span className="min-w-0 truncate font-semibold">
-                        {u.name || u.email}
-                      </span>
-                      <span className="ml-2 shrink-0 text-muted-foreground tabular-nums">
-                        ₦{Number(u.wallet_balance || 0).toLocaleString()}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+          ) : open && (
+            <AdminEntityPicker scope="account" label="Account" value={selectedUser} onChange={setSelectedUser} disabled={pending} />
           )}
 
-          {/* Custom Tactile Penalty Type Selector */}
           <div className="space-y-2">
-            <Label>Penalty category</Label>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {PENALTY_TYPE_OPTIONS.map((opt) => {
-                const selected = penaltyType === opt.value;
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    data-selected={selected}
-                    onClick={() => setPenaltyType(opt.value)}
-                    className="cp-tile-option flex items-start justify-between gap-2 p-3 text-left"
-                  >
-                    <div>
-                      <span className="block text-xs font-bold text-foreground">{opt.label}</span>
-                      <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">
-                        {opt.description}
-                      </span>
-                    </div>
-                    {selected && <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />}
-                  </button>
-                );
-              })}
-            </div>
+            <Label htmlFor="notice-category">Category</Label>
+            <select id="notice-category" className="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm"
+              value={penaltyType} onChange={event => setPenaltyType(event.target.value as PenaltyType)} disabled={pending}>
+              {PENALTY_TYPE_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
           </div>
 
-          {/* Optional Group Link */}
-          {groups.length > 0 && (
-            <div className="space-y-2">
-              <Label>Related group pool <span className="font-normal text-muted-foreground">· Optional</span></Label>
-              <div className="flex flex-wrap gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setSelectedGroupId("")}
-                  className={cn(
-                    "rounded-full border px-2.5 py-1 text-xs font-semibold",
-                    !selectedGroupId
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "bg-muted/40 text-muted-foreground hover:bg-accent"
-                  )}
-                >
-                  Account-level (none)
-                </button>
-                {groups.slice(0, 8).map((g) => (
-                  <button
-                    key={g.id}
-                    type="button"
-                    onClick={() => setSelectedGroupId(g.id)}
-                    className={cn(
-                      "max-w-[11rem] truncate rounded-full border px-2.5 py-1 text-xs font-semibold",
-                      selectedGroupId === g.id
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "bg-muted/40 text-muted-foreground hover:bg-accent"
-                    )}
-                  >
-                    {g.name}
-                  </button>
-                ))}
-              </div>
-            </div>
+          {open && !presetAmlAlertId && (
+            <AdminEntityPicker scope="group" label="Related group (optional)" value={selectedGroup} onChange={setSelectedGroup} disabled={pending} />
           )}
 
-          {/* Amount */}
           <div className="space-y-2">
-            <Label htmlFor="penalty-amount">Penalty amount (₦)</Label>
-            <div className="relative">
-              <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-destructive">
-                ₦
-              </span>
-              <Input
-                id="penalty-amount"
-                type="number"
-                inputMode="decimal"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="h-11 rounded-xl pl-8 font-bold tabular-nums"
-              />
-            </div>
+            <Label htmlFor="notice-reference-amount">Reference amount (₦, optional)</Label>
+            <Input id="notice-reference-amount" inputMode="decimal" value={amount} maxLength={16}
+              onChange={event => setAmount(event.target.value)} disabled={pending} />
+            <p className="text-xs text-muted-foreground">For recording the amount involved in the incident.</p>
           </div>
 
-          <p className="rounded-xl border bg-muted/30 p-3.5 text-sm text-muted-foreground">
-            The fine is recorded as pending. Submit any wallet debit through Wallet adjustments.
-          </p>
-
-          {/* Reason */}
           <div className="space-y-2">
-            <Label htmlFor="penalty-reason">Official reason (sent to user &amp; audit log)</Label>
-            <Textarea
-              id="penalty-reason"
-              rows={3}
-              placeholder="Explain the policy breach, late cycle, or AML finding clearly..."
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              className="rounded-xl"
-            />
+            <Label htmlFor="notice-reason">Message to the customer</Label>
+            <Textarea id="notice-reason" rows={3} value={reason} maxLength={1000} required
+              onChange={event => setReason(event.target.value)} disabled={pending} />
           </div>
-        </div>
 
-        <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl">
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={submit}
-            disabled={
-              pending ||
-              !selectedUserId ||
-              !Number.isFinite(numericAmount) ||
-              numericAmount <= 0 ||
-              !reason.trim()
-            }
-            className="rounded-xl"
-          >
-            {pending ? "Issuing…" : `Issue ₦${Number.isFinite(numericAmount) && numericAmount > 0 ? numericAmount.toLocaleString() : "0"} Penalty`}
-          </Button>
-        </DialogFooter>
+          <DialogFooter className="gap-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>Cancel</Button>
+            <Button type="submit" disabled={!canSubmit}>{pending ? "Recording…" : "Record notice"}</Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );
@@ -682,7 +513,7 @@ export const AmlReviewDialog: React.FC<AmlReviewDialogProps> = ({
               </p>
               <p className="text-muted-foreground">
                 Status: <strong className="capitalize text-foreground">{alert.user_profile?.status || "active"}</strong> ·{" "}
-                {alert.user_profile?.bvn ? "BVN on file" : "No BVN"}
+                {alert.user_profile?.has_bvn ? "BVN on file" : "No BVN"}
               </p>
             </div>
           </div>
@@ -739,7 +570,7 @@ export const AmlReviewDialog: React.FC<AmlReviewDialogProps> = ({
                 className="h-9 gap-1.5 rounded-xl text-xs"
               >
                 <Gavel className="h-3.5 w-3.5" />
-                Issue AML Penalty
+                Record compliance notice
               </Button>
             </div>
           )}
@@ -802,8 +633,7 @@ export const AmlReviewDialog: React.FC<AmlReviewDialogProps> = ({
 interface ManualAmlFlagDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  users: any[];
-  presetUser?: any | null;
+  presetUser?: AdminEntity | null;
   pending: boolean;
   onConfirm: (payload: {
     userId: string;
@@ -818,12 +648,12 @@ interface ManualAmlFlagDialogProps {
 export const ManualAmlFlagDialog: React.FC<ManualAmlFlagDialogProps> = ({
   open,
   onOpenChange,
-  users,
   presetUser,
   pending,
   onConfirm,
 }) => {
-  const [userId, setUserId] = useState("");
+  const [selectedUser, setSelectedUser] = useState<AdminEntity | null>(null);
+  const userId = (presetUser || selectedUser)?.id;
   const [severity, setSeverity] = useState<AmlAlertSeverity>("high");
   const [amount, setAmount] = useState("");
   const [title, setTitle] = useState("");
@@ -831,13 +661,13 @@ export const ManualAmlFlagDialog: React.FC<ManualAmlFlagDialogProps> = ({
 
   useEffect(() => {
     if (open) {
-      setUserId(presetUser?.id || users[0]?.id || "");
+      setSelectedUser(null);
       setSeverity("high");
       setAmount("");
       setTitle("");
       setDescription("");
     }
-  }, [open, presetUser?.id, users]);
+  }, [open, presetUser?.id]);
 
   const riskMap: Record<AmlAlertSeverity, number> = {
     low: 35,
@@ -848,7 +678,7 @@ export const ManualAmlFlagDialog: React.FC<ManualAmlFlagDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100%-1.5rem)] max-w-md rounded-2xl">
+      <DialogContent className="w-[calc(100%-1.5rem)] max-h-[90dvh] max-w-md overflow-y-auto rounded-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ShieldAlert className="h-5 w-5 text-amber-600" />
@@ -861,27 +691,9 @@ export const ManualAmlFlagDialog: React.FC<ManualAmlFlagDialogProps> = ({
 
         <div className="space-y-4 py-1">
           {presetUser ? (
-            <div className="rounded-xl border bg-muted/40 px-3.5 py-2.5 text-sm font-semibold">
-              {presetUser.name || presetUser.email}
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <Label>Account to flag</Label>
-              <div className="max-h-32 space-y-1 overflow-y-auto rounded-xl border p-2">
-                {users.slice(0, 30).map((u) => (
-                  <button
-                    key={u.id}
-                    type="button"
-                    data-selected={userId === u.id}
-                    onClick={() => setUserId(u.id)}
-                    className="cp-tile-option flex w-full items-center justify-between px-3 py-2 text-left text-xs"
-                  >
-                    <span className="truncate font-semibold">{u.name || u.email}</span>
-                    <span className="text-muted-foreground">{u.email}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
+            <p className="break-words rounded-xl border bg-muted/40 p-3 text-sm font-semibold">{presetUser.name}</p>
+          ) : open && (
+            <AdminEntityPicker scope="account" label="Account to flag" value={selectedUser} onChange={setSelectedUser} disabled={pending} />
           )}
 
           <div className="space-y-2">
@@ -952,7 +764,7 @@ export const ManualAmlFlagDialog: React.FC<ManualAmlFlagDialogProps> = ({
             disabled={pending || !userId || !title.trim() || !description.trim()}
             onClick={() =>
               onConfirm({
-                userId,
+                userId: userId!,
                 title: title.trim(),
                 description: description.trim(),
                 severity,
@@ -1301,90 +1113,6 @@ export const VerifyOrganizerDialog: React.FC<VerifyOrganizerDialogProps> = ({
             className="rounded-xl font-bold"
           >
             {pending ? "Saving…" : isVerified ? "Grant Verified Badge" : "Remove Verified Badge"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-};
-
-/* ============================================================================
- * 8. UNLINK / REMOVE USER BVN DIALOG
- * ========================================================================== */
-interface RemoveBvnDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  user: any | null;
-  pending: boolean;
-  onConfirm: (payload: { userId: string; reason: string }) => Promise<void>;
-}
-
-export const RemoveBvnDialog: React.FC<RemoveBvnDialogProps> = ({
-  open,
-  onOpenChange,
-  user,
-  pending,
-  onConfirm,
-}) => {
-  const [reason, setReason] = useState("");
-
-  useEffect(() => {
-    if (open) {
-      setReason("");
-    }
-  }, [open, user?.id]);
-
-  if (!user) return null;
-
-  const last4 = String(user.bvn || "").trim().slice(-4);
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100%-1.5rem)] max-w-md rounded-2xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-destructive">
-            <ShieldAlert className="h-5 w-5" />
-            Unlink User BVN
-          </DialogTitle>
-          <DialogDescription>
-            Remove the linked BVN ending in{" "}
-            <strong className="font-mono text-foreground">***{last4}</strong> from{" "}
-            <strong className="text-foreground">{user.name || user.email}</strong>. They will need to re-verify a valid 11-digit BVN before creating new groups.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-3 py-1">
-          <div className="space-y-1.5">
-            <Label htmlFor="remove-bvn-reason" className="text-xs font-semibold">
-              Reason (logged to audit trail &amp; sent to user)
-            </Label>
-            <Textarea
-              id="remove-bvn-reason"
-              rows={2}
-              placeholder="e.g. User submitted wrong BVN digits and requested KYC reset"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              className="rounded-xl"
-            />
-          </div>
-        </div>
-
-        <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl">
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            disabled={pending}
-            onClick={() =>
-              onConfirm({
-                userId: user.id,
-                reason: reason.trim() || "BVN unlinked by Super Admin for KYC reset",
-              })
-            }
-            className="rounded-xl font-bold"
-          >
-            {pending ? "Unlinking…" : "Unlink BVN"}
           </Button>
         </DialogFooter>
       </DialogContent>

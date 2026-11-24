@@ -132,7 +132,7 @@ const normalizeStatus = (status?: string) => {
     };
   }
   return {
-    label: s === "new" || s === "initiated" ? "Processing" : "Pending",
+    label: s === "unknown" ? "Unknown" : s === "new" || s === "initiated" ? "Processing" : "Pending",
     tone: "pending" as const,
     pillClass: "bg-amber-300/20 text-amber-100 border border-amber-200/30",
     icon: Clock,

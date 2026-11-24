@@ -30,9 +30,9 @@ import {
   type PaymentGatewaySettings,
 } from "@/services/supabase/adminComplianceService";
 import { cn } from "@/lib/utils";
+import { supabaseUrl } from "@/integrations/supabase/client";
 
-const DEFAULT_WEBHOOK_URL =
-  "https://sivvjwffekhfabgxhbcd.supabase.co/functions/v1/webhook-contribution";
+const DEFAULT_WEBHOOK_URL = supabaseUrl.replace(/\/+$/, "") + "/functions/v1/webhook-contribution";
 
 interface AdminPaymentSettingsProps {
   onSettingsSaved?: () => void;
@@ -57,8 +57,8 @@ export const AdminPaymentSettings: React.FC<AdminPaymentSettingsProps> = ({
   const [webhookUrl, setWebhookUrl] = useState(DEFAULT_WEBHOOK_URL);
   const [staticIpProxyUrl, setStaticIpProxyUrl] = useState("");
   const [staticIpProxySecret, setStaticIpProxySecret] = useState("");
-  const [staticIpAddress, setStaticIpAddress] = useState("2.25.15.1");
-  const [transfersEnabled, setTransfersEnabled] = useState(true);
+  const [staticIpAddress, setStaticIpAddress] = useState("");
+  const [transfersEnabled, setTransfersEnabled] = useState(false);
 
   const [showSecret, setShowSecret] = useState(false);
   const [showEncryption, setShowEncryption] = useState(false);
@@ -87,8 +87,8 @@ export const AdminPaymentSettings: React.FC<AdminPaymentSettingsProps> = ({
         setPublicKey(res.data.flutterwave_public_key || "");
         setWebhookUrl(res.data.webhook_url || DEFAULT_WEBHOOK_URL);
         setStaticIpProxyUrl(res.data.static_ip_proxy_url || "");
-        setStaticIpAddress(res.data.static_ip_address || "2.25.15.1");
-        setTransfersEnabled(res.data.transfers_enabled !== false);
+        setStaticIpAddress(res.data.static_ip_address || "");
+        setTransfersEnabled(res.data.transfers_enabled === true);
         setSecretKey("");
         setEncryptionKey("");
         setWebhookHash("");
@@ -121,9 +121,9 @@ export const AdminPaymentSettings: React.FC<AdminPaymentSettingsProps> = ({
 
   const handleCopyStaticIp = async () => {
     try {
-      await navigator.clipboard.writeText(staticIpAddress || "2.25.15.1");
+      await navigator.clipboard.writeText(staticIpAddress.trim());
       setCopiedIp(true);
-      toast.success(`Static IP ${staticIpAddress || "2.25.15.1"} copied!`);
+      toast.success("Static IP copied");
       setTimeout(() => setCopiedIp(false), 2000);
     } catch {
       toast.error("Could not copy Static IP");
@@ -142,7 +142,7 @@ export const AdminPaymentSettings: React.FC<AdminPaymentSettingsProps> = ({
         encryptionKey: encryptionKey.trim() || undefined,
         webhookHash: webhookHash.trim() || undefined,
         staticIpProxySecret: staticIpProxySecret.trim() || undefined,
-        staticIpAddress: staticIpAddress.trim() || "2.25.15.1",
+        staticIpAddress: staticIpAddress.trim() || undefined,
         transfersEnabled,
       });
 
@@ -173,7 +173,7 @@ export const AdminPaymentSettings: React.FC<AdminPaymentSettingsProps> = ({
       if (res.success) {
         setRelayTestResult({
           success: true,
-          message: `Static-IP Relay Online · Egress IP ${res.staticIp || staticIpAddress} (${res.latencyMs}ms)`,
+          message: `Static-IP relay online · ${res.staticIp ? "Egress IP " + res.staticIp : "Egress IP unavailable"} (${res.latencyMs}ms)`,
           meta: `Endpoint: ${res.url || staticIpProxyUrl}`,
         });
         toast.success("Static-IP Relay is online and ready!");
@@ -201,7 +201,7 @@ export const AdminPaymentSettings: React.FC<AdminPaymentSettingsProps> = ({
           message: `Connected to Flutterwave (${res.bankCount ?? 0} Nigerian banks loaded in ${res.latencyMs}ms)`,
           meta: `Mode: ${(res.mode || mode).toUpperCase()} · Routing: ${
             res.routedViaStaticIp
-              ? `Static-IP Relay (${res.staticIpAddress || staticIpAddress})`
+              ? `Static-IP relay${res.staticIpAddress ? " (" + res.staticIpAddress + ")" : ""}`
               : "Direct Edge Function"
           }`,
         });
@@ -228,6 +228,14 @@ export const AdminPaymentSettings: React.FC<AdminPaymentSettingsProps> = ({
           submessage="Fetching encrypted gateway & Static-IP Relay status…"
         />
       </div>
+    );
+  }
+  if (!savedMeta) {
+    return (
+      <section className="cp-card-native space-y-3 p-5">
+        <h2 className="font-semibold">Gateway settings unavailable</h2>
+        <Button variant="outline" onClick={() => void loadSettings()}>Retry loading settings</Button>
+      </section>
     );
   }
 
@@ -267,7 +275,7 @@ export const AdminPaymentSettings: React.FC<AdminPaymentSettingsProps> = ({
               {savedMeta?.static_ip_proxy_url && savedMeta?.has_proxy_secret && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/12 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
                   <Server className="h-3 w-3" />
-                  Static IP {savedMeta.static_ip_address || "2.25.15.1"} Active
+                  Relay configured{savedMeta.static_ip_address ? " · " + savedMeta.static_ip_address : ""}
                 </span>
               )}
             </div>
@@ -598,7 +606,7 @@ export const AdminPaymentSettings: React.FC<AdminPaymentSettingsProps> = ({
                 <Input
                   id="flw-relay-url"
                   type="text"
-                  placeholder="https://2-25-15-1.sslip.io"
+                  placeholder="Relay endpoint unavailable"
                   value={staticIpProxyUrl}
                   readOnly
                   className="h-11 rounded-xl font-mono text-xs"
@@ -687,17 +695,16 @@ export const AdminPaymentSettings: React.FC<AdminPaymentSettingsProps> = ({
               <Button
                 type="button"
                 onClick={handleCopyStaticIp}
+                disabled={!staticIpAddress.trim()}
                 className="h-11 shrink-0 gap-1.5 rounded-xl px-4 font-bold"
               >
                 {copiedIp ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 {copiedIp ? "Copied" : "Copy IP"}
               </Button>
             </div>
-            <p className="text-[11px] leading-relaxed text-muted-foreground">
-              All outbound <strong>Send Money</strong> bank transfers are routed through your Ubuntu VPS at{" "}
-              <strong className="font-mono text-foreground">{staticIpAddress || "2.25.15.1"}</strong>{" "}
-              so Flutterwave approves live payouts reliably.
-            </p>
+            {staticIpAddress && <p className="text-[11px] leading-relaxed text-muted-foreground">
+              Configured relay IP <strong className="font-mono text-foreground">{staticIpAddress}</strong>
+            </p>}
           </div>
 
           <div className="cp-card-native space-y-3 p-5">
@@ -759,8 +766,7 @@ export const AdminPaymentSettings: React.FC<AdminPaymentSettingsProps> = ({
                   2
                 </span>
                 <span>
-                  In Flutterwave → <strong className="text-foreground">Settings → Whitelisted IP Addresses</strong>, add{" "}
-                  <strong className="font-mono text-foreground">{staticIpAddress || "2.25.15.1"}</strong> to unlock live Send Money transfers.
+                  Add your configured relay IP to Flutterwave’s <strong className="text-foreground">Whitelisted IP Addresses</strong>.
                 </span>
               </li>
               <li className="flex gap-2.5">

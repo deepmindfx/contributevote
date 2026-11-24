@@ -537,11 +537,8 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
     await Promise.allSettled([
       refreshCurrentUser(),
       fetchNotificationsForUser(id),
-      user.role === 'admin' && (user.status ?? 'active') === 'active' && UserService.getUsers().then((profiles) => {
-        if (sessionOwner.current === id) setUsers(profiles);
-      }, (error) => console.error('Error loading admin users:', error)),
     ]);
-  }, [user?.id, user?.role, refreshCurrentUser, fetchNotificationsForUser]);
+  }, [user?.id, refreshCurrentUser, fetchNotificationsForUser]);
 
   // Proper Supabase Auth signIn
   const signIn = async (email: string, password: string) => {
@@ -662,8 +659,7 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
   };
 
   const getUserByPhone = async (phone: string) => {
-    const allUsers = await UserService.getUsers();
-    return allUsers.find((u) => u.phone === phone) || null;
+    return UserService.getUserByPhone(phone);
   };
 
   const verifyUser = async (userId: string) => {

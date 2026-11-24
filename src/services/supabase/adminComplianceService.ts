@@ -28,7 +28,7 @@ export interface AmlAlertRecord {
   resolved_at: string | null;
   created_at: string;
   updated_at: string;
-  user_profile?: { name: string | null; email: string | null; status: string | null; bvn: string | null } | null;
+  user_profile?: { name: string | null; email: string | null; status: string | null; has_bvn: boolean } | null;
   group?: { name: string | null; status: string | null } | null;
 }
 
@@ -131,94 +131,15 @@ export const ORGANIZER_BADGE_PRESETS = [
   "Verified Community",
 ] as const;
 
-export const PENALTY_TYPE_OPTIONS: { value: PenaltyType; label: string; description: string }[] = [
-  {
-    value: "late_contribution",
-    label: "Late Contribution Fee",
-    description: "Missed scheduled contribution deadline in a pool",
-  },
-  {
-    value: "policy_violation",
-    label: "Policy Violation",
-    description: "Breach of CollectiPay platform or group governance terms",
-  },
-  {
-    value: "aml_hold",
-    label: "AML / Compliance Fine",
-    description: "Regulatory or anti-money laundering compliance breach",
-  },
-  {
-    value: "fraud_chargeback",
-    label: "Fraud / Chargeback Recovery",
-    description: "Recovery for disputed, reversed, or fraudulent activity",
-  },
-  {
-    value: "dispute_fine",
-    label: "Dispute Settlement Fine",
-    description: "Administrative penalty from a resolved member dispute",
-  },
+export const PENALTY_TYPE_OPTIONS: { value: PenaltyType; label: string }[] = [
+  { value: "late_contribution", label: "Missed contribution" },
+  { value: "policy_violation", label: "Policy issue" },
+  { value: "aml_hold", label: "AML review" },
+  { value: "fraud_chargeback", label: "Fraud or chargeback" },
+  { value: "dispute_fine", label: "Dispute outcome" },
 ];
 
 export const AdminComplianceService = {
-  async getAmlAlerts(): Promise<AmlAlertRecord[]> {
-    const { data, error } = await (supabase as any)
-      .from("aml_alerts")
-      .select(`
-        *,
-        user_profile:profiles!aml_alerts_user_id_fkey(name, email, status, bvn),
-        group:contribution_groups!aml_alerts_group_id_fkey(name, status)
-      `)
-      .order("created_at", { ascending: false })
-      .limit(150);
-
-    if (error) throw error;
-    return (data || []) as AmlAlertRecord[];
-  },
-
-  async getPenalties(): Promise<AdminPenaltyRecord[]> {
-    const { data, error } = await (supabase as any)
-      .from("admin_penalties")
-      .select(`
-        *,
-        user_profile:profiles!admin_penalties_user_id_fkey(name, email),
-        group:contribution_groups!admin_penalties_group_id_fkey(name)
-      `)
-      .order("created_at", { ascending: false })
-      .limit(150);
-
-    if (error) throw error;
-    return (data || []) as AdminPenaltyRecord[];
-  },
-
-  async getAuditLogs(): Promise<AdminAuditLogRecord[]> {
-    const { data, error } = await (supabase as any)
-      .from("admin_audit_logs")
-      .select(`
-        *,
-        admin_profile:profiles!admin_audit_logs_admin_id_fkey(name, email)
-      `)
-      .order("created_at", { ascending: false })
-      .limit(200);
-
-    if (error) throw error;
-    return (data || []) as AdminAuditLogRecord[];
-  },
-
-  async getExternalPayments(): Promise<ExternalPaymentTrackRecord[]> {
-    const { data, error } = await (supabase as any)
-      .from("external_payment_tracks")
-      .select(`
-        *,
-        user_profile:profiles!external_payment_tracks_user_id_fkey(name, email),
-        group:contribution_groups!external_payment_tracks_group_id_fkey(name)
-      `)
-      .order("created_at", { ascending: false })
-      .limit(150);
-
-    if (error) throw error;
-    return (data || []) as ExternalPaymentTrackRecord[];
-  },
-
   async reviewExternalPayment(
     trackId: string,
     status: "unverified" | "verified" | "flagged" | "blocked",
@@ -280,7 +201,6 @@ export const AdminComplianceService = {
     amount: number;
     penaltyType: PenaltyType;
     reason: string;
-    deductWallet: boolean;
     groupId?: string | null;
     amlAlertId?: string | null;
   }): Promise<{
@@ -295,7 +215,7 @@ export const AdminComplianceService = {
       p_amount: payload.amount,
       p_penalty_type: payload.penaltyType,
       p_reason: payload.reason,
-      p_deduct_wallet: payload.deductWallet,
+      p_deduct_wallet: false,
       p_group_id: payload.groupId || null,
       p_aml_alert_id: payload.amlAlertId || null,
     });
@@ -305,13 +225,12 @@ export const AdminComplianceService = {
 
   async waivePenalty(
     penaltyId: string,
-    refundWallet = true,
     note?: string
   ): Promise<{ success: boolean; refunded?: boolean; error?: string }> {
     const { data, error } = await (supabase as any).rpc("admin_waive_penalty", {
       p_penalty_id: penaltyId,
-      p_refund_wallet: refundWallet,
-      p_note: note || "Waived by administrator",
+      p_refund_wallet: false,
+      p_note: note || "Closed by administrator",
     });
     if (error) throw error;
     return data;
@@ -320,7 +239,6 @@ export const AdminComplianceService = {
   async requestWalletAdjustment(payload: {
     userId: string;
     amount: number;
-    direction: "credit" | "debit";
     reason: string;
     caseReference: string;
     pin: string;
@@ -328,7 +246,7 @@ export const AdminComplianceService = {
     const { data, error } = await supabase.rpc("admin_request_wallet_adjustment", {
       p_user_id: payload.userId,
       p_amount: payload.amount,
-      p_direction: payload.direction,
+      p_direction: "debit",
       p_reason: payload.reason,
       p_case_reference: payload.caseReference,
       p_pin: payload.pin,
@@ -419,18 +337,6 @@ export const AdminComplianceService = {
       p_is_verified: payload.isVerified,
       p_badge_label: payload.badgeLabel || "Verified Crowdfunder",
       p_apply_to_groups: payload.applyToGroups !== false,
-    });
-    if (error) throw error;
-    return data;
-  },
-
-  async removeUserBvn(
-    userId: string,
-    reason?: string
-  ): Promise<{ success: boolean; removed_bvn_last4?: string; message?: string; error?: string }> {
-    const { data, error } = await (supabase as any).rpc("admin_remove_user_bvn", {
-      p_user_id: userId,
-      p_reason: reason?.trim() || null,
     });
     if (error) throw error;
     return data;

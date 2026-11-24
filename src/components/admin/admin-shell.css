@@ -117,31 +117,6 @@
   padding-inline: .15rem;
 }
 
-.admin-nav-count {
-  flex-shrink: 0;
-  border-radius: 1rem;
-  padding: .12rem .4rem;
-  background: #56462f;
-  color: #ffe1a4;
-  font-size: .66rem;
-  font-variant-numeric: tabular-nums;
-}
-
-.admin-nav-count--dot {
-  position: absolute;
-  inset: .38rem .42rem auto auto;
-  width: .4rem;
-  height: .4rem;
-  padding: 0;
-  background: #edba65;
-}
-
-.admin-rail-footer {
-  flex-shrink: 0;
-  border-top: 1px solid var(--admin-rail-line);
-  padding: .65rem .6rem;
-}
-
 .admin-topbar {
   position: sticky;
   z-index: 20;

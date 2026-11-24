@@ -139,9 +139,7 @@ const AdminRoute = ({ children }: { children: ReactNode }) => {
   if (loading) return <RouteSkeleton />;
   if (sessionUnavailable) return <SessionRecovery />;
   
-  if (!isAuthenticated) {
-    return <Navigate to="/admin-login" replace />;
-  }
+  if (!isAuthenticated) return <main className="min-h-dvh bg-background" aria-label="Page unavailable" />;
   
   if (!isAdmin || access.data === false) {
     return <Navigate to="/dashboard" replace />;
@@ -154,7 +152,7 @@ const AdminRoute = ({ children }: { children: ReactNode }) => {
           <p className="text-sm text-muted-foreground">Connect to CollectiPay to open the admin workspace.</p>
           <div className="flex flex-wrap gap-2">
             <Button disabled={access.isFetching} onClick={() => void access.refetch()}>{access.isFetching ? "Checking…" : "Check access"}</Button>
-            <Button asChild variant="outline"><Link to="/dashboard">Return to wallet</Link></Button>
+            <Button asChild variant="outline"><Link to="/">Leave workspace</Link></Button>
           </div>
         </section>
       </main>
@@ -192,7 +190,7 @@ const AppRoutes = () => {
   const navType = useNavigationType();
   const normalizedPath = pathname.replace(/\/$/, "") || "/";
   const workspaceLink = getWorkspaceLink(pathname);
-  const isWorkspace = isAuthenticated && Boolean(workspaceLink && workspaceLink.to !== "/admin");
+  const isWorkspace = isAuthenticated && !isAdmin && Boolean(workspaceLink && workspaceLink.to !== "/admin");
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -220,7 +218,8 @@ const AppRoutes = () => {
     <Routes>
       <Route path="/" element={<screens.index />} />
       <Route path="/auth" element={<screens.auth />} />
-      <Route path="/admin-login" element={<screens.adminAuth />} />
+      <Route path="/admin-login" element={<main className="min-h-dvh bg-background" aria-label="Page unavailable" />} />
+      <Route path="/staff-entry" element={<screens.staffEntry />} />
       <Route path="/discover" element={<screens.discover />} />
       <Route path="/faq" element={<screens.faq />} />
       <Route path="/support" element={<ProtectedRoute><screens.support /></ProtectedRoute>} />
