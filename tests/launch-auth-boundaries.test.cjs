@@ -23,6 +23,21 @@ test("post-login navigation preserves an internal destination and rejects extern
   assert.equal(safeReturnPath("/groups/../settings", origin), "/settings");
 });
 
+test("revoked admin access clears privileged query scopes without clearing customer views", () => {
+  const { isAdminQueryKey } = load("src/lib/adminQueries.ts");
+  const adminKeys = [
+    ["admin-operations-overview", "user"], ["admin-governance", "user"],
+    ["workspace", "user", "admin-bulk"], ["workspace", "user", "admin-inbound-review"],
+    ["workspace", "user", "ice-vault-admin"], ["support", "user", true, "thread", "ticket"],
+  ];
+  const customerKeys = [
+    ["workspace", "user", "transactions"], ["workspace", "user", "ice-vault"],
+    ["support", "user", false, "thread", "ticket"], ["public-banks"],
+  ];
+  assert.ok(adminKeys.every(isAdminQueryKey));
+  assert.ok(customerKeys.every(key => !isAdminQueryKey(key)));
+});
+
 test("virtual-account history is only fetched for the authenticated user's linked references", async () => {
   let fetches = 0;
   let earnedAuth = true;

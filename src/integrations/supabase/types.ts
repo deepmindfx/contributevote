@@ -1394,6 +1394,18 @@ export type Database = {
         Args: { p_approve: boolean; p_pin: string; p_request_id: string }
         Returns: Json
       }
+      admin_list_governance_proposals: {
+        Args: {
+          p_filter?: string
+          p_kind?: string
+          p_search?: string
+          p_before_created_at?: string
+          p_before_id?: string
+          p_before_kind?: string
+        }
+        Returns: Json
+      }
+      admin_operations_overview: { Args: never; Returns: Json }
       admin_deposit_to_user: {
         Args: {
           p_amount: number

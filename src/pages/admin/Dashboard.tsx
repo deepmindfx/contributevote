@@ -1,30 +1,24 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
-  Activity,
   AlertTriangle,
   Archive,
   ArrowDownLeft,
   ArrowUpRight,
   BadgeCheck,
-  BarChart3,
   Ban,
   Building2,
   CheckCircle2,
-  ClipboardList,
   ExternalLink,
   Flag,
   Flame,
   Gavel,
   Globe,
-  Globe2,
-  KeyRound,
   Layers,
   Lock,
   Pin,
   Play,
   ReceiptText,
-  RefreshCw,
   ScanSearch,
   Search,
   ShieldAlert,
@@ -37,15 +31,13 @@ import {
 } from "lucide-react";
 import { format, isValid } from "date-fns";
 import { toast } from "sonner";
-import Header from "@/components/layout/Header";
-import BrandLoader, { CollectiPayMark } from "@/components/ui/BrandLoader";
+import BrandLoader from "@/components/ui/BrandLoader";
 import CategoryIcon from "@/components/ui/CategoryIcon";
 import CollectiPayReceipt, { type CollectiPayReceiptData } from "@/components/receipt/CollectiPayReceipt";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -55,7 +47,6 @@ import {
   AdminComplianceService,
   type AdminAuditLogRecord,
   type AdminPenaltyRecord,
-  type AdminWithdrawalRecord,
   type AmlAlertRecord,
   type AmlAlertSeverity,
   type AmlAlertStatus,
@@ -84,6 +75,9 @@ import { AdminWalletBankBonus } from "@/components/admin/AdminWalletBankBonus";
 import { AdminWalletAdjustments, WALLET_ADJUSTMENTS_QUERY } from "@/components/admin/AdminWalletAdjustments";
 import { useQueryClient } from "@tanstack/react-query";
 import { AdminIceVault } from "@/components/admin/AdminIceVault";
+import { AdminGroupGovernance } from "@/components/admin/AdminGroupGovernance";
+import { AdminOperationsOverview } from "@/components/admin/AdminOperationsOverview";
+import { AdminShell, resolveAdminSection, type AdminSection } from "@/components/admin/AdminShell";
 import { SupportInbox } from "@/components/support/SupportInbox";
 import { hasTransactionPin } from "@/lib/transactionPin";
 import {
@@ -91,8 +85,18 @@ import {
   VerifiedCrowdfunderBadge,
 } from "@/components/contribution/VerifiedCrowdfunderBadge";
 import { cn } from "@/lib/utils";
+import { isAdminQueryKey } from "@/lib/adminQueries";
 
 const HIGH_VALUE_THRESHOLD = 500000;
+
+function AdminView({ active, value, className, children }: {
+  active: AdminSection;
+  value: AdminSection;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return active === value ? <div className={className}>{children}</div> : null;
+}
 
 const safeFormatDate = (dateStr?: string | null, fmt = "MMM d, yyyy · h:mm a") => {
   if (!dateStr) return "N/A";
@@ -132,9 +136,18 @@ const amlStatusBadgeStyle = (status: AmlAlertStatus) => {
 };
 
 const AdminDashboard = () => {
-  const { users, user, refreshUserData } = useSupabaseUser();
+  const { users, user, refreshUserData, logout } = useSupabaseUser();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const activeTab = resolveAdminSection(searchParams.get("tab"));
+  const sectionHref = (section: AdminSection) => {
+    const params = new URLSearchParams(searchParams);
+    if (section === "operations") params.delete("tab");
+    else params.set("tab", section);
+    const search = params.toString();
+    return search ? "/admin?" + search : "/admin";
+  };
 
   // Platform datasets
   const [supportTicket, setSupportTicket] = useState<string | null>(null);
@@ -143,7 +156,6 @@ const AdminDashboard = () => {
   const [amlAlerts, setAmlAlerts] = useState<AmlAlertRecord[]>([]);
   const [penalties, setPenalties] = useState<AdminPenaltyRecord[]>([]);
   const [auditLogs, setAuditLogs] = useState<AdminAuditLogRecord[]>([]);
-  const [withdrawals, setWithdrawals] = useState<AdminWithdrawalRecord[]>([]);
   const [externalPayments, setExternalPayments] = useState<ExternalPaymentTrackRecord[]>([]);
   const [extFilter, setExtFilter] = useState<"all" | "unverified" | "flagged" | "blocked" | "verified">("all");
   const [extQuery, setExtQuery] = useState("");
@@ -164,6 +176,7 @@ const AdminDashboard = () => {
   const [amlSeverityFilter, setAmlSeverityFilter] = useState<"all" | AmlAlertSeverity>("all");
   const [penaltyFilter, setPenaltyFilter] = useState<"all" | "applied" | "pending" | "waived">("all");
   const [txQuery, setTxQuery] = useState("");
+  const [findingReference, setFindingReference] = useState(false);
   const [txTypeFilter, setTxTypeFilter] = useState<string>("all");
   const [highValueOnly, setHighValueOnly] = useState(false);
   const [auditQuery, setAuditQuery] = useState("");
@@ -190,13 +203,12 @@ const AdminDashboard = () => {
   const loadPlatformData = useCallback(async () => {
     setLoadingPlatformData(true);
     try {
-      const [groupsRes, txRes, alertsRes, penaltiesRes, logsRes, wdRes, extRes] = await Promise.allSettled([
+      const [groupsRes, txRes, alertsRes, penaltiesRes, logsRes, extRes] = await Promise.allSettled([
         ContributionService.getContributionGroups(),
         TransactionService.getTransactions(),
         AdminComplianceService.getAmlAlerts(),
         AdminComplianceService.getPenalties(),
         AdminComplianceService.getAuditLogs(),
-        AdminComplianceService.getPendingWithdrawals(),
         AdminComplianceService.getExternalPayments(),
         refreshUserData(),
       ]);
@@ -206,7 +218,6 @@ const AdminDashboard = () => {
       if (alertsRes.status === "fulfilled") setAmlAlerts(alertsRes.value || []);
       if (penaltiesRes.status === "fulfilled") setPenalties(penaltiesRes.value || []);
       if (logsRes.status === "fulfilled") setAuditLogs(logsRes.value || []);
-      if (wdRes.status === "fulfilled") setWithdrawals(wdRes.value || []);
       if (extRes.status === "fulfilled") setExternalPayments(extRes.value || []);
     } catch (error) {
       console.error("Error loading admin command center:", error);
@@ -262,10 +273,6 @@ const AdminDashboard = () => {
   const bvnVerifiedCount = useMemo(
     () => users.filter((u) => u.bvn && String(u.bvn).trim().length >= 11).length,
     [users]
-  );
-  const pendingWithdrawalsCount = useMemo(
-    () => withdrawals.filter((w) => w.status === "pending").length,
-    [withdrawals]
   );
   const activePenaltiesSum = useMemo(
     () =>
@@ -740,6 +747,47 @@ const AdminDashboard = () => {
     });
   };
 
+  const findLedgerReference = async () => {
+    const reference = txQuery.trim();
+    if (!reference || findingReference) return;
+    setFindingReference(true);
+    try {
+      const transaction = await TransactionService.getTransactionByReference(reference);
+      if (!transaction) {
+        toast.error("No transaction found for that exact reference.");
+        return;
+      }
+      openTransactionReceipt(transaction);
+    } catch {
+      toast.error("Couldn’t look up that reference. Try again.");
+    } finally {
+      setFindingReference(false);
+    }
+  };
+
+  const refreshAdmin = () => {
+    void loadPlatformData();
+    void queryClient.invalidateQueries({
+      predicate: ({ queryKey }) => queryKey[0] !== "admin-access" && isAdminQueryKey(queryKey),
+      refetchType: "active",
+    });
+  };
+
+  const sectionActions = activeTab === "aml" ? (
+    <>
+      <Button onClick={() => void handleRunAmlScan()} disabled={Boolean(overlayState)}>
+        <ScanSearch aria-hidden="true" /> Run AML scan
+      </Button>
+      <Button variant="outline" onClick={() => setManualFlagState({ open: true, user: null })}>
+        <Flag aria-hidden="true" /> Flag activity
+      </Button>
+    </>
+  ) : activeTab === "penalties" ? (
+    <Button onClick={() => setPenaltyDialogState({ open: true, user: null, amlAlertId: null })}>
+      <Gavel aria-hidden="true" /> Issue penalty
+    </Button>
+  ) : undefined;
+
   return (
     <div className="min-h-dvh bg-background">
       {overlayState && (
@@ -750,235 +798,50 @@ const AdminDashboard = () => {
         />
       )}
 
-      <Header mobilePanel />
-
-      <main className="app-page app-panel-page cp-page-enter max-w-7xl">
-        {/* Deep-Emerald Super Admin Command Center Hero */}
-        <section className="app-panel-hero" aria-labelledby="super-admin-heading">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-start gap-3.5">
-              <div className="mt-0.5 shrink-0 rounded-2xl bg-white/10 p-1.5 backdrop-blur-sm">
-                <CollectiPayMark size={38} />
-              </div>
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-[#dbf5b4] px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider text-[#0c3027]">
-                    <ShieldCheck className="h-3.5 w-3.5" />
-                    Super Admin
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-0.5 text-[11px] font-semibold text-[#d7f5e5]">
-                    <span className="h-1.5 w-1.5 rounded-full bg-[#dbf5b4]" />
-                    Live Fintech &amp; AML Ops
-                  </span>
-                </div>
-                <h1 id="super-admin-heading" className="app-page-title mt-2">
-                  Command Center
-                </h1>
-                <p className="panel-kicker mt-1 text-sm">
-                  Monitor AML risk signals, enforce compliance penalties, govern pools, and audit ledger activity.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <Button
-                onClick={handleRunAmlScan}
-                disabled={Boolean(overlayState)}
-                className="app-panel-primary h-11 gap-2 rounded-xl font-bold shadow-sm"
-              >
-                <ScanSearch className="h-4 w-4" />
-                Run AML Scan
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => setManualFlagState({ open: true, user: null })}
-                className="app-panel-secondary h-11 gap-1.5 rounded-xl font-semibold"
-              >
-                <Flag className="h-4 w-4" />
-                Manual Flag
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => setPenaltyDialogState({ open: true, user: null, amlAlertId: null })}
-                className="app-panel-secondary h-11 gap-1.5 rounded-xl font-semibold"
-              >
-                <Gavel className="h-4 w-4" />
-                Issue Penalty
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={loadPlatformData}
-                disabled={loadingPlatformData}
-                className="app-panel-secondary h-11 w-11 rounded-xl"
-                aria-label="Refresh platform data"
-              >
-                <RefreshCw className={cn("h-4 w-4", loadingPlatformData && "animate-spin")} />
-              </Button>
-            </div>
-          </div>
-
-          {/* 4 Executive Fintech KPI Tiles */}
-          <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <div className="rounded-2xl border border-white/15 bg-white/[0.08] p-4 backdrop-blur-sm">
-              <div className="flex items-center justify-between text-xs text-[#c2e4d4]">
-                <span>Platform Users</span>
-                <Users className="h-4 w-4 text-[#dbf5b4]" />
-              </div>
-              <p className="mt-1.5 text-2xl font-extrabold tabular-nums text-white sm:text-3xl">
-                {users.length.toLocaleString()}
-              </p>
-              <p className="mt-1 text-[11px] text-[#bfe3d2]">
-                {bvnVerifiedCount} BVN verified · {restrictedUsersCount} restricted
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-white/15 bg-white/[0.08] p-4 backdrop-blur-sm">
-              <div className="flex items-center justify-between text-xs text-[#c2e4d4]">
-                <span>Group Liquidity</span>
-                <Layers className="h-4 w-4 text-[#dbf5b4]" />
-              </div>
-              <p className="mt-1.5 truncate text-2xl font-extrabold tabular-nums text-[#dbf5b4] sm:text-3xl">
-                {formatNaira(totalGroupLiquidity)}
-              </p>
-              <p className="mt-1 text-[11px] text-[#bfe3d2]">
-                {allGroups.length} pools · {pendingWithdrawalsCount} pending votes
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-white/15 bg-white/[0.08] p-4 backdrop-blur-sm">
-              <div className="flex items-center justify-between text-xs text-[#c2e4d4]">
-                <span>Wallet Float</span>
-                <Wallet className="h-4 w-4 text-[#dbf5b4]" />
-              </div>
-              <p className="mt-1.5 truncate text-2xl font-extrabold tabular-nums text-white sm:text-3xl">
-                {formatNaira(totalWalletFloat)}
-              </p>
-              <p className="mt-1 text-[11px] text-[#bfe3d2]">
-                {allTransactions.length.toLocaleString()} ledger entries
-              </p>
-            </div>
-
-            <div
-              className={cn(
-                "rounded-2xl border p-4 backdrop-blur-sm",
-                activeAmlAlerts.length > 0
-                  ? "border-amber-300/45 bg-amber-400/15"
-                  : "border-white/15 bg-white/[0.08]"
-              )}
-            >
-              <div className="flex items-center justify-between text-xs text-[#f6efd4]">
-                <span>AML &amp; Compliance</span>
-                <ShieldAlert className="h-4 w-4 text-amber-200" />
-              </div>
-              <p className="mt-1.5 text-2xl font-extrabold tabular-nums text-white sm:text-3xl">
-                {activeAmlAlerts.length}
-                <span className="ml-1.5 text-xs font-semibold text-amber-200">
-                  active alert{activeAmlAlerts.length === 1 ? "" : "s"}
-                </span>
-              </p>
-              <p className="mt-1 text-[11px] text-[#f0e5c4]">
-                {criticalAmlCount} high/critical · {formatNaira(activePenaltiesSum)} active fines
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* Overlapping Operations Body */}
-        <div className="app-panel-body space-y-6">
-          {/* Bold Mechanical Split-Flap Live User Counter Showcase */}
-          <FlipCounterHero
-            userCount={users.length}
-            bvnVerifiedCount={bvnVerifiedCount}
-            groupCount={allGroups.length}
-            totalLiquidity={totalGroupLiquidity}
-            externalPaymentsCount={externalPayments.length}
-          />
-
-          {loadingPlatformData && users.length === 0 ? (
-            <BrandLoader
-              variant="page"
-              message="Loading Command Center"
-              submessage="Syncing platform wallets, pools, AML engine, and audit logs…"
-            />
-          ) : (
-            <Tabs defaultValue="aml" className="w-full space-y-6">
-              <div className="overflow-x-auto pb-1">
-                <TabsList className="app-segmented inline-flex h-auto w-max min-w-full justify-start gap-1 bg-muted/60 p-1 lg:grid lg:w-full lg:grid-cols-6">
-                  <TabsTrigger value="aml" className="gap-1.5 px-3">
-                    <ShieldAlert className="h-4 w-4" />
-                    <span>AML Alerts</span>
-                    {activeAmlAlerts.length > 0 && (
-                      <span className="ml-0.5 rounded-full bg-destructive px-1.5 py-0.2 text-[10px] font-bold text-destructive-foreground tabular-nums">
-                        {activeAmlAlerts.length}
-                      </span>
-                    )}
-                  </TabsTrigger>
-                  <TabsTrigger value="external" className="gap-1.5 px-3">
-                    <Globe2 className="h-4 w-4" />
-                    <span>Outside Pay</span>
-                    {unverifiedExternalCount > 0 && (
-                      <span className="ml-0.5 rounded-full bg-amber-500/20 px-1.5 text-[10px] font-bold text-amber-700 dark:text-amber-300 tabular-nums">
-                        {unverifiedExternalCount}
-                      </span>
-                    )}
-                  </TabsTrigger>
-                  <TabsTrigger value="users" className="gap-1.5 px-3">
-                    <Users className="h-4 w-4" />
-                    <span>Users</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="groups" className="gap-1.5 px-3">
-                    <Layers className="h-4 w-4" />
-                    <span>Groups</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="penalties" className="gap-1.5 px-3">
-                    <Gavel className="h-4 w-4" />
-                    <span>Penalties</span>
-                    {penalties.filter((p) => p.status !== "waived").length > 0 && (
-                      <span className="ml-0.5 rounded-full bg-amber-500/20 px-1.5 text-[10px] font-bold text-amber-700 dark:text-amber-300 tabular-nums">
-                        {penalties.filter((p) => p.status !== "waived").length}
-                      </span>
-                    )}
-                  </TabsTrigger>
-                  <TabsTrigger value="ledger" className="gap-1.5 px-3">
-                    <Activity className="h-4 w-4" />
-                    <span>Ledger</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="audit" className="gap-1.5 px-3">
-                    <ClipboardList className="h-4 w-4" />
-                    <span>Audit Log</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="gateway" className="gap-1.5 px-3">
-                    <KeyRound className="h-4 w-4" />
-                    <span>Settings</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="pricing" className="gap-1.5 px-3">
-                    <BarChart3 className="h-4 w-4" />
-                    <span>Pricing &amp; revenue</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="volume" className="gap-1.5 px-3">
-                    <Activity className="h-4 w-4" />
-                    <span>Transaction analytics</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="bulk-transfers" className="gap-1.5 px-3">
-                    <ClipboardList className="h-4 w-4" />
-                    <span>Bulk transfers</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="ice-vault" className="gap-1.5 px-3">
-                    <Snowflake className="h-4 w-4" />
-                    <span>Ice Vault</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="support" className="gap-1.5 px-3">
-                    <ClipboardList className="h-4 w-4" />
-                    <span>Support tickets</span>
-                  </TabsTrigger>
-                </TabsList>
-              </div>
-
-              {/* ================================================================
-                  TAB 1: AML & FRAUD MONITORING
-                 ================================================================ */}
-              <TabsContent value="aml" className="space-y-5">
+      <AdminShell
+        active={activeTab}
+        href={sectionHref}
+        name={user?.name?.trim() || "Administrator"}
+        counts={{ aml: activeAmlAlerts.length, external: unverifiedExternalCount, penalties: penalties.filter(p => p.status !== "waived").length }}
+        refreshing={loadingPlatformData}
+        onRefresh={refreshAdmin}
+        onSignOut={() => void logout()}
+        actions={sectionActions}
+      >
+        {loadingPlatformData && users.length === 0 ? (
+          <BrandLoader variant="page" message="Loading operations" />
+        ) : (
+          <>
+              <AdminView active={activeTab} value="operations" className="space-y-6">
+                <dl className="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label="Platform totals">
+                  {[
+                    { label: "Platform users", value: users.length.toLocaleString(), detail: `${bvnVerifiedCount} BVN verified · ${restrictedUsersCount} restricted`, icon: Users },
+                    { label: "Group liquidity", value: formatNaira(totalGroupLiquidity), detail: `${allGroups.length} ${allGroups.length === 1 ? "group" : "groups"}`, icon: Layers },
+                    { label: "Wallet float", value: formatNaira(totalWalletFloat), detail: `${allTransactions.length.toLocaleString()} recent ${allTransactions.length === 1 ? "ledger entry" : "ledger entries"}`, icon: Wallet },
+                    { label: "Open AML alerts", value: activeAmlAlerts.length.toLocaleString(), detail: `${criticalAmlCount} high or critical · ${formatNaira(activePenaltiesSum)} in active fines`, icon: ShieldAlert },
+                  ].map(({ label, value, detail, icon: Icon }) => (
+                    <div key={label} className="cp-card-native min-w-0 rounded-xl p-3 sm:p-4">
+                      <dt className="flex items-start justify-between gap-1.5 text-xs font-medium text-muted-foreground sm:text-sm">
+                        {label}<Icon className="size-4 shrink-0 text-primary" aria-hidden="true" />
+                      </dt>
+                      <dd className="mt-2 break-words text-xl font-semibold tracking-tight tabular-nums sm:text-2xl">{value}</dd>
+                      <dd className="mt-1 text-xs text-muted-foreground">{detail}</dd>
+                    </div>
+                  ))}
+                </dl>
+                {user && <AdminOperationsOverview adminId={user.id} onOpen={section => navigate(sectionHref(section))} />}
+                <details className="cp-card-native rounded-xl p-4">
+                  <summary className="cursor-pointer rounded-sm text-sm font-semibold">Live signup display</summary>
+                  <div className="mt-4">
+                    <FlipCounterHero userCount={users.length} bvnVerifiedCount={bvnVerifiedCount} groupCount={allGroups.length}
+                      totalLiquidity={totalGroupLiquidity} externalPaymentsCount={externalPayments.length} />
+                  </div>
+                </details>
+              </AdminView>
+              <AdminView active={activeTab} value="governance">
+                {user && <AdminGroupGovernance adminId={user.id} />}
+              </AdminView>
+              <AdminView active={activeTab} value="aml" className="space-y-5">
                 {/* Active AML Rule Engine Legend */}
                 <div className="cp-card-native p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
@@ -990,10 +853,6 @@ const AdminDashboard = () => {
                         Detects CBN-style red flags across deposits, pool transfers, and withdrawals.
                       </p>
                     </div>
-                    <Button size="sm" onClick={handleRunAmlScan} className="h-9 gap-1.5 rounded-xl">
-                      <ScanSearch className="h-3.5 w-3.5" />
-                      Scan Now
-                    </Button>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
                     {[
@@ -1192,12 +1051,12 @@ const AdminDashboard = () => {
                     ))}
                   </div>
                 )}
-              </TabsContent>
+              </AdminView>
 
               {/* ================================================================
                   TAB 1B: OUTSIDE / EXTERNAL PAYMENT TRACKING & AML SCREENING
                  ================================================================ */}
-              <TabsContent value="external" className="space-y-4">
+              <AdminView active={activeTab} value="external" className="space-y-4">
                 <div className="cp-card-native space-y-3 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
@@ -1363,12 +1222,12 @@ const AdminDashboard = () => {
                     ))}
                   </div>
                 )}
-              </TabsContent>
+              </AdminView>
 
               {/* ================================================================
                   TAB 2: USER & KYC MANAGEMENT
                  ================================================================ */}
-              <TabsContent value="users" className="space-y-4">
+              <AdminView active={activeTab} value="users" className="space-y-4">
                 {user && <AdminWalletAdjustments adminId={user.id} users={users} onSettled={loadPlatformData} />}
                 <div className="cp-card-native p-4 space-y-3">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1567,64 +1426,12 @@ const AdminDashboard = () => {
                     </div>
                   )}
                 </div>
-              </TabsContent>
+              </AdminView>
 
               {/* ================================================================
                   TAB 3: GROUPS GOVERNANCE & OPERATIONS
                  ================================================================ */}
-              <TabsContent value="groups" className="space-y-5">
-                {/* Pending Withdrawals Oversight Banner */}
-                {pendingWithdrawalsCount > 0 && (
-                  <div className="cp-card-native border-amber-500/30 bg-amber-500/[0.06] p-4">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2.5">
-                        <Vote className="h-5 w-5 text-amber-600" />
-                        <div>
-                          <p className="text-sm font-bold text-foreground">
-                            {pendingWithdrawalsCount} Active Group Withdrawal Vote
-                            {pendingWithdrawalsCount === 1 ? "" : "s"}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Pending governance disbursements across platform pools.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                      {withdrawals
-                        .filter((w) => w.status === "pending")
-                        .slice(0, 6)
-                        .map((w) => (
-                          <div
-                            key={w.id}
-                            className="flex items-center justify-between gap-2 rounded-xl border bg-card p-3 text-xs"
-                          >
-                            <div className="min-w-0">
-                              <p className="truncate font-bold text-foreground">
-                                {w.contribution_groups?.name || "Group Pool"}
-                              </p>
-                              <p className="truncate text-muted-foreground">{w.purpose}</p>
-                            </div>
-                            <div className="shrink-0 text-right">
-                              <p className="font-extrabold text-primary tabular-nums">
-                                {formatNaira(w.amount)}
-                              </p>
-                              {w.contribution_id && (
-                                <button
-                                  type="button"
-                                  onClick={() => navigate(`/groups/${w.contribution_id}`)}
-                                  className="text-[11px] font-semibold text-primary hover:underline"
-                                >
-                                  Inspect →
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                )}
-
+              <AdminView active={activeTab} value="groups" className="space-y-5">
                 <div className="cp-card-native p-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="relative flex-1">
@@ -1802,12 +1609,12 @@ const AdminDashboard = () => {
                     </div>
                   )}
                 </div>
-              </TabsContent>
+              </AdminView>
 
               {/* ================================================================
                   TAB 4: PENALTIES LEDGER
                  ================================================================ */}
-              <TabsContent value="penalties" className="space-y-4">
+              <AdminView active={activeTab} value="penalties" className="space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex flex-wrap gap-1.5">
                     {(["all", "applied", "pending", "waived"] as const).map((st) => (
@@ -1913,23 +1720,28 @@ const AdminDashboard = () => {
                     ))}
                   </div>
                 )}
-              </TabsContent>
+              </AdminView>
 
               {/* ================================================================
                   TAB 5: PLATFORM LEDGER & RECEIPTS
                  ================================================================ */}
-              <TabsContent value="ledger" className="space-y-4">
+              <AdminView active={activeTab} value="ledger" className="space-y-4">
                 <div className="cp-card-native space-y-3 p-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                     <div className="relative flex-1">
                       <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
-                        placeholder="Search by reference, user, pool, or description…"
+                        aria-label="Search recent transactions or enter an exact reference"
+                        placeholder="Search recent transactions…"
                         value={txQuery}
+                        maxLength={180}
                         onChange={(e) => setTxQuery(e.target.value)}
                         className="h-11 rounded-xl pl-10"
                       />
                     </div>
+                    <Button variant="outline" disabled={!txQuery.trim() || findingReference} onClick={() => void findLedgerReference()}>
+                      {findingReference ? "Looking up…" : "Find exact reference"}
+                    </Button>
                     <button
                       type="button"
                       onClick={() => setHighValueOnly((v) => !v)}
@@ -2041,12 +1853,12 @@ const AdminDashboard = () => {
                     </div>
                   )}
                 </div>
-              </TabsContent>
+              </AdminView>
 
               {/* ================================================================
                   TAB 6: COMPLIANCE AUDIT TRAIL
                  ================================================================ */}
-              <TabsContent value="audit" className="space-y-4">
+              <AdminView active={activeTab} value="audit" className="space-y-4">
                 <div className="cp-card-native p-4">
                   <div className="relative">
                     <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -2088,29 +1900,28 @@ const AdminDashboard = () => {
                     </div>
                   )}
                 </div>
-              </TabsContent>
+              </AdminView>
 
               {/* ================================================================
                   TAB 7: FLUTTERWAVE GATEWAY & WEBHOOK SETTINGS
                  ================================================================ */}
-              <TabsContent value="gateway" className="space-y-4">
+              <AdminView active={activeTab} value="gateway" className="space-y-4">
                 <AdminPayoutHealth />
                 <AdminPaymentReviews />
                 <AdminPaymentAlertSounds />
                 <AdminPaymentSettings onSettingsSaved={() => void loadPlatformData()} />
-              </TabsContent>
-              <TabsContent value="pricing" className="space-y-4">
+              </AdminView>
+              <AdminView active={activeTab} value="pricing" className="space-y-4">
                 <AdminPricingRevenue />
                 <AdminWalletBankBonus />
-              </TabsContent>
-              <TabsContent value="volume"><AdminTransactionAnalytics /></TabsContent>
-              <TabsContent value="bulk-transfers"><AdminBulkTransfers /></TabsContent>
-              <TabsContent value="ice-vault"><AdminIceVault /></TabsContent>
-              <TabsContent value="support"><SupportInbox admin selected={supportTicket} onSelect={setSupportTicket} /></TabsContent>
-            </Tabs>
-          )}
-        </div>
-      </main>
+              </AdminView>
+              <AdminView active={activeTab} value="volume"><AdminTransactionAnalytics /></AdminView>
+              <AdminView active={activeTab} value="bulk-transfers"><AdminBulkTransfers /></AdminView>
+              <AdminView active={activeTab} value="ice-vault"><AdminIceVault /></AdminView>
+              <AdminView active={activeTab} value="support"><SupportInbox admin selected={supportTicket} onSelect={setSupportTicket} /></AdminView>
+          </>
+        )}
+      </AdminShell>
 
       {/* MODALS */}
       <WalletAdjustDialog

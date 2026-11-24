@@ -1,8 +1,8 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigationType } from "react-router-dom";
+import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
+import { BrowserRouter, Link, Routes, Route, Navigate, useLocation, useNavigationType } from "react-router-dom";
 import { SupabaseUserProvider } from "@/contexts/SupabaseUserContext";
 import { SupabaseContributionProvider } from "@/contexts/SupabaseContributionContext";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
@@ -14,6 +14,9 @@ import { SessionRecovery } from "@/components/auth/SessionRecovery";
 import { applyAppearance, usesDarkMode } from "@/lib/appearance";
 import { Suspense, useEffect, useState, Component, ErrorInfo, ReactNode, lazy } from "react";
 import { preloadLinkedScreen, preloadScreen, preloadWorkspaceScreens, recoverFromStaleChunk, screens } from "./routeScreens";
+import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import { isAdminQueryKey } from "@/lib/adminQueries";
 
 // Error Boundary Component
 interface ErrorBoundaryState {
@@ -113,7 +116,26 @@ function RouteSkeleton() {
 
 // Admin route guard
 const AdminRoute = ({ children }: { children: ReactNode }) => {
-  const { isAdmin, isAuthenticated, loading, sessionUnavailable } = useSupabaseUser();
+  const { user, isAdmin, isAuthenticated, loading, sessionUnavailable } = useSupabaseUser();
+  const access = useQuery({
+    queryKey: ["admin-access", user?.id],
+    enabled: Boolean(user?.id && isAuthenticated && isAdmin && !loading && !sessionUnavailable),
+    gcTime: 0,
+    retry: false,
+    refetchOnWindowFocus: "always",
+    refetchOnReconnect: "always",
+    queryFn: async ({ signal }) => {
+      const { data, error } = await supabase.rpc("is_admin").abortSignal(signal);
+      if (error) throw error;
+      return data === true;
+    },
+  });
+
+  useEffect(() => {
+    if (access.data !== false && !access.isError) return;
+    queryClient.removeQueries({ predicate: ({ queryKey }) => queryKey[0] !== "admin-access" && isAdminQueryKey(queryKey) });
+  }, [access.data, access.isError]);
+
   if (loading) return <RouteSkeleton />;
   if (sessionUnavailable) return <SessionRecovery />;
   
@@ -121,9 +143,24 @@ const AdminRoute = ({ children }: { children: ReactNode }) => {
     return <Navigate to="/admin-login" replace />;
   }
   
-  if (!isAdmin) {
+  if (!isAdmin || access.data === false) {
     return <Navigate to="/dashboard" replace />;
   }
+  if (access.isPaused || access.isError) {
+    return (
+      <main className="mx-auto flex min-h-dvh max-w-lg items-center px-5 py-12">
+        <section className="w-full space-y-4 rounded-2xl border bg-card p-6 shadow-sm" aria-labelledby="admin-access-heading">
+          <h1 id="admin-access-heading" className="text-xl font-semibold tracking-tight">Verify administrator access</h1>
+          <p className="text-sm text-muted-foreground">Connect to CollectiPay to open the admin workspace.</p>
+          <div className="flex flex-wrap gap-2">
+            <Button disabled={access.isFetching} onClick={() => void access.refetch()}>{access.isFetching ? "Checking…" : "Check access"}</Button>
+            <Button asChild variant="outline"><Link to="/dashboard">Return to wallet</Link></Button>
+          </div>
+        </section>
+      </main>
+    );
+  }
+  if (!access.data) return <RouteSkeleton />;
   
   return <>{children}</>;
 };
@@ -147,14 +184,15 @@ const AppRoutes = () => {
   useEffect(() => {
     if (isAuthenticated && isAdmin) return;
     queryClient.removeQueries({
-      predicate: ({ queryKey }) => typeof queryKey[0] === "string" && queryKey[0].startsWith("admin-"),
+      predicate: ({ queryKey }) => isAdminQueryKey(queryKey),
     });
   }, [isAuthenticated, isAdmin, user?.id]);
   const darkMode = usesDarkMode(user?.preferences);
   const { pathname } = useLocation();
   const navType = useNavigationType();
   const normalizedPath = pathname.replace(/\/$/, "") || "/";
-  const isWorkspace = isAuthenticated && Boolean(getWorkspaceLink(pathname));
+  const workspaceLink = getWorkspaceLink(pathname);
+  const isWorkspace = isAuthenticated && Boolean(workspaceLink && workspaceLink.to !== "/admin");
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });

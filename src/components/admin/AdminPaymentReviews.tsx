@@ -96,7 +96,7 @@ export function AdminPaymentReviews() {
 
   return (
     <div className="space-y-4">
-      <section className="cp-card-native space-y-4" aria-labelledby="payout-review-title">
+      <section className="cp-card-native space-y-4 p-4 sm:p-5" aria-labelledby="payout-review-title">
         <h3 id="payout-review-title" className="font-semibold">Payout recovery</h3>
         <p className="text-sm text-muted-foreground">Use the original payout reference and independent provider settlement evidence that the funds were never debited or have been returned. A second administrator verifies the evidence before a wallet credit.</p>
         <details className="rounded-xl border p-3">
@@ -146,7 +146,7 @@ export function AdminPaymentReviews() {
         ))}
       </section>
 
-      <section className="cp-card-native space-y-2" aria-labelledby="incoming-review-title">
+      <section className="cp-card-native space-y-2 p-4 sm:p-5" aria-labelledby="incoming-review-title">
         <h3 id="incoming-review-title" className="font-semibold">Unmatched incoming payments</h3>
         <p className="text-sm text-muted-foreground">Verified Flutterwave payments waiting for an account match or ledger settlement. The reconciliation worker retries them automatically.</p>
         {inbound.isError && <Button variant="outline" size="sm" onClick={() => void inbound.refetch()}>Retry incoming payments</Button>}

@@ -64,20 +64,6 @@ export interface AdminAuditLogRecord {
   admin_profile?: { name: string | null; email: string | null } | null;
 }
 
-export interface AdminWithdrawalRecord {
-  id: string;
-  contribution_id: string | null;
-  requester_id: string | null;
-  amount: number;
-  purpose: string;
-  status: string;
-  deadline: string;
-  votes: any;
-  created_at: string | null;
-  contribution_groups?: { name: string | null } | null;
-  profiles?: { name: string | null; email: string | null } | null;
-}
-
 export interface ExternalPaymentTrackRecord {
   id: string;
   reference_id: string | null;
@@ -216,21 +202,6 @@ export const AdminComplianceService = {
 
     if (error) throw error;
     return (data || []) as AdminAuditLogRecord[];
-  },
-
-  async getPendingWithdrawals(): Promise<AdminWithdrawalRecord[]> {
-    const { data, error } = await supabase
-      .from("withdrawal_requests")
-      .select(`
-        *,
-        contribution_groups(name),
-        profiles!withdrawal_requests_requester_id_fkey(name, email)
-      `)
-      .order("created_at", { ascending: false })
-      .limit(100);
-
-    if (error) throw error;
-    return (data || []) as AdminWithdrawalRecord[];
   },
 
   async getExternalPayments(): Promise<ExternalPaymentTrackRecord[]> {
