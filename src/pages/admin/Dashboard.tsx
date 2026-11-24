@@ -76,7 +76,8 @@ import { AdminOperationsOverview } from "@/components/admin/AdminOperationsOverv
 import { AdminShell, resolveAdminSection, type AdminSection } from "@/components/admin/AdminShell";
 import { SupportInbox } from "@/components/support/SupportInbox";
 import { AdminPageControls, useAdminRecordPage, useAdminSearch } from "@/components/admin/AdminRecordPage";
-import { AdminUserTransactionHistory, type AdminTransaction } from "@/components/admin/AdminUserTransactionHistory";
+import { AdminUserTransactionHistory } from "@/components/admin/AdminUserTransactionHistory";
+import { adminTransactionReceipt, type AdminTransaction } from "@/lib/adminTransactionReceipt";
 import type { AdminEntity } from "@/components/admin/AdminEntityPicker";
 import type { Database } from "@/integrations/supabase/types";
 import {
@@ -91,10 +92,6 @@ type AdminUser = Pick<Tables["profiles"]["Row"], "id" | "name" | "email" | "phon
   { has_pin: boolean; has_bvn: boolean; profile_image: string | null };
 type AdminGroup = Pick<Tables["contribution_groups"]["Row"], "id" | "name" | "category" | "frequency" | "status" | "archived" | "is_verified" | "is_pinned" | "spotlight_label" | "featured_priority" | "verification_note" | "current_amount" | "target_amount" | "voting_threshold" | "enable_voting_rights" | "privacy"> &
   { profiles: { name: string | null; email: string | null }; member_count: number };
-
-function isPenaltyTransaction({ metadata }: Pick<AdminTransaction, "metadata">) {
-  return metadata && typeof metadata === "object" && !Array.isArray(metadata) && metadata.category === "admin_penalty";
-}
 
 const HIGH_VALUE_THRESHOLD = 500000;
 
@@ -356,6 +353,10 @@ const AdminDashboard = () => {
     status: "active" | "paused" | "frozen" | "suspended",
     reason?: string
   ) => {
+    if (userId === adminId && status !== "active") {
+      toast.error("You cannot restrict your own administrator account.");
+      return;
+    }
     setActionPending(true);
     setOverlayState({
       message: status === "active" ? "Reactivating user account" : `Setting account to ${status}`,
@@ -571,38 +572,6 @@ const AdminDashboard = () => {
     }
   };
 
-  const transactionReceipt = (tx: AdminTransaction): CollectiPayReceiptData => {
-    const kindMap: Record<string, CollectiPayReceiptData["kind"]> = {
-      deposit: "deposit",
-      withdrawal: "withdrawal",
-      transfer: "transfer",
-      contribution: "contribution",
-      refund: "refund",
-      payment: "transfer",
-    };
-
-    return {
-      kind: kindMap[tx.type] || "transfer",
-      title: isPenaltyTransaction(tx) ? "Compliance Penalty" : undefined,
-      amount: Number(tx.amount || 0),
-      status: tx.status || "unknown",
-      date: tx.created_at || "Date unavailable",
-      reference: tx.reference_id || tx.id,
-      transactionId: tx.id,
-      groupName: tx.contribution_groups?.name || undefined,
-      paymentMethod: tx.payment_method || "Wallet",
-      narration: tx.description || undefined,
-      balanceBefore: typeof tx.balance_before === "number" ? tx.balance_before : undefined,
-      balanceAfter: typeof tx.balance_after === "number" ? tx.balance_after : undefined,
-      sender: {
-        label: "Account Holder",
-        name: tx.profiles?.name || tx.profiles?.email || "CollectiPay Member",
-        subtitle: tx.profiles?.email || undefined,
-      },
-    };
-  };
-  const openTransactionReceipt = (tx: AdminTransaction) => setReceiptData(transactionReceipt(tx));
-
   const findLedgerReference = async () => {
     const reference = txQuery.trim();
     if (!reference || findingReference) return;
@@ -613,7 +582,12 @@ const AdminDashboard = () => {
         toast.error("No transaction found for that exact reference.");
         return;
       }
-      openTransactionReceipt(transaction);
+      const receipt = adminTransactionReceipt(transaction);
+      if (receipt) {
+        setReceiptData(receipt);
+      } else {
+        toast.info(transaction.type === "vote" ? "This reference is a governance vote." : "No payment receipt is available for this record.");
+      }
     } catch {
       toast.error("Couldn’t look up that reference. Try again.");
     } finally {
@@ -827,7 +801,7 @@ const AdminDashboard = () => {
                           >
                             Review Case
                           </Button>
-                          {alert.user_id && alert.user_profile?.status !== "frozen" && (
+                          {alert.user_id && alert.user_id !== adminId && alert.user_profile?.status !== "frozen" && (
                             <Button
                               size="sm"
                               variant="outline"
@@ -1199,7 +1173,7 @@ const AdminDashboard = () => {
                               <Flag className="h-3.5 w-3.5" />
                               AML
                             </Button>
-                            {isRestricted ? (
+                            {u.id !== adminId && (isRestricted ? (
                               <Button
                                 size="sm"
                                 onClick={() =>
@@ -1222,7 +1196,7 @@ const AdminDashboard = () => {
                                 <Snowflake className="h-3.5 w-3.5" />
                                 Freeze
                               </Button>
-                            )}
+                            ))}
                           </div>
                         </div>
                       </div>
@@ -1586,15 +1560,17 @@ const AdminDashboard = () => {
 
                 <div className="cp-card-native divide-y divide-border/70 overflow-hidden">
                   {transactions.rows.map((tx) => {
+                    const receipt = adminTransactionReceipt(tx);
+                    const Row = receipt ? "button" : "div";
                     const isCredit = tx.type === "deposit" || tx.type === "refund";
-                    const isHighValue = Number(tx.amount || 0) >= HIGH_VALUE_THRESHOLD;
+                    const isHighValue = receipt && Number(tx.amount || 0) >= HIGH_VALUE_THRESHOLD;
 
                     return (
-                      <button
+                      <Row
                         key={tx.id}
-                        type="button"
-                        onClick={() => openTransactionReceipt(tx)}
-                        className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left transition-colors hover:bg-muted/45"
+                        type={receipt ? "button" : undefined}
+                        onClick={receipt ? () => setReceiptData(receipt) : undefined}
+                        className={cn("flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left", receipt && "transition-colors hover:bg-muted/45")}
                       >
                         <div className="flex min-w-0 items-center gap-3">
                           <span
@@ -1605,7 +1581,9 @@ const AdminDashboard = () => {
                                 : "bg-muted text-foreground"
                             )}
                           >
-                            {isCredit ? (
+                            {tx.type === "vote" ? (
+                              <Vote className="h-4.5 w-4.5" />
+                            ) : isCredit ? (
                               <ArrowDownLeft className="h-4.5 w-4.5" />
                             ) : (
                               <ArrowUpRight className="h-4.5 w-4.5" />
@@ -1614,9 +1592,7 @@ const AdminDashboard = () => {
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-1.5">
                               <span className="truncate text-sm font-bold capitalize text-foreground">
-                                {isPenaltyTransaction(tx)
-                                  ? "Compliance Penalty"
-                                  : tx.type}
+                                {receipt?.title || (tx.type === "vote" ? "Governance vote" : tx.type)}
                               </span>
                               {isHighValue && (
                                 <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:text-red-300">
@@ -1624,7 +1600,7 @@ const AdminDashboard = () => {
                                 </span>
                               )}
                               <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium capitalize text-muted-foreground">
-                                {tx.status || "completed"}
+                                {tx.status || "unknown"}
                               </span>
                             </div>
                             <p className="truncate text-xs text-muted-foreground">
@@ -1635,7 +1611,7 @@ const AdminDashboard = () => {
                         </div>
 
                         <div className="shrink-0 text-right">
-                          <p
+                          {receipt && <p
                             className={cn(
                               "text-sm font-extrabold tabular-nums",
                               isCredit ? "text-emerald-700 dark:text-emerald-300" : "text-foreground"
@@ -1643,13 +1619,13 @@ const AdminDashboard = () => {
                           >
                             {isCredit ? "+" : "-"}
                             {formatNaira(tx.amount)}
-                          </p>
+                          </p>}
                           <p className="flex items-center justify-end gap-1 text-[11px] text-muted-foreground">
-                            <ReceiptText className="h-3 w-3" />
+                            {receipt && <ReceiptText className="h-3 w-3" />}
                             {safeFormatDate(tx.created_at, "MMM d, h:mm a")}
                           </p>
                         </div>
-                      </button>
+                      </Row>
                     );
                   })}
 
@@ -1781,6 +1757,7 @@ const AdminDashboard = () => {
         alert={reviewingAlert}
         pending={actionPending}
         onUpdateStatus={handleUpdateAmlAlert}
+        canFreezeUser={Boolean(reviewingAlert?.user_id && reviewingAlert.user_id !== adminId)}
         onFreezeUser={async (uid, reason) => {
           await handleUpdateUserStatus(uid, "frozen", reason);
           setReviewingAlert(null);
@@ -1797,7 +1774,7 @@ const AdminDashboard = () => {
       />
 
       {user && historyAccount && <AdminUserTransactionHistory key={historyAccount.id}
-        adminId={user.id} account={historyAccount} receiptFor={transactionReceipt}
+        adminId={user.id} account={historyAccount}
         onClose={() => setHistoryAccount(null)} returnFocus={() => historyTrigger.current?.focus()} />}
 
       <Dialog open={Boolean(receiptData)} onOpenChange={(open) => !open && setReceiptData(null)}>

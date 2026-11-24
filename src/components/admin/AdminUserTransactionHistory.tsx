@@ -4,27 +4,22 @@ import CollectiPayReceipt, { type CollectiPayReceiptData } from "@/components/re
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import type { Database } from "@/integrations/supabase/types";
+import { adminTransactionReceipt, type AdminTransaction } from "@/lib/adminTransactionReceipt";
+import { cn } from "@/lib/utils";
 import { naira } from "@/services/supabase/pricingService";
 import type { AdminEntity } from "./AdminEntityPicker";
 import { AdminPageControls, useAdminRecordPage, useAdminSearch } from "./AdminRecordPage";
-
-export type AdminTransaction = Database["public"]["Tables"]["transactions"]["Row"] & {
-  profiles?: { name: string | null; email: string | null };
-  contribution_groups?: { name: string | null };
-};
 
 const dateFormat = new Intl.DateTimeFormat("en-NG", {
   dateStyle: "medium", timeStyle: "short", timeZone: "Africa/Lagos",
 });
 const types = ["deposit", "transfer", "contribution", "withdrawal", "refund", "payment"] as const;
 
-export function AdminUserTransactionHistory({ adminId, account, onClose, returnFocus, receiptFor }: {
+export function AdminUserTransactionHistory({ adminId, account, onClose, returnFocus }: {
   adminId: string;
   account: AdminEntity;
   onClose: () => void;
   returnFocus: () => void;
-  receiptFor: (transaction: AdminTransaction) => CollectiPayReceiptData;
 }) {
   const [draft, setDraft] = useState("");
   const [type, setType] = useState("all");
@@ -64,20 +59,23 @@ export function AdminUserTransactionHistory({ adminId, account, onClose, returnF
             {listing.rows.length > 0 && <ul className="divide-y overflow-hidden rounded-xl border">
               {listing.rows.map(transaction => {
                 const date = transaction.created_at ? new Date(transaction.created_at) : null;
+                const recordReceipt = adminTransactionReceipt(transaction);
+                const Row = recordReceipt ? "button" : "div";
                 return <li key={transaction.id}>
-                  <button type="button" onClick={() => setReceipt(receiptFor(transaction))}
-                    className="flex w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:px-4">
+                  <Row type={recordReceipt ? "button" : undefined} onClick={recordReceipt ? () => setReceipt(recordReceipt) : undefined}
+                    className={cn("flex w-full items-center gap-3 px-3 py-3 text-left sm:px-4",
+                      recordReceipt && "transition-colors hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring")}>
                     <div className="min-w-0 flex-1 space-y-1">
-                      <p className="break-words text-sm font-semibold capitalize">{transaction.type.replace(/_/g, " ")}</p>
+                      <p className="break-words text-sm font-semibold capitalize">{recordReceipt?.title || (transaction.type === "vote" ? "Governance vote" : transaction.type.replace(/_/g, " "))}</p>
                       <p className="break-words text-xs text-muted-foreground">{transaction.description || transaction.contribution_groups?.name || transaction.reference_id || transaction.id}</p>
                       {date && Number.isFinite(date.getTime()) && <time dateTime={transaction.created_at ?? undefined} className="block text-xs text-muted-foreground">{dateFormat.format(date)} WAT</time>}
                     </div>
                     <div className="min-w-0 space-y-1 text-right">
-                      <p className="break-all text-sm font-semibold tabular-nums">{naira.format(transaction.amount)}</p>
+                      {recordReceipt && <p className="break-all text-sm font-semibold tabular-nums">{naira.format(transaction.amount)}</p>}
                       <Badge variant="outline" className="capitalize">{transaction.status?.replace(/_/g, " ") || "Unknown"}</Badge>
                     </div>
-                    <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                  </button>
+                    {recordReceipt && <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
+                  </Row>
                 </li>;
               })}
             </ul>}

@@ -38,6 +38,28 @@ test("revoked admin access clears privileged query scopes without clearing custo
   assert.ok(customerKeys.every(key => !isAdminQueryKey(key)));
 });
 
+test("admin receipts keep governance votes out of payments and identify wallet adjustments", () => {
+  const { adminTransactionReceipt } = load("src/lib/adminTransactionReceipt.ts");
+  const transaction = {
+    id: "test-ledger-record", amount: 100, status: "completed", reference_id: "test-reference",
+    balance_before: 400, balance_after: 300,
+  };
+  assert.equal(adminTransactionReceipt({ ...transaction, type: "vote", amount: 500000 }), null);
+  assert.equal(adminTransactionReceipt({ ...transaction, type: "unknown" }), null);
+
+  const withdrawal = adminTransactionReceipt({ ...transaction, type: "payment", payment_method: "admin_debit" });
+  assert.equal(withdrawal.kind, "withdrawal");
+  assert.equal(withdrawal.title, "Wallet debit adjustment");
+  assert.equal(withdrawal.paymentMethod, "Wallet adjustment");
+  assert.equal(withdrawal.balanceAfter, 300);
+
+  const deposit = adminTransactionReceipt({ ...transaction, type: "deposit", payment_method: "admin" });
+  assert.equal(deposit.title, "Wallet credit adjustment");
+  const transfer = adminTransactionReceipt({ ...transaction, type: "transfer", payment_method: "bank_transfer" });
+  assert.equal(transfer.kind, "transfer");
+  assert.equal(transfer.reference, "test-reference");
+});
+
 test("virtual-account history is only fetched for the authenticated user's linked references", async () => {
   let fetches = 0;
   let earnedAuth = true;

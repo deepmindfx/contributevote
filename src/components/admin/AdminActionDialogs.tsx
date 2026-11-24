@@ -437,6 +437,7 @@ interface AmlReviewDialogProps {
   onOpenChange: (open: boolean) => void;
   alert: AmlAlertRecord | null;
   pending: boolean;
+  canFreezeUser: boolean;
   onUpdateStatus: (alertId: string, status: AmlAlertStatus, note: string) => Promise<void>;
   onFreezeUser: (userId: string, reason: string) => Promise<void>;
   onOpenPenaltyForAlert: (alert: AmlAlertRecord) => void;
@@ -447,6 +448,7 @@ export const AmlReviewDialog: React.FC<AmlReviewDialogProps> = ({
   onOpenChange,
   alert,
   pending,
+  canFreezeUser,
   onUpdateStatus,
   onFreezeUser,
   onOpenPenaltyForAlert,
@@ -545,7 +547,7 @@ export const AmlReviewDialog: React.FC<AmlReviewDialogProps> = ({
               <span className="w-full text-[11px] font-bold uppercase tracking-wider text-destructive">
                 Rapid Enforcement Actions
               </span>
-              <Button
+              {canFreezeUser && <Button
                 type="button"
                 size="sm"
                 variant="destructive"
@@ -557,7 +559,7 @@ export const AmlReviewDialog: React.FC<AmlReviewDialogProps> = ({
               >
                 <Lock className="h-3.5 w-3.5" />
                 {alert.user_profile?.status === "frozen" ? "Account Frozen" : "Freeze User Account"}
-              </Button>
+              </Button>}
               <Button
                 type="button"
                 size="sm"
