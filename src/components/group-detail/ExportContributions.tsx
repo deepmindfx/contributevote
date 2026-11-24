@@ -11,13 +11,15 @@ interface ExportContributionsProps {
 }
 
 const ExportContributions = ({ contribution }: ExportContributionsProps) => {
+  const logoUrl = '/icons/icon-512.png';
+
   const generatePDF = () => {
     // Create new PDF document
     const doc = new jsPDF();
     
     // Create watermark logo element
     const watermarkLogo = document.createElement('img');
-    watermarkLogo.src = '/lovable-uploads/85c09632-4fd3-46fb-b70a-45daac74abfc.png';
+    watermarkLogo.src = logoUrl;
     
     // Wait for logo to load, then generate PDF
     watermarkLogo.onload = () => {
@@ -29,7 +31,7 @@ const ExportContributions = ({ contribution }: ExportContributionsProps) => {
       
       // Add header logo
       const logo = new Image();
-      logo.src = '/lovable-uploads/85c09632-4fd3-46fb-b70a-45daac74abfc.png';
+      logo.src = logoUrl;
       
       logo.onload = () => {
         // Add logo with proper dimensions

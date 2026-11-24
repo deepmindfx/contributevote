@@ -55,6 +55,7 @@ export const payWithFlutterwave = async (
     if (!publicKey) {
       throw new Error('Flutterwave public key is not configured. Add it in Super Admin -> Settings.');
     }
+    const logo = `${window.location.origin}/icons/icon-192.png`;
 
     const config: FlutterwaveConfig = {
       public_key: publicKey,
@@ -69,7 +70,7 @@ export const payWithFlutterwave = async (
       customizations: {
         title: 'CollectiPay',
         description: `Contribution to ${groupName}`,
-        logo: `${window.location.origin}/collectipay-mark.svg`,
+        logo,
       },
       meta: {
         source: 'web',
@@ -101,7 +102,7 @@ export const payWithFlutterwave = async (
         }
       },
       design: {
-        logo: '/lovable-uploads/85c09632-4fd3-46fb-b70a-45daac74abfc.png',
+        logo,
         background: '#ffffff',
         button: '#2dae75',
       },
@@ -120,4 +121,4 @@ export const payWithFlutterwave = async (
     console.error('Error in payWithFlutterwave:', error);
     throw error;
   }
-}; 
+};
