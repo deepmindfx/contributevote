@@ -54,6 +54,7 @@ import {
   VerifiedCrowdfunderBadge,
 } from '@/components/contribution/VerifiedCrowdfunderBadge';
 import { useVotingRights } from '@/hooks/useVotingRights';
+import { useGroupCoverUrl } from '@/hooks/useGroupCoverUrl';
 import Header from '@/components/layout/Header';
 import BrandLoader from '@/components/ui/BrandLoader';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -90,6 +91,7 @@ export default function GroupDetail() {
     return () => { void supabase.removeChannel(channel); };
   }, [id, userId, isWorkspaceGroup, queryClient]);
   const group: any = groupFromWorkspace ?? detail.data;
+  const shareCoverUrl = useGroupCoverUrl(group?.privacy === 'public' ? group.cover_image_url : null);
   const { hasVotingRights, canVote, loading: rightsLoading, refresh: refreshVotingRights } = useVotingRights(group?.id, group?.creator_id);
   const updateCachedGroup = (changes: Partial<GroupRow>) => {
     queryClient.setQueryData<GroupRow[]>(["workspace", userId, "groups"], (rows) =>
@@ -114,9 +116,9 @@ export default function GroupDetail() {
 
     setIsUploadingCover(true);
     try {
-      const { publicUrl, originalBytes, compressedBytes } = await uploadGroupCoverImageWithMeta(user.id, file);
-      await updateGroupCoverImage(group.id, publicUrl);
-      updateCachedGroup({ cover_image_url: publicUrl });
+      const { coverReference, originalBytes, compressedBytes } = await uploadGroupCoverImageWithMeta(user.id, file);
+      await updateGroupCoverImage(group.id, coverReference);
+      updateCachedGroup({ cover_image_url: coverReference });
       if (originalBytes > compressedBytes) {
         toast.success(
           `Group cover photo updated (${formatByteSize(originalBytes)} → ${formatByteSize(compressedBytes)} HD)!`
@@ -321,7 +323,7 @@ export default function GroupDetail() {
                   category={group.category}
                   targetAmount={targetAmount}
                   currentAmount={currentAmount}
-                  coverUrl={group.cover_image_url}
+                  coverUrl={shareCoverUrl}
                   accountNumber={accountNumber}
                   bankName={bankName}
                   accountName={accountName}
@@ -395,7 +397,7 @@ export default function GroupDetail() {
                       bankName={bankName || "Bank name unavailable"}
                       accountName={accountName}
                       category={group.category}
-                      coverUrl={group.cover_image_url}
+                      coverUrl={shareCoverUrl}
                       joinLink={isPublic && isActive ? GroupJoinService.generateShareLink(group.id, group.share_slug) : undefined}
                       active={isActive && Boolean(bankName)}
                     />

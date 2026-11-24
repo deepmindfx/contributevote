@@ -59,6 +59,8 @@ interface WalletAdjustDialogProps {
     amount: number;
     direction: "credit" | "debit";
     reason: string;
+    caseReference: string;
+    pin: string;
   }) => Promise<void>;
 }
 
@@ -72,40 +74,50 @@ export const WalletAdjustDialog: React.FC<WalletAdjustDialogProps> = ({
   const [direction, setDirection] = useState<"credit" | "debit">("credit");
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
+  const [caseReference, setCaseReference] = useState("");
+  const [pin, setPin] = useState("");
 
   useEffect(() => {
     if (open) {
       setDirection("credit");
       setAmount("");
       setReason("");
+      setCaseReference("");
+      setPin("");
     }
   }, [open, user?.id]);
 
   const numericAmount = Number(amount);
   const currentBalance = Number(user?.wallet_balance || 0);
   const insufficientForDebit = direction === "debit" && numericAmount > currentBalance;
+  const canSubmit = Number.isFinite(numericAmount) && numericAmount > 0 && !insufficientForDebit &&
+    /^[a-z0-9][a-z0-9._-]{5,79}$/i.test(caseReference.trim()) && reason.trim().length >= 8 && /^\d{4}$/.test(pin);
 
   const submit = async () => {
-    if (!user || !Number.isFinite(numericAmount) || numericAmount <= 0) return;
+    if (!user || !canSubmit || pending) return;
     await onConfirm({
       userId: user.id,
       amount: numericAmount,
       direction,
-      reason: reason.trim() || (direction === "credit" ? "Admin wallet credit" : "Admin wallet debit"),
+      reason: reason.trim(),
+      caseReference: caseReference.trim(),
+      pin,
     });
+    setPin("");
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100%-1.5rem)] max-w-md rounded-2xl">
+      <DialogContent className="max-h-[90dvh] w-[calc(100%-1.5rem)] max-w-md overflow-y-auto rounded-2xl">
         <DialogHeader>
-          <DialogTitle>Adjust User Wallet</DialogTitle>
+          <DialogTitle>Request a wallet adjustment</DialogTitle>
           <DialogDescription>
             {user?.name || user?.email} · Current balance:{" "}
             <strong className="text-foreground tabular-nums">
               ₦{currentBalance.toLocaleString("en-NG")}
             </strong>
           </DialogDescription>
+          <p className="text-sm text-muted-foreground">A second administrator must approve this request before the balance changes.</p>
         </DialogHeader>
 
         <div className="space-y-4 py-1">
@@ -185,9 +197,20 @@ export const WalletAdjustDialog: React.FC<WalletAdjustDialogProps> = ({
                   : "e.g. Duplicate credit reversal"
               }
               value={reason}
+              maxLength={400}
               onChange={(e) => setReason(e.target.value)}
               className="h-11 rounded-xl"
             />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="admin-wallet-case">Case reference</Label>
+            <Input id="admin-wallet-case" value={caseReference} maxLength={80} onChange={(e) => setCaseReference(e.target.value)} placeholder="e.g. CP-4821" />
+            <p className="text-xs text-muted-foreground">Use the same reference when retrying this request.</p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="admin-wallet-pin">Your transaction PIN</Label>
+            <Input id="admin-wallet-pin" type="password" inputMode="numeric" autoComplete="off" maxLength={4}
+              value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} />
           </div>
         </div>
 
@@ -197,20 +220,10 @@ export const WalletAdjustDialog: React.FC<WalletAdjustDialogProps> = ({
           </Button>
           <Button
             onClick={submit}
-            disabled={
-              pending ||
-              !Number.isFinite(numericAmount) ||
-              numericAmount <= 0 ||
-              insufficientForDebit
-            }
-            variant={direction === "debit" ? "destructive" : "default"}
+            disabled={pending || !canSubmit}
             className="rounded-xl"
           >
-            {pending
-              ? "Processing…"
-              : direction === "credit"
-              ? `Credit ₦${Number.isFinite(numericAmount) && numericAmount > 0 ? numericAmount.toLocaleString() : "0"}`
-              : `Debit ₦${Number.isFinite(numericAmount) && numericAmount > 0 ? numericAmount.toLocaleString() : "0"}`}
+            {pending ? "Submitting…" : "Request approval"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -255,7 +268,6 @@ export const IssuePenaltyDialog: React.FC<IssuePenaltyDialogProps> = ({
   const [penaltyType, setPenaltyType] = useState<PenaltyType>("policy_violation");
   const [amount, setAmount] = useState("2500");
   const [reason, setReason] = useState("");
-  const [deductWallet, setDeductWallet] = useState(true);
 
   useEffect(() => {
     if (open) {
@@ -264,14 +276,12 @@ export const IssuePenaltyDialog: React.FC<IssuePenaltyDialogProps> = ({
       setPenaltyType(presetAmlAlertId ? "aml_hold" : "policy_violation");
       setAmount(presetAmlAlertId ? "10000" : "2500");
       setReason("");
-      setDeductWallet(true);
     }
   }, [open, presetUser?.id, presetAmlAlertId, users]);
 
   const targetUser = users.find((u) => u.id === selectedUserId) || presetUser;
   const numericAmount = Number(amount);
   const walletBalance = Number(targetUser?.wallet_balance || 0);
-  const willMarkPending = deductWallet && numericAmount > walletBalance;
 
   const submit = async () => {
     if (!selectedUserId || !Number.isFinite(numericAmount) || numericAmount <= 0 || !reason.trim()) {
@@ -282,7 +292,7 @@ export const IssuePenaltyDialog: React.FC<IssuePenaltyDialogProps> = ({
       amount: numericAmount,
       penaltyType,
       reason: reason.trim(),
-      deductWallet,
+      deductWallet: false,
       groupId: selectedGroupId || null,
       amlAlertId: presetAmlAlertId || null,
     });
@@ -421,18 +431,9 @@ export const IssuePenaltyDialog: React.FC<IssuePenaltyDialogProps> = ({
             </div>
           </div>
 
-          {/* Deduct Toggle */}
-          <div className="flex items-center justify-between gap-3 rounded-xl border bg-muted/30 p-3.5">
-            <div>
-              <p className="text-sm font-semibold text-foreground">Deduct immediately from wallet</p>
-              <p className="text-xs text-muted-foreground">
-                {willMarkPending
-                  ? `Balance (₦${walletBalance.toLocaleString()}) is below fine — will log as Pending settlement.`
-                  : "Debits wallet atomically and logs a compliance transaction receipt."}
-              </p>
-            </div>
-            <Switch checked={deductWallet} onCheckedChange={setDeductWallet} />
-          </div>
+          <p className="rounded-xl border bg-muted/30 p-3.5 text-sm text-muted-foreground">
+            The fine is recorded as pending. Submit any wallet debit through Wallet adjustments.
+          </p>
 
           {/* Reason */}
           <div className="space-y-2">

@@ -53,10 +53,7 @@ export interface WebhookData {
  * @returns boolean indicating if signature is valid
  */
 export const verifyWebhookSignature = (payload: any, signature: string): boolean => {
-  // For Node.js and browser compatibility
-  const secretHash = typeof process !== 'undefined' && process.env.FLUTTERWAVE_SECRET_HASH 
-    ? process.env.FLUTTERWAVE_SECRET_HASH
-    : import.meta?.env?.VITE_FLW_SECRET_HASH || '';
+  const secretHash = typeof process !== 'undefined' ? process.env.FLUTTERWAVE_SECRET_HASH : undefined;
     
   if (!secretHash) {
     console.error('Flutterwave webhook secret hash not configured');
@@ -213,4 +210,4 @@ export const handleWebhook = async (webhookData: WebhookData, signature: string)
       error: error instanceof Error ? error.message : 'Unknown error'
     };
   }
-}; 
+};

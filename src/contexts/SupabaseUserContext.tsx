@@ -62,7 +62,6 @@ interface SupabaseUserContextType {
   clearAllNotifications: () => Promise<boolean>;
   updateProfile: (userData: ProfileSettingsPatch) => Promise<void>;
   updateUserAsAdmin: (userId: string, userData: Partial<Profile>) => Promise<void>;
-  depositToUserAsAdmin: (userId: string, amount: number) => Promise<void>;
   pauseUserAsAdmin: (userId: string) => Promise<void>;
   activateUserAsAdmin: (userId: string) => Promise<void>;
   getUserByEmail: (email: string) => Promise<Profile | null>;
@@ -646,23 +645,6 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
     await refreshUserData();
   };
 
-  const depositToUserAsAdmin = async (userId: string, amount: number) => {
-    if (!isAdmin) throw new Error('Admin access required');
-
-    const { data, error } = await (supabase as any).rpc('admin_deposit_to_user', {
-      p_target_user_id: userId,
-      p_amount: amount,
-      p_description: 'Admin wallet credit',
-    });
-
-    if (error) throw error;
-    if (!data?.success) {
-      throw new Error(data?.error || 'Failed to deposit to user');
-    }
-
-    await refreshUserData();
-  };
-
   const pauseUserAsAdmin = async (userId: string) => {
     if (!isAdmin) throw new Error('Admin access required');
     await UserService.updateUser(userId, { status: 'paused' });
@@ -759,7 +741,6 @@ export function SupabaseUserProvider({ children }: { children: ReactNode }) {
         clearAllNotifications,
         updateProfile,
         updateUserAsAdmin,
-        depositToUserAsAdmin,
         pauseUserAsAdmin,
         activateUserAsAdmin,
         getUserByEmail,

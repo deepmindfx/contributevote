@@ -34,7 +34,7 @@ serve(async (req) => {
 
     if (!deadlinesOnly) {
       const { data: unsettled, error: inboundError } = await supabaseClient.from("inbound_payment_review")
-        .select("provider_id,attempts").is("resolved_at", null).lte("next_attempt_at", now)
+        .select("provider_id,attempts").is("resolved_at", null).neq("reason", "missing_checkout_intent").lte("next_attempt_at", now)
         .order("next_attempt_at").limit(4);
       if (inboundError) results.inbound.failed++;
       if (unsettled?.length) {

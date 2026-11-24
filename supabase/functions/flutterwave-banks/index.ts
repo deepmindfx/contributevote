@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2";
 import { flutterwaveFetch, getFlutterwaveConfig } from "../_shared/flutterwaveConfig.ts";
 
 const corsHeaders = {
@@ -27,7 +28,23 @@ Deno.serve(async (req: Request) => {
       if (body?.checkRelayOnly === true) checkRelayOnly = true;
     }
 
-    const config = await getFlutterwaveConfig({ forceRefresh });
+    let adminProbe = false;
+    if (forceRefresh || checkRelayOnly) {
+      const authorization = req.headers.get("Authorization");
+      if (authorization) {
+        const caller = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+          { global: { headers: { Authorization: authorization } } });
+        const { data: { user } } = await caller.auth.getUser();
+        if (user) {
+          const { data } = await caller.rpc("is_admin");
+          adminProbe = data === true;
+        }
+      }
+      if (!adminProbe) {
+        return Response.json({ error: "Admin access required." }, { status: 403, headers: corsHeaders });
+      }
+    }
+    const config = await getFlutterwaveConfig({ forceRefresh: adminProbe && forceRefresh });
 
     // Dedicated health probe for the Static-IP VPS Relay
     if (checkRelayOnly) {
@@ -41,7 +58,9 @@ Deno.serve(async (req: Request) => {
         });
       }
 
-      const healthRes = await fetch(`${config.staticIpProxyUrl}/health`, { method: 'GET' });
+      const healthRes = await fetch(`${config.staticIpProxyUrl}/health`, {
+        method: "GET", redirect: "error", signal: AbortSignal.timeout(5_000),
+      });
       const healthData = await healthRes.json().catch(() => ({}));
       return new Response(JSON.stringify({
         success: healthRes.ok && healthData?.ok === true,
@@ -65,9 +84,7 @@ Deno.serve(async (req: Request) => {
     const { response, routedViaStaticIp } = await flutterwaveFetch('/banks/NG', { method: 'GET' }, config);
 
     if (!response.ok) {
-      const errorData = await response.text();
-      console.error('Flutterwave API error:', errorData);
-      throw new Error(`Flutterwave API error (${response.status}): verify your secret key in Gateway Settings`);
+      throw new Error('The bank directory is unavailable.');
     }
 
     const data = await response.json();
@@ -76,22 +93,22 @@ Deno.serve(async (req: Request) => {
       success: true,
       data: data.data,
       meta: {
-        mode: config.mode,
-        source: config.source,
-        routedViaStaticIp,
-        staticIpAddress: routedViaStaticIp ? config.staticIpAddress : null,
+        ...(adminProbe ? {
+          mode: config.mode,
+          source: config.source,
+          routedViaStaticIp,
+          staticIpAddress: routedViaStaticIp ? config.staticIpAddress : null,
+        } : {}),
         count: Array.isArray(data.data) ? data.data.length : 0,
       },
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
-  } catch (error) {
-    console.error('Error fetching banks:', error);
-
+  } catch {
     return new Response(JSON.stringify({
       success: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: "The bank directory is unavailable.",
     }), {
       status: 400,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },

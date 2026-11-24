@@ -1,3 +1,4 @@
+import { GroupCoverImage } from "@/components/contribution/GroupCover";
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -189,8 +190,8 @@ const ContributeSharePage = () => {
         <Card className="w-full max-w-md overflow-hidden rounded-[1.35rem]">
           {contribution.cover_image_url && (
             <div className="aspect-[16/9] w-full overflow-hidden bg-muted">
-              <img
-                src={contribution.cover_image_url}
+              <GroupCoverImage
+                reference={contribution.cover_image_url}
                 alt={contribution.name}
                 className="h-full w-full object-cover"
               />

@@ -1,3 +1,4 @@
+import { GroupCoverImage } from "@/components/contribution/GroupCover";
 import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import Header from "@/components/layout/Header";
@@ -241,8 +242,8 @@ const AllGroups = () => {
                       <div>
                         {contribution.cover_image_url && (
                           <div className="relative aspect-[16/9] w-full overflow-hidden bg-muted">
-                            <img
-                              src={contribution.cover_image_url}
+                            <GroupCoverImage
+                              reference={contribution.cover_image_url}
                               alt={contribution.name || "Group cover"}
                               loading="lazy"
                               className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"

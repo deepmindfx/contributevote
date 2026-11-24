@@ -12,6 +12,7 @@ import { getCategoryLabel } from "@/services/supabase/groupEnhancementService";
 import { supabase } from "@/integrations/supabase/client";
 import { GroupJoinService } from "@/services/supabase/groupJoinService";
 import { cn } from "@/lib/utils";
+import { useGroupCoverUrl } from "@/hooks/useGroupCoverUrl";
 
 interface GroupCardProps {
   group: any;
@@ -35,7 +36,7 @@ export default function GroupCard({ group }: GroupCardProps) {
   const isPinned = Boolean(group.is_pinned);
   const spotlightLabel = group.spotlight_label as string | null | undefined;
   const hasSpotlight = isPinned || Boolean(spotlightLabel);
-  const coverImageUrl = group.cover_image_url as string | null | undefined;
+  const coverImageUrl = useGroupCoverUrl(group.cover_image_url);
 
   useEffect(() => {
     let active = true;

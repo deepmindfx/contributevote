@@ -28,6 +28,7 @@ export async function fetchVerifiedInbound(config: FlutterwaveRuntimeConfig, tra
     : "/transactions/verify_by_reference?" + new URLSearchParams({ tx_ref: reference });
   const response = await fetch(FLUTTERWAVE_BASE_URL + endpoint, {
     method: "GET", headers: { Authorization: "Bearer " + config.secretKey },
+    redirect: "error",
     signal: AbortSignal.timeout(6000),
   });
   if (!response.ok) return null;
@@ -41,18 +42,32 @@ export async function fetchVerifiedInbound(config: FlutterwaveRuntimeConfig, tra
   return { ...charge, id: String(charge.id), amount, tx_ref: metadataText(charge.tx_ref) };
 }
 
+type InboundReviewReason = "destination_unresolved" | "settlement_failed" | "missing_checkout_intent";
+
+export async function findSettledInbound(db: any, charge: VerifiedCharge, expectedUser?: string) {
+  const { data, error } = await db.rpc("service_find_settled_inbound", {
+    p_provider_id: charge.id,
+    p_reference: metadataText(charge.flw_ref),
+    p_amount: charge.amount,
+    p_expected_user: expectedUser ?? null,
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function queueInboundReview(db: any, charge: VerifiedCharge, reason: InboundReviewReason, attempt = 0) {
+  const { error } = await db.from("inbound_payment_review").upsert({
+    provider_id: charge.id, provider_reference: metadataText(charge.flw_ref) || charge.id, amount: charge.amount, reason,
+    next_attempt_at: new Date(Date.now() + Math.min(60, 2 ** Math.min(attempt, 6)) * 60_000).toISOString(),
+    ...(attempt > 0 ? { attempts: attempt } : {}),
+  }, { onConflict: "provider_id", ignoreDuplicates: attempt === 0 });
+  if (error) throw error;
+  return { queued: true };
+}
+
 export async function applyVerifiedInbound(db: any, charge: VerifiedCharge, attempt = 0): Promise<{ queued: boolean; data?: unknown }> {
   const reference = metadataText(charge.flw_ref) || charge.id;
-  const track = async (reason: "destination_unresolved" | "settlement_failed") => {
-    const { error } = await db.from("inbound_payment_review").upsert({
-      provider_id: charge.id, provider_reference: reference, amount: charge.amount, reason,
-      // First try is scheduled automatically. Subsequent retries back off to an hour.
-      next_attempt_at: new Date(Date.now() + Math.min(60, 2 ** Math.min(attempt, 6)) * 60_000).toISOString(),
-      ...(attempt > 0 ? { attempts: attempt } : {}),
-    }, { onConflict: "provider_id", ignoreDuplicates: attempt === 0 });
-    if (error) throw error;
-    return { queued: true };
-  };
+  const track = (reason: InboundReviewReason) => queueInboundReview(db, charge, reason, attempt);
   const complete = async (data: unknown) => {
     const { error } = await db.from("inbound_payment_review").update({ resolved_at: new Date().toISOString() })
       .eq("provider_id", charge.id).is("resolved_at", null);
@@ -71,21 +86,8 @@ export async function applyVerifiedInbound(db: any, charge: VerifiedCharge, atte
   const method = metadataText(charge.payment_type).toLowerCase();
   const meta = { ...charge.meta_data, ...charge.meta };
   if (method !== "bank_transfer") {
-    // Legacy in-app card transactions still have provider-verified owner metadata.
-    const email = metadataText(charge.customer?.email).toLowerCase();
-    const ownerId = metadataText(meta.user_id);
-    const groupId = metadataText(meta.group_id);
-    if (!email || !/^[0-9a-f-]{36}$/i.test(ownerId) || (groupId && !/^[0-9a-f-]{36}$/i.test(groupId))) return track("destination_unresolved");
-    const { data: owner, error } = await db.from("profiles").select("id").eq("id", ownerId).eq("email", email).maybeSingle();
-    if (error) throw error;
-    if (!owner) return track("destination_unresolved");
-    const payment = await db.rpc("service_apply_verified_inbound", {
-      p_user_id: owner.id, p_group_id: groupId || null, p_reference: reference, p_provider_id: charge.id,
-      p_amount: charge.amount, p_currency: charge.currency, p_method: method || "card", p_destination: null,
-      p_metadata: { senderName: metadataText(charge.customer?.name), senderBank: method, txRef: charge.tx_ref },
-      p_anonymous: meta.anonymous === true,
-    });
-    return payment.error || !payment.data ? track("settlement_failed") : complete(payment.data);
+    const existing = await findSettledInbound(db, charge);
+    return existing ? complete(existing) : track("missing_checkout_intent");
   }
 
   const account = [

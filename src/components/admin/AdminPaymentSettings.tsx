@@ -141,8 +141,6 @@ export const AdminPaymentSettings: React.FC<AdminPaymentSettingsProps> = ({
         secretKey: secretKey.trim() || undefined,
         encryptionKey: encryptionKey.trim() || undefined,
         webhookHash: webhookHash.trim() || undefined,
-        webhookUrl: webhookUrl.trim() || DEFAULT_WEBHOOK_URL,
-        staticIpProxyUrl: staticIpProxyUrl.trim(),
         staticIpProxySecret: staticIpProxySecret.trim() || undefined,
         staticIpAddress: staticIpAddress.trim() || "2.25.15.1",
         transfersEnabled,
@@ -602,7 +600,7 @@ export const AdminPaymentSettings: React.FC<AdminPaymentSettingsProps> = ({
                   type="text"
                   placeholder="https://2-25-15-1.sslip.io"
                   value={staticIpProxyUrl}
-                  onChange={(e) => setStaticIpProxyUrl(e.target.value)}
+                  readOnly
                   className="h-11 rounded-xl font-mono text-xs"
                 />
               </div>
@@ -718,7 +716,7 @@ export const AdminPaymentSettings: React.FC<AdminPaymentSettingsProps> = ({
             <div className="space-y-2">
               <Input
                 value={webhookUrl}
-                onChange={(e) => setWebhookUrl(e.target.value)}
+                readOnly
                 className="h-11 rounded-xl bg-muted/40 font-mono text-[11px]"
                 aria-label="Flutterwave Webhook URL"
               />

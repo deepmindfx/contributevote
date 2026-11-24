@@ -81,6 +81,8 @@ import { AdminPricingRevenue } from "@/components/admin/AdminPricingRevenue";
 import { AdminBulkTransfers } from "@/components/admin/AdminBulkTransfers";
 import { AdminTransactionAnalytics } from "@/components/admin/AdminTransactionAnalytics";
 import { AdminWalletBankBonus } from "@/components/admin/AdminWalletBankBonus";
+import { AdminWalletAdjustments, WALLET_ADJUSTMENTS_QUERY } from "@/components/admin/AdminWalletAdjustments";
+import { useQueryClient } from "@tanstack/react-query";
 import { AdminIceVault } from "@/components/admin/AdminIceVault";
 import { SupportInbox } from "@/components/support/SupportInbox";
 import { hasTransactionPin } from "@/lib/transactionPin";
@@ -130,7 +132,8 @@ const amlStatusBadgeStyle = (status: AmlAlertStatus) => {
 };
 
 const AdminDashboard = () => {
-  const { users, refreshUserData } = useSupabaseUser();
+  const { users, user, refreshUserData } = useSupabaseUser();
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
 
   // Platform datasets
@@ -432,23 +435,23 @@ const AdminDashboard = () => {
     amount: number;
     direction: "credit" | "debit";
     reason: string;
+    caseReference: string;
+    pin: string;
   }) => {
     setActionPending(true);
     setOverlayState({
-      message: payload.direction === "credit" ? "Crediting user wallet" : "Debiting user wallet",
-      submessage: "Updating ledger balance and recording audit trail…",
+      message: "Submitting wallet adjustment",
+      submessage: "Recording the request for independent approval…",
     });
     try {
-      const res = await AdminComplianceService.adjustUserWallet(payload);
+      const res = await AdminComplianceService.requestWalletAdjustment(payload);
       if (!res?.success) {
         toast.error(res?.error || "Wallet adjustment failed");
         return;
       }
-      toast.success(
-        `${payload.direction === "credit" ? "Credited" : "Debited"} ${formatNaira(payload.amount)}`
-      );
+      toast.success(res.status === "pending" ? "Submitted for independent approval" : `This request is already ${res.status}.`);
       setWalletDialogUser(null);
-      await loadPlatformData();
+      void queryClient.invalidateQueries({ queryKey: [WALLET_ADJUSTMENTS_QUERY] });
     } catch (error: any) {
       toast.error(error?.message || "Wallet adjustment failed");
     } finally {
@@ -495,7 +498,7 @@ const AdminDashboard = () => {
     setActionPending(true);
     setOverlayState({
       message: "Issuing compliance penalty",
-      submessage: "Recording fine, adjusting balance, and logging audit entry…",
+      submessage: "Recording the fine and its audit entry…",
     });
     try {
       const res = await AdminComplianceService.issuePenalty(payload);
@@ -522,25 +525,19 @@ const AdminDashboard = () => {
     setActionPending(true);
     setOverlayState({
       message: "Waiving compliance penalty",
-      submessage: penalty.deducted_from_wallet
-        ? "Refunding fine back to user wallet…"
-        : "Updating penalty record…",
+      submessage: "Updating the penalty record…",
     });
     try {
       const res = await AdminComplianceService.waivePenalty(
         penalty.id,
-        penalty.deducted_from_wallet,
+        false,
         "Waived via Super Admin Command Center"
       );
       if (!res?.success) {
         toast.error(res?.error || "Failed to waive penalty");
         return;
       }
-      toast.success(
-        res.refunded
-          ? `Penalty waived & ${formatNaira(penalty.amount)} refunded to wallet`
-          : "Penalty waived"
-      );
+      toast.success("Penalty waived", penalty.deducted_from_wallet ? { description: "Request a wallet credit for independent approval if a refund is due." } : undefined);
       await loadPlatformData();
     } catch (error: any) {
       toast.error(error?.message || "Failed to waive penalty");
@@ -1372,6 +1369,7 @@ const AdminDashboard = () => {
                   TAB 2: USER & KYC MANAGEMENT
                  ================================================================ */}
               <TabsContent value="users" className="space-y-4">
+                {user && <AdminWalletAdjustments adminId={user.id} users={users} onSettled={loadPlatformData} />}
                 <div className="cp-card-native p-4 space-y-3">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="relative flex-1">
@@ -1507,10 +1505,11 @@ const AdminDashboard = () => {
                               size="sm"
                               variant="outline"
                               onClick={() => setWalletDialogUser(u)}
+                              disabled={u.id === user?.id}
                               className="h-9 gap-1 rounded-xl text-xs"
                             >
                               <Wallet className="h-3.5 w-3.5" />
-                              Credit / Debit
+                              Request credit / debit
                             </Button>
                             <Button
                               size="sm"
@@ -1906,7 +1905,7 @@ const AdminDashboard = () => {
                               onClick={() => handleWaivePenalty(p)}
                               className="h-9 rounded-xl text-xs"
                             >
-                              {p.deducted_from_wallet ? "Waive & Refund" : "Waive Fine"}
+                              Waive fine
                             </Button>
                           )}
                         </div>

@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -712,6 +712,39 @@ export type Database = {
           },
         ]
       }
+      inbound_payment_review: {
+        Row: {
+          amount: number
+          attempts: number
+          created_at: string
+          next_attempt_at: string
+          provider_id: string
+          provider_reference: string
+          reason: string
+          resolved_at: string | null
+        }
+        Insert: {
+          amount: number
+          attempts?: number
+          created_at?: string
+          next_attempt_at?: string
+          provider_id: string
+          provider_reference: string
+          reason: string
+          resolved_at?: string | null
+        }
+        Update: {
+          amount?: number
+          attempts?: number
+          created_at?: string
+          next_attempt_at?: string
+          provider_id?: string
+          provider_reference?: string
+          reason?: string
+          resolved_at?: string | null
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string | null
@@ -1144,6 +1177,80 @@ export type Database = {
           },
         ]
       }
+      wallet_adjustment_requests: {
+        Row: {
+          amount: number
+          case_reference: string
+          created_at: string
+          direction: string
+          id: string
+          reason: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          submitted_by: string
+          target_user_id: string
+          transaction_id: string | null
+        }
+        Insert: {
+          amount: number
+          case_reference: string
+          created_at?: string
+          direction: string
+          id?: string
+          reason: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          submitted_by: string
+          target_user_id: string
+          transaction_id?: string | null
+        }
+        Update: {
+          amount?: number
+          case_reference?: string
+          created_at?: string
+          direction?: string
+          id?: string
+          reason?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          submitted_by?: string
+          target_user_id?: string
+          transaction_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_adjustment_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wallet_adjustment_requests_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wallet_adjustment_requests_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wallet_adjustment_requests_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: true
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       withdrawal_requests: {
         Row: {
           amount: number
@@ -1283,6 +1390,10 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_decide_wallet_adjustment: {
+        Args: { p_approve: boolean; p_pin: string; p_request_id: string }
+        Returns: Json
+      }
       admin_deposit_to_user: {
         Args: {
           p_amount: number
@@ -1306,6 +1417,17 @@ export type Database = {
       }
       admin_remove_user_bvn: {
         Args: { p_reason?: string; p_user_id: string }
+        Returns: Json
+      }
+      admin_request_wallet_adjustment: {
+        Args: {
+          p_amount: number
+          p_case_reference: string
+          p_direction: string
+          p_pin: string
+          p_reason: string
+          p_user_id: string
+        }
         Returns: Json
       }
       admin_review_external_payment: {

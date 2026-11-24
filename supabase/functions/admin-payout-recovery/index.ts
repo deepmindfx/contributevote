@@ -43,8 +43,10 @@ Deno.serve(async (req) => {
       const config = await getFlutterwaveConfig({ supabaseAdmin: db });
       const status = await reconcileBankTransfer(db, payout, config, { onProviderStatus: value => { providerStatus = value; } });
       if (status === "completed" || providerStatus === "SUCCESSFUL") return json({ error: "Flutterwave reports this payout was paid." }, 409);
-      if (!["FAILED", "CANCELLED", "CANCELED", "REVERSED"].includes(providerStatus ?? "")
-        && !(providerStatus === "NOT_FOUND" && review.basis === "not_debited")) {
+      const providerMatchesEvidence = review.basis === "reversed"
+        ? providerStatus === "REVERSED"
+        : ["FAILED", "CANCELLED", "CANCELED"].includes(providerStatus ?? "");
+      if (!providerMatchesEvidence) {
         return json({ error: "Flutterwave has not confirmed a compatible payout status. The wallet remains reserved." }, 409);
       }
     }

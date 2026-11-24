@@ -1,18 +1,18 @@
 import { supabase } from "@/integrations/supabase/client";
 import { compressBannerImage, formatByteSize } from "@/lib/imageCompression";
 
-const BUCKET = "group-covers";
+const BUCKET = "protected-group-covers";
+export const PROTECTED_GROUP_COVER_PREFIX = `${BUCKET}:`;
 
 export interface GroupCoverUploadDetails {
-  publicUrl: string;
+  coverReference: string;
   originalBytes: number;
   compressedBytes: number;
 }
 
 /**
  * Compresses a group header / cover image using multi-step 2x progressive Retina HD
- * downsampling and near-lossless WebP/JPEG encoding, uploads it to the public
- * `group-covers` Supabase Storage bucket, and returns the public CDN URL.
+ * downsampling and near-lossless WebP/JPEG encoding before storing it in the protected bucket.
  */
 export async function uploadGroupCoverImageWithMeta(
   userId: string,
@@ -25,14 +25,13 @@ export async function uploadGroupCoverImageWithMeta(
     targetMaxBytes: 320 * 1024,
   });
 
-  const rand = Math.random().toString(36).slice(2, 8);
-  const path = `${userId}/${Date.now()}-${rand}.${ext}`;
+  const path = `${userId}/${crypto.randomUUID()}.${ext}`;
 
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
     .upload(path, blob, {
       contentType: mimeType,
-      cacheControl: "31536000",
+      cacheControl: "0",
       upsert: false,
     });
 
@@ -40,13 +39,8 @@ export async function uploadGroupCoverImageWithMeta(
     throw new Error(uploadError.message || "Failed to upload cover photo.");
   }
 
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
-  if (!data?.publicUrl) {
-    throw new Error("Failed to resolve uploaded image URL.");
-  }
-
   return {
-    publicUrl: data.publicUrl,
+    coverReference: PROTECTED_GROUP_COVER_PREFIX + path,
     originalBytes,
     compressedBytes,
   };
@@ -54,22 +48,26 @@ export async function uploadGroupCoverImageWithMeta(
 
 export async function uploadGroupCoverImage(userId: string, file: File): Promise<string> {
   const result = await uploadGroupCoverImageWithMeta(userId, file);
-  return result.publicUrl;
+  return result.coverReference;
+}
+
+export function downloadGroupCover(reference: string) {
+  return supabase.storage.from(BUCKET).download(reference.slice(PROTECTED_GROUP_COVER_PREFIX.length));
 }
 
 export { formatByteSize };
 
 /**
- * Updates an existing group's cover photo URL in `contribution_groups`.
+ * Updates the cover reference on an existing group.
  */
-export async function updateGroupCoverImage(groupId: string, coverImageUrl: string | null) {
-  const { error } = await (supabase as any)
+export async function updateGroupCoverImage(groupId: string, coverReference: string | null) {
+  const { error } = await supabase
     .from("contribution_groups")
     .update({
-      cover_image_url: coverImageUrl,
+      cover_image_url: coverReference,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", groupId);
+    .eq("id", groupId).select("id").single();
 
   if (error) throw error;
 }

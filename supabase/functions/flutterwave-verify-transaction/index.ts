@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { flutterwaveFetch, getFlutterwaveConfig } from "../_shared/flutterwaveConfig.ts";
+import { findSettledInbound, queueInboundReview } from "../_shared/verifiedInbound.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -106,33 +107,24 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Legacy checkout attribution must be present in the provider-verified data.
-    // A browser return parameter alone cannot turn a deposit or outside transfer into a voting contribution.
-    const checkoutGroupId = flwData.meta?.group_id && flwData.meta?.user_id === user.id ? flwData.meta.group_id : null;
-    if (group_id && group_id !== checkoutGroupId) throw new Error('Payment does not match a group checkout.');
-    if (String(flwData.tx_ref || '').startsWith('GROUP_') && !checkoutGroupId) {
-      throw new Error('Outside group transfers must be linked by a group administrator.');
-    }
-
-    const flwEmail = String(flwData.customer?.email || "").trim().toLowerCase();
-    if (!flwEmail || flwEmail !== user.email?.trim().toLowerCase() || (flwData.meta?.user_id && flwData.meta.user_id !== user.id)) {
-      throw new Error("This payment belongs to a different account.");
-    }
-    if (flwData.currency !== "NGN") throw new Error("Only NGN payments are supported.");
     if (String(flwData.payment_type || "").toLowerCase() === "bank_transfer") {
-      // A virtual-account payment is routed by the receiving account, not the payer's email.
       throw new Error("Bank deposits appear after the receiving account is confirmed by Flutterwave.");
     }
-
-    const { data, error } = await supabaseAdmin.rpc("service_apply_verified_inbound", {
-      p_user_id: user.id, p_group_id: checkoutGroupId, p_reference: String(flwData.flw_ref || flwData.id || ""),
-      p_provider_id: String(flwData.id || ""), p_amount: Number(flwData.amount), p_currency: flwData.currency,
-      p_method: flwData.payment_type || "card", p_destination: null,
-      p_metadata: { txRef: flwData.tx_ref, senderName: flwData.customer?.name, senderBank: flwData.payment_type },
-      p_anonymous: Boolean(flwData.meta?.anonymous),
-    });
-    if (error || !data) throw new Error(error?.message || "Payment could not be recorded.");
-    return new Response(JSON.stringify({ success: true, alreadyProcessed: data.alreadyProcessed, data }), {
+    const charge = { ...flwData, id: String(flwData.id), amount: Number(flwData.amount) };
+    if (!Number.isFinite(charge.amount) || charge.amount < 0.01 || charge.amount > 9999999999999.99 ||
+      !/^\d+(?:\.\d{1,2})?$/.test(String(flwData.amount))) throw new Error("Flutterwave returned an invalid payment amount.");
+    const existing = await findSettledInbound(supabaseAdmin, charge, user.id);
+    if (existing) {
+      if (group_id && group_id !== existing.contributionId) throw new Error("Payment does not match a group checkout.");
+      return Response.json({ success: true, alreadyProcessed: true, data: existing }, { headers: corsHeaders });
+    }
+    const email = String(flwData.customer?.email || "").trim().toLowerCase();
+    if (!email || email !== user.email?.trim().toLowerCase()) throw new Error("Checkout could not be confirmed for this account.");
+    await queueInboundReview(supabaseAdmin, charge, "missing_checkout_intent");
+    return new Response(JSON.stringify({
+      success: false, error: "Flutterwave confirmed the charge and CollectiPay needs to review it. Contact support with your payment reference.",
+    }), {
+      status: 409,
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
   } catch (error) {

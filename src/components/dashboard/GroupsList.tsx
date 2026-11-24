@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 import CategoryIcon from "@/components/ui/CategoryIcon";
+import { GroupCoverImage } from "@/components/contribution/GroupCover";
 
 const naira = new Intl.NumberFormat("en-NG", { maximumFractionDigits: 2 });
 
@@ -51,7 +52,7 @@ export default function GroupsList() {
                       <span className="relative grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-xl bg-accent text-primary" aria-hidden="true">
                         <CategoryIcon category={group.category} size={19} />
                         {group.cover_image_url && (
-                          <img key={group.cover_image_url} src={group.cover_image_url} alt="" loading="lazy" className="absolute inset-0 size-full object-cover"
+                          <GroupCoverImage reference={group.cover_image_url} alt="" loading="lazy" className="absolute inset-0 size-full object-cover"
                             onError={(event) => { event.currentTarget.hidden = true; }} />
                         )}
                       </span>

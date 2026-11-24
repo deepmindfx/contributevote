@@ -97,6 +97,12 @@ Deno.serve(async (req: Request) => {
       if (rows.length > settings.max_recipients || rows.reduce((sum, row) => sum + Math.round(row.amount * 100), 0) > Math.round(Number(settings.max_batch_amount) * 100)) {
         return json({ error: "The batch exceeds the configured recipient or amount limit." }, 400);
       }
+      const lookupCount = new Set(rows.map(row => row.account_bank + ":" + row.account_number)).size;
+      const { data: allowed, error: quotaError } = await db.rpc("service_claim_bank_lookup_quota", {
+        p_user_id: user.id, p_count: lookupCount * 2,
+      });
+      if (quotaError) return json({ error: "Bank account verification is unavailable." }, 503);
+      if (allowed !== true) return json({ error: "Too many account checks. Try again shortly." }, 429);
       const verified = await verifyRecipients(rows, config);
       const { data: batchId, error } = await db.rpc("service_create_bulk_transfer_quote", {
         p_user_id: user.id, p_title: title, p_recipients: verified,

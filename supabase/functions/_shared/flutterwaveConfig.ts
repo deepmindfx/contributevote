@@ -75,7 +75,7 @@ export async function getFlutterwaveConfig(options?: {
   const encryptionKey = String(dbRow?.flutterwave_encryption_key || '').trim() || envEncryptionKey;
   const webhookHash = String(dbRow?.flutterwave_webhook_hash || '').trim() || envWebhookHash;
   const webhookUrl = String(dbRow?.webhook_url || '').trim() || defaultWebhookUrl;
-  const staticIpProxyUrl = (String(dbRow?.static_ip_proxy_url || '').trim() || envProxyUrl).replace(/\/+$/, '');
+  const staticIpProxyUrl = (envProxyUrl || String(dbRow?.static_ip_proxy_url || '').trim()).replace(/\/+$/, '');
   const staticIpProxySecret = String(dbRow?.static_ip_proxy_secret || '').trim() || envProxySecret;
   const staticIpAddress = String(dbRow?.static_ip_address || '').trim() || '2.25.15.1';
   const transfersEnabled = dbRow?.transfers_enabled !== false;
@@ -129,6 +129,7 @@ export async function flutterwaveFetch(
   const response = await fetch(url, {
     method: init.method || 'GET',
     headers,
+    redirect: 'error',
     body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
     signal: init.signal,
   });

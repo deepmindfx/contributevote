@@ -22,7 +22,12 @@ type Review = {
   evidence_note: string;
   submitted_by: string;
 };
-type Inbound = { provider_id: string; amount: number; reason: "destination_unresolved" | "settlement_failed" };
+const inboundReviewReasons = {
+  destination_unresolved: "Account match pending",
+  settlement_failed: "Settlement pending",
+  missing_checkout_intent: "Missing checkout record · Verify with Flutterwave",
+};
+type Inbound = { provider_id: string; amount: number; reason: keyof typeof inboundReviewReasons };
 
 export function AdminPaymentReviews() {
   const { user, isAdmin } = useSupabaseUser();
@@ -147,7 +152,7 @@ export function AdminPaymentReviews() {
         {inbound.isError && <Button variant="outline" size="sm" onClick={() => void inbound.refetch()}>Retry incoming payments</Button>}
         {inbound.data?.map(item => (
           <p className="break-all text-sm" key={item.provider_id}>
-            {naira.format(item.amount)} · Flutterwave {item.provider_id} · {item.reason === "destination_unresolved" ? "Account match pending" : "Settlement pending"}
+            {naira.format(item.amount)} · Flutterwave {item.provider_id} · {inboundReviewReasons[item.reason]}
           </p>
         ))}
         {inbound.data?.length === 0 && <p className="text-sm text-muted-foreground">No incoming payments currently need review.</p>}

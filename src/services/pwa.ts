@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseUrl as apiUrl } from "@/integrations/supabase/client";
 
 type InstallPrompt = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
 let installPrompt: InstallPrompt | null = null;
@@ -12,7 +12,7 @@ export const pushAvailable = () => typeof window !== "undefined" && window.isSec
   "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
 export const installed = () => window.matchMedia("(display-mode: standalone)").matches ||
   (navigator as Navigator & { standalone?: boolean }).standalone === true;
-const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.replace(/\/$/, "");
+const supabaseUrl = apiUrl.replace(/\/$/, "");
 export const pushConfigured = Boolean(key || supabaseUrl);
 
 export function initPwa() {

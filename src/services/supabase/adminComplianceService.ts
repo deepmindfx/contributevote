@@ -346,20 +346,32 @@ export const AdminComplianceService = {
     return data;
   },
 
-  async adjustUserWallet(payload: {
+  async requestWalletAdjustment(payload: {
     userId: string;
     amount: number;
     direction: "credit" | "debit";
     reason: string;
-  }): Promise<{ success: boolean; balance_after?: number; error?: string }> {
-    const { data, error } = await (supabase as any).rpc("admin_adjust_user_wallet", {
-      p_target_user_id: payload.userId,
+    caseReference: string;
+    pin: string;
+  }): Promise<{ success: boolean; status?: string; error?: string }> {
+    const { data, error } = await supabase.rpc("admin_request_wallet_adjustment", {
+      p_user_id: payload.userId,
       p_amount: payload.amount,
       p_direction: payload.direction,
       p_reason: payload.reason,
+      p_case_reference: payload.caseReference,
+      p_pin: payload.pin,
     });
     if (error) throw error;
-    return data;
+    return data as { success: boolean; status?: string; error?: string };
+  },
+
+  async decideWalletAdjustment(requestId: string, approve: boolean, pin: string): Promise<{ success: boolean; status?: string; error?: string }> {
+    const { data, error } = await supabase.rpc("admin_decide_wallet_adjustment", {
+      p_request_id: requestId, p_approve: approve, p_pin: pin,
+    });
+    if (error) throw error;
+    return data as { success: boolean; status?: string; error?: string };
   },
 
   async updateUserStatus(

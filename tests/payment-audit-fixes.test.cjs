@@ -110,6 +110,43 @@ test("the webhook verifies legacy incoming events before passing data to settlem
   assert.deepEqual(applied, [charge]);
 });
 
+test("verified legacy card charges preserve existing receipts and queue new charges without crediting metadata", async () => {
+  const inbound = load("supabase/functions/_shared/verifiedInbound.ts", {
+    "./flutterwaveConfig.ts": { FLUTTERWAVE_BASE_URL: baseUrl },
+  });
+  const card = { ...charge, payment_type: "card", tx_ref: "legacy_checkout", meta: { user_id: randomUUID(), group_id: randomUUID() } };
+  const queue = [];
+  const resolved = [];
+  let receipt = null;
+  const db = {
+    async rpc(name, args) {
+      assert.equal(name, "service_find_settled_inbound");
+      assert.equal(args.p_provider_id, card.id);
+      assert.equal(args.p_amount, card.amount);
+      return { data: receipt };
+    },
+    from(table) {
+      assert.equal(table, "inbound_payment_review");
+      return {
+        async upsert(record) { queue.push(record); return { error: null }; },
+        update: () => ({ eq: (_column, id) => ({ is: async () => { resolved.push(id); return { error: null }; } }) }),
+      };
+    },
+  };
+  const first = await inbound.applyVerifiedInbound(db, card);
+  assert.equal(first.queued, true);
+  assert.equal(queue.length, 1);
+  assert.equal(queue[0].reason, "missing_checkout_intent");
+  assert.equal(queue[0].amount, card.amount);
+  assert.equal(queue[0].user_id, undefined);
+  receipt = { transactionId: randomUUID(), alreadyProcessed: true };
+  const second = await inbound.applyVerifiedInbound(db, card);
+  assert.equal(second.queued, false);
+  assert.equal(second.data.transactionId, receipt.transactionId);
+  assert.deepEqual(resolved, [card.id]);
+  assert.equal(queue.length, 1);
+});
+
 test("ambiguous transfer and contribution attempts survive module reload and clear after confirmation", async () => {
   const records = new Map();
   const globals = {
@@ -168,10 +205,81 @@ test("payout recovery withholds the second decision when the latest provider che
   assert.equal((await handler(request())).status, 409);
   latest = "PENDING";
   assert.equal((await handler(request())).status, 409);
+  latest = "NOT_FOUND";
+  assert.equal((await handler(request())).status, 409);
+  latest = "REVERSED";
+  assert.equal((await handler(request())).status, 409);
   assert.equal(writes.length, 0);
   latest = "FAILED";
   assert.equal((await handler(request())).status, 200);
   assert.equal(writes[0].method, "service_decide_payout_recovery");
   assert.equal(writes[0].args.p_provider_status, "FAILED");
   assert.equal(writes[0].args.p_admin_id, user.id);
+});
+
+test("bank account verification checks user eligibility and quota before disclosing the minimum result", async () => {
+  let handler;
+  let user = null;
+  let status = "active";
+  let quota = false;
+  let lookups = 0;
+  const db = {
+    from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { status } }) }) }) }),
+    rpc: async () => ({ data: quota }),
+  };
+  load("supabase/functions/flutterwave-resolve-account/index.ts", {
+    "jsr:@supabase/supabase-js@2": {
+      createClient: (_url, _key, options) => options ? { auth: { getUser: async () => ({ data: { user } }) } } : db,
+    },
+    "../_shared/flutterwaveConfig.ts": {
+      getFlutterwaveConfig: async () => config,
+      flutterwaveFetch: async () => {
+        lookups++;
+        return { response: Response.json({ status: "success", data: {
+          account_name: "Fixture Recipient", account_number: "0000012345", provider_only: "internal",
+        } }) };
+      },
+    },
+  }, { Deno: { env: { get: () => "" }, serve: (next) => { handler = next; } } });
+  const send = (account_number = "0000012345") => handler(new Request("https://fixture.example", {
+    method: "POST", headers: { Authorization: "Bearer fixture" },
+    body: JSON.stringify({ account_number, bank_code: "011" }),
+  }));
+  assert.equal((await send()).status, 401);
+  user = { id: randomUUID(), email_confirmed_at: "2026-11-24T00:00:00Z" };
+  assert.equal((await send("1234")).status, 400);
+  status = "suspended";
+  assert.equal((await send()).status, 403);
+  status = "active";
+  assert.equal((await send()).status, 429);
+  assert.equal(lookups, 0);
+  quota = true;
+  assert.deepEqual(await (await send()).json(), { success: true, data: { account_name: "Fixture Recipient", account_number: "0000012345" } });
+  assert.equal(lookups, 1);
+});
+
+test("only an active admin can inspect relay health or force a bank refresh", async () => {
+  let handler;
+  let admin = false;
+  let calls = 0;
+  load("supabase/functions/flutterwave-banks/index.ts", {
+    "jsr:@supabase/supabase-js@2": { createClient: () => ({
+      auth: { getUser: async () => ({ data: { user: { id: randomUUID() } } }) },
+      rpc: async () => ({ data: admin }),
+    }) },
+    "../_shared/flutterwaveConfig.ts": {
+      getFlutterwaveConfig: async () => ({ ...config, mode: "live", source: "db", staticIpAddress: "192.0.2.1" }),
+      flutterwaveFetch: async () => {
+        calls++;
+        return { response: Response.json({ data: [{ name: "Fixture Bank", code: "011" }] }), routedViaStaticIp: true };
+      },
+    },
+  }, { Deno: { env: { get: () => "" }, serve: (next) => { handler = next; } } });
+  const send = (query) => handler(new Request("https://fixture.example/" + query, { headers: { Authorization: "Bearer fixture" } }));
+  assert.equal((await send("?check_relay=1")).status, 403);
+  assert.equal((await send("?fresh=1")).status, 403);
+  assert.equal(calls, 0);
+  assert.deepEqual((await (await send("")).json()).meta, { count: 1 });
+  admin = true;
+  assert.equal((await (await send("?fresh=1")).json()).meta.staticIpAddress, "192.0.2.1");
 });
