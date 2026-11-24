@@ -1210,6 +1210,25 @@ export type Database = {
     }
     Functions: {
       delete_empty_group: { Args: { p_group_id: string }; Returns: undefined }
+      submit_wallet_contribution: {
+        Args: { p_group_id: string; p_amount: number; p_anonymous: boolean; p_pin: string | null; p_attempt_id: string }
+        Returns: Json
+      }
+      get_group_contribution_history: {
+        Args: { p_group_id: string; p_contributor_id: string }
+        Returns: { id: string; amount: number; created_at: string; description: string; payment_method: string; reference_id: string; status: string; voting_rights_granted: boolean }[]
+      }
+      review_fixed_savings_terms: { Args: { p_quote_id: string; p_terms_version: string }; Returns: boolean }
+      confirm_reviewed_fixed_savings: {
+        Args: { p_quote_id: string; p_terms_version: string; p_accepted: boolean; p_pin: string }
+        Returns: Json
+      }
+      admin_list_payout_recoveries: { Args: Record<never, never>; Returns: Json }
+      admin_list_pending_inbound_payments: { Args: Record<never, never>; Returns: Json }
+      admin_request_payout_recovery: {
+        Args: { p_reference: string; p_basis: string; p_evidence_reference: string; p_evidence_note: string; p_pin: string }
+        Returns: Json
+      }
       admin_get_payout_reconciliation_health: { Args: Record<never, never>; Returns: Json }
       create_support_ticket: {
         Args: { p_client_id: string; p_category: string; p_reference: string; p_subject: string; p_body: string }

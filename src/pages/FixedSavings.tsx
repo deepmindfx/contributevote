@@ -14,7 +14,7 @@ import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 import { hasTransactionPin } from "@/lib/transactionPin";
 import {
-  getFixedSavings, openSavings, quoteSavings, SavingsConfirmationRejected, savingsPeriods, withdrawSavings,
+  getFixedSavings, openSavings, quoteSavings, reviewSavingsTerms, SavingsConfirmationRejected, savingsPeriods, withdrawSavings,
   type SavingsCursor, type SavingsItem, type SavingsPeriod, type SavingsQuote,
 } from "@/services/supabase/fixedSavingsService";
 import { naira } from "@/services/supabase/pricingService";
@@ -128,6 +128,7 @@ function AccountSavings({ owner }: { owner: string }) {
   const [withdrawingId, setWithdrawingId] = useState<string | null>(null);
   const [pin, setPin] = useState("");
   const [accepted, setAccepted] = useState(false);
+  const [reviewedTermsFor, setReviewedTermsFor] = useState<string | null>(null);
   const [actionError, setActionError] = useState("");
   const commitGuard = useRef(false);
   const quoteGuard = useRef(false);
@@ -178,6 +179,7 @@ function AccountSavings({ owner }: { owner: string }) {
     setShowReview(false);
     setPin("");
     setAccepted(false);
+    setReviewedTermsFor(null);
     setActionError("");
   }, [owner]);
 
@@ -211,6 +213,7 @@ function AccountSavings({ owner }: { owner: string }) {
     try {
       setQuote(await quoteSavings(value, selectedPeriod));
       setAccepted(false);
+      setReviewedTermsFor(null);
       setShowReview(true);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Couldn’t prepare the lock.");
@@ -220,7 +223,7 @@ function AccountSavings({ owner }: { owner: string }) {
   const confirm = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!quote || (!pendingConfirmation && Date.parse(quote.expires_at) <= now) || !termsLink(quote.terms_url) ||
-        !accepted || !/^\d{4}$/.test(pin) || commitGuard.current) return;
+        reviewedTermsFor !== quote.id || !accepted || !/^\d{4}$/.test(pin) || commitGuard.current) return;
     commitGuard.current = true;
     setCommitting(true);
     setActionError("");
@@ -272,6 +275,15 @@ function AccountSavings({ owner }: { owner: string }) {
   };
 
   const approvedTerms = quote ? termsLink(quote.terms_url) : null;
+  const markTermsOpened = async (openingQuote: SavingsQuote) => {
+    try {
+      await reviewSavingsTerms(openingQuote);
+      setReviewedTermsFor(openingQuote.id);
+      setActionError("");
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Couldn’t record your terms review. Try opening the terms again.");
+    }
+  };
   const quoteExpired = Boolean(quote && Date.parse(quote.expires_at) <= now);
   const dueItems = unsettledItems.filter((item) => canWithdrawLock(item, now));
   const openItems = unsettledItems.filter((item) => !canWithdrawLock(item, now));
@@ -363,14 +375,15 @@ function AccountSavings({ owner }: { owner: string }) {
                 ? "The full amount returns to your wallet automatically at maturity."
                 : "Your provider confirms release after maturity."} Ice Vault pays no interest or bonuses.
             </p>
-            {approvedTerms ? <a href={approvedTerms} target="_blank" rel="noopener noreferrer"
+            {approvedTerms ? <a href={approvedTerms} target="_blank" rel="noopener noreferrer" onClick={() => void markTermsOpened(quote)}
               className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-primary underline underline-offset-4">
               Read Ice Vault terms <ArrowRight size={14} aria-hidden="true" />
             </a> : <p role="status" className="text-sm text-muted-foreground">The terms are unavailable. Review a new quote.</p>}
             <label className="flex gap-2 text-sm">
-              <input type="checkbox" className="mt-0.5 accent-primary" checked={accepted} disabled={!approvedTerms || committing} onChange={(event) => setAccepted(event.target.checked)} />
+              <input type="checkbox" className="mt-0.5 accent-primary" checked={accepted} disabled={!approvedTerms || reviewedTermsFor !== quote.id || committing} onChange={(event) => setAccepted(event.target.checked)} />
               <span>I accept the Ice Vault terms and agree to lock this amount until the maturity time shown above.</span>
             </label>
+            {approvedTerms && reviewedTermsFor !== quote.id && <p className="text-xs text-muted-foreground">Open the terms to enable the checkbox.</p>}
             <div className="space-y-1.5"><Label htmlFor="savings-pin">Transaction PIN</Label>
               <Input id="savings-pin" className="h-11" type="password" inputMode="numeric" autoComplete="off" maxLength={4} value={pin} disabled={committing} onChange={(event) => setPin(event.target.value.replace(/\D/g, ""))} />
             </div>
@@ -378,7 +391,7 @@ function AccountSavings({ owner }: { owner: string }) {
             {quoteExpired && <p className="text-sm text-muted-foreground">{pendingConfirmation ? "Check this submission before starting another lock." : "This quote expired. Return to the form to request a new quote."}</p>}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={pendingConfirmation ? () => setShowReview(false) : clearSavedQuote} disabled={committing}>Close review</Button>
-              <Button type="submit" disabled={committing || !accepted || !approvedTerms || pin.length !== 4 || (quoteExpired && !pendingConfirmation)}>{committing ? "Confirming…" : pendingConfirmation ? "Retry confirmation" : "Confirm lock"}</Button>
+              <Button type="submit" disabled={committing || !accepted || !approvedTerms || reviewedTermsFor !== quote.id || pin.length !== 4 || (quoteExpired && !pendingConfirmation)}>{committing ? "Confirming…" : pendingConfirmation ? "Retry confirmation" : "Confirm lock"}</Button>
             </DialogFooter>
           </form>
         </DialogContent>}

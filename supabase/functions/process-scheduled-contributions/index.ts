@@ -1,6 +1,8 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { runPayoutReconciliation } from "../_shared/runPayoutReconciliation.ts";
 import { getSchedulerClient } from "../_shared/schedulerClient.ts";
+import { getFlutterwaveConfig } from "../_shared/flutterwaveConfig.ts";
+import { applyVerifiedInbound, fetchVerifiedInbound } from "../_shared/verifiedInbound.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -26,10 +28,31 @@ serve(async (req) => {
       scheduled: { processed: 0, failed: 0 },
       refunds: { processed: 0, failed: 0 },
       withdrawals: { processed: 0, failed: 0 },
+      inbound: { processed: 0, failed: 0 },
       mode: deadlinesOnly ? 'deadlines-only' : 'full',
     };
 
     if (!deadlinesOnly) {
+      const { data: unsettled, error: inboundError } = await supabaseClient.from("inbound_payment_review")
+        .select("provider_id,attempts").is("resolved_at", null).lte("next_attempt_at", now)
+        .order("next_attempt_at").limit(4);
+      if (inboundError) results.inbound.failed++;
+      if (unsettled?.length) {
+        const config = await getFlutterwaveConfig({ supabaseAdmin: supabaseClient });
+        await Promise.all(unsettled.map(async (item) => {
+          try {
+            const charge = await fetchVerifiedInbound(config, item.provider_id);
+            if (!charge) throw new Error("Provider verification unavailable");
+            const result = await applyVerifiedInbound(supabaseClient, charge, item.attempts + 1);
+            if (!result.queued) results.inbound.processed++;
+          } catch {
+            results.inbound.failed++;
+            await supabaseClient.from("inbound_payment_review").update({
+              next_attempt_at: new Date(Date.now() + 30 * 60_000).toISOString(),
+            }).eq("provider_id", item.provider_id).is("resolved_at", null);
+          }
+        }));
+      }
       for (const spec of [
         { table: "recurring_contributions", kind: "recurring", due: "next_contribution_date", counter: results.recurring },
         { table: "scheduled_contributions", kind: "scheduled", due: "scheduled_date", counter: results.scheduled },

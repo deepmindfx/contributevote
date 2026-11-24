@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { paymentAttempt } from '@/lib/paymentAttempt';
 
 export interface WalletContributionResult {
   success: boolean;
@@ -67,8 +68,9 @@ export const WalletContributionService = {
     pin?: string
   ): Promise<WalletContributionResult> {
     try {
-      const { data, error } = await (supabase as any).rpc('contribute_from_wallet', {
-        p_user_id: userId,
+      const attempt = await paymentAttempt("contribution", userId, [groupId, amount, anonymous]);
+      const { data, error } = await supabase.rpc('submit_wallet_contribution', {
+        p_attempt_id: attempt.id,
         p_group_id: groupId,
         p_amount: amount,
         p_anonymous: anonymous,
@@ -80,7 +82,9 @@ export const WalletContributionService = {
         throw error;
       }
 
-      const result = data as unknown as WalletContributionResult;
+      const result = data as unknown as WalletContributionResult | null;
+      if (!result) throw new Error('The contribution could not be confirmed.');
+      attempt.finish();
 
       if (result.success) {
         const votingNote =

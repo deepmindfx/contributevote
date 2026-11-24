@@ -231,7 +231,7 @@ Deno.serve(async (req: Request) => {
       p_account: {
         accountNumber: providerAccount.account_number, bankName: providerAccount.bank_name, accountName: name,
         flwRef: providerAccount.flw_ref, orderRef: providerAccount.order_ref,
-        accountReference: providerAccount.account_reference, createdAt: new Date().toISOString(),
+        accountReference: providerAccount.account_reference, txRef, createdAt: new Date().toISOString(),
       },
     });
     if (completeError || !completed?.account) {

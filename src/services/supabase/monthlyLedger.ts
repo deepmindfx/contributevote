@@ -27,6 +27,11 @@ export function lagosMonthRange(month: string) {
 export const completedLedgerEntry = (entry: LedgerEntry) =>
   ["completed", "successful", "success", "paid"].includes(entry.status?.toLowerCase() || "");
 
+const wasReturnedPayout = (entry: LedgerEntry) => entry.type === "transfer" && entry.status === "failed" &&
+  typeof (entry.metadata as Record<string, unknown> | null)?.payout_recovery_id === "string";
+
+export const postedWalletEntry = (entry: LedgerEntry) => completedLedgerEntry(entry) || wasReturnedPayout(entry);
+
 export function walletMovement(entry: LedgerEntry) {
   const amount = Number(entry.amount || 0);
   const metadata = (entry.metadata || {}) as Record<string, unknown>;
@@ -68,7 +73,7 @@ export function analyzeWalletMonth(entries: LedgerEntry[], month: string): Month
     if (!completedLedgerEntry(entry)) {
       if (["failed", "rejected", "cancelled"].includes(entry.status?.toLowerCase() || "")) failed++;
       else pending++;
-      continue;
+      if (!wasReturnedPayout(entry)) continue;
     }
     const delta = walletMovement(entry);
     const dayOfMonth = lagosDay.formatToParts(new Date(entry.created_at)).find(({ type }) => type === "day");
@@ -80,12 +85,14 @@ export function analyzeWalletMonth(entries: LedgerEntry[], month: string): Month
       outgoing -= delta;
       if (day) day.outgoing -= delta;
     }
-    if (entry.type === "transfer") {
+    if (entry.type === "transfer" && !wasReturnedPayout(entry)) {
       bankTransfers++;
       bankTotal += Number(entry.amount);
       fees += Number((entry.metadata as Record<string, unknown> | null)?.fee) || 0;
     }
-    const label = entry.payment_method === "fixed_savings" ? "Ice Vault" : entry.type === "withdrawal" && entry.contribution_id ? "Group payouts" : ({
+    const label = wasReturnedPayout(entry) ? "Returned payout debits"
+      : entry.payment_method === "bank_payout_recovery" ? "Bank payout returns"
+      : entry.payment_method === "fixed_savings" ? "Ice Vault" : entry.type === "withdrawal" && entry.contribution_id ? "Group payouts" : ({
       deposit: "Wallet deposits", transfer: "Bank transfers", withdrawal: "Wallet withdrawals",
       contribution: "Group contributions", refund: "Refunds",
     } as Record<string, string>)[entry.type] || "Other payments";

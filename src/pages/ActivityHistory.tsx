@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useMonthlyLedger } from "@/hooks/useMonthlyLedger";
 import { useTransferStatus } from "@/hooks/useTransferStatus";
-import { analyzeWalletMonth, completedLedgerEntry, currentLagosMonth, walletMovement } from "@/services/supabase/monthlyLedger";
+import { analyzeWalletMonth, postedWalletEntry, currentLagosMonth, walletMovement } from "@/services/supabase/monthlyLedger";
 import { MonthPicker, MonthlyFlowInsights } from "@/components/wallet/MonthlyFlowInsights";
 import { StatementExportButton } from "@/components/wallet/StatementExportButton";
 import Header from "@/components/layout/Header";
@@ -75,8 +75,8 @@ const ActivityHistory = () => {
     const q = searchQuery.trim().toLowerCase();
 
     return userTransactions.filter((tx) => {
-      if (activeTab === "in" && (!completedLedgerEntry(tx) || walletMovement(tx) <= 0)) return false;
-      if (activeTab === "out" && (!completedLedgerEntry(tx) || walletMovement(tx) >= 0)) return false;
+      if (activeTab === "in" && (!postedWalletEntry(tx) || walletMovement(tx) <= 0)) return false;
+      if (activeTab === "out" && (!postedWalletEntry(tx) || walletMovement(tx) >= 0)) return false;
       if (
         activeTab === "groups" &&
         !tx.contribution_id &&
@@ -157,6 +157,7 @@ const ActivityHistory = () => {
     const isGroupPayout =
       rawType === "withdrawal" && Boolean(tx.contribution_id) && meta.gross_amount != null;
     const isInbound = kind === "deposit" || kind === "refund" || isGroupPayout;
+    const payoutReturn = tx.payment_method === "bank_payout_recovery";
     const userPrefs = (user?.preferences || {}) as Record<string, any>;
     const depositSender = getDepositSender(meta);
     const transferRecipient = getTransferRecipient(meta);
@@ -182,13 +183,13 @@ const ActivityHistory = () => {
       : failureReason
       ? [
           { label: "Failure Reason", value: failureReason },
-          { label: "Wallet Refund", value: "Refunded automatically", highlight: true },
+          { label: "Wallet Refund", value: meta.payout_recovery_id ? "Returned after provider review" : "Refunded automatically", highlight: true },
         ]
       : undefined;
 
     setSelectedReceipt({
       kind,
-      title: savingsMovement ? tx.description || "Ice Vault" : isGroupPayout ? "Group Payout" : titleMap[rawType] || "Transaction Receipt",
+      title: payoutReturn ? "Bank payout return" : savingsMovement ? tx.description || "Ice Vault" : isGroupPayout ? "Group Payout" : titleMap[rawType] || "Transaction Receipt",
       amount: Number(tx.amount || 0),
       fee: !isGroupPayout && Number.isFinite(parsedFee) ? parsedFee : undefined,
       vat: tx.payment_method === "bulk_bank_transfer" ? Number(meta.vat) || 0 : undefined,
@@ -221,7 +222,8 @@ const ActivityHistory = () => {
           ? Number(meta.balance_after)
           : undefined,
       votingRightsGranted: kind === "contribution",
-      sender: savingsMovement ? { label: "From", name: isInbound ? "Ice Vault" : "CollectiPay Wallet" } : isGroupPayout
+      sender: payoutReturn ? { label: "From", name: "Bank payout recovery" } :
+        savingsMovement ? { label: "From", name: isInbound ? "Ice Vault" : "CollectiPay Wallet" } : isGroupPayout
         ? {
             label: "From pool",
             name: group?.name || "Group Pool",

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { hasTransactionPin } from "@/lib/transactionPin";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { FormEvent } from "react";
-import { v4 as uuid } from "uuid";
+import { paymentAttempt } from "@/lib/paymentAttempt";
 import { Link, useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
@@ -69,7 +69,6 @@ type Transfer = {
   amount: number;
   fee: number;
   note: string;
-  attemptId: string;
 };
 
 type TransferReceipt = {
@@ -333,7 +332,6 @@ export default function TransferForm() {
       amount: numericAmount,
       fee: feeQuote,
       note: note.trim(),
-      attemptId: uuid(),
     });
   };
 
@@ -344,7 +342,7 @@ export default function TransferForm() {
   };
 
   const executeTransfer = async (verifiedPin: string) => {
-    if (!review || sendInFlight.current) return;
+    if (!review || !user?.id || sendInFlight.current) return;
     if (Math.round((review.amount + review.fee) * 100) / 100 > balance) {
       setError("Your wallet balance changed. Go back to review the amount.");
       return;
@@ -363,6 +361,7 @@ export default function TransferForm() {
         setError("The bank returned a different recipient name. Review it before sending.");
         return;
       }
+      const attempt = await paymentAttempt("transfer", user.id, [review.bank.code, review.account, review.amount, recipient, review.note]);
       submitted = true;
       const result = await ApiService.processTransfer({
         accountNumber: review.account,
@@ -374,11 +373,12 @@ export default function TransferForm() {
         narration: review.note || undefined,
         transactionPin: verifiedPin,
         expectedFee: review.fee,
-        attemptId: review.attemptId,
+        attemptId: attempt.id,
       });
       if (result.status !== "success" || !result.data) {
         throw new Error(result?.message || "Transfer couldn’t be confirmed.");
       }
+      attempt.finish();
       setReceipt(result.data);
       reloadAllowance();
       void queryClient.invalidateQueries({ queryKey: ["transfer-beneficiaries"] });

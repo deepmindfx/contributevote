@@ -1,4 +1,4 @@
-import { completedLedgerEntry, walletMovement } from "@/services/supabase/monthlyLedger";
+import { postedWalletEntry, walletMovement } from "@/services/supabase/monthlyLedger";
 import type { LedgerEntry } from "@/services/supabase/monthlyLedger";
 import type { BankOption } from "@/services/supabase/beneficiaryService";
 import type { StatementData } from "@/services/supabase/statementService";
@@ -15,6 +15,8 @@ const months = new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", month: "long"
 
 function transactionLabel(row: LedgerEntry) {
   if (row.payment_method === "fixed_savings") return row.description || "Ice Vault wallet movement";
+  if (row.payment_method === "bank_payout_recovery") return "Bank payout return";
+  if (row.type === "transfer" && row.status === "failed") return "Returned payout debit";
   if (row.payment_method === "bulk_bank_transfer") return "Bulk bank transfer";
   switch (row.type) {
     case "deposit": return "Wallet deposit";
@@ -63,7 +65,7 @@ function bulkReport(statement: Extract<StatementData, { scope: "bulk" }>, banks?
 }
 
 function walletReport(statement: Extract<StatementData, { scope: "wallet" }>) {
-  const movements = statement.entries.filter(completedLedgerEntry)
+  const movements = statement.entries.filter(postedWalletEntry)
     .map((row) => ({ row, delta: walletMovement(row) })).filter(({ delta }) => delta !== 0);
   const incoming = movements.reduce((value, { delta }) => value + Math.max(delta, 0), 0);
   const outgoing = movements.reduce((value, { delta }) => value + Math.max(-delta, 0), 0);

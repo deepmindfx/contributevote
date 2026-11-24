@@ -15,6 +15,9 @@ import CollectiPayReceipt, { type CollectiPayReceiptData } from '@/components/re
 import BrandLoader from '@/components/ui/BrandLoader';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import type { Database } from '@/integrations/supabase/types';
+
+type HistoryEntry = Database['public']['Functions']['get_group_contribution_history']['Returns'][number];
 
 interface ContributionHistoryDialogProps {
   open: boolean;
@@ -33,7 +36,7 @@ export function ContributionHistoryDialog({
   groupId,
   groupName = 'Group',
 }: ContributionHistoryDialogProps) {
-  const [contributions, setContributions] = useState<any[]>([]);
+  const [contributions, setContributions] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
@@ -43,79 +46,33 @@ export function ContributionHistoryDialog({
   const { downloadAsPDF } = useReceiptDownload(receiptRef);
 
   useEffect(() => {
-    if (open && contributorId) {
-      loadContributions();
-    }
-  }, [open, contributorId]);
-
-  const loadContributions = async () => {
-    try {
-      setLoading(true);
-
-      const [{ data: contributor, error: contributorError }, { data: groupData }] = await Promise.all([
-        supabase
-          .from('contributors')
-          .select('user_id, join_method, metadata, total_contributed, contribution_count, joined_at')
-          .eq('id', contributorId)
-          .single(),
-        supabase
-          .from('contribution_groups')
-          .select('current_amount, target_amount')
-          .eq('id', groupId)
-          .maybeSingle(),
-      ]);
-
-      if (groupData && Number(groupData.target_amount) > 0) {
-        setGroupStats({
-          raised: Number(groupData.current_amount || 0),
-          target: Number(groupData.target_amount || 0),
-        });
-      }
-
-      if (contributorError || !contributor) {
-        setContributions([]);
-        return;
-      }
-
-      const contributorData = contributor as any;
-
-      if (!contributorData.user_id && contributorData.join_method === 'bank_transfer') {
-        const syntheticTransaction = {
-          id: contributorId,
-          amount: contributorData.total_contributed,
-          created_at: contributorData.joined_at,
-          description: `Bank transfer from ${contributorData.metadata?.senderName || 'Contributor'}`,
-          payment_method: 'bank_transfer',
-          reference_id: `BANK_${contributorId.substring(0, 8)}`,
-          status: 'completed',
-          type: 'contribution',
-          metadata: contributorData.metadata,
-        };
-        setContributions([syntheticTransaction]);
-        return;
-      }
-
-      if (contributorData.user_id) {
-        const { data, error } = await supabase
-          .from('transactions')
-          .select('*')
-          .eq('user_id', contributorData.user_id)
-          .eq('contribution_id', groupId)
-          .in('type', ['contribution', 'deposit'])
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-        setContributions(data || []);
+    if (!open || !contributorId) return;
+    let active = true;
+    setLoading(true);
+    setContributions([]);
+    setGroupStats(undefined);
+    setSelectedReceipt(null);
+    setShowReceiptModal(false);
+    void Promise.all([
+      supabase.rpc('get_group_contribution_history', { p_group_id: groupId, p_contributor_id: contributorId }),
+      supabase.from('contribution_groups').select('current_amount, target_amount').eq('id', groupId).maybeSingle(),
+    ]).then(([history, group]) => {
+      if (!active) return;
+      if (history.error) {
+        toast.error('Couldn’t load contribution history.');
       } else {
-        setContributions([]);
+        setContributions(history.data ?? []);
       }
-    } catch (error) {
-      console.error('Error loading contribution history:', error);
-      setContributions([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+      if (group.data && Number(group.data.target_amount) > 0) {
+        setGroupStats({ raised: Number(group.data.current_amount ?? 0), target: Number(group.data.target_amount) });
+      }
+    }).catch(() => {
+      if (active) toast.error('Couldn’t load contribution history.');
+    }).finally(() => {
+      if (active) setLoading(false);
+    });
+    return () => { active = false; };
+  }, [open, groupId, contributorId]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -126,7 +83,7 @@ export function ContributionHistoryDialog({
     });
   };
 
-  const handleOpenReceipt = (contribution: any) => {
+  const handleOpenReceipt = (contribution: HistoryEntry) => {
     const methodLabel = String(contribution.payment_method || 'CollectiPay Wallet')
       .replace(/_/g, ' ')
       .replace(/\b\w/g, (c) => c.toUpperCase());
@@ -142,7 +99,7 @@ export function ContributionHistoryDialog({
       groupProgress: groupStats,
       paymentMethod: methodLabel,
       narration: contribution.description || undefined,
-      votingRightsGranted: contribution.status === 'completed' || contribution.status === 'successful',
+      votingRightsGranted: contribution.voting_rights_granted,
       sender: {
         label: 'Contributor',
         name: contributorName,
@@ -191,7 +148,7 @@ export function ContributionHistoryDialog({
     }
   };
 
-  const groupedContributions = contributions.reduce<Record<string, any[]>>((acc, contribution) => {
+  const groupedContributions = contributions.reduce<Record<string, HistoryEntry[]>>((acc, contribution) => {
     const date = new Date(contribution.created_at);
     const key = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     if (!acc[key]) acc[key] = [];
@@ -268,7 +225,7 @@ export function ContributionHistoryDialog({
                     </div>
 
                     <div className="relative ml-2 space-y-5 border-l border-border pl-4">
-                      {items.map((contribution: any) => (
+                      {items.map((contribution: HistoryEntry) => (
                         <div key={contribution.id} className="group relative">
                           <div className="absolute -left-[21px] top-1.5 z-10 h-2.5 w-2.5 rounded-full border-2 border-primary bg-background transition-transform group-hover:scale-125" />
 

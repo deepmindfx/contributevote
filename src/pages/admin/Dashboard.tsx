@@ -75,6 +75,7 @@ import {
 import { FlipCounterHero } from "@/components/admin/FlipCounterHero";
 import { AdminPaymentSettings } from "@/components/admin/AdminPaymentSettings";
 import { AdminPayoutHealth } from "@/components/admin/AdminPayoutHealth";
+import { AdminPaymentReviews } from "@/components/admin/AdminPaymentReviews";
 import { AdminPaymentAlertSounds } from "@/components/admin/AdminPaymentAlertSounds";
 import { AdminPricingRevenue } from "@/components/admin/AdminPricingRevenue";
 import { AdminBulkTransfers } from "@/components/admin/AdminBulkTransfers";
@@ -2095,6 +2096,7 @@ const AdminDashboard = () => {
                  ================================================================ */}
               <TabsContent value="gateway" className="space-y-4">
                 <AdminPayoutHealth />
+                <AdminPaymentReviews />
                 <AdminPaymentAlertSounds />
                 <AdminPaymentSettings onSettingsSaved={() => void loadPlatformData()} />
               </TabsContent>

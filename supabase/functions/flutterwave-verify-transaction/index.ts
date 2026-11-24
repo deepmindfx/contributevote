@@ -79,7 +79,8 @@ Deno.serve(async (req: Request) => {
     const verifyJson = await verifyRes.json();
     const flwData = verifyJson?.data;
 
-    if (verifyJson?.status !== 'success' || flwData?.status !== 'successful') {
+    if (verifyJson?.status !== 'success' || flwData?.status !== 'successful' ||
+      String(flwData?.id) !== String(transaction_id) || flwData?.currency !== 'NGN') {
       return new Response(JSON.stringify({
         success: false,
         error: 'Flutterwave hasn’t confirmed this payment yet. If you paid, try verifying again shortly.',
@@ -118,7 +119,7 @@ Deno.serve(async (req: Request) => {
       throw new Error("This payment belongs to a different account.");
     }
     if (flwData.currency !== "NGN") throw new Error("Only NGN payments are supported.");
-    if (flwData.payment_type === "bank_transfer" && !checkoutGroupId) {
+    if (String(flwData.payment_type || "").toLowerCase() === "bank_transfer") {
       // A virtual-account payment is routed by the receiving account, not the payer's email.
       throw new Error("Bank deposits appear after the receiving account is confirmed by Flutterwave.");
     }

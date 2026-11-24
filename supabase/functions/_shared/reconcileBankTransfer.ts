@@ -5,28 +5,33 @@ export type TransferRow = {
   created_at: string; updated_at?: string | null; metadata?: Record<string, unknown>;
 };
 
-type PayoutLookup = { recordId?: string; issue?: string; onUnavailable?: () => void };
+type PayoutLookup = { recordId?: string; issue?: string; onUnavailable?: () => void; onProviderStatus?: (status: string) => void; auditRecovered?: boolean };
 const validProviderId = /^[1-9][0-9]{0,19}$/;
 
 export async function reconcileBankTransfer(
   db: any, row: TransferRow, config: FlutterwaveRuntimeConfig, lookup: PayoutLookup = {},
 ): Promise<string> {
-  if (row.status !== "pending") return row.status;
   const reference = row.reference_id;
   const meta = row.metadata ?? {};
+  const observeOnly = lookup.auditRecovered === true && row.status === "failed" && Boolean(meta.payout_recovery_id);
+  if (row.status !== "pending" && !observeOnly) return row.status;
   if (meta.dispatch_guard && !meta.dispatched_at) {
     if (Date.now() - Date.parse(row.created_at) < 120_000) return row.status;
     const { data, error } = await db.rpc("service_release_unsent_transfer", { p_reference: reference, p_user_id: row.user_id });
     if (error) throw error;
     return data || row.status;
   }
-  const pending = (issue?: string) => writeTransferStatus(db, row, "pending", issue ? { provider_batch_issue: issue } : {});
+  const pending = (issue?: string) => observeOnly ? row.status : writeTransferStatus(db, row, "pending", issue ? { provider_batch_issue: issue } : {});
   if (!config.secretKey) {
     lookup.onUnavailable?.();
     return pending();
   }
 
   let unavailable = false;
+  const confirmed = (match: any) => {
+    lookup.onProviderStatus?.(String(match.status || "").toUpperCase());
+    return observeOnly ? row.status : settleVerifiedBankTransfer(db, row, match);
+  };
   const verifyById = async (id: string) => {
     const result = await getFlutterwaveTransfer(id, config);
     if (!result) {
@@ -40,18 +45,22 @@ export async function reconcileBankTransfer(
   const hint = String(lookup.recordId ?? meta.payout_lookup_id ?? "");
   if (validProviderId.test(hint)) {
     const match = await verifyById(hint);
-    if (match) return settleVerifiedBankTransfer(db, row, match);
+    if (match) return confirmed(match);
   }
   // A stale hint can never settle a transfer. Recover through the original reference.
   const remote = await listFlutterwaveTransfers(new URLSearchParams({ reference }), AbortSignal.timeout(9000), config).catch(() => null);
   const result = remote?.response.ok ? await remote.response.json().catch(() => null) : null;
   if (result?.status === "success") {
-    const ids = findMatchingProviderIds(row, Array.isArray(result.data) ? result.data : [result.data]);
+    const candidates = Array.isArray(result.data) ? result.data : [result.data];
+    const ids = findMatchingProviderIds(row, candidates);
     if (ids.length === 1 && ids[0] !== hint) {
       const match = await verifyById(ids[0]);
-      if (match) return settleVerifiedBankTransfer(db, row, match);
+      if (match) return confirmed(match);
     }
     if (ids.length > 1) return pending("Flutterwave returned multiple records for this payout. It is under review.");
+    if (!unavailable && Array.isArray(result.data) && !candidates.some(item => item?.reference === reference)) {
+      lookup.onProviderStatus?.("NOT_FOUND");
+    }
   } else unavailable = true;
   if (unavailable) lookup.onUnavailable?.();
   return pending(lookup.issue);

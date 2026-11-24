@@ -21,7 +21,7 @@ import { WalletReportLinks } from "@/components/wallet/WalletReportLinks";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { completedLedgerEntry, walletMovement } from "@/services/supabase/monthlyLedger";
+import { postedWalletEntry, walletMovement } from "@/services/supabase/monthlyLedger";
 import { supportLink } from "@/services/supabase/supportService";
 import { useTransferStatus } from "@/hooks/useTransferStatus";
 import { CurrencySelector } from "@/components/wallet/CurrencySelector";
@@ -152,7 +152,7 @@ export default function WalletHistory() {
   const { totalInflow, totalOutflow } = useMemo(() => {
     return userLedger.reduce(
       (acc, tx) => {
-        if (!completedLedgerEntry(tx)) return acc;
+        if (!postedWalletEntry(tx)) return acc;
         const movement = walletMovement(tx);
         if (movement > 0) acc.totalInflow += movement;
         if (movement < 0) acc.totalOutflow -= movement;
@@ -213,7 +213,8 @@ export default function WalletHistory() {
         ? type
         : "transfer";
     const savingsMovement = transaction.payment_method === "fixed_savings";
-    const title = savingsMovement ? transaction.description || "Ice Vault" : transactionTypes[type];
+    const payoutReturn = transaction.payment_method === "bank_payout_recovery";
+    const title = payoutReturn ? "Bank payout return" : savingsMovement ? transaction.description || "Ice Vault" : transactionTypes[type];
     const pool = groupName(transaction.contribution_id);
     const depositSender = getDepositSender(meta);
     const transferRecipient = getTransferRecipient(meta);
@@ -231,12 +232,13 @@ export default function WalletHistory() {
       : failureReason
       ? [
           { label: "Failure Reason", value: failureReason },
-          { label: "Wallet Refund", value: "Refunded automatically", highlight: true },
+          { label: "Wallet Refund", value: meta.payout_recovery_id ? "Returned after provider review" : "Refunded automatically", highlight: true },
         ]
       : undefined;
 
     setSelected({
       supportUrl: transaction.bulk_batch_id ? supportLink("bulk_transfer", transaction.bulk_batch_id)
+        : payoutReturn && typeof meta.payout_reference === "string" ? supportLink("transfer", meta.payout_reference)
         : type === "transfer" ? supportLink("transfer", transaction.id)
         : savingsMovement && typeof meta.savings_id === "string" ? supportLink("ice_vault", meta.savings_id)
         : groupPayout ? supportLink("group_withdrawal", transaction.id)
@@ -262,6 +264,7 @@ export default function WalletHistory() {
         transaction.balance_after ??
         (meta.balance_after != null ? Number(meta.balance_after) : undefined),
       sender:
+        payoutReturn ? { label: "From", name: "Bank payout recovery" } :
         savingsMovement ? { label: "From", name: type === "deposit" ? "Ice Vault" : "CollectiPay Wallet" } :
         groupPayout
           ? { label: "From pool", name: pool || "Group" }
@@ -280,7 +283,8 @@ export default function WalletHistory() {
               bankName: va?.bankName,
             }
           : undefined,
-      recipient: savingsMovement ? { label: "To", name: type === "deposit" ? "CollectiPay Wallet" : "Ice Vault" } : groupPayout
+      recipient: payoutReturn ? { label: "To wallet", name: user?.name || "CollectiPay wallet" } :
+        savingsMovement ? { label: "To", name: type === "deposit" ? "CollectiPay Wallet" : "Ice Vault" } : groupPayout
         ? { label: "To wallet", name: user?.name || "CollectiPay wallet" }
         : pool
         ? { label: type === "refund" ? "Group" : "To pool", name: pool }

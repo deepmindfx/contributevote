@@ -64,8 +64,15 @@ export class SavingsConfirmationRejected extends Error {
   }
 }
 
+export async function reviewSavingsTerms(quote: SavingsQuote) {
+  const { data, error } = await supabase.rpc("review_fixed_savings_terms", {
+    p_quote_id: quote.id, p_terms_version: quote.terms_version,
+  });
+  if (error || !data) throw new Error("The terms review couldn’t be recorded. Reopen the terms or request a new quote.");
+}
+
 export async function openSavings(quote: SavingsQuote, accepted: boolean, pin: string) {
-  const { data, error } = await supabase.rpc("open_fixed_savings", {
+  const { data, error } = await supabase.rpc("confirm_reviewed_fixed_savings", {
     p_quote_id: quote.id, p_terms_version: quote.terms_version, p_accepted: accepted, p_pin: pin,
   });
   const result = data as { id?: string; status?: SavingsStatus; code?: string; error?: string; message?: string };
