@@ -11,7 +11,7 @@
   --cb-auth-subtle: #94a3b8;
   --cb-auth-border: #e2e8f0;
   --cb-auth-divider: #f1f5f9;
-  --cb-font-display: "Instrument Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --cb-font-display: "Instrument Sans", "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
 
   /* Scoped light shadcn tokens so auth inputs, labels & modals stay crisp light */
   --background: 210 40% 98%;

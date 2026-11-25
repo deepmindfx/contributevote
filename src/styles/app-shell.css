@@ -48,7 +48,9 @@
 }
 
 body {
-  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "Instrument Sans", "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-feature-settings: normal;
+  font-variant-numeric: lining-nums;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-tap-highlight-color: transparent;

@@ -1,5 +1,5 @@
-/* Add Inter font from Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+/* CollectiPay Global Typography: Instrument Sans + Plus Jakarta Sans */
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -76,12 +76,18 @@
   
   html {
     @apply scroll-smooth;
-    font-feature-settings: "ss01", "ss02", "cv01", "cv02", "cv03";
+    font-family: "Instrument Sans", "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    font-feature-settings: normal;
+    font-variant-numeric: lining-nums;
   }
   
   body {
     @apply bg-background text-foreground antialiased;
-    font-feature-settings: "ss01", "ss02", "cv01", "cv02", "cv03";
+    font-family: "Instrument Sans", "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    font-feature-settings: normal;
+    font-variant-numeric: lining-nums;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 

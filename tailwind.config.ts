@@ -20,7 +20,9 @@ export default {
     },
     extend: {
       fontFamily: {
-        roboto: ['Roboto', 'sans-serif'],
+        sans: ['"Instrument Sans"', '"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
+        display: ['"Instrument Sans"', '"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
+        roboto: ['"Instrument Sans"', '"Plus Jakarta Sans"', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
