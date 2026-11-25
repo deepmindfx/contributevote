@@ -1,166 +1,467 @@
-.auth-layout {
+/* ============================================================================
+ * CollectiPay Auth — Cashbuddy-Aligned Split Desktop + Floating Card Mobile UI
+ * ========================================================================== */
+.cb-auth-shell {
+  --cb-auth-canvas: #f8fafc;
+  --cb-auth-ink: #0f172a;
+  --cb-auth-forest: #071913;
+  --cb-auth-forest-hover: #0d2b21;
+  --cb-auth-emerald: #059669;
+  --cb-auth-muted: #64748b;
+  --cb-auth-subtle: #94a3b8;
+  --cb-auth-border: #e2e8f0;
+  --cb-auth-divider: #f1f5f9;
+  --cb-font-display: "Instrument Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  /* Scoped light shadcn tokens so auth inputs, labels & modals stay crisp light */
+  --background: 210 40% 98%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --primary: 166 85% 19%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 152 16% 95%;
+  --secondary-foreground: 222 47% 11%;
+  --muted: 210 40% 96%;
+  --muted-foreground: 215 16% 47%;
+  --accent: 151 44% 93%;
+  --accent-foreground: 166 85% 19%;
+  --border: 214 32% 91%;
+  --input: 214 32% 91%;
+  --ring: 160 84% 39%;
+
   min-height: 100dvh;
-  background: hsl(var(--background));
-  color: hsl(var(--foreground));
+  display: flex;
+  flex-direction: column;
+  background: var(--cb-auth-canvas);
+  color: var(--cb-auth-ink);
+  color-scheme: light;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
-.auth-header, .auth-main {
-  width: min(100% - clamp(2rem, 6vw, 6rem), 80rem);
-  margin-inline: auto;
+@media (min-width: 64rem) {
+  .cb-auth-shell {
+    flex-direction: row;
+  }
 }
 
-.auth-header {
+/* ============================================================================
+ * Left Editorial Branding Panel (Desktop lg+ only, 54% width, pure white)
+ * ========================================================================== */
+.cb-auth-aside {
+  display: none;
+}
+
+@media (min-width: 64rem) {
+  .cb-auth-aside {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    width: 54%;
+    flex-shrink: 0;
+    background: #ffffff;
+    border-right: 1px solid var(--cb-auth-divider);
+    padding: 2.5rem clamp(3rem, 5vw, 4.5rem);
+  }
+}
+
+.cb-auth-aside-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: .75rem;
-  min-height: calc(4.5rem + env(safe-area-inset-top));
-  padding-top: env(safe-area-inset-top);
 }
 
-.auth-brand, .auth-back {
+.cb-auth-back-link {
   display: inline-flex;
   align-items: center;
-  gap: .5rem;
+  gap: 0.4rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--cb-auth-muted);
+  transition: color 160ms ease;
 }
 
-.auth-brand { font-size: 1.17rem; font-weight: 760; letter-spacing: -.045em; }
-.auth-back { min-height: 2.75rem; color: hsl(var(--muted-foreground)); font-size: .85rem; font-weight: 600; }
-.auth-back:hover { color: hsl(var(--foreground)); }
-
-.auth-main {
-  padding-block: clamp(1rem, 4vw, 3rem) max(2rem, env(safe-area-inset-bottom));
+.cb-auth-back-link:hover {
+  color: var(--cb-auth-ink);
 }
 
-.auth-entry {
-  display: grid;
-  place-items: center;
-  padding: clamp(1rem, 4vw, 2.8rem);
-  border: 1px solid hsl(var(--border));
-  border-radius: clamp(1.4rem, 3vw, 2.1rem);
-  background: hsl(var(--card));
+.cb-auth-aside-center {
+  margin-block: auto;
+  padding-block: 2rem;
+  max-width: 36rem;
 }
 
-.auth-entry-inner { width: min(100%, 25rem); }
-
-.auth-heading-swap {
-  animation: auth-heading-in 280ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+.cb-auth-hero-heading {
+  animation: cb-auth-fade-up 280ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
-.auth-entry h1 {
-  font-weight: 745;
-  line-height: 1.06;
-  letter-spacing: -.065em;
-  font-size: clamp(2.1rem, 4.5vw, 3.4rem);
+.cb-auth-hero-heading h1 {
+  font-family: var(--cb-font-display);
+  font-size: clamp(2.45rem, 3.4vw, 3rem);
+  font-weight: 700;
+  line-height: 1.14;
+  letter-spacing: -0.03em;
+  color: var(--cb-auth-ink);
 }
 
-.auth-heading-swap > p,
-.auth-entry-inner > p {
-  margin-top: .75rem;
-  color: hsl(var(--muted-foreground));
-  line-height: 1.55;
-  font-size: .96rem;
+.cb-auth-hero-heading p {
+  margin-top: 1rem;
+  max-width: 31rem;
+  font-size: 0.9375rem;
+  line-height: 1.62;
+  color: var(--cb-auth-muted);
 }
 
-.auth-form { margin-top: 1.65rem; }
-
-.auth-modes {
-  position: relative;
+/* 2x2 Feature Cards Grid matching Cashbuddy's calm minimal fintech aesthetic */
+.cb-auth-features {
+  margin-top: 2.5rem;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  height: auto;
-  gap: .25rem;
-  padding: .25rem;
-  border: 1px solid hsl(var(--border));
-  border-radius: .95rem;
-  background: hsl(var(--muted));
-  isolation: isolate;
+  gap: 0.85rem;
 }
 
-.auth-mode-indicator {
-  position: absolute;
-  top: .25rem;
-  bottom: .25rem;
-  left: .25rem;
-  width: calc(50% - .375rem);
-  border: 1px solid hsl(var(--primary) / .35);
-  border-radius: .72rem;
-  background-color: hsl(var(--card));
-  box-shadow: 0 2px 8px -3px hsl(160 27% 12% / 0.16);
-  pointer-events: none;
-  z-index: 0;
-  transform: translate3d(0, 0, 0);
-  transition: transform 310ms cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: transform;
+.cb-auth-feature-card {
+  padding: 1.15rem 1.2rem;
+  border-radius: 1rem;
+  background: #f8fafc;
+  border: 1px solid var(--cb-auth-divider);
+  transition: background-color 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
 }
 
-.auth-mode-indicator[data-mode="signup"] {
-  transform: translate3d(calc(100% + .25rem), 0, 0);
+.cb-auth-feature-card:hover {
+  background: #ffffff;
+  border-color: var(--cb-auth-border);
+  box-shadow: 0 6px 18px -10px rgba(15, 23, 42, 0.1);
 }
 
-.auth-modes [role="tab"] {
-  position: relative;
-  z-index: 1;
-  min-height: 2.45rem;
-  border: 1px solid transparent;
-  border-radius: .72rem;
-  background: transparent;
-  color: hsl(var(--muted-foreground));
-  font-size: .9rem;
+.cb-auth-feature-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.15rem;
+  height: 2.15rem;
+  border-radius: 0.65rem;
+  margin-bottom: 0.8rem;
+}
+
+.cb-auth-feature-icon--mint {
+  background: #e4f7ed;
+  color: #059669;
+}
+
+.cb-auth-feature-icon--purple {
+  background: #f2ebfe;
+  color: #7c3aed;
+}
+
+.cb-auth-feature-icon--sky {
+  background: #e6f1fe;
+  color: #2563eb;
+}
+
+.cb-auth-feature-icon--slate {
+  background: #eef2f6;
+  color: #0f172a;
+}
+
+.cb-auth-feature-card h2 {
+  font-family: var(--cb-font-display);
+  font-size: 0.84rem;
   font-weight: 650;
-  transition: color 220ms ease;
+  color: #1e293b;
+  letter-spacing: -0.015em;
+  line-height: 1.35;
 }
 
-.auth-modes [role="tab"][aria-selected="true"] {
-  color: hsl(var(--foreground));
+.cb-auth-feature-card p {
+  margin-top: 0.3rem;
+  font-size: 0.75rem;
+  line-height: 1.56;
+  color: var(--cb-auth-muted);
 }
 
-.auth-panel-stage {
-  margin-inline: -4px;
-  margin-bottom: -6px;
+.cb-auth-copyright {
+  font-size: 0.75rem;
+  color: var(--cb-auth-subtle);
+}
+
+/* ============================================================================
+ * Right Auth Panel (Centered Floating Card on Desktop & Mobile!)
+ * ========================================================================== */
+.cb-auth-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: max(2.5rem, env(safe-area-inset-top)) 1rem max(2.5rem, env(safe-area-inset-bottom));
+}
+
+@media (min-width: 40rem) {
+  .cb-auth-main {
+    padding: 3rem 2rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  .cb-auth-main {
+    padding: 3rem;
+  }
+}
+
+.cb-auth-card {
+  width: 100%;
+  max-width: 26.25rem; /* Exact Cashbuddy 420px floating card */
   overflow: hidden;
-  transition: height 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  border-radius: 1rem; /* rounded-2xl */
+  border: 1px solid var(--cb-auth-border);
+  background: #ffffff;
+  box-shadow: 0 8px 40px -8px rgba(15, 23, 42, 0.1);
 }
 
-.auth-panel-content {
-  padding: 2px 4px 6px;
-  will-change: transform, opacity;
+.cb-auth-card-brand {
+  display: flex;
+  justify-content: center;
+  padding: 2rem 1.5rem 0.5rem;
 }
 
-.auth-panel-content[data-direction="forward"] {
-  animation: auth-panel-slide-forward 310ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+.cb-auth-brand-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+  color: var(--cb-auth-ink);
 }
 
-.auth-panel-content[data-direction="backward"] {
-  animation: auth-panel-slide-backward 310ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+.cb-auth-brand-text {
+  font-family: var(--cb-font-display);
+  font-size: 1.34rem;
+  font-weight: 800;
+  letter-spacing: -0.042em;
+  color: #0b1813;
+  line-height: 1;
 }
 
-@keyframes auth-heading-in {
+.cb-auth-brand-text sup {
+  font-size: 0.62rem;
+  font-weight: 700;
+  margin-left: 1px;
+  color: var(--cb-auth-emerald);
+}
+
+.cb-auth-card-head {
+  padding: 0.75rem 1.5rem 0;
+  text-align: center;
+  animation: cb-auth-fade-up 240ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.cb-auth-card-head h2 {
+  font-family: var(--cb-font-display);
+  font-size: 1.25rem; /* 20px */
+  font-weight: 650;
+  letter-spacing: -0.025em;
+  line-height: 1.4;
+  color: var(--cb-auth-ink);
+}
+
+.cb-auth-card-head p {
+  margin-top: 0.35rem;
+  font-size: 0.875rem; /* 14px */
+  line-height: 1.45;
+  color: var(--cb-auth-muted);
+}
+
+.cb-auth-card-body {
+  padding: 1.35rem 1.5rem 1.45rem;
+}
+
+/* Form Elements (Cashbuddy 44px height, rounded-xl, bg-slate-50/60) */
+.cb-auth-label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 550;
+  color: #334155;
+  line-height: 1.4;
+}
+
+.cb-auth-input {
+  height: 2.75rem; /* 44px touch ergonomics */
+  border-radius: 0.75rem; /* rounded-xl */
+  border: 1px solid var(--cb-auth-border);
+  background: rgba(248, 250, 252, 0.72);
+  color: #0f172a;
+  font-size: 0.875rem;
+  transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.cb-auth-input::placeholder {
+  color: #94a3b8;
+}
+
+.cb-auth-input:focus-visible {
+  background: #ffffff;
+  border-color: #059669;
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.12);
+  outline: none;
+}
+
+.cb-auth-forgot {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--cb-auth-muted);
+  transition: color 150ms ease;
+}
+
+.cb-auth-forgot:hover {
+  color: var(--cb-auth-ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.cb-auth-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  height: 2.75rem; /* 44px */
+  border-radius: 0.75rem; /* rounded-xl */
+  background: var(--cb-auth-forest);
+  color: #ffffff;
+  font-family: var(--cb-font-display);
+  font-size: 0.875rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  transition: background-color 160ms ease, transform 120ms ease, opacity 160ms ease;
+}
+
+.cb-auth-submit:hover:not(:disabled) {
+  background: var(--cb-auth-forest-hover);
+}
+
+.cb-auth-submit:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
+.cb-auth-submit:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
+.cb-auth-divider {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-block: 1rem;
+}
+
+.cb-auth-divider::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  height: 1px;
+  background: #eef2f6;
+}
+
+.cb-auth-divider span {
+  position: relative;
+  padding-inline: 0.75rem;
+  background: #ffffff;
+  font-size: 0.75rem;
+  color: var(--cb-auth-subtle);
+}
+
+.cb-auth-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  height: 2.75rem;
+  border-radius: 0.75rem;
+  background: #f5f7f6;
+  color: #171717;
+  font-size: 0.875rem;
+  font-weight: 550;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.cb-auth-secondary:hover {
+  background: #eaf0ed;
+  color: var(--cb-auth-ink);
+}
+
+.cb-auth-switch {
+  margin-top: 1.15rem;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: var(--cb-auth-muted);
+}
+
+.cb-auth-switch button {
+  font-weight: 650;
+  color: var(--cb-auth-ink);
+  transition: color 150ms ease;
+}
+
+.cb-auth-switch button:hover {
+  color: var(--cb-auth-emerald);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Integrated Tinted Card Footer Band */
+.cb-auth-card-footer {
+  border-top: 1px solid var(--cb-auth-divider);
+  background: rgba(248, 250, 252, 0.75);
+  padding: 0.9rem 1.5rem;
+  text-align: center;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--cb-auth-subtle);
+}
+
+.cb-auth-card-footer a {
+  font-weight: 550;
+  color: #475569;
+  transition: color 150ms ease;
+}
+
+.cb-auth-card-footer a:hover {
+  color: var(--cb-auth-ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Mobile-only Back to Home footer link below floating card */
+.cb-auth-mobile-back {
+  margin-top: 1.25rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 550;
+  color: var(--cb-auth-muted);
+  transition: color 150ms ease;
+}
+
+.cb-auth-mobile-back:hover {
+  color: var(--cb-auth-ink);
+}
+
+@media (min-width: 64rem) {
+  .cb-auth-mobile-back {
+    display: none;
+  }
+}
+
+@keyframes cb-auth-fade-up {
   from {
     opacity: 0;
-    transform: translate3d(0, 7px, 0);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
-}
-
-@keyframes auth-panel-slide-forward {
-  from {
-    opacity: 0;
-    transform: translate3d(22px, 0, 0);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
-}
-
-@keyframes auth-panel-slide-backward {
-  from {
-    opacity: 0;
-    transform: translate3d(-22px, 0, 0);
+    transform: translate3d(0, 6px, 0);
   }
   to {
     opacity: 1;
@@ -169,76 +470,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .auth-mode-indicator,
-  .auth-panel-stage {
-    transition: none;
-  }
-  .auth-heading-swap,
-  .auth-panel-content[data-direction="forward"],
-  .auth-panel-content[data-direction="backward"] {
+  .cb-auth-hero-heading,
+  .cb-auth-card-head {
     animation: none;
   }
-}
-
-.auth-input {
-  background: hsl(var(--background) / .7);
-  font-size: 1rem;
-}
-
-.auth-submit {
-  gap: .6rem;
-  border-radius: .9rem;
-  font-weight: 740;
-}
-
-.auth-editorial {
-  display: grid;
-  align-items: end;
-  min-height: 10rem;
-  margin-top: 1rem;
-  padding: 1rem;
-  overflow: hidden;
-  border-radius: 1.4rem;
-  background:
-    linear-gradient(180deg, transparent 40%, #091a10d9 100%),
-    #10281d url("/images/collectipay-kano-login.webp") center 28% / cover no-repeat;
-  color: #f7fff6;
-}
-
-.auth-editorial p {
-  font-weight: 760;
-  letter-spacing: -.045em;
-  line-height: 1.05;
-}
-
-.auth-editorial span { color: #dcf7a7; }
-
-@media (min-width: 59rem) {
-  .auth-main {
-    display: grid;
-    grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr);
-    gap: 1rem;
-    min-height: calc(100dvh - 4.5rem - env(safe-area-inset-top));
-  }
-
-  .auth-editorial {
-    min-height: 32rem;
-    margin-top: 0;
-    background-position: center, center 35%;
-    padding: clamp(1.7rem, 4.5vw, 3.8rem);
-    border-radius: 2.1rem;
-  }
-
-  .auth-editorial p {
-    font-size: clamp(2.3rem, 4.1vw, 4.6rem);
-    font-weight: 760;
-    letter-spacing: -.064em;
-    line-height: 1;
-  }
-
-}
-
-@media (max-width: 38rem) {
-  .auth-header { min-height: calc(3.85rem + env(safe-area-inset-top)); }
-  .auth-entry { border: 0; background: transparent; padding-inline: 0; }
 }

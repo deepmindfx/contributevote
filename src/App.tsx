@@ -192,6 +192,7 @@ const AppRoutes = () => {
   const isGuestLightRoute =
     !isAuthenticated &&
     (normalizedPath === "/" ||
+      normalizedPath === "/auth" ||
       normalizedPath === "/discover" ||
       normalizedPath === "/faq" ||
       normalizedPath.startsWith("/join/") ||
