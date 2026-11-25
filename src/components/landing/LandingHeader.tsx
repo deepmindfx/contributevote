@@ -300,18 +300,12 @@ export function LandingHeader({ isAuthenticated, startPath }: LandingHeaderProps
             )}
           </div>
 
-          <a href="#smart-experience" className="cb-nav-link" onClick={closeAll}>
-            App Preview
-          </a>
-          <a href="#pricing" className="cb-nav-link" onClick={closeAll}>
-            Pricing
-          </a>
-          <a href="#faq" className="cb-nav-link" onClick={closeAll}>
-            FAQ
-          </a>
           <Link to="/discover" className="cb-nav-link" onClick={closeAll}>
             Discover
           </Link>
+          <a href="#faq" className="cb-nav-link" onClick={closeAll}>
+            FAQ
+          </a>
         </nav>
 
         {/* Zone 3: Auth & Launch App CTAs */}

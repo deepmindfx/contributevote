@@ -1,4 +1,4 @@
-import { ArrowRight, CheckCircle2, Download, FileSpreadsheet } from "lucide-react";
+import { ArrowRight, CheckCircle2, Download, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 import { PAYROLL_CSV_NAME, PAYROLL_CSV_URL } from "@/lib/bulkTransfers";
 
@@ -10,91 +10,102 @@ const payroll = [
 
 export function BulkPayrollSection({ isAuthenticated }: { isAuthenticated: boolean }) {
   return (
-    <section id="bulk-transfers" className="cb-section cb-section--bordered" aria-labelledby="payroll-title">
-      <div className="cb-container cb-payroll-grid">
-        <div className="cb-payroll-copy" data-scroll-reveal>
-          <span className="cb-kicker-pill">
-            <FileSpreadsheet size={14} aria-hidden="true" />
-            BULK TRANSFERS &amp; PAYROLL
-          </span>
+    <section id="bulk-transfers" className="cb-section" aria-labelledby="payroll-title">
+      <div className="cb-container">
+        {/* Cashbuddy-Aligned Soft Pastel Rounded-[32px] Wide Feature Showcase */}
+        <div className="cb-payroll-showcase" data-scroll-reveal>
+          <div className="cb-payroll-grid">
+            <div className="cb-payroll-copy">
+              <span className="cb-soft-badge cb-soft-badge--emerald">
+                Bulk Payroll &amp; Batch Payouts
+              </span>
 
-          <h2 id="payroll-title">Pay your team &amp; vendors in one verified batch.</h2>
+              <h2 id="payroll-title">Pay your team &amp; vendors in one verified batch</h2>
 
-          <p>
-            Select recipients across any Nigerian bank or upload a ready-made payroll CSV. Verify
-            account names, review upfront fees and VAT, and authorize the entire batch with a
-            single 4-digit PIN.
-          </p>
+              <p>
+                Select recipients across any Nigerian bank or upload a ready-made payroll CSV.
+                Verify account names automatically, review upfront fees, and authorize the entire
+                batch with a single 4-digit PIN.
+              </p>
 
-          <ul className="cb-payroll-checks">
-            <li>
-              <CheckCircle2 size={17} aria-hidden="true" />
-              <span>Automatic account-name resolution before money leaves your wallet</span>
-            </li>
-            <li>
-              <CheckCircle2 size={17} aria-hidden="true" />
-              <span>One 4-digit PIN authorizes up to dozens of transfers at once</span>
-            </li>
-            <li>
-              <CheckCircle2 size={17} aria-hidden="true" />
-              <span>Individual shareable CollectiPay receipts for every recipient</span>
-            </li>
-          </ul>
+              <div className="cb-payroll-links">
+                <Link
+                  to={
+                    isAuthenticated
+                      ? "/transfer/bulk"
+                      : "/auth?mode=signup&redirect=%2Ftransfer%2Fbulk"
+                  }
+                  className="cb-inline-cta"
+                >
+                  <span>Open Bulk Transfers</span>
+                  <ArrowRight size={16} strokeWidth={2.2} aria-hidden="true" />
+                </Link>
 
-          <div className="cb-hero-actions">
-            <Link
-              to={isAuthenticated ? "/transfer/bulk" : "/auth?mode=signup&redirect=%2Ftransfer%2Fbulk"}
-              className="cb-btn cb-btn--primary"
-            >
-              <span>Open Bulk Transfers</span>
-              <ArrowRight size={17} strokeWidth={2.3} aria-hidden="true" />
-            </Link>
-
-            <a href={PAYROLL_CSV_URL} download={PAYROLL_CSV_NAME} className="cb-btn cb-btn--ghost">
-              <Download size={17} className="text-[#059669]" aria-hidden="true" />
-              <span>Download Payroll CSV</span>
-            </a>
-          </div>
-        </div>
-
-        <div className="cb-payroll-stage" data-scroll-reveal>
-          <figure className="cb-payroll-card">
-            <figcaption className="cb-payroll-card-head">
-              <div className="cb-payroll-card-title">
-                <span className="cb-payroll-icon" aria-hidden="true">
-                  <FileSpreadsheet size={20} />
-                </span>
-                <div>
-                  <small>Verified CSV Batch</small>
-                  <strong>Monthly Team Salaries</strong>
-                </div>
+                <a
+                  href={PAYROLL_CSV_URL}
+                  download={PAYROLL_CSV_NAME}
+                  className="cb-inline-cta cb-inline-cta--muted"
+                >
+                  <Download size={15} aria-hidden="true" />
+                  <span>Download CSV template</span>
+                </a>
               </div>
-              <span className="cb-payroll-status">Ready · 3 Verified</span>
-            </figcaption>
-
-            <ul className="cb-payroll-list" aria-label="Example salary payments">
-              {payroll.map(({ name, bank, initials, amount }) => (
-                <li key={name}>
-                  <span className="cb-payroll-avatar" aria-hidden="true">
-                    {initials}
-                  </span>
-                  <div className="cb-payroll-person-meta">
-                    <strong>{name}</strong>
-                    <small>{bank}</small>
-                  </div>
-                  <strong className="cb-payroll-amount">{amount}</strong>
-                </li>
-              ))}
-            </ul>
-
-            <div className="cb-payroll-foot">
-              <div>
-                <span>Total Batch Disbursement</span>
-                <strong>₦300,000.00</strong>
-              </div>
-              <span className="cb-payroll-pin-pill">1-PIN Batch Auth</span>
             </div>
-          </figure>
+
+            <div className="cb-payroll-cards">
+              <figure className="cb-payroll-card">
+                <figcaption className="cb-payroll-card-head">
+                  <strong>Payroll Summary</strong>
+                  <span className="cb-payroll-status">3 Verified</span>
+                </figcaption>
+
+                <div className="cb-payroll-kpis">
+                  <div>
+                    <strong>₦300,000</strong>
+                    <span>TOTAL BATCH</span>
+                  </div>
+                  <div>
+                    <strong>3 Banks</strong>
+                    <span>AUTO-VERIFIED</span>
+                  </div>
+                  <div>
+                    <strong>1 PIN</strong>
+                    <span>SINGLE AUTH</span>
+                  </div>
+                </div>
+
+                <ul className="cb-payroll-list" aria-label="Example salary payments">
+                  {payroll.map(({ name, bank, initials, amount }) => (
+                    <li key={name}>
+                      <span className="cb-payroll-avatar" aria-hidden="true">
+                        {initials}
+                      </span>
+                      <div className="cb-payroll-person-meta">
+                        <strong>{name}</strong>
+                        <small>{bank}</small>
+                      </div>
+                      <strong className="cb-payroll-amount">{amount}</strong>
+                    </li>
+                  ))}
+                </ul>
+              </figure>
+
+              {/* Cashbuddy-style Slim Auxiliary Verification Pill Bar */}
+              <div className="cb-payroll-assist" aria-hidden="true">
+                <span className="cb-payroll-assist-icon">
+                  <CheckCircle2 size={16} strokeWidth={2.3} />
+                </span>
+                <div className="cb-payroll-assist-copy">
+                  <div className="cb-payroll-assist-title">
+                    <strong>Batch Verification Engine</strong>
+                    <span className="cb-payroll-assist-tag">LIVE</span>
+                  </div>
+                  <small>Account-name match &amp; shareable receipts for every recipient</small>
+                </div>
+                <ShieldCheck size={16} className="text-[#94a3b8] shrink-0" />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>

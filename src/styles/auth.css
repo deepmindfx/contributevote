@@ -38,7 +38,9 @@
   background: var(--cb-auth-canvas);
   color: var(--cb-auth-ink);
   color-scheme: light;
-  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "Instrument Sans", "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-feature-settings: normal;
+  -webkit-font-smoothing: antialiased;
 }
 
 @media (min-width: 64rem) {

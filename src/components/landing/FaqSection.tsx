@@ -1,25 +1,11 @@
 import { useState } from "react";
 import { ArrowRight, ChevronDown, HelpCircle } from "lucide-react";
 import { Link } from "react-router-dom";
-import { FAQ_CATEGORIES, FAQ_ITEMS, type FaqCategoryId } from "@/data/faqData";
+import { FAQ_ITEMS } from "@/data/faqData";
 
 export function FaqSection() {
-  const [selectedCategory, setSelectedCategory] = useState<"featured" | FaqCategoryId>("featured");
-  const [openId, setOpenId] = useState<string | null>(FAQ_ITEMS[0]?.id ?? null);
-
-  const items =
-    selectedCategory === "featured"
-      ? FAQ_ITEMS.filter((item) => item.featured)
-      : FAQ_ITEMS.filter((item) => item.category === selectedCategory);
-
-  const handleCategoryChange = (next: "featured" | FaqCategoryId) => {
-    setSelectedCategory(next);
-    const nextList =
-      next === "featured"
-        ? FAQ_ITEMS.filter((item) => item.featured)
-        : FAQ_ITEMS.filter((item) => item.category === next);
-    setOpenId(nextList[0]?.id ?? null);
-  };
+  const featuredItems = FAQ_ITEMS.filter((item) => item.featured);
+  const [openId, setOpenId] = useState<string | null>(featuredItems[0]?.id ?? null);
 
   return (
     <section id="faq" className="landing-faq" aria-labelledby="faq-title">
@@ -28,44 +14,21 @@ export function FaqSection() {
           <div className="landing-faq-intro" data-scroll-reveal>
             <span className="landing-faq-eyebrow">
               <HelpCircle size={14} aria-hidden="true" />
-              Frequently asked questions
+              FAQ
             </span>
-            <h2 id="faq-title">Clear answers before you pool a kobo.</h2>
+            <h2 id="faq-title">Frequently Asked Questions</h2>
             <p>
-              Find answers about shared pools, Ice Vault, and sending bank transfers individually or in bulk.
+              Everything you need to know about shared pools, democratic voting, Ice Vault, bulk
+              transfers, and account security.
             </p>
-            <div className="landing-faq-filters" role="tablist" aria-label="FAQ categories">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={selectedCategory === "featured"}
-                data-active={selectedCategory === "featured"}
-                onClick={() => handleCategoryChange("featured")}
-                className="landing-faq-chip"
-              >
-                Popular
-              </button>
-              {FAQ_CATEGORIES.map((category) => (
-                <button
-                  key={category.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={selectedCategory === category.id}
-                  data-active={selectedCategory === category.id}
-                  onClick={() => handleCategoryChange(category.id)}
-                  className="landing-faq-chip"
-                >
-                  {category.label}
-                </button>
-              ))}
-            </div>
             <Link to="/faq" className="landing-faq-all-link">
-              Search all {FAQ_ITEMS.length} questions <ArrowRight size={16} aria-hidden="true" />
+              <span>Browse all {FAQ_ITEMS.length} questions</span>
+              <ArrowRight size={15} aria-hidden="true" />
             </Link>
           </div>
 
           <div className="landing-faq-list" data-scroll-reveal>
-            {items.map((item) => {
+            {featuredItems.map((item) => {
               const isOpen = openId === item.id;
               return (
                 <article
@@ -82,7 +45,7 @@ export function FaqSection() {
                       onClick={() => setOpenId(isOpen ? null : item.id)}
                     >
                       <span>{item.question}</span>
-                      <ChevronDown className="landing-faq-chevron" size={18} aria-hidden="true" />
+                      <ChevronDown className="landing-faq-chevron" size={17} aria-hidden="true" />
                     </button>
                   </h3>
                   <div
