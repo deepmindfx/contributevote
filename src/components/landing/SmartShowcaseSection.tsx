@@ -1,54 +1,12 @@
-import { useEffect, useRef, useState } from "react";
-import { ArrowUpRight, Lock, Send, Vote } from "lucide-react";
-import { Link } from "react-router-dom";
+import { useEffect, useRef } from "react";
 import { CollectiPayMark } from "@/components/ui/BrandLoader";
-import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
-import { IPhone18ProMaxMockup, type PhoneDemoScreen } from "./IPhone18ProMaxMockup";
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
 const smoothstep = (t: number) => t * t * (3 - 2 * t);
 
-const SHOWCASE_MODES: Array<{
-  id: PhoneDemoScreen;
-  tabLabel: string;
-  icon: typeof Lock;
-  headline: string;
-  description: string;
-  badge: string;
-}> = [
-  {
-    id: "wallet",
-    tabLabel: "App Dashboard",
-    icon: Lock,
-    headline: "Your wallet and groups in one place",
-    description:
-      "Receive instant bank deposits into your dedicated CollectiPay virtual account, switch between NGN and USD views, and track every shared group goal in real time.",
-    badge: "Try switching NGN / USD or hiding the balance inside the iPhone",
-  },
-  {
-    id: "transfer",
-    tabLabel: "1-Tap Transfers",
-    icon: Send,
-    headline: "Send to any Nigerian bank in one tap",
-    description:
-      "Tap anyone you’ve paid before from Recents or Favorites without re-entering their 10-digit account number, enjoy daily free transfers, and get instant verified receipts.",
-    badge: "Live recipient verification & Naira flight confirmation",
-  },
-  {
-    id: "vote",
-    tabLabel: "Group Voting",
-    icon: Vote,
-    headline: "70% must vote. 60% yes to pass.",
-    description:
-      "Every contributor with a verified payment gets a real voice. Once 70% participate and 60% approve within 7 days, payouts or proportional refunds execute automatically.",
-    badge: "Tap “Approve” inside the iPhone to test live consensus",
-  },
-];
-
 export function SmartShowcaseSection() {
-  const { isAuthenticated } = useSupabaseUser();
   const trackRef = useRef<HTMLDivElement>(null);
   const stickyRef = useRef<HTMLDivElement>(null);
   const headlineRef = useRef<HTMLHeadingElement>(null);
@@ -57,13 +15,8 @@ export function SmartShowcaseSection() {
   const imageRef = useRef<HTMLImageElement>(null);
   const wordLeftRef = useRef<HTMLSpanElement>(null);
   const wordRightRef = useRef<HTMLSpanElement>(null);
-  const phoneStageRef = useRef<HTMLDivElement>(null);
-  const phoneWrapRef = useRef<HTMLDivElement>(null);
 
-  const [activeScreen, setActiveScreen] = useState<PhoneDemoScreen>("wallet");
-  const activeMeta = SHOWCASE_MODES.find((m) => m.id === activeScreen) ?? SHOWCASE_MODES[0];
-
-  // Scroll-linked PayPal portal expansion + iPhone 18 Pro Max parallax tilt
+  // Scroll-linked PayPal-style portal expansion ("Pool, send, and save smarter")
   useEffect(() => {
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
     if (reducedMotion.matches) return;
@@ -76,44 +29,33 @@ export function SmartShowcaseSection() {
     let lastTime = 0;
     let targetP = 0;
     let currentP = 0;
-    let targetPhoneP = 0;
-    let currentPhoneP = 0;
     let initialized = false;
 
-    const computeTargets = () => {
+    const computeTarget = () => {
       const travel = Math.max(1, track.offsetHeight - sticky.offsetHeight);
       const rect = track.getBoundingClientRect();
-      const raw = clamp(-rect.top / travel, 0, 1);
-
-      let phoneRaw = 0;
-      const stageEl = phoneStageRef.current;
-      if (stageEl) {
-        const sRect = stageEl.getBoundingClientRect();
-        const vh = Math.max(1, window.innerHeight);
-        phoneRaw = clamp((vh - sRect.top) / (vh + sRect.height), 0, 1);
-      }
-      return { raw, phoneRaw };
+      return clamp(-rect.top / travel, 0, 1);
     };
 
-    const paintPortal = (p: number, phoneP: number) => {
+    const paintPortal = (p: number) => {
       const isMobile = window.innerWidth < 768;
 
-      // 1. Headline stays fully visible at top, then rises and fades as card expands (0.04 -> 0.38)
+      // 1. Headline stays fully visible below fixed header, then rises and fades as card expands (0.04 -> 0.38)
       const headT = smoothstep(clamp((p - 0.04) / 0.34, 0, 1));
       if (headlineRef.current) {
         headlineRef.current.style.transform = `translate3d(0, ${(-headT * 38).toFixed(2)}px, 0) scale(${(1 - headT * 0.04).toFixed(4)})`;
         headlineRef.current.style.opacity = (1 - headT * 0.96).toFixed(4);
       }
 
-      // Measure actual headline bottom so the card NEVER overlaps "save smarter" on any screen size
+      // Measure actual headline bottom so the card NEVER overlaps "save smarter" or the fixed header
       const headEl = headlineRef.current;
       const headBottom = headEl
         ? headEl.offsetTop + headEl.offsetHeight
         : isMobile
-          ? 148
-          : 184;
-      const minStartTop = isMobile ? 168 : 210;
-      const startTop = Math.max(minStartTop, headBottom + (isMobile ? 22 : 34));
+          ? 188
+          : 232;
+      const minStartTop = isMobile ? 204 : 254;
+      const startTop = Math.max(minStartTop, headBottom + (isMobile ? 20 : 30));
 
       // 2. Portal card expands from centered rounded card below headline to full-bleed stage (0.08 -> 0.74)
       const expandT = smoothstep(clamp((p - 0.08) / 0.66, 0, 1));
@@ -153,13 +95,6 @@ export function SmartShowcaseSection() {
         wordRightRef.current.style.opacity = wordT.toFixed(4);
         wordRightRef.current.style.transform = `translate3d(${((1 - wordT) * 42).toFixed(2)}px, ${((1 - wordT) * -10).toFixed(2)}px, 0)`;
       }
-
-      // 6. Tilted iPhone 18 Pro Max subtle scroll parallax float & rotation
-      if (phoneWrapRef.current) {
-        const liftY = (0.5 - phoneP) * 28;
-        const tiltDeg = -8.5 + phoneP * 3.5;
-        phoneWrapRef.current.style.transform = `translate3d(0, ${liftY.toFixed(2)}px, 0) rotate(${tiltDeg.toFixed(2)}deg)`;
-      }
     };
 
     const tick = (now: number) => {
@@ -169,33 +104,25 @@ export function SmartShowcaseSection() {
 
       const alpha = 1 - Math.exp(-dt * 14);
       currentP += (targetP - currentP) * alpha;
-      currentPhoneP += (targetPhoneP - currentPhoneP) * alpha;
 
-      const doneP = Math.abs(targetP - currentP) < 0.0006;
-      const donePhone = Math.abs(targetPhoneP - currentPhoneP) < 0.0006;
-
-      if (doneP && donePhone) {
+      if (Math.abs(targetP - currentP) < 0.0006) {
         currentP = targetP;
-        currentPhoneP = targetPhoneP;
-        paintPortal(currentP, currentPhoneP);
+        paintPortal(currentP);
         lastTime = 0;
         return;
       }
 
-      paintPortal(currentP, currentPhoneP);
+      paintPortal(currentP);
       rafId = requestAnimationFrame(tick);
     };
 
     const onScrollOrResize = () => {
-      const { raw, phoneRaw } = computeTargets();
-      targetP = raw;
-      targetPhoneP = phoneRaw;
+      targetP = computeTarget();
 
       if (!initialized) {
         initialized = true;
         currentP = targetP;
-        currentPhoneP = targetPhoneP;
-        paintPortal(currentP, currentPhoneP);
+        paintPortal(currentP);
         return;
       }
 
@@ -221,7 +148,6 @@ export function SmartShowcaseSection() {
       className="cp-smart-showcase"
       aria-labelledby="cp-portal-headline"
     >
-      {/* ACT 1: PayPal-Inspired Scroll-Expanding Portal */}
       <div ref={trackRef} className="cp-portal-track">
         <div ref={stickyRef} className="cp-portal-sticky">
           <h2 ref={headlineRef} id="cp-portal-headline" className="cp-portal-headline">
@@ -251,71 +177,6 @@ export function SmartShowcaseSection() {
               <span ref={wordRightRef} className="cp-portal-word cp-portal-word--right" aria-hidden="true">
                 smarter
               </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ACT 2: Crisp White Editorial Showcase + Tilted iPhone 18 Pro Max */}
-      <div className="cp-iphone-showcase">
-        <div className="landing-width">
-          <div className="cp-iphone-header" data-scroll-reveal>
-            <div className="cp-iphone-tabs" role="tablist" aria-label="Preview CollectiPay on iPhone 18 Pro Max">
-              {SHOWCASE_MODES.map((item) => {
-                const Icon = item.icon;
-                const selected = item.id === activeScreen;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={selected}
-                    data-active={selected}
-                    onClick={() => setActiveScreen(item.id)}
-                    className="cp-iphone-tab"
-                  >
-                    <Icon size={15} aria-hidden="true" />
-                    <span>{item.tabLabel}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            <div key={activeMeta.id} className="cp-iphone-copy">
-              <h3>{activeMeta.headline}</h3>
-              <p>{activeMeta.description}</p>
-            </div>
-          </div>
-
-          {/* Rounded Warm Studio Stage with Tilted iPhone 18 Pro Max (PayPal 00:05-00:08 style) */}
-          <div ref={phoneStageRef} className="cp-iphone-stage" data-scroll-reveal>
-            <div className="cp-iphone-stage-glow" aria-hidden="true" />
-
-            <div className="cp-iphone-stage-meta">
-              <span className="cp-iphone-live-pill">
-                <span className="cp-iphone-live-dot" aria-hidden="true" />
-                iPhone 18 Pro Max · Interactive Live Preview
-              </span>
-              <span className="cp-iphone-hint">{activeMeta.badge}</span>
-            </div>
-
-            <div className="cp-iphone-stage-center">
-              <div ref={phoneWrapRef} className="cp-iphone-tilt-wrap">
-                <IPhone18ProMaxMockup screen={activeScreen} interactive />
-              </div>
-            </div>
-
-            <div className="cp-iphone-stage-footer">
-              <Link
-                to={isAuthenticated ? "/dashboard" : "/auth?mode=signup"}
-                className="cp-iphone-cta"
-              >
-                {isAuthenticated ? "Open your wallet" : "Start with CollectiPay"}
-                <ArrowUpRight size={17} aria-hidden="true" />
-              </Link>
-              <Link to="/transfer" className="cp-iphone-secondary-link">
-                Try 1-tap bank transfers →
-              </Link>
             </div>
           </div>
         </div>

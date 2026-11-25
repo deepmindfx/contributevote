@@ -106,7 +106,7 @@ export default function SearchFilters({
     <div className="space-y-3">
       {/* Horizontal Category Pill Rail */}
       <div
-        className="-mx-1 flex items-center gap-1.5 overflow-x-auto px-1 pb-1"
+        className="-mx-1 flex items-center gap-2 overflow-x-auto px-1 pb-1.5"
         role="tablist"
         aria-label="Filter groups by category"
       >
@@ -123,10 +123,10 @@ export default function SearchFilters({
             })
           }
           className={cn(
-            "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-semibold transition-all",
+            "inline-flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition-all",
             !filters.category && !filters.spotlightOnly && !filters.verifiedOnly
-              ? "border-primary bg-primary text-primary-foreground shadow-sm"
-              : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:bg-accent hover:text-foreground"
+              ? "bg-[#071913] text-white shadow-md"
+              : "bg-white text-[#4b5b53] shadow-sm hover:bg-[#edf3f0] hover:text-[#0f1729]"
           )}
         >
           All pools
@@ -138,10 +138,10 @@ export default function SearchFilters({
           aria-selected={Boolean(filters.spotlightOnly)}
           onClick={() => setFilter("spotlightOnly", !filters.spotlightOnly)}
           className={cn(
-            "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-bold transition-all",
+            "inline-flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-all",
             filters.spotlightOnly
-              ? "border-amber-500 bg-amber-500 text-white shadow-sm"
-              : "border-amber-500/35 bg-amber-500/10 text-amber-800 hover:bg-amber-500/20 dark:text-amber-200"
+              ? "bg-amber-500 text-white shadow-md"
+              : "bg-[#fef3df] text-[#b45309] shadow-sm hover:bg-[#fde8c3]"
           )}
         >
           <Flame className="h-3.5 w-3.5" />
@@ -154,10 +154,10 @@ export default function SearchFilters({
           aria-selected={Boolean(filters.verifiedOnly)}
           onClick={() => setFilter("verifiedOnly", !filters.verifiedOnly)}
           className={cn(
-            "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-bold transition-all",
+            "inline-flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-all",
             filters.verifiedOnly
-              ? "border-emerald-600 bg-emerald-600 text-white shadow-sm"
-              : "border-emerald-500/35 bg-emerald-500/10 text-emerald-800 hover:bg-emerald-500/20 dark:text-emerald-200"
+              ? "bg-[#059669] text-white shadow-md"
+              : "bg-[#e1f6eb] text-[#047857] shadow-sm hover:bg-[#cfefe0]"
           )}
         >
           <BadgeCheck className="h-3.5 w-3.5" />
@@ -174,16 +174,16 @@ export default function SearchFilters({
               aria-selected={active}
               onClick={() => setFilter("category", active ? undefined : cat.value)}
               className={cn(
-                "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-semibold transition-all",
+                "inline-flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition-all",
                 active
-                  ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                  : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:bg-accent hover:text-foreground"
+                  ? "bg-[#071913] text-white shadow-md"
+                  : "bg-white text-[#4b5b53] shadow-sm hover:bg-[#edf3f0] hover:text-[#0f1729]"
               )}
             >
               <CategoryIcon
                 category={cat.value}
                 size={14}
-                className={active ? "text-primary-foreground" : "text-primary"}
+                className={active ? "text-[#dcf7a7]" : "text-[#059669]"}
               />
               {cat.label}
             </button>
@@ -196,15 +196,18 @@ export default function SearchFilters({
         <div className="flex flex-wrap items-center gap-2">
           <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
             <SheetTrigger asChild>
-              <Button variant="outline" size="sm" className="h-10 gap-2 rounded-xl font-semibold">
-                <SlidersHorizontal className="h-3.5 w-3.5" />
+              <button
+                type="button"
+                className="inline-flex h-10 items-center gap-2 rounded-xl bg-white px-3.5 text-xs font-semibold text-[#0f1729] shadow-sm transition-colors hover:bg-[#edf3f0]"
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5 text-[#059669]" />
                 Refine
                 {secondaryFilterCount > 0 && (
-                  <span className="grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-primary-foreground tabular-nums">
+                  <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#071913] px-1.5 text-[11px] font-bold text-white tabular-nums">
                     {secondaryFilterCount}
                   </span>
                 )}
-              </Button>
+              </button>
             </SheetTrigger>
 
             <SheetContent
@@ -386,7 +389,7 @@ export default function SearchFilters({
         {/* Clean Sort Selector */}
         <Select value={sortBy} onValueChange={(v) => onSortChange(v as SortOption)}>
           <SelectTrigger
-            className="h-10 w-[165px] rounded-xl text-xs font-semibold"
+            className="h-10 w-[168px] rounded-xl border-0 bg-white text-xs font-semibold text-[#0f1729] shadow-sm focus:ring-[#075847]"
             aria-label="Sort public pools"
           >
             <SelectValue placeholder="Sort by" />

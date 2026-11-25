@@ -189,6 +189,14 @@ const AppRoutes = () => {
   const { pathname } = useLocation();
   const navType = useNavigationType();
   const normalizedPath = pathname.replace(/\/$/, "") || "/";
+  const isGuestLightRoute =
+    !isAuthenticated &&
+    (normalizedPath === "/" ||
+      normalizedPath === "/discover" ||
+      normalizedPath === "/faq" ||
+      normalizedPath.startsWith("/join/") ||
+      normalizedPath.startsWith("/invite/") ||
+      normalizedPath.startsWith("/contribute/share/"));
   const workspaceLink = getWorkspaceLink(pathname);
   const isWorkspace = isAuthenticated && !isAdmin && Boolean(workspaceLink && workspaceLink.to !== "/admin");
 
@@ -197,8 +205,8 @@ const AppRoutes = () => {
   }, [pathname]);
   
   useEffect(() => {
-    applyAppearance(darkMode);
-  }, [darkMode, pathname]);
+    applyAppearance(isGuestLightRoute ? false : darkMode);
+  }, [darkMode, isGuestLightRoute, pathname]);
 
   // Quietly warm core authenticated tabs & screens during idle time so taps feel instant like a native app
   useEffect(() => {

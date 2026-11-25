@@ -1,20 +1,26 @@
-import { GroupCoverImage } from "@/components/contribution/GroupCover";
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
+import {
+  AlertCircle,
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle2,
+  ShieldCheck,
+  Sparkles,
+  Wallet,
+} from "lucide-react";
+import { toast } from "sonner";
+import { GroupCoverImage } from "@/components/contribution/GroupCover";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Wallet, ArrowLeft, AlertCircle } from "lucide-react";
-import { toast } from "sonner";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
 import { supabase } from "@/integrations/supabase/client";
 import { WalletContributionService } from "@/services/supabase/walletContributionService";
 import Header from "@/components/layout/Header";
+import { LandingHeader } from "@/components/landing/LandingHeader";
 import BrandLoader from "@/components/ui/BrandLoader";
 import AccountNumberDisplay from "@/components/contributions/AccountNumberDisplay";
 import { GroupRules } from "@/components/contribution/GroupRules";
@@ -23,6 +29,7 @@ import {
   SpotlightBadge,
   VerifiedCrowdfunderBadge,
 } from "@/components/contribution/VerifiedCrowdfunderBadge";
+import "@/styles/landing.css";
 
 const ContributeSharePage = () => {
   const { id } = useParams<{ id: string }>();
@@ -33,9 +40,14 @@ const ContributeSharePage = () => {
   const [fetching, setFetching] = useState(true);
   const [amount, setAmount] = useState<number>(0);
   const [anonymousOverride, setIsAnonymous] = useState<boolean>();
-  const isAnonymous = anonymousOverride ?? (user?.preferences as { anonymousContributions?: boolean } | null)?.anonymousContributions === true;
+  const isAnonymous =
+    anonymousOverride ??
+    (user?.preferences as { anonymousContributions?: boolean } | null)?.anonymousContributions ===
+      true;
   const [pinDialogOpen, setPinDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  const startPath = isAuthenticated ? "/create-group" : "/auth?mode=signup";
 
   useEffect(() => {
     const loadSharedGroup = async () => {
@@ -66,7 +78,7 @@ const ContributeSharePage = () => {
       }
     };
 
-    loadSharedGroup();
+    void loadSharedGroup();
   }, [id]);
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -84,7 +96,9 @@ const ContributeSharePage = () => {
     }
 
     if (user.status && user.status !== "active") {
-      toast.error(`Your account is currently ${user.status}. Contributions are temporarily disabled.`);
+      toast.error(
+        `Your account is currently ${user.status}. Contributions are temporarily disabled.`
+      );
       return;
     }
 
@@ -131,52 +145,70 @@ const ContributeSharePage = () => {
     }
   };
 
+  const mainShellClass = isAuthenticated
+    ? "cb-discover-main cb-discover-main--workspace cp-page-enter"
+    : "cb-discover-main cb-discover-main--guest cp-page-enter";
+
   if (fetching) {
     return (
-      <div className="min-h-screen">
-        <Header />
-        <div className="app-page max-w-xl">
-          <BrandLoader
-            variant="page"
-            message="Loading shared group"
-            submessage="Fetching contribution details…"
-          />
-        </div>
+      <div className="cb-public-light min-h-dvh">
+        {isAuthenticated ? (
+          <Header />
+        ) : (
+          <LandingHeader isAuthenticated={false} startPath={startPath} />
+        )}
+        <main className={mainShellClass}>
+          <div className="mx-auto max-w-xl px-4 py-16">
+            <BrandLoader
+              variant="page"
+              message="Loading shared pool"
+              submessage="Fetching transparent contribution details…"
+            />
+          </div>
+        </main>
       </div>
     );
   }
 
   if (!contribution) {
     return (
-      <div className="min-h-screen">
-        <Header />
-        <div className="flex flex-col items-center justify-center p-4 pt-24">
-          <Card className="w-full max-w-md text-center">
-            <CardHeader>
-              <AlertCircle className="mx-auto h-12 w-12 text-destructive" />
-              <CardTitle className="mt-4">Contribution Not Found</CardTitle>
-              <CardDescription>
-                This contribution group doesn't exist, is private, or has been archived.
-              </CardDescription>
-            </CardHeader>
-            <CardFooter className="flex justify-center">
-              <Button asChild>
-                <Link to="/discover">Browse Public Groups</Link>
-              </Button>
-            </CardFooter>
-          </Card>
-        </div>
+      <div className="cb-public-light min-h-dvh">
+        {isAuthenticated ? (
+          <Header />
+        ) : (
+          <LandingHeader isAuthenticated={false} startPath={startPath} />
+        )}
+        <main className={mainShellClass}>
+          <div className="mx-auto flex max-w-md flex-col items-center px-4 py-16 text-center">
+            <div className="cb-light-surface-card w-full p-8">
+              <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-rose-50 text-rose-600">
+                <AlertCircle className="h-7 w-7" />
+              </span>
+              <h1 className="mt-4 font-['Instrument_Sans',sans-serif] text-xl font-extrabold text-[#0f1729]">
+                Pool Not Available
+              </h1>
+              <p className="mt-2 text-sm text-[#64717d]">
+                This contribution group doesn’t exist, is set to private, or has been archived.
+              </p>
+              <Link to="/discover" className="cb-btn cb-btn--primary mt-6 w-full">
+                <span>Browse Public Pools</span>
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+        </main>
       </div>
     );
   }
 
   const currentAmount = Number(contribution.current_amount || 0);
   const targetAmount = Number(contribution.target_amount || 1);
+  const progress = Math.min((currentAmount / targetAmount) * 100, 100);
   const minContribution = Number(contribution.contribution_amount || 0);
   const description = contribution.description || "";
 
   return (
-    <div className="min-h-screen">
+    <div className="cb-public-light min-h-dvh">
       {isLoading && (
         <BrandLoader
           variant="overlay"
@@ -185,154 +217,234 @@ const ContributeSharePage = () => {
           submessage={`Confirming your contribution to ${contribution?.name || "this group"}…`}
         />
       )}
-      <Header />
-      <div className="flex flex-col items-center justify-center p-4 pt-24 bg-background">
-        <Card className="w-full max-w-md overflow-hidden rounded-[1.35rem]">
-          {contribution.cover_image_url && (
-            <div className="aspect-[16/9] w-full overflow-hidden bg-muted">
-              <GroupCoverImage
-                reference={contribution.cover_image_url}
-                alt={contribution.name}
-                className="h-full w-full object-cover"
-              />
-            </div>
-          )}
-          <CardHeader className="text-center">
-            <div className="flex justify-center mb-4">
-              <div className="rounded-full bg-primary p-2 text-primary-foreground">
-                <Wallet className="h-6 w-6" />
+
+      {isAuthenticated ? (
+        <Header />
+      ) : (
+        <LandingHeader isAuthenticated={false} startPath={startPath} />
+      )}
+
+      <main className={mainShellClass}>
+        <section className="cb-discover-hero pb-6" aria-labelledby="share-pool-title">
+          <div className="cb-hero-grid-bg" aria-hidden="true" />
+          <div className="cb-discover-glow" aria-hidden="true" />
+
+          <div className="relative z-10 mx-auto max-w-xl px-4 sm:px-6">
+            <Link
+              to="/discover"
+              className="mb-5 inline-flex items-center gap-1.5 rounded-xl bg-white px-3.5 py-2 text-xs font-bold text-[#0f1729] shadow-sm transition-colors hover:bg-[#edf3f0]"
+            >
+              <ArrowLeft size={15} aria-hidden="true" />
+              Explore Public Pools
+            </Link>
+
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <div className="cb-hero-kicker">
+                <span className="cb-hero-kicker-tag">SHARED POOL</span>
+                <span className="cb-hero-kicker-text">Direct Contribution Link</span>
               </div>
+              {contribution.enable_voting_rights !== false && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-[#e1f6eb] px-3 py-1 text-xs font-bold text-[#047857]">
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  Vote-Protected
+                </span>
+              )}
             </div>
-            <CardTitle>Contribute to {contribution.name}</CardTitle>
-            {(contribution.is_verified || contribution.is_pinned || contribution.spotlight_label) && (
-              <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
-                {(contribution.is_pinned || contribution.spotlight_label) && (
-                  <SpotlightBadge label={contribution.spotlight_label} isPinned={Boolean(contribution.is_pinned)} />
-                )}
-                {contribution.is_verified && <VerifiedCrowdfunderBadge />}
+
+            <h1 id="share-pool-title" className="cb-discover-title">
+              Contribute to <span className="text-[#059669]">{contribution.name}</span>
+            </h1>
+          </div>
+        </section>
+
+        <div className="mx-auto max-w-xl px-4 pb-16 sm:px-6">
+          <div className="cb-light-surface-card overflow-hidden">
+            {contribution.cover_image_url && (
+              <div className="aspect-[16/9] w-full overflow-hidden bg-[#e8efec]">
+                <GroupCoverImage
+                  reference={contribution.cover_image_url}
+                  alt={contribution.name}
+                  className="h-full w-full object-cover"
+                />
               </div>
             )}
-            <CardDescription>Join others in this contribution group</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center space-x-3 p-3 bg-secondary/50 rounded-lg">
-              <Avatar className="h-10 w-10">
-                <AvatarFallback>{contribution.name?.charAt(0) || "G"}</AvatarFallback>
-              </Avatar>
-              <div>
-                <p className="font-medium">{contribution.name}</p>
-                <p className="text-sm text-muted-foreground">
-                  {description.substring(0, 60)}
-                  {description.length > 60 ? "..." : ""}
+
+            <div className="space-y-5 p-5 sm:p-7">
+              {/* Group Summary Header */}
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3.5">
+                  <Avatar className="h-12 w-12 rounded-2xl bg-[#e4f5ec] text-[#06694d]">
+                    <AvatarFallback className="rounded-2xl bg-[#e4f5ec] font-bold text-[#06694d]">
+                      {contribution.name?.charAt(0) || "G"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0">
+                    <h2 className="truncate font-['Instrument_Sans',sans-serif] text-lg font-extrabold text-[#0f1729]">
+                      {contribution.name}
+                    </h2>
+                    {description && (
+                      <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-[#64717d]">
+                        {description}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#e4f5ec] text-[#06694d]">
+                  <Wallet className="h-5 w-5" />
+                </span>
+              </div>
+
+              {(contribution.is_verified ||
+                contribution.is_pinned ||
+                contribution.spotlight_label) && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {(contribution.is_pinned || contribution.spotlight_label) && (
+                    <SpotlightBadge
+                      label={contribution.spotlight_label}
+                      isPinned={Boolean(contribution.is_pinned)}
+                    />
+                  )}
+                  {contribution.is_verified && <VerifiedCrowdfunderBadge />}
+                </div>
+              )}
+
+              {/* Crisp Progress Box */}
+              <div className="rounded-2xl bg-[#f5f8f6] p-4">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="font-['Instrument_Sans',sans-serif] text-2xl font-extrabold tracking-tight text-[#0f1729] tabular-nums">
+                    ₦{currentAmount.toLocaleString("en-NG")}
+                  </span>
+                  <span className="rounded-full bg-[#e1f6eb] px-2.5 py-0.5 text-xs font-bold text-[#047857] tabular-nums">
+                    {progress.toFixed(0)}% funded
+                  </span>
+                </div>
+                <p className="mt-0.5 text-xs text-[#64717d] tabular-nums">
+                  of ₦{targetAmount.toLocaleString("en-NG")} target goal
                 </p>
+                <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-[#dfe8e3]">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-[#075847] to-[#059669] transition-all duration-300"
+                    style={{ width: `${Math.max(progress, currentAmount > 0 ? 4 : 0)}%` }}
+                  />
+                </div>
               </div>
-            </div>
 
-            <div>
-              <p className="text-sm font-medium mb-1">Contribution Progress</p>
-              <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
-                <div
-                  className="bg-primary h-full rounded-full"
-                  style={{ width: `${Math.min((currentAmount / targetAmount) * 100, 100)}%` }}
-                ></div>
-              </div>
-              <div className="flex justify-between text-sm mt-1">
-                <span>₦{currentAmount.toLocaleString()}</span>
-                <span>₦{targetAmount.toLocaleString()}</span>
-              </div>
-            </div>
+              <GroupRules group={contribution} />
 
-            <Separator />
-
-            <GroupRules group={contribution} />
-
-            {contribution.account_number && (
-              <>
-                <div className="p-3 bg-secondary/30 rounded-lg">
+              {contribution.account_number && (
+                <div className="rounded-2xl bg-[#f5f8f6] p-4">
                   <AccountNumberDisplay
                     accountNumber={contribution.account_number}
                     accountName={contribution.account_name || contribution.name}
                   />
-                  <p className="text-xs text-muted-foreground mt-2">
-                    You can also transfer directly to this account ({contribution.bank_name || contribution.account_details?.bank_name || "Virtual Account"})
+                  <p className="mt-2 text-xs text-[#64717d]">
+                    You can also transfer directly from any Nigerian bank app ({contribution.bank_name || contribution.account_details?.bank_name || "Dedicated Virtual Account"}).
                   </p>
                 </div>
-                <Separator />
-              </>
-            )}
-
-            <div className="space-y-3">
-              <Label htmlFor="amount">Contribution Amount (₦)</Label>
-              <Input
-                id="amount"
-                type="number"
-                min={minContribution || 100}
-                step="100"
-                placeholder="Enter amount"
-                value={amount || ""}
-                onChange={handleAmountChange}
-              />
-              {minContribution > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  Minimum contribution: ₦{minContribution.toLocaleString()}
-                </p>
               )}
 
-              <div className="flex flex-wrap gap-2 pt-2">
-                {[500, 1000, 5000, 10000].map((value) => (
-                  <Button
-                    key={value}
-                    type="button"
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => setAmount(value)}
-                    disabled={minContribution > 0 && value < minContribution}
+              {/* Amount Input & Quick Presets */}
+              <div className="space-y-3 pt-1">
+                <Label htmlFor="amount" className="text-xs font-bold uppercase tracking-wider text-[#4b5b53]">
+                  Contribution Amount (₦)
+                </Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  min={minContribution || 100}
+                  step="100"
+                  placeholder="Enter amount in Naira"
+                  value={amount || ""}
+                  onChange={handleAmountChange}
+                  className="h-12 rounded-xl border-[#d5e0db] bg-white text-base font-bold text-[#0f1729] tabular-nums"
+                />
+                {minContribution > 0 && (
+                  <p className="text-xs text-[#64717d]">
+                    Minimum contribution: ₦{minContribution.toLocaleString("en-NG")}
+                  </p>
+                )}
+
+                <div className="grid grid-cols-4 gap-2 pt-1">
+                  {[500, 1000, 5000, 10000].map((value) => {
+                    const selected = amount === value;
+                    const isDisabled = minContribution > 0 && value < minContribution;
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        disabled={isDisabled}
+                        onClick={() => setAmount(value)}
+                        className={
+                          selected
+                            ? "h-10 rounded-xl bg-[#071913] text-xs font-bold text-white shadow-sm tabular-nums"
+                            : "h-10 rounded-xl bg-[#f2f6f4] text-xs font-bold text-[#0f1729] transition-colors hover:bg-[#e5ede9] disabled:opacity-40 tabular-nums"
+                        }
+                      >
+                        ₦{value.toLocaleString("en-NG")}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Privacy Selector */}
+              <div className="space-y-2.5">
+                <Label className="text-xs font-bold uppercase tracking-wider text-[#4b5b53]">
+                  Contribution Visibility
+                </Label>
+                <RadioGroup
+                  value={isAnonymous ? "anonymous" : "public"}
+                  onValueChange={(v) => setIsAnonymous(v === "anonymous")}
+                  className="grid gap-2 sm:grid-cols-2"
+                >
+                  <label
+                    htmlFor="share-public"
+                    className="flex cursor-pointer items-center gap-2.5 rounded-xl bg-[#f5f8f6] p-3 text-xs font-semibold text-[#0f1729] transition-colors hover:bg-[#ebf1ee]"
                   >
-                    ₦{value.toLocaleString()}
-                  </Button>
-                ))}
+                    <RadioGroupItem value="public" id="share-public" />
+                    <span>Public (Show my name)</span>
+                  </label>
+                  <label
+                    htmlFor="share-anonymous"
+                    className="flex cursor-pointer items-center gap-2.5 rounded-xl bg-[#f5f8f6] p-3 text-xs font-semibold text-[#0f1729] transition-colors hover:bg-[#ebf1ee]"
+                  >
+                    <RadioGroupItem value="anonymous" id="share-anonymous" />
+                    <span>Anonymous (Hide my name)</span>
+                  </label>
+                </RadioGroup>
+              </div>
+
+              {/* Primary CTA */}
+              <div className="space-y-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleContribute}
+                  disabled={isLoading || amount <= 0}
+                  className="cb-btn cb-btn--primary w-full disabled:opacity-50"
+                >
+                  <span>
+                    {isLoading
+                      ? "Processing…"
+                      : `Contribute ₦${Number(amount || 0).toLocaleString("en-NG")}`}
+                  </span>
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+
+                <div className="flex flex-wrap items-center justify-center gap-4 pt-1 text-[11px] font-medium text-[#64717d]">
+                  <span className="inline-flex items-center gap-1">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-[#059669]" />
+                    4-Digit PIN Verified
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <Sparkles className="h-3.5 w-3.5 text-[#059669]" />
+                    Instant Ledger Receipt
+                  </span>
+                </div>
               </div>
             </div>
-
-            <div className="space-y-2">
-              <Label>Contribution Privacy</Label>
-              <RadioGroup
-                value={isAnonymous ? "anonymous" : "public"}
-                onValueChange={(v) => setIsAnonymous(v === "anonymous")}
-                className="pt-2"
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="public" id="share-public" />
-                  <Label htmlFor="share-public" className="cursor-pointer">
-                    Public (Your name will be visible)
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="anonymous" id="share-anonymous" />
-                  <Label htmlFor="share-anonymous" className="cursor-pointer">
-                    Anonymous (Your name will be hidden)
-                  </Label>
-                </div>
-              </RadioGroup>
-            </div>
-          </CardContent>
-          <CardFooter className="flex flex-col space-y-3">
-            <Button
-              className="w-full"
-              onClick={handleContribute}
-              disabled={isLoading || amount <= 0}
-            >
-              {isLoading ? "Processing..." : `Contribute ₦${amount.toLocaleString()}`}
-            </Button>
-            <Button variant="ghost" asChild className="w-full">
-              <Link to="/">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Return to Home
-              </Link>
-            </Button>
-          </CardFooter>
-        </Card>
-      </div>
+          </div>
+        </div>
+      </main>
 
       <TransactionPinDialog
         open={pinDialogOpen}

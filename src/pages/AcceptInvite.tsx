@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import { GroupJoinPreview } from "@/components/contribution/GroupJoinPreview";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { useSupabaseContribution } from "@/contexts/SupabaseContributionContext";
@@ -47,15 +46,31 @@ export default function AcceptInvite() {
 
   return (
     <GroupJoinPreview group={invitation?.group} loading={loading} error={error} inviter={invitation?.inviter.name}>
-      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+      {error && <p role="alert" className="text-sm font-medium text-destructive">{error}</p>}
       {invitation?.status === "accepted" ? (
-        <Button asChild className="h-11 w-full"><Link to={`/groups/${invitation.group_id}`}>Open group</Link></Button>
+        <Link to={`/groups/${invitation.group_id}`} className="cb-btn cb-btn--primary w-full">
+          Open Group Pool
+        </Link>
       ) : isAuthenticated ? (
-        <Button onClick={accept} disabled={accepting} className="h-11 w-full">{accepting ? "Joining…" : "Accept invitation"}</Button>
+        <button
+          type="button"
+          onClick={accept}
+          disabled={accepting}
+          className="cb-btn cb-btn--primary w-full disabled:opacity-50"
+        >
+          {accepting ? "Joining…" : "Accept Invitation"}
+        </button>
       ) : (
-        <div className="space-y-2">
-          <p className="text-sm text-muted-foreground">Use the email address that received this invitation.</p>
-          <Button asChild className="h-11 w-full"><Link to={`/auth?redirect=${encodeURIComponent("/invite/" + token)}`}>Sign in to join</Link></Button>
+        <div className="space-y-3">
+          <p className="text-xs font-medium text-[#64717d]">
+            Sign in with the email address that received this invitation.
+          </p>
+          <Link
+            to={`/auth?redirect=${encodeURIComponent("/invite/" + token)}`}
+            className="cb-btn cb-btn--primary w-full"
+          >
+            Sign in to Accept Invite
+          </Link>
         </div>
       )}
     </GroupJoinPreview>

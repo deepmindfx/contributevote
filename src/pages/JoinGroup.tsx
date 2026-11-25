@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import { GroupJoinPreview } from "@/components/contribution/GroupJoinPreview";
 import { GroupJoinService } from "@/services/supabase/groupJoinService";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
@@ -53,11 +52,23 @@ export default function JoinGroup() {
     <GroupJoinPreview group={group} loading={!current && Boolean(id)}
       error={current?.failed ? "We couldn’t load this group. Try again." : "This group is unavailable for public joining."}
       onRetry={current?.failed ? () => setRetry((value) => value + 1) : undefined}>
-      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+      {error && <p role="alert" className="text-sm font-medium text-destructive">{error}</p>}
       {isAuthenticated ? (
-        <Button onClick={join} disabled={joining} className="h-11 w-full">{joining ? "Joining…" : "Join group"}</Button>
+        <button
+          type="button"
+          onClick={join}
+          disabled={joining}
+          className="cb-btn cb-btn--primary w-full disabled:opacity-50"
+        >
+          {joining ? "Joining…" : "Join Public Pool"}
+        </button>
       ) : (
-        <Button asChild className="h-11 w-full"><Link to={`/auth?redirect=${encodeURIComponent(location.pathname + location.search)}`}>Sign in to join</Link></Button>
+        <Link
+          to={`/auth?redirect=${encodeURIComponent(location.pathname + location.search)}`}
+          className="cb-btn cb-btn--primary w-full"
+        >
+          Sign in to Join Pool
+        </Link>
       )}
     </GroupJoinPreview>
   );

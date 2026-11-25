@@ -410,6 +410,7 @@ export function CommunityStoriesSection() {
     <section id="stories" className="landing-stories" aria-labelledby="stories-heading">
       <div className="landing-width">
         <header className="landing-stories-head" data-scroll-reveal>
+          <span className="cb-stories-kicker">COMMUNITY IMPACT</span>
           <h2 id="stories-heading">Built for real communities.</h2>
           <p>Fund a shared goal, from a place of worship to a new invention.</p>
         </header>

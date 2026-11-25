@@ -1,49 +1,98 @@
-import { ArrowUpRight, Download, FileSpreadsheet } from "lucide-react";
+import { ArrowRight, CheckCircle2, Download, FileSpreadsheet } from "lucide-react";
 import { Link } from "react-router-dom";
 import { PAYROLL_CSV_NAME, PAYROLL_CSV_URL } from "@/lib/bulkTransfers";
 
 const payroll = [
-  { name: "Amina Bello", initials: "AB", amount: "₦125,000" },
-  { name: "Chidi Okafor", initials: "CO", amount: "₦95,000" },
-  { name: "Teni Adeyemi", initials: "TA", amount: "₦80,000" },
+  { name: "Amina Bello", bank: "GTBank · 0148829014", initials: "AB", amount: "₦125,000" },
+  { name: "Chidi Okafor", bank: "Moniepoint · 8161074642", initials: "CO", amount: "₦95,000" },
+  { name: "Teni Adeyemi", bank: "OPay · 7063657261", initials: "TA", amount: "₦80,000" },
 ];
 
 export function BulkPayrollSection({ isAuthenticated }: { isAuthenticated: boolean }) {
   return (
-    <section id="bulk-transfers" className="landing-payroll" aria-labelledby="payroll-title">
-      <div className="landing-width landing-payroll-layout">
-        <div className="landing-section-heading" data-scroll-reveal>
-          <p className="landing-payroll-category">Bulk transfers</p>
-          <h2 id="payroll-title">Pay your team in one batch.</h2>
-          <p>Choose each bank by name or upload a payroll CSV. Check verified recipients, fees, and VAT, then authorize the whole batch with one PIN.</p>
-          <div className="landing-actions">
-            <Link to={isAuthenticated ? "/transfer/bulk" : "/auth?mode=signup&redirect=%2Ftransfer%2Fbulk"} className="landing-button landing-button-primary">
-              Open bulk transfers <ArrowUpRight size={18} aria-hidden="true" />
+    <section id="bulk-transfers" className="cb-section cb-section--bordered" aria-labelledby="payroll-title">
+      <div className="cb-container cb-payroll-grid">
+        <div className="cb-payroll-copy" data-scroll-reveal>
+          <span className="cb-kicker-pill">
+            <FileSpreadsheet size={14} aria-hidden="true" />
+            BULK TRANSFERS &amp; PAYROLL
+          </span>
+
+          <h2 id="payroll-title">Pay your team &amp; vendors in one verified batch.</h2>
+
+          <p>
+            Select recipients across any Nigerian bank or upload a ready-made payroll CSV. Verify
+            account names, review upfront fees and VAT, and authorize the entire batch with a
+            single 4-digit PIN.
+          </p>
+
+          <ul className="cb-payroll-checks">
+            <li>
+              <CheckCircle2 size={17} aria-hidden="true" />
+              <span>Automatic account-name resolution before money leaves your wallet</span>
+            </li>
+            <li>
+              <CheckCircle2 size={17} aria-hidden="true" />
+              <span>One 4-digit PIN authorizes up to dozens of transfers at once</span>
+            </li>
+            <li>
+              <CheckCircle2 size={17} aria-hidden="true" />
+              <span>Individual shareable CollectiPay receipts for every recipient</span>
+            </li>
+          </ul>
+
+          <div className="cb-hero-actions">
+            <Link
+              to={isAuthenticated ? "/transfer/bulk" : "/auth?mode=signup&redirect=%2Ftransfer%2Fbulk"}
+              className="cb-btn cb-btn--primary"
+            >
+              <span>Open Bulk Transfers</span>
+              <ArrowRight size={17} strokeWidth={2.3} aria-hidden="true" />
             </Link>
-            <a href={PAYROLL_CSV_URL} download={PAYROLL_CSV_NAME} className="landing-text-link">
-              <Download size={17} aria-hidden="true" /> Download payroll CSV
+
+            <a href={PAYROLL_CSV_URL} download={PAYROLL_CSV_NAME} className="cb-btn cb-btn--ghost">
+              <Download size={17} className="text-[#059669]" aria-hidden="true" />
+              <span>Download Payroll CSV</span>
             </a>
           </div>
         </div>
 
-        <div className="landing-payroll-stage" data-scroll-reveal>
-          <figure className="landing-payroll-sheet">
-            <figcaption className="landing-payroll-sheet-heading">
-              <span className="landing-payroll-symbol"><FileSpreadsheet size={22} aria-hidden="true" /></span>
-              <span><small>Payroll example</small><strong>Monthly salaries</strong></span>
+        <div className="cb-payroll-stage" data-scroll-reveal>
+          <figure className="cb-payroll-card">
+            <figcaption className="cb-payroll-card-head">
+              <div className="cb-payroll-card-title">
+                <span className="cb-payroll-icon" aria-hidden="true">
+                  <FileSpreadsheet size={20} />
+                </span>
+                <div>
+                  <small>Verified CSV Batch</small>
+                  <strong>Monthly Team Salaries</strong>
+                </div>
+              </div>
+              <span className="cb-payroll-status">Ready · 3 Verified</span>
             </figcaption>
-            <ul aria-label="Example salary payments">
-              {payroll.map(({ name, initials, amount }) => (
+
+            <ul className="cb-payroll-list" aria-label="Example salary payments">
+              {payroll.map(({ name, bank, initials, amount }) => (
                 <li key={name}>
-                  <span className="landing-payroll-person" aria-hidden="true">{initials}</span>
-                  <span>{name}</span>
-                  <strong>{amount}</strong>
+                  <span className="cb-payroll-avatar" aria-hidden="true">
+                    {initials}
+                  </span>
+                  <div className="cb-payroll-person-meta">
+                    <strong>{name}</strong>
+                    <small>{bank}</small>
+                  </div>
+                  <strong className="cb-payroll-amount">{amount}</strong>
                 </li>
               ))}
             </ul>
-            <div className="landing-payroll-total">
-              <span><strong>₦300,000</strong><small>Before fees and VAT</small></span>
-              <span>3 recipients</span>
+
+            <div className="cb-payroll-foot">
+              <div>
+                <span>Total Batch Disbursement</span>
+                <strong>₦300,000.00</strong>
+              </div>
+              <span className="cb-payroll-pin-pill">1-PIN Batch Auth</span>
             </div>
           </figure>
         </div>

@@ -16,9 +16,10 @@ import { useGroupCoverUrl } from "@/hooks/useGroupCoverUrl";
 
 interface GroupCardProps {
   group: any;
+  lightSurface?: boolean;
 }
 
-export default function GroupCard({ group }: GroupCardProps) {
+export default function GroupCard({ group, lightSurface = false }: GroupCardProps) {
   const navigate = useNavigate();
   const [isMember, setIsMember] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -77,6 +78,169 @@ export default function GroupCard({ group }: GroupCardProps) {
     navigate(isMember ? `/groups/${group.id}` : GroupJoinService.getJoinPath(group.id, group.share_slug));
   };
 
+  if (lightSurface) {
+    return (
+      <article
+        onClick={handlePrimaryAction}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            handlePrimaryAction();
+          }
+        }}
+        className={cn(
+          "cb-group-bento group flex h-full min-w-0 cursor-pointer flex-col justify-between overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#075847]",
+          hasSpotlight && "cb-group-bento--spotlight",
+          !hasSpotlight && isVerified && "cb-group-bento--verified"
+        )}
+      >
+        <div>
+          {coverImageUrl ? (
+            <div className="relative aspect-[16/9] w-full overflow-hidden bg-[#e8efec]">
+              <img
+                src={coverImageUrl}
+                alt={group.name}
+                loading="lazy"
+                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-black/15" />
+              {(hasSpotlight || isVerified) && (
+                <div className="absolute left-3.5 top-3.5 flex flex-wrap items-center gap-1.5">
+                  {hasSpotlight && <SpotlightBadge label={spotlightLabel} isPinned={isPinned} onDark />}
+                  {isVerified && <VerifiedCrowdfunderBadge onDark />}
+                </div>
+              )}
+              <div className="absolute bottom-3 left-3.5 right-3.5 flex items-center justify-between gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/92 px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wider text-[#0f1729] backdrop-blur-sm">
+                  <CategoryIcon category={group.category} size={12} className="text-[#059669]" />
+                  {getCategoryLabel(group.category)}
+                </span>
+                {isFunded ? (
+                  <span className="rounded-full bg-[#dcf7a7] px-2.5 py-0.5 text-[10.5px] font-extrabold text-[#07261c]">
+                    Funded
+                  </span>
+                ) : group.enable_voting_rights !== false ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-black/60 px-2.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
+                    <ShieldCheck className="h-3 w-3 text-[#dcf7a7]" />
+                    Vote-gated
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          ) : (
+            <div className="p-6 pb-0">
+              {(hasSpotlight || isVerified) && (
+                <div className="mb-3.5 flex flex-wrap items-center gap-1.5">
+                  {hasSpotlight && <SpotlightBadge label={spotlightLabel} isPinned={isPinned} />}
+                  {isVerified && <VerifiedCrowdfunderBadge />}
+                </div>
+              )}
+
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#e4f5ec] text-[#06694d]">
+                    <CategoryIcon category={group.category} size={20} />
+                  </span>
+                  <div className="min-w-0">
+                    <span className="block text-[11px] font-bold uppercase tracking-wider text-[#059669]">
+                      {getCategoryLabel(group.category)}
+                    </span>
+                    <p className="truncate text-xs text-[#64717d]">
+                      {group.creator?.name || group.creator?.email || "Community organizer"}
+                    </p>
+                  </div>
+                </div>
+
+                {isFunded ? (
+                  <span className="shrink-0 rounded-full bg-[#e1f6eb] px-2.5 py-1 text-[11px] font-bold text-[#047857]">
+                    Funded
+                  </span>
+                ) : group.enable_voting_rights !== false ? (
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#f1f5f3] px-2.5 py-1 text-[10px] font-semibold text-[#4b5b53]">
+                    <ShieldCheck className="h-3 w-3 text-[#059669]" />
+                    Vote-gated
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          )}
+
+          <div className="px-6 pt-4">
+            <h3 className="line-clamp-1 font-['Instrument_Sans',sans-serif] text-[1.08rem] font-extrabold tracking-tight text-[#0f1729] transition-colors group-hover:text-[#075847]">
+              {group.name}
+            </h3>
+            <p className="mt-1.5 line-clamp-2 min-h-[2.4rem] text-xs leading-relaxed text-[#64717d]">
+              {group.description || "Transparent community savings pool powered by CollectiPay."}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 space-y-4 p-6 pt-0">
+          <div className="rounded-2xl bg-[#f5f8f6] p-3.5">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="font-['Instrument_Sans',sans-serif] text-xl font-extrabold tracking-tight text-[#0f1729] tabular-nums">
+                ₦{currentAmount.toLocaleString("en-NG")}
+              </span>
+              <span className="rounded-full bg-[#e1f6eb] px-2 py-0.5 text-[11px] font-bold text-[#047857] tabular-nums">
+                {progress.toFixed(0)}%
+              </span>
+            </div>
+            <p className="mt-0.5 text-[11px] text-[#64717d] tabular-nums">
+              of ₦{targetAmount.toLocaleString("en-NG")} goal
+            </p>
+            <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-[#dfe8e3]">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-[#075847] to-[#059669] transition-all duration-300"
+                style={{ width: `${Math.max(progress, currentAmount > 0 ? 4 : 0)}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-1 text-xs text-[#64717d]">
+            <div className="flex items-center gap-3">
+              <span className="inline-flex items-center gap-1 font-semibold text-[#334155]">
+                <Users className="h-3.5 w-3.5 text-[#64717d]" />
+                {contributorCount}
+              </span>
+              <span className="inline-flex items-center gap-1 capitalize">
+                <Calendar className="h-3.5 w-3.5" />
+                {group.frequency || "Flexible"}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              disabled={loading}
+              onClick={(e) => {
+                e.stopPropagation();
+                handlePrimaryAction();
+              }}
+              className={
+                isMember
+                  ? "inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#e4f5ec] px-3.5 text-xs font-bold text-[#06694d] transition-colors hover:bg-[#d2efe0]"
+                  : "inline-flex h-9 items-center gap-1 rounded-xl bg-[#071913] px-3.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-[#0d2b21]"
+              }
+            >
+              {isMember ? (
+                <>
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Open pool
+                </>
+              ) : (
+                <>
+                  View &amp; Join
+                  <ArrowUpRight className="h-3.5 w-3.5" />
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </article>
+    );
+  }
+
   return (
     <Card
       onClick={handlePrimaryAction}
@@ -96,7 +260,6 @@ export default function GroupCard({ group }: GroupCardProps) {
       )}
     >
       <div>
-        {/* Full-Bleed Group Cover Picture Banner (when provided) */}
         {coverImageUrl && (
           <div className="relative aspect-[16/9] w-full overflow-hidden bg-muted">
             <img
@@ -132,7 +295,6 @@ export default function GroupCard({ group }: GroupCardProps) {
         )}
 
         <div className="p-5 pb-0">
-          {/* Admin Spotlight & Verified Crowdfunder Ribbon (when no cover image) */}
           {!coverImageUrl && (hasSpotlight || isVerified) && (
             <div className="mb-3 flex flex-wrap items-center gap-1.5">
               {hasSpotlight && <SpotlightBadge label={spotlightLabel} isPinned={isPinned} />}
@@ -140,7 +302,6 @@ export default function GroupCard({ group }: GroupCardProps) {
             </div>
           )}
 
-          {/* Top Row: Category Icon + Status Pill (when no cover image) */}
           {!coverImageUrl && (
             <div className="flex items-start justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3">
@@ -170,7 +331,6 @@ export default function GroupCard({ group }: GroupCardProps) {
             </div>
           )}
 
-          {/* Title & Concise Summary */}
           <div className={coverImageUrl ? "" : "mt-4"}>
             <h3 className="line-clamp-1 text-base font-bold tracking-tight text-foreground transition-colors group-hover:text-primary">
               {group.name}
@@ -182,7 +342,6 @@ export default function GroupCard({ group }: GroupCardProps) {
         </div>
       </div>
 
-      {/* Funding Bar + Simple Action */}
       <div className="mt-5 space-y-4 p-5 pt-0">
         <div>
           <div className="flex items-baseline justify-between gap-2">

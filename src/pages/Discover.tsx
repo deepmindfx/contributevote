@@ -1,13 +1,27 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Compass, Flame, Plus, Search, X } from "lucide-react";
+import {
+  ArrowRight,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Compass,
+  Flame,
+  Plus,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  X,
+} from "lucide-react";
 import Header from "@/components/layout/Header";
+import { LandingHeader } from "@/components/landing/LandingHeader";
 import GroupCard from "@/components/discover/GroupCard";
 import SearchFilters from "@/components/discover/SearchFilters";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSupabaseUser } from "@/contexts/SupabaseUserContext";
 import { DiscoverService, DiscoverFilters, SortOption } from "@/services/supabase/discoverService";
+import "@/styles/landing.css";
 
 export default function Discover() {
   const { isAuthenticated } = useSupabaseUser();
@@ -20,6 +34,8 @@ export default function Discover() {
   const [totalPages, setTotalPages] = useState(1);
   const [hasError, setHasError] = useState(false);
   const [retry, setRetry] = useState(0);
+
+  const startPath = isAuthenticated ? "/create-group" : "/auth?mode=signup";
 
   useEffect(() => {
     let active = true;
@@ -73,69 +89,104 @@ export default function Discover() {
   };
 
   return (
-    <div className="min-h-dvh bg-background">
-      <Header mobilePanel />
+    <div className="cb-public-light min-h-dvh">
+      {isAuthenticated ? (
+        <Header />
+      ) : (
+        <LandingHeader isAuthenticated={false} startPath={startPath} />
+      )}
 
-      <main className="app-page app-panel-page cp-page-enter max-w-6xl">
-        {/* Deep-Emerald Discover Hero with Integrated Search */}
-        <section className="app-panel-hero" aria-labelledby="discover-title">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="panel-kicker inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider">
-                <Compass className="h-3.5 w-3.5 text-[#dbf5b4]" />
-                Public Pools &amp; Crowdfunding
-              </p>
-              <h1 id="discover-title" className="app-page-title mt-1.5">
-                Discover groups
-              </h1>
-              <p className="panel-kicker mt-1.5 max-w-lg text-sm">
-                Support verified community campaigns, faith projects, and inventions with transparent progress.
-              </p>
+      <main
+        className={
+          isAuthenticated
+            ? "cb-discover-main cb-discover-main--workspace cp-page-enter"
+            : "cb-discover-main cb-discover-main--guest cp-page-enter"
+        }
+      >
+        {/* Light Cashbuddy-Aligned Architectural Hero */}
+        <section className="cb-discover-hero" aria-labelledby="discover-title">
+          <div className="cb-hero-grid-bg" aria-hidden="true" />
+          <div className="cb-discover-glow" aria-hidden="true" />
+
+          <div className="cb-discover-container relative z-10">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+              <div className="max-w-2xl">
+                <div className="cb-hero-kicker mb-4">
+                  <span className="cb-hero-kicker-tag">DISCOVER</span>
+                  <span className="cb-hero-kicker-text">
+                    Verified Community Pools &amp; Public Causes
+                  </span>
+                </div>
+
+                <h1 id="discover-title" className="cb-discover-title">
+                  Support transparent{" "}
+                  <span className="text-[#059669]">public pools.</span>
+                </h1>
+
+                <p className="cb-discover-subtitle">
+                  Browse verified faith projects, medical relief drives, student initiatives, and
+                  community infrastructure pools — with live Naira ledgers and vote-protected
+                  withdrawals.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <Link to={startPath} className="cb-btn cb-btn--primary">
+                  <Plus className="h-4 w-4" strokeWidth={2.5} />
+                  <span>Start a Public Pool</span>
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
             </div>
 
-            <Button asChild className="app-panel-primary h-11 shrink-0 gap-1.5 rounded-xl font-bold">
-              <Link to={isAuthenticated ? "/create-group" : "/auth?mode=signup"}>
-                <Plus className="h-4 w-4" />
-                Start a pool
-              </Link>
-            </Button>
-          </div>
-
-          {/* Sleek Hero Search Bar */}
-          <form onSubmit={handleSearchSubmit} className="mt-5" role="search">
-            <div className="flex items-center gap-2 rounded-2xl border border-white/20 bg-white/12 p-1.5 backdrop-blur-md focus-within:border-[#dbf5b4]/70 focus-within:bg-white/18">
-              <Search className="ml-3 h-4 w-4 shrink-0 text-[#cce8da]" aria-hidden="true" />
-              <input
-                type="search"
-                aria-label="Search public groups"
-                placeholder="Search by cause, masjid, church, invention, or pool name…"
-                value={searchDraft}
-                onChange={(e) => setSearchDraft(e.target.value)}
-                className="h-10 min-w-0 flex-1 bg-transparent text-sm text-white placeholder:text-[#bddccf] focus:outline-none"
-              />
-              {searchDraft && (
-                <button
-                  type="button"
-                  onClick={clearSearch}
-                  aria-label="Clear search"
-                  className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-[#cce8da] hover:bg-white/15 hover:text-white"
-                >
-                  <X className="h-4 w-4" />
+            {/* Elevated Crisp White Search Bar */}
+            <form onSubmit={handleSearchSubmit} className="mt-7" role="search">
+              <div className="cb-discover-search">
+                <Search className="ml-3.5 h-4 w-4 shrink-0 text-[#64717d]" aria-hidden="true" />
+                <input
+                  type="search"
+                  aria-label="Search public groups"
+                  placeholder="Search by cause, masjid, church, invention, or pool name…"
+                  value={searchDraft}
+                  onChange={(e) => setSearchDraft(e.target.value)}
+                  className="h-11 min-w-0 flex-1 bg-transparent text-sm font-medium text-[#0f1729] placeholder:text-[#7b8794] focus:outline-none"
+                />
+                {searchDraft && (
+                  <button
+                    type="button"
+                    onClick={clearSearch}
+                    aria-label="Clear search"
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-xl text-[#64717d] transition-colors hover:bg-black/5 hover:text-[#0f1729]"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+                <button type="submit" className="cb-discover-search-btn">
+                  Search
                 </button>
-              )}
-              <Button
-                type="submit"
-                size="sm"
-                className="app-panel-primary h-10 shrink-0 rounded-xl px-4 font-bold"
-              >
-                Search
-              </Button>
+              </div>
+            </form>
+
+            {/* Micro Trust Highlights */}
+            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-medium text-[#64717d]">
+              <span className="inline-flex items-center gap-1.5">
+                <ShieldCheck className="h-3.5 w-3.5 text-[#059669]" />
+                70% voter quorum on vote-gated pools
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <CheckCircle2 className="h-3.5 w-3.5 text-[#059669]" />
+                0% CollectiPay fee on charity withdrawals
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-[#059669]" />
+                Instant shareable NGN receipts
+              </span>
             </div>
-          </form>
+          </div>
         </section>
 
-        {/* Clean Overlapping Body */}
-        <div className="app-panel-body space-y-5">
+        {/* Clean Light Results & Bento Grid Body */}
+        <div className="cb-discover-container space-y-6 pb-16 pt-2">
           <SearchFilters
             filters={filters}
             sortBy={sortBy}
@@ -145,7 +196,7 @@ export default function Discover() {
 
           {/* Subtle Results Line */}
           {!hasError && (
-            <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-[#64717d]">
               <p role="status">
                 {loading
                   ? "Finding public pools…"
@@ -153,7 +204,7 @@ export default function Discover() {
               </p>
               {filters.search && (
                 <span>
-                  Matching <strong className="text-foreground">“{filters.search}”</strong>
+                  Matching <strong className="text-[#0f1729]">“{filters.search}”</strong>
                 </span>
               )}
             </div>
@@ -161,68 +212,75 @@ export default function Discover() {
 
           {/* Grid / Empty / Error States */}
           {hasError ? (
-            <div className="cp-card-native p-10 text-center">
-              <h2 className="text-lg font-bold text-foreground">Couldn’t load public pools</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Check your connection and try again.
+            <div className="cb-light-surface-card p-12 text-center">
+              <h2 className="font-['Instrument_Sans',sans-serif] text-xl font-extrabold text-[#0f1729]">
+                Couldn’t load public pools
+              </h2>
+              <p className="mt-1.5 text-sm text-[#64717d]">
+                Check your internet connection and try again.
               </p>
-              <Button
-                className="mt-4 h-11 rounded-xl"
+              <button
+                type="button"
+                className="cb-btn cb-btn--primary mt-5"
                 onClick={() => setRetry((attempt) => attempt + 1)}
               >
                 Try again
-              </Button>
+              </button>
             </div>
           ) : loading ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="cp-card-native space-y-4 p-5">
+                <div key={i} className="cb-light-surface-card space-y-4 p-6">
                   <div className="flex items-center gap-3">
-                    <Skeleton className="h-11 w-11 rounded-2xl" />
-                    <div className="flex-1 space-y-1.5">
-                      <Skeleton className="h-3 w-20" />
-                      <Skeleton className="h-3 w-32" />
+                    <Skeleton className="h-12 w-12 rounded-2xl bg-[#e8eeeb]" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-3 w-20 bg-[#e8eeeb]" />
+                      <Skeleton className="h-3 w-32 bg-[#e8eeeb]" />
                     </div>
                   </div>
-                  <Skeleton className="h-5 w-3/4" />
-                  <Skeleton className="h-8 w-full" />
-                  <Skeleton className="h-2 w-full rounded-full" />
+                  <Skeleton className="h-5 w-3/4 bg-[#e8eeeb]" />
+                  <Skeleton className="h-8 w-full bg-[#e8eeeb]" />
+                  <Skeleton className="h-2 w-full rounded-full bg-[#e8eeeb]" />
                   <div className="flex justify-between pt-2">
-                    <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-9 w-24 rounded-xl" />
+                    <Skeleton className="h-4 w-24 bg-[#e8eeeb]" />
+                    <Skeleton className="h-9 w-28 rounded-xl bg-[#e8eeeb]" />
                   </div>
                 </div>
               ))}
             </div>
           ) : groups.length === 0 ? (
-            <div className="cp-card-native flex flex-col items-center justify-center px-6 py-14 text-center">
-              <span className="grid h-14 w-14 place-items-center rounded-2xl bg-accent text-primary">
-                <Search className="h-6 w-6" aria-hidden="true" />
+            <div className="cb-light-surface-card flex flex-col items-center justify-center px-6 py-16 text-center">
+              <span className="grid h-14 w-14 place-items-center rounded-2xl bg-[#e4f5ec] text-[#06694d]">
+                <Compass className="h-6 w-6" aria-hidden="true" />
               </span>
-              <h3 className="mt-4 text-lg font-bold text-foreground">No matching pools</h3>
-              <p className="mt-1 max-w-xs text-sm text-muted-foreground">
-                Try another category or search term, or start your own public pool.
+              <h3 className="mt-4 font-['Instrument_Sans',sans-serif] text-xl font-extrabold text-[#0f1729]">
+                No matching public pools
+              </h3>
+              <p className="mt-1.5 max-w-sm text-sm text-[#64717d]">
+                Try another category or search keyword, or launch the first public pool for your
+                community cause.
               </p>
-              <div className="mt-5 flex flex-wrap justify-center gap-2">
-                <Button
-                  variant="outline"
+              <div className="mt-6 flex flex-wrap justify-center gap-3">
+                <button
+                  type="button"
                   onClick={() => handleFiltersChange({})}
-                  className="h-11 rounded-xl"
+                  className="cb-btn cb-btn--ghost"
                 >
                   Reset filters
-                </Button>
-                <Button asChild className="h-11 rounded-xl">
-                  <Link to={isAuthenticated ? "/create-group" : "/auth?mode=signup"}>
-                    Create a pool
-                  </Link>
-                </Button>
+                </button>
+                <Link to={startPath} className="cb-btn cb-btn--primary">
+                  Create a pool
+                </Link>
               </div>
             </div>
           ) : (
             <>
               {(() => {
                 const pinnedSpotlight =
-                  currentPage === 1 && !filters.spotlightOnly && !filters.verifiedOnly && !filters.search
+                  currentPage === 1 &&
+                  !filters.spotlightOnly &&
+                  !filters.verifiedOnly &&
+                  !filters.search
                     ? groups.filter((g) => g.is_pinned || Boolean(g.spotlight_label))
                     : [];
                 const regularGroups =
@@ -231,42 +289,42 @@ export default function Discover() {
                     : groups;
 
                 return (
-                  <div className="space-y-6">
+                  <div className="space-y-9">
                     {pinnedSpotlight.length > 0 && (
-                      <section className="space-y-3" aria-label="Spotlight and Most Needed pools">
+                      <section className="space-y-4" aria-label="Spotlight and Most Needed pools">
                         <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <span className="grid h-8 w-8 place-items-center rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-300">
+                          <div className="flex items-center gap-2.5">
+                            <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#fef3df] text-[#b45309]">
                               <Flame className="h-4 w-4" />
                             </span>
                             <div>
-                              <h2 className="text-sm font-extrabold tracking-tight text-foreground">
+                              <h2 className="font-['Instrument_Sans',sans-serif] text-base font-extrabold tracking-tight text-[#0f1729]">
                                 Most Needed &amp; Verified Spotlight
                               </h2>
-                              <p className="text-[11px] text-muted-foreground">
-                                Priority community causes highlighted by CollectiPay
+                              <p className="text-xs text-[#64717d]">
+                                Priority community causes verified by CollectiPay
                               </p>
                             </div>
                           </div>
                         </div>
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
                           {pinnedSpotlight.map((group) => (
-                            <GroupCard key={group.id} group={group} />
+                            <GroupCard key={group.id} group={group} lightSurface />
                           ))}
                         </div>
                       </section>
                     )}
 
                     {regularGroups.length > 0 && (
-                      <section className="space-y-3" aria-label="All community pools">
+                      <section className="space-y-4" aria-label="All community pools">
                         {pinnedSpotlight.length > 0 && (
-                          <h2 className="text-sm font-bold tracking-tight text-muted-foreground">
-                            More public pools
+                          <h2 className="font-['Instrument_Sans',sans-serif] text-base font-extrabold tracking-tight text-[#0f1729]">
+                            All Community Pools
                           </h2>
                         )}
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
                           {regularGroups.map((group) => (
-                            <GroupCard key={group.id} group={group} />
+                            <GroupCard key={group.id} group={group} lightSurface />
                           ))}
                         </div>
                       </section>
@@ -276,17 +334,16 @@ export default function Discover() {
               })()}
 
               {totalPages > 1 && (
-                <div className="flex flex-wrap items-center justify-center gap-1.5 pt-4">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-10 w-10 rounded-xl"
+                <div className="flex flex-wrap items-center justify-center gap-2 pt-6">
+                  <button
+                    type="button"
+                    className="grid h-10 w-10 place-items-center rounded-xl bg-white text-[#0f1729] shadow-sm transition-all hover:bg-[#edf3f0] disabled:opacity-40"
                     onClick={() => goToPage(currentPage - 1)}
                     disabled={currentPage === 1}
                     aria-label="Previous page"
                   >
                     <ChevronLeft className="h-4 w-4" />
-                  </Button>
+                  </button>
 
                   {Array.from({ length: totalPages }).map((_, i) => {
                     const page = i + 1;
@@ -295,21 +352,25 @@ export default function Discover() {
                       page === totalPages ||
                       (page >= currentPage - 1 && page <= currentPage + 1)
                     ) {
+                      const active = currentPage === page;
                       return (
-                        <Button
+                        <button
                           key={page}
-                          variant={currentPage === page ? "default" : "outline"}
-                          size="icon"
-                          className="h-10 w-10 rounded-xl tabular-nums"
+                          type="button"
                           onClick={() => goToPage(page)}
+                          className={
+                            active
+                              ? "grid h-10 w-10 place-items-center rounded-xl bg-[#071913] text-xs font-bold text-white shadow-md tabular-nums"
+                              : "grid h-10 w-10 place-items-center rounded-xl bg-white text-xs font-semibold text-[#0f1729] shadow-sm transition-all hover:bg-[#edf3f0] tabular-nums"
+                          }
                         >
                           {page}
-                        </Button>
+                        </button>
                       );
                     }
                     if (page === currentPage - 2 || page === currentPage + 2) {
                       return (
-                        <span key={page} className="px-1.5 text-sm text-muted-foreground">
+                        <span key={page} className="px-1.5 text-sm text-[#64717d]">
                           …
                         </span>
                       );
@@ -317,16 +378,15 @@ export default function Discover() {
                     return null;
                   })}
 
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-10 w-10 rounded-xl"
+                  <button
+                    type="button"
+                    className="grid h-10 w-10 place-items-center rounded-xl bg-white text-[#0f1729] shadow-sm transition-all hover:bg-[#edf3f0] disabled:opacity-40"
                     onClick={() => goToPage(currentPage + 1)}
                     disabled={currentPage === totalPages}
                     aria-label="Next page"
                   >
                     <ChevronRight className="h-4 w-4" />
-                  </Button>
+                  </button>
                 </div>
               )}
             </>
