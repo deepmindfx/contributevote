@@ -234,7 +234,7 @@ const ActivityHistory = () => {
             label: "From",
             name:
               depositSender.name ||
-              (kind === "refund" ? group?.name || "Group Pool" : "Bank Transfer"),
+              (kind === "refund" ? group?.name || "Group Pool" : user?.name || "Bank Transfer"),
             subtitle:
               depositSender.accountNumber ||
               (meta.payerEmail as string | undefined) ||

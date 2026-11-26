@@ -14,6 +14,11 @@ const PLACEHOLDER_PARTY_NAMES = new Set([
   "n/a",
   "null",
   "undefined",
+  // Platform / aggregator names that Flutterwave reports as the sender
+  // when a card-funded deposit lands on a virtual account.
+  "collectipay",
+  "flutterwave",
+  "paystack",
 ]);
 
 export function metaText(meta: Record<string, unknown>, ...keys: string[]): string | undefined {

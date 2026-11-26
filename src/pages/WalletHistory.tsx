@@ -271,7 +271,7 @@ export default function WalletHistory() {
           : type === "deposit"
           ? {
               label: "From",
-              name: depositSender.name || "Bank Transfer",
+              name: depositSender.name || user?.name || "Bank Transfer",
               subtitle: depositSender.accountNumber,
               bankName: depositSender.bankName,
             }

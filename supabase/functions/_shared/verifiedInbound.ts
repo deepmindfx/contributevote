@@ -107,8 +107,15 @@ export async function applyVerifiedInbound(db: any, charge: VerifiedCharge, atte
   if (!recipient) return track("destination_unresolved");
 
   const senderAccount = metadataText(meta.originatoraccountnumber);
+  const rawOriginator = metadataText(meta.originatorname || charge.customer?.name);
+  // Flutterwave reports "CollectiPay" as the originator for card-funded
+  // virtual-account deposits. Fall back to customer.name in that case.
+  const platformNames = new Set(["collectipay", "flutterwave", "paystack"]);
+  const senderName = rawOriginator && platformNames.has(rawOriginator.toLowerCase())
+    ? metadataText(charge.customer?.name) || rawOriginator
+    : rawOriginator;
   const details = {
-    senderName: metadataText(meta.originatorname || charge.customer?.name) || null,
+    senderName: senderName || null,
     senderBank: metadataText(meta.bankname) || null,
     senderAccount: senderAccount ? "••••" + senderAccount.slice(-4) : null,
     txRef: charge.tx_ref,
