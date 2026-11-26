@@ -80,7 +80,7 @@ Deno.serve(async (req: Request) => {
   try {
     const { data: { user } } = await client.auth.getUser();
     if (!user?.email_confirmed_at) return json({ error: "Sign in with a confirmed email to continue." }, 401);
-    const { data: profile } = await db.from("profiles").select("role,status").eq("id", user.id).maybeSingle();
+    const { data: profile } = await db.from("profiles").select("role,status,name").eq("id", user.id).maybeSingle();
     if (!profile || (profile.status ?? "active") !== "active") return json({ error: "Your account is restricted." }, 403);
     const body = await req.json().catch(() => null);
     const action = body?.action;
@@ -132,6 +132,7 @@ Deno.serve(async (req: Request) => {
     const { data: claim, error: claimError } = await db.rpc("service_claim_bulk_transfer", { p_user_id: user.id, p_batch_id: id });
     if (claimError) return json({ error: "Your batch is saved. Open it to check the current status." }, 503);
     if (!Array.isArray(claim)) return json({ batch_id: id });
+    const senderName = typeof profile?.name === "string" ? profile.name.trim() : "";
     const items: QuotedRecipient[] = claim;
     const { response } = await flutterwaveFetch("/bulk-transfers", {
       method: "POST", signal: AbortSignal.timeout(20_000),
@@ -139,7 +140,10 @@ Deno.serve(async (req: Request) => {
         currency: "NGN", title: `CollectiPay ${id}`, error_reporting: true,
         bulk_data: items.map((row) => ({ bank_code: row.account_bank, account_number: row.account_number,
           amount: Number(row.amount), currency: "NGN", reference: row.reference,
-          narration: row.narration || "Transfer from CollectiPay", callback_url: config.webhookUrl })),
+          narration: senderName
+            ? `${senderName} - ${row.narration || "CollectiPay"}`
+            : row.narration || "Transfer from CollectiPay",
+          callback_url: config.webhookUrl })),
       },
     }, config).catch(() => ({ response: new Response(null, { status: 503 }) }));
     const provider = await response.json().catch(() => null);

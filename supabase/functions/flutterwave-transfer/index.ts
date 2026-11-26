@@ -55,6 +55,10 @@ Deno.serve(async (req: Request) => {
     );
 
     const config = await getFlutterwaveConfig({ supabaseAdmin });
+    // Fetch sender's display name so the recipient's bank shows who sent the money
+    const { data: senderProfile } = await supabaseAdmin.from('profiles').select('name').eq('id', user.id).maybeSingle();
+    const senderName = typeof senderProfile?.name === 'string' ? senderProfile.name.trim() : '';
+
     const body: TransferRequest & { action?: string; reference?: string } = await req.json();
     if (body.action === 'status') {
       const reference = String(body.reference || '');
@@ -138,7 +142,11 @@ Deno.serve(async (req: Request) => {
       signal: AbortSignal.timeout(20_000),
       body: {
         account_bank, account_number, amount: numericAmount, beneficiary_name, reference, currency,
-        debit_currency: currency, narration: narration || 'Transfer from CollectiPay', callback_url: config.webhookUrl,
+        debit_currency: currency,
+        narration: senderName
+          ? `${senderName} - ${narration || 'CollectiPay'}`
+          : narration || 'Transfer from CollectiPay',
+        callback_url: config.webhookUrl,
       },
     }, config).catch(() => null);
     if (submitted?.response.ok) {
