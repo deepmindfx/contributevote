@@ -159,110 +159,169 @@ export class PDFGenerator {
   }
 
   /**
-   * Generate full contribution history report
+   * Generate full contribution history report — premium branded design
    */
   static generateFullReport(data: ReceiptData): void {
-    const doc = new jsPDF();
+    const doc = new jsPDF({ format: 'a4', unit: 'mm' });
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 14;
+    const contentW = pageWidth - margin * 2;
 
-    // Add branding header
-    this.addHeader(doc, pageWidth);
+    // ── Colour palette (matches bankStatement.ts) ──────────────────────────
+    const evergreen  = '#0c3027';
+    const forest     = '#146747';
+    const ink        = '#102c24';
+    const muted      = '#49655b';
+    const borderCol  = '#dce8df';
+    const limeAccent = '#ddf4b7';
+    const pale       = '#eaf5ee';
 
-    // Report title
-    doc.setFontSize(18);
-    doc.setTextColor(this.SECONDARY_COLOR);
-    doc.text('CONTRIBUTION HISTORY REPORT', pageWidth / 2, 50, { align: 'center' });
+    const money = new Intl.NumberFormat('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const avg   = data.contributionCount > 0 ? data.totalAmount / data.contributionCount : 0;
 
-    // Report info
-    let yPos = 60;
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Contributor:', 20, yPos);
-    doc.setFont('helvetica', 'normal');
-    doc.text(data.contributorName, 60, yPos);
+    // helper: set font and draw text
+    const txt = (value: string, x: number, y: number, size: number, color: string, bold = false, align: 'left'|'right'|'center' = 'left') => {
+      doc.setFont('helvetica', bold ? 'bold' : 'normal');
+      doc.setFontSize(size);
+      doc.setTextColor(color);
+      doc.text(value, x, y, align !== 'left' ? { align } : undefined);
+    };
 
-    yPos += 7;
-    doc.setFont('helvetica', 'bold');
-    doc.text('Group:', 20, yPos);
-    doc.setFont('helvetica', 'normal');
-    doc.text(data.groupName, 60, yPos);
+    // helper: draw brand mark (green circle + "C" + wordmark)
+    const brand = (x: number, y: number) => {
+      doc.setFillColor('#218f61');
+      doc.circle(x + 4, y - 1.5, 4, 'F');
+      txt('C', x + 1.75, y + 0.65, 17, '#ffffff', true);
+      txt('CollectiPay', x + 11, y, 16, '#ffffff', true);
+    };
 
-    yPos += 7;
-    doc.setFont('helvetica', 'bold');
-    doc.text('Generated:', 20, yPos);
-    doc.setFont('helvetica', 'normal');
-    doc.text(new Date().toLocaleString(), 60, yPos);
+    // ── HEADER BAND ────────────────────────────────────────────────────────
+    doc.setFillColor(evergreen);
+    doc.rect(0, 0, pageWidth, 53, 'F');
+    // decorative circle
+    doc.setFillColor('#1d5e49');
+    doc.circle(pageWidth - 7, 0, 31, 'F');
+    // lime accent underline
+    doc.setFillColor(limeAccent);
+    doc.rect(margin, 50, 22, 1.2, 'F');
 
-    // Summary box
-    yPos += 15;
-    doc.setFillColor(this.LIGHT_GRAY);
-    doc.rect(20, yPos, pageWidth - 40, 20, 'F');
+    brand(margin, 15.5);
+    txt('Contribution History Report', margin, 33, 22, '#ffffff', true);
+    txt(data.groupName, margin, 42, 11, '#c8e9d8');
+    txt('NGN  |  WAT', pageWidth - margin, 42, 10, limeAccent, true, 'right');
 
-    doc.setFontSize(10);
-    doc.setTextColor(this.SECONDARY_COLOR);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`Total Contributions: ${data.contributionCount}`, 25, yPos + 8);
-    doc.text(
-      `Total Amount: ₦${data.totalAmount.toLocaleString()}`,
-      pageWidth - 25,
-      yPos + 8,
-      { align: 'right' }
-    );
+    // ── META ROW ──────────────────────────────────────────────────────────
+    txt('CONTRIBUTOR', margin, 64, 8, muted, true);
+    txt('GENERATED', pageWidth - margin, 64, 8, muted, true, 'right');
 
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(100);
-    doc.text(
-      `Average: ₦${(data.totalAmount / data.contributionCount).toLocaleString()}`,
-      25,
-      yPos + 15
-    );
+    const nameLines = doc.splitTextToSize(data.contributorName.trim() || 'Unknown', contentW * 0.63) as string[];
+    nameLines.forEach((line, i) => txt(line, margin, 71 + i * 5, 13, ink, true));
+    txt(new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }), pageWidth - margin, 71, 11, ink, true, 'right');
+    txt(new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + ' WAT', pageWidth - margin, 77, 9, muted, false, 'right');
 
-    // Contributions table
-    yPos += 30;
+    const metaBottomY = 71 + (nameLines.length - 1) * 5;
+
+    // ── SUMMARY METRIC TILES ──────────────────────────────────────────────
+    const summaryY = Math.max(85, metaBottomY + 8);
+    const gap      = 3;
+    const tile     = (contentW - gap * 2) / 3;
+    const metrics: [string, number][] = [
+      ['Total paid', data.totalAmount],
+      ['Contributions', data.contributionCount],
+      ['Average payment', avg],
+    ];
+
+    metrics.forEach(([label, value], idx) => {
+      const x = margin + idx * (tile + gap);
+      doc.setFillColor(idx === 0 ? pale : '#f6f9f7');
+      doc.setDrawColor(borderCol);
+      doc.roundedRect(x, summaryY, tile, 21, 2.4, 2.4, 'FD');
+      txt(label, x + 4, summaryY + 7, 9, forest, true);
+      const formatted = idx === 1 ? String(value) : '₦' + money.format(value);
+      doc.setFont('helvetica', 'bold').setFontSize(15);
+      txt(formatted, x + 4, summaryY + 15,
+        Math.min(15, (tile - 8) * 15 / Math.max(1, doc.getTextWidth(formatted))),
+        ink, true);
+    });
+
+    // ── TABLE SECTION ─────────────────────────────────────────────────────
+    const tableStart = summaryY + 32;
+    txt('Transaction detail', margin, tableStart, 13, ink, true);
+    txt(data.contributions.length + (data.contributions.length === 1 ? ' entry' : ' entries'),
+      pageWidth - margin, tableStart, 9, muted, false, 'right');
 
     const tableData = data.contributions.map((c) => [
       this.formatDate(c.created_at),
       this.formatTime(c.created_at),
-      `₦${c.amount.toLocaleString()}`,
-      this.capitalizeFirst(c.payment_method),
+      money.format(c.amount),
+      this.capitalizeFirst(c.payment_method).replace('_', ' '),
       this.capitalizeFirst(c.status),
-      c.reference_id.substring(0, 16) + '...',
+      c.reference_id.length > 18 ? c.reference_id.substring(0, 18) + '…' : c.reference_id,
     ]);
 
     autoTable(doc, {
-      startY: yPos,
-      head: [['Date', 'Time', 'Amount', 'Method', 'Status', 'Reference']],
-      body: tableData,
-      theme: 'striped',
-      headStyles: {
-        fillColor: this.BRAND_COLOR,
-        textColor: '#FFFFFF',
-        fontStyle: 'bold',
-        fontSize: 9,
+      startY: tableStart + 4,
+      margin: { left: margin, right: margin, top: 23, bottom: 21 },
+      theme: 'plain',
+      showHead: 'everyPage',
+      rowPageBreak: 'avoid',
+      head: [['Date', 'Time', 'Amount (NGN)', 'Method', 'Status', 'Reference']],
+      body: tableData.length ? tableData : [[{ content: 'No contributions recorded.', colSpan: 6 }]],
+      styles: {
+        fontSize: 8.5,
+        cellPadding: 2.5,
+        valign: 'middle',
+        overflow: 'linebreak',
+        textColor: ink,
+        lineColor: borderCol,
       },
-      bodyStyles: {
-        fontSize: 8,
-        textColor: this.SECONDARY_COLOR,
-      },
-      alternateRowStyles: {
-        fillColor: this.LIGHT_GRAY,
-      },
+      headStyles: { fillColor: evergreen, textColor: '#ffffff', fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: '#f3f8f5' },
       columnStyles: {
-        0: { cellWidth: 25 },
+        0: { cellWidth: 26 },
         1: { cellWidth: 20 },
-        2: { cellWidth: 25, fontStyle: 'bold' },
-        3: { cellWidth: 25 },
-        4: { cellWidth: 20 },
+        2: { cellWidth: 30, halign: 'right', fontStyle: 'bold', textColor: forest },
+        3: { cellWidth: 28 },
+        4: { cellWidth: 22, halign: 'center' },
         5: { cellWidth: 'auto', fontSize: 7 },
       },
-      margin: { left: 20, right: 20 },
+      didParseCell: ({ cell, column, section }) => {
+        if (section !== 'body') return;
+        // colour status badges
+        if (column.index === 4) {
+          cell.styles.fontStyle = 'bold';
+          const val = cell.text[0]?.toLowerCase() ?? '';
+          cell.styles.textColor =
+            val === 'completed' ? forest :
+            val === 'failed'    ? '#a02e41' :
+                                  '#8c5a1c';
+        }
+      },
+      willDrawPage: ({ pageNumber }) => {
+        if (pageNumber === 1) return;
+        // repeat header on continuation pages
+        doc.setFillColor(evergreen);
+        doc.rect(0, 0, pageWidth, 18, 'F');
+        brand(margin, 11);
+        txt('Contribution History  /  ' + data.groupName, pageWidth - margin, 11, 9, '#c8e9d8', false, 'right');
+      },
     });
 
-    // Footer
-    this.addFooter(doc, pageWidth);
+    // ── FOOTER (every page) ────────────────────────────────────────────────
+    const pages = doc.getNumberOfPages();
+    for (let page = 1; page <= pages; page++) {
+      doc.setPage(page);
+      doc.setDrawColor(borderCol);
+      doc.line(margin, pageHeight - 16, pageWidth - margin, pageHeight - 16);
+      txt(
+        'Official contribution report from CollectiPay  •  support@collectipay.com  •  collectipay.com.ng',
+        margin, pageHeight - 10, 7.5, muted
+      );
+      txt(page + ' / ' + pages, pageWidth - margin, pageHeight - 10, 8, ink, true, 'right');
+    }
 
-    // Save PDF
+    // ── SAVE ───────────────────────────────────────────────────────────────
     const fileName = `CollectiPay_Report_${data.groupName.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
     doc.save(fileName);
   }
