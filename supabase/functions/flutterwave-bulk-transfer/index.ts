@@ -140,9 +140,7 @@ Deno.serve(async (req: Request) => {
         currency: "NGN", title: `CollectiPay ${id}`, error_reporting: true,
         bulk_data: items.map((row) => ({ bank_code: row.account_bank, account_number: row.account_number,
           amount: Number(row.amount), currency: "NGN", reference: row.reference,
-          narration: senderName
-            ? `${senderName} - ${row.narration || "CollectiPay"}`
-            : row.narration || "Transfer from CollectiPay",
+          narration: [senderName, "CollectiPay", row.narration].filter(Boolean).join("/").slice(0, 100),
           callback_url: config.webhookUrl })),
       },
     }, config).catch(() => ({ response: new Response(null, { status: 503 }) }));

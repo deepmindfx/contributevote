@@ -143,9 +143,7 @@ Deno.serve(async (req: Request) => {
       body: {
         account_bank, account_number, amount: numericAmount, beneficiary_name, reference, currency,
         debit_currency: currency,
-        narration: senderName
-          ? `${senderName} - ${narration || 'CollectiPay'}`
-          : narration || 'Transfer from CollectiPay',
+        narration: [senderName, 'CollectiPay', narration].filter(Boolean).join('/').slice(0, 100),
         callback_url: config.webhookUrl,
       },
     }, config).catch(() => null);
