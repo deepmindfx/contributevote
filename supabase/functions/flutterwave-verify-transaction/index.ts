@@ -96,10 +96,17 @@ Deno.serve(async (req: Request) => {
       throw new Error('Transaction reference mismatch');
     }
     if (String(flwData.tx_ref || '').startsWith('CP_CHECKOUT_')) {
+      const checkoutMeta = {
+        paymentType: flwData.payment_type || null,
+        // Store payer's real name so the receipt FROM field shows the actual sender
+        customerName: String(flwData.customer?.name || '').trim() || null,
+        flwRef: String(flwData.flw_ref || flwData.id || '').trim() || null,
+      };
       const { data, error } = await supabaseAdmin.rpc('service_apply_checkout', {
         p_reference: flwData.tx_ref, p_provider_reference: String(flwData.id || ''),
         p_amount: Number(flwData.amount), p_currency: flwData.currency, p_method: flwData.payment_type || null,
         p_expected_user: user.id,
+        p_metadata: checkoutMeta,
       });
       if (error || !data) throw new Error(error?.message || 'Checkout could not be confirmed.');
       return new Response(JSON.stringify({ success: true, data }), {

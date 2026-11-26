@@ -76,9 +76,16 @@ export async function applyVerifiedInbound(db: any, charge: VerifiedCharge, atte
   };
 
   if (charge.tx_ref.startsWith("CP_CHECKOUT_")) {
+    const checkoutMeta = {
+      paymentType: charge.payment_type || null,
+      // Preserve the customer's real name so the receipt FROM field shows the payer
+      customerName: metadataText(charge.customer?.name) || null,
+      flwRef: metadataText(charge.flw_ref) || null,
+    };
     const { data, error } = await db.rpc("service_apply_checkout", {
       p_reference: charge.tx_ref, p_provider_reference: charge.id, p_amount: charge.amount,
       p_currency: charge.currency, p_method: charge.payment_type || null,
+      p_metadata: checkoutMeta,
     });
     return error || !data ? track("settlement_failed") : complete(data);
   }

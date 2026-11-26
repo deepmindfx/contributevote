@@ -46,7 +46,10 @@ export function getDepositSender(meta: Record<string, unknown>): {
     meta.sender_name,
     meta.payerName,
     meta.contributorName,
+    // Flutterwave card/wallet checkout: customer name from Flutterwave API
     meta.customerName,
+    meta.customer_name,
+    meta.flwCustomerName,
   ];
   let name: string | undefined;
   for (const candidate of candidates) {
